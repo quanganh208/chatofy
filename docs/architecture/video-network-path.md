@@ -125,7 +125,7 @@ record is `plans/261025-1812-cloudflare-realtime-sfu/spike/results.md`.
 | Spike: RTT to the SFU                       | p50 24 ms, max 24 ms (17 samples, `getStats()` succeeded candidate pair)                                                                                                                                          |
 | Spike: video track muted for 45 s           | Survives; muting is `track.enabled = false`, which keeps packets flowing past the 30 s no-media rule ([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/))                                  |
 | Spike: two mutations at once on one session | The second gets 406 `invalid_session_description`, so the API queues every call per session ([negotiation](https://developers.cloudflare.com/realtime/sfu/concepts/negotiation/#serialize-mutations-per-session)) |
-| Spike: TURN relay                           | Not tested; no TURN key existed yet                                                                                                                                                                               |
+| TURN relay, forced                          | Connects through `relay` on Cloudflare TURN, 2026-11-04, two headless pages, `benchmarks/conference/media-call.mjs --force-relay`                                                                                 |
 | Live check: real web UI, local API          | 11 of 11 checks: both pages play 2 videos, chat crosses, leaving drops the tile, no overflow at 768 and 375 wide; RTT 24 ms; no SDP or token in the API log                                                       |
 | TCP connect from the host                   | `rtc.live.cloudflare.com` ~21 ms (Cloudflare colo HKG), against ~68 ms to an OCI Singapore VPS                                                                                                                    |
 
@@ -141,6 +141,7 @@ owner reads RTT and packet loss from `chrome://webrtc-internals`.
 | -------------------------- | ------------------------- | --------------- | --------------- | --------------- | ---------- |
 | Prod host network (spike)  | Prod host network (spike) | yes             | 24 ms           | not recorded    | 2026-10-25 |
 | Prod host network (live)   | Prod host network (live)  | yes             | 24 ms           | not recorded    | 2026-10-25 |
+| Prod host network (ruler)  | Prod host network (ruler) | yes             | 20–22 ms        | 0.53–0.59%      | 2026-11-04 |
 | Laptop on company Wi-Fi    | Phone browser on 4G       | pending (owner) | pending (owner) | pending (owner) | —          |
 | Home or university network | Phone browser on 4G       | pending (owner) | pending (owner) | pending (owner) | —          |
 
@@ -226,7 +227,8 @@ the reasons in §4.2 and §4.5.
    pending rows in [Measured](#measured).
 3. **Does TURNS on port 443 traverse the client networks that must work?** TLS/443 defeats
    most blocks but not deep-packet-inspection proxies; only testing on the target networks
-   confirms it. The TURN path has not run against Cloudflare yet.
+   confirms it. The TURN path connects on Cloudflare from the host network (2026-11-04);
+   a blocked client network is still untested.
 4. **Session expiry and caps.** How long an unconnected SFU session lives, and whether an app
    has a session cap, are not documented
    ([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)).

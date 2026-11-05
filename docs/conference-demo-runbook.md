@@ -229,13 +229,15 @@ deploy until it reloads.
 
 ## 6. Known demo risks
 
-| Risk                                | Impact                                      | Note                                                                                                                                                              |
-| ----------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local API, one LAN                  | A remote guest cannot join                  | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site.                                                               |
-| Several people talking non-stop     | Some sentences are never translated         | Meeting legs share 4 of the server's 6 turns. Two continuous speakers lost 12–25 turns each per 200 s on the dev stack, and one can starve the other. Take turns. |
-| en → vi under load                  | Some Vietnamese audio is missing            | One continuous English speaker saturates the Vietnamese voice engine; 15–25 % of its turns failed `engine_busy` on the dev stack.                                 |
-| Phone on loudspeaker at high volume | The phone may translate the room's playback | See §4. Moderate volume or headphones.                                                                                                                            |
-| One account in two places           | The first one drops out                     | The same user joining twice replaces the first socket, so give every phone and profile its own account.                                                           |
+| Risk                                | Impact                                      | Note                                                                                                                                                               |
+| ----------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Local API, one LAN                  | A remote guest cannot join                  | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site.                                                                |
+| Several people talking non-stop     | Some sentences are never translated         | Meeting legs share 4 of the server's 6 turns. Two speakers lost none on production, even talking at once; three continuous speakers lost 21–36 % on the dev stack. |
+| en → vi under load                  | Some Vietnamese audio is missing            | One continuous English speaker saturates the Vietnamese voice engine; 15–25 % of its turns failed `engine_busy` on the dev stack.                                  |
+| Phone on loudspeaker at high volume | The phone may translate the room's playback | See §4. Moderate volume or headphones.                                                                                                                             |
+| One account in two places           | The first one drops out                     | The same user joining twice replaces the first socket, so give every phone and profile its own account.                                                            |
+
+Echo on real speakers and a call across two networks are not measured, so use headphones. To measure a meeting, see [the meeting ruler](../benchmarks/conference/README.md).
 
 ---
 

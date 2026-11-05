@@ -2770,3 +2770,17 @@ A prod English lesson (`5ba1c1c1`, en→vi, 104 s) scored WER 1.07% against Scri
 - **Local end to end:** the recording went through the shipped client against an API on this branch. The row came back as "Exactly. And this is crucial because…", translated "Chính xác. Và điều này rất quan trọng vì…". Speech already played does not change.
 
 Ruler: `benchmarks/seam-repair/`. Report: `plans/reports/brainstorm-261104-1416-seam-word-loss-and-conversation-defects.md`.
+
+## Meetings measured on production for the first time (05/11/2026)
+
+The feature had never been measured on production, so everything before this was a dev-stack number on synthesized speech.
+
+- **The largest loss was one line of relay logic.** Every turn's polish was computed and paid for, about 18% of the calls, and then dropped, because the relay closed a turn at its final. Keeping it took vi→en serious errors from 39.1% to 19.6%, with 11 turns fixed and 2 broken (sign test p ≈ 0.02).
+- **It still misses the gate.** Against `/translate` on the same audio, 17.1% and 4.9%, the meeting is +2.5 and +4.2 points against a limit of +2. Each direction is one turn over.
+- **The projection was wrong.** Judging the discarded polish predicted 13.0%. The real run gave 19.6%, because only 8 of 72 polishes repeat word for word, so translation variance alone is larger than the 2-point margin. A margin that tight needs more conversations than two per direction.
+- **An interim comparison misled.** Older stored rows put `/translate` at 38.1% on vi→en. The real one-way run gave 17.1%, which turned "parity" into a clear failure as shipped.
+- **Hearing is mostly slicing.** Per-turn word error is 8.0% vs 6.8%, but 5.0% vs 4.2% concatenated: the ruler's 20 s floors cut turns `/translate` never cuts. The ruler also records `sourceText`, not `display`, which the stored rows corrected: `repairDisplay` did not change word error.
+- **Raising the turn ceiling was rejected on measurement.** At three continuous speakers 6/8 cut loss from 27% to 10%, but only 79% of turns had a voice, and audio came about 2 s later. The whole-turn VieNeu lock stays the bottleneck.
+- **Not measured.** Echo on real speakers and a call across two networks. TURN connected on Cloudflare for the first time.
+
+Ruler: `benchmarks/conference/`.
