@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import { requestClientSchema } from '@chatofy/types';
 import { AuthMailer } from './auth-mailer';
-import type { MailSender } from '../mail/interfaces/mail-sender.interface';
 
 const WEB = 'https://chatofy.example';
 
 function mailer() {
   const config = { get: () => WEB } as unknown as ConfigService<never, true>;
-  return new AuthMailer({ send: async () => undefined } as MailSender, config);
+  return new AuthMailer({ send: async () => undefined }, config);
 }
 
 describe('AuthMailer.link', () => {
