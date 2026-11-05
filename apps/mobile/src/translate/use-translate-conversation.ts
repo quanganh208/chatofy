@@ -59,6 +59,8 @@ const NO_PAUSES: readonly PauseInterval[] = [];
 class SessionEnv {
   token = '';
   sink: NativeTranslateAudioSink | null = null;
+  /** Bumped by every stop, so a start still waiting for its token can tell it was left. */
+  stops = 0;
 
   setToken(token: string): void {
     this.token = token;
@@ -66,6 +68,10 @@ class SessionEnv {
 
   setSink(sink: NativeTranslateAudioSink | null): void {
     this.sink = sink;
+  }
+
+  noteStop(): void {
+    this.stops += 1;
   }
 }
 
@@ -159,12 +165,14 @@ export function useTranslateConversation(): UseTranslateConversation {
               closedAt,
               preRollMs,
             }),
-          // The last moment to give everything back: the microphone owner, the
-          // transcript's unplaced turns, and the iOS audio session.
+          // The last moment to give everything back: the transcript's unplaced turns,
+          // the microphone owner, and the iOS audio session. The session also lands
+          // here when stopped idle, which every blur of this tab does; the audio
+          // session is shared with a meeting, so only the lock's holder lets it go.
           onStopped: () => {
             live.setSink(null);
             dispatch({ type: 'transcript.settled' });
-            micLock.release('translate');
+            if (!micLock.release('translate')) return;
             capture
               .releaseSession()
               .catch((err: unknown) =>
@@ -189,6 +197,7 @@ export function useTranslateConversation(): UseTranslateConversation {
         setError({ key: 'mobile.translate.micInUse' });
         return;
       }
+      const stopsBefore = live.stops;
       try {
         live.setToken(await authClient.getAccessToken());
       } catch {
@@ -196,6 +205,9 @@ export function useTranslateConversation(): UseTranslateConversation {
         setError({ key: 'mobile.conference.notAuthenticated' });
         return;
       }
+      // Left while the token was on its way: the session never saw this start, so
+      // its own guard cannot catch it and the microphone would open off screen.
+      if (live.stops !== stopsBefore) return;
 
       const { pair } = settings;
       const askedTwoWay = asksTwoWay(pair);
@@ -219,19 +231,23 @@ export function useTranslateConversation(): UseTranslateConversation {
         repairDisplay: true,
       };
       await session.start(options);
-      // A start that failed (permission, socket) never reaches `onStopped` as a
-      // run, so the lock is freed here when nothing is running.
+      // A start abandoned part-way has no run to stop, so the lock is freed here
+      // when nothing is running.
       if (!session.isRunning) micLock.release('translate');
     },
     [session, live],
   );
 
-  const stop = useCallback(() => session.stop(), [session]);
+  const stop = useCallback(() => {
+    live.noteStop();
+    session.stop();
+  }, [session, live]);
   const end = useCallback(() => session.finish(), [session]);
   const pause = useCallback(() => session.pause(), [session]);
   const resume = useCallback(() => session.resume(), [session]);
 
-  // Leaving the screen ends the conversation: nothing may keep listening to a phone nobody is looking at.
+  // Unmounting ends the conversation, so the microphone cannot outlive the screen.
+  // Sending the app to the background does not unmount it.
   useEffect(() => stop, [stop]);
 
   return {

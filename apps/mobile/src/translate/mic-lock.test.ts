@@ -26,6 +26,16 @@ describe('MicLock', () => {
     assert.equal(lock.acquire('translate'), true);
   });
 
+  it('says whether the release freed anything, so an idle stop has nothing to clean up', () => {
+    const lock = new MicLock();
+    assert.equal(lock.release('translate'), false);
+    lock.acquire('conference');
+    assert.equal(lock.release('translate'), false);
+    lock.acquire('conference');
+    assert.equal(lock.release('conference'), true);
+    assert.equal(lock.release('conference'), false);
+  });
+
   it('tells subscribers when ownership changes', () => {
     const lock = new MicLock();
     let calls = 0;

@@ -22,6 +22,7 @@ import { VoiceSheet } from '@/components/translate/voice-sheet';
 import { isRunning } from '@/translate/status-text';
 import { turnRows } from '@/translate/turn-display';
 import { asksTwoWay, normalizePair } from '@/translate/translate-mode';
+import { withVoiceGender } from '@/translate/translate-settings';
 import { useSaveConversation } from '@/translate/use-save-conversation';
 import { useTranslateConversation } from '@/translate/use-translate-conversation';
 import { useTranslateSettings } from '@/translate/use-translate-settings';
@@ -116,7 +117,7 @@ export default function TranslateScreen() {
         languages={spokenLanguages}
         voiceGender={settings.voiceGender}
         voices={settings.voices}
-        onGender={(voiceGender) => update((current) => ({ ...current, voiceGender }))}
+        onGender={(voiceGender) => update((current) => withVoiceGender(current, voiceGender))}
         onVoice={(language, token) =>
           update((current) => {
             const voices = { ...current.voices };

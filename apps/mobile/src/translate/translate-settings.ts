@@ -18,7 +18,7 @@ import {
   type SessionLanguagePair,
   type VoiceGender,
 } from '@chatofy/types';
-import { isValidPair, normalizePair } from './translate-mode.ts';
+import { normalizePair } from './translate-mode.ts';
 
 export interface TranslateSettings {
   pair: SessionLanguagePair;
@@ -58,15 +58,22 @@ export function parseTranslateSettings(raw: unknown): TranslateSettings {
   }
 
   return {
-    pair:
-      pair.success && isValidPair(pair.data)
-        ? pair.data
-        : pair.success
-          ? normalizePair(pair.data)
-          : DEFAULT_TRANSLATE_SETTINGS.pair,
+    pair: pair.success ? normalizePair(pair.data) : DEFAULT_TRANSLATE_SETTINGS.pair,
     speak:
       typeof stored['speak'] === 'boolean' ? stored['speak'] : DEFAULT_TRANSLATE_SETTINGS.speak,
     voiceGender: gender.success ? gender.data : DEFAULT_TRANSLATE_SETTINGS.voiceGender,
     voices,
   };
+}
+
+/**
+ * The settings after a gender pick. A chosen voice has a gender and only that
+ * gender's voices are listed, so a real change falls back to the defaults, as web
+ * does; kept, the old voice would go on speaking with nothing in the list marked.
+ */
+export function withVoiceGender(
+  settings: TranslateSettings,
+  voiceGender: VoiceGender,
+): TranslateSettings {
+  return voiceGender === settings.voiceGender ? settings : { ...settings, voiceGender, voices: {} };
 }

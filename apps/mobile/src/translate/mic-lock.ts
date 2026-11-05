@@ -21,11 +21,15 @@ export class MicLock {
     return true;
   }
 
-  /** Releases only a lock `who` holds, so a late release cannot free someone else's. */
-  release(who: MicOwner): void {
-    if (this.owner !== who) return;
+  /**
+   * Releases only a lock `who` holds, so a late release cannot free someone else's.
+   * True when it did: the caller had the microphone and has its own cleanup to do.
+   */
+  release(who: MicOwner): boolean {
+    if (this.owner !== who) return false;
     this.owner = null;
     this.notify();
+    return true;
   }
 
   heldBy(): MicOwner | null {

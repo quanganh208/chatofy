@@ -11,10 +11,10 @@ import { space, fontSize } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 import type { SaveState } from '@/translate/use-save-conversation';
 import { languageNameKey, oneWayNotice, statusKey } from '@/translate/status-text';
-import type { TranslateError } from '@/translate/use-translate-conversation';
 import type {
-  LanguageModeAnswer,
   ConversationIdentity,
+  LanguageModeAnswer,
+  TranslateError,
 } from '@/translate/use-translate-conversation';
 import { GhostButton } from '@/ui/components/ghost-button';
 import { InlineNotice } from '@/ui/components/inline-notice';

@@ -14,6 +14,9 @@ import type { TurnRow } from '@/translate/turn-display';
 
 const t = createTranslator(en);
 
+/** How near the end still counts as at it, in points. */
+const AT_END_SLOP = 48;
+
 interface TurnListProps {
   rows: TurnRow[];
   emptyText: string;
@@ -22,13 +25,25 @@ interface TurnListProps {
 export function TurnList({ rows, emptyText }: TurnListProps) {
   const { colors } = useTheme();
   const listRef = useRef<FlatList<TurnRow>>(null);
+  // Only a drag unpins: the list's own scroll to the end lags new content, and must not.
+  const pinnedRef = useRef(true);
 
   return (
     <FlatList
       ref={listRef}
       data={rows}
       keyExtractor={(row) => row.key}
-      onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+      onContentSizeChange={() => {
+        if (pinnedRef.current) listRef.current?.scrollToEnd({ animated: true });
+      }}
+      onScrollBeginDrag={() => {
+        pinnedRef.current = false;
+      }}
+      onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+        const bottom = contentOffset.y + layoutMeasurement.height;
+        if (bottom >= contentSize.height - AT_END_SLOP) pinnedRef.current = true;
+      }}
+      scrollEventThrottle={100}
       contentContainerStyle={rows.length === 0 ? styles.emptyBox : styles.list}
       ListEmptyComponent={
         <Text style={[styles.empty, { color: colors.textSecondary }]}>{emptyText}</Text>

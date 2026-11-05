@@ -5,9 +5,13 @@
 
 import type { MessageKey } from '@chatofy/i18n';
 import type { ConversationStatus } from '@chatofy/realtime-client';
-import { AUTO_DETECT, type LanguageCode, type SessionLanguagePair } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  type LanguageCode,
+  type SessionLanguageMode,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { ranOneWayInstead } from './translate-refusal.ts';
-import type { SessionLanguageMode } from '@chatofy/types';
 
 /** Exhaustive on purpose: a new status without a sentence fails to compile. */
 const STATUS_KEY: Record<ConversationStatus, MessageKey> = {

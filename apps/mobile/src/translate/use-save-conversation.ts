@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type {
   ConversationStatus,
   PauseInterval,
@@ -33,6 +34,7 @@ interface Input {
 
 export function useSaveConversation(input: Input): { state: SaveState; retry: () => void } {
   const { status, identity } = input;
+  const queryClient = useQueryClient();
   // The outcome belongs to ONE conversation; a new one starts from idle without a reset effect.
   const [record, setRecord] = useState<{ id: string; state: SaveState } | null>(null);
 
@@ -64,10 +66,12 @@ export function useSaveConversation(input: Input): { state: SaveState; retry: ()
       await saveConversation(who.id, body);
       savedIdRef.current = who.id;
       setRecord({ id: who.id, state: { phase: 'saved' } });
+      // The History tab stays mounted and React Native has no window focus to refetch on.
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (err) {
       setRecord({ id: who.id, state: { phase: 'failed', failure: classifySaveFailure(err) } });
     }
-  }, []);
+  }, [queryClient]);
 
   // A run that has ended: it was on, and now nothing is open.
   useEffect(() => {

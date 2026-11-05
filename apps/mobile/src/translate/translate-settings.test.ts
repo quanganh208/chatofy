@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DEFAULT_TRANSLATE_SETTINGS, parseTranslateSettings } from './translate-settings.ts';
+import {
+  DEFAULT_TRANSLATE_SETTINGS,
+  parseTranslateSettings,
+  withVoiceGender,
+} from './translate-settings.ts';
 
 describe('parseTranslateSettings', () => {
   it('falls back to the defaults for anything that is not an object', () => {
@@ -41,5 +45,25 @@ describe('parseTranslateSettings', () => {
     // Auto-detect into Chinese-only candidates would be fine; a same-language pair is not.
     const settings = parseTranslateSettings({ pair: { source: 'en', target: 'en' } });
     assert.notEqual(settings.pair.source, settings.pair.target);
+  });
+});
+
+describe('withVoiceGender', () => {
+  const settings = {
+    ...DEFAULT_TRANSLATE_SETTINGS,
+    voiceGender: 'female' as const,
+    voices: { en: 'voice-1' },
+  };
+
+  it('drops chosen voices when the gender changes', () => {
+    assert.deepEqual(withVoiceGender(settings, 'male'), {
+      ...settings,
+      voiceGender: 'male',
+      voices: {},
+    });
+  });
+
+  it('keeps them when the same gender is picked again', () => {
+    assert.equal(withVoiceGender(settings, 'female'), settings);
   });
 });
