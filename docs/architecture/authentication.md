@@ -358,6 +358,30 @@ socket reconnects from exactly that state, so refreshing the other way would
 succeed while the socket redialled with the same dead token and looped until the
 next poll.
 
+### Which Google clients are accepted
+
+`GoogleTokenVerifier` checks an id_token's audience against an allowlist of named
+client ids: the web's (`AUTH_GOOGLE_ID`) and the phone app's per-platform ids
+(`AUTH_GOOGLE_MOBILE_IDS`). There is no wildcard, and with neither set the route
+answers 501. The phone app obtains the token with Expo's auth session and posts it to
+`POST /auth/google` like the web does; the session it gets back goes through the same
+refresh rotation. Setup steps are in `environment-variables.md`.
+
+### Which client a mailed link opens
+
+`register` and `forgot-password` take `client: 'web' | 'mobile'` (absent or anything
+else reads as `web`). `AuthMailer.link` uses it to pick between two origins the
+operator fixed: `WEB_BASE_URL`, or the app's own `chatofy://` scheme
+(`chatofy://verify-email?token=…`, a constant in `AuthMailer`). The request never supplies
+an origin, so the host-header poisoning rule above still holds.
+
+What a request can still do is make a victim's mail carry the app link instead of the
+web link. The token reaches only the mailbox either way, so the cost is a link that does
+nothing on a computer, not a leak. A custom scheme can also be claimed by another Android
+app: before the app is published to a store, move these links to verified app links on
+the web origin. The phone app has screens for `verify-email` and `reset-password` that redeem the
+token with the same two endpoints the web pages call.
+
 ### Google account linking
 
 Ordered, and hardened in both directions:

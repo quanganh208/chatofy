@@ -65,6 +65,10 @@ export const envSchema = z.object({
   // deployment that never offers Google login should not be stopped from
   // booting over a value it has no use for.
   AUTH_GOOGLE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
+  // The mobile app's Google client ids (one per platform: iOS and Android), comma-separated. An id_token issued to
+  // one of them is accepted alongside the web's. Unset, only AUTH_GOOGLE_ID is.
+  // Each id must be listed here by name: there is no wildcard.
+  AUTH_GOOGLE_MOBILE_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Mail (Gmail SMTP) ───────────────────────────────────────────────────
   // Host and port default to Gmail over SMTPS, the only relay this app uses.

@@ -57,7 +57,7 @@ export function RegisterForm() {
             const password = formText(form, 'password');
             setSubmitting(true);
             setError(undefined);
-            register({ email, password, name, locale })
+            register({ email, password, name, locale, client: 'web' })
               .then(() => setSubmitted(true))
               .catch((err: unknown) => {
                 setError(authErrorMessage(err, t, 'web.auth.createFailed'));

@@ -49,6 +49,7 @@ describe('RegistrationService', () => {
         password: 'correct horse battery',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -62,6 +63,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       users.findByEmail.mockResolvedValue(record());
@@ -70,6 +72,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       expect(taken).toEqual(fresh);
@@ -96,6 +99,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       expect(hashSpy.mock.calls.length).toBeGreaterThan(0);
@@ -114,6 +118,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -131,6 +136,35 @@ describe('RegistrationService', () => {
       expect(mail.sent[0]!.link.startsWith('http://localhost:3001')).toBe(true);
     });
 
+    it('links the app, not the web, when the request comes from the app', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      await service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        name: 'A',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+
+      expect(
+        mail.sent[0]!.link.startsWith('chatofy://verify-email?token='),
+      ).toBe(true);
+
+      // The taken-address notice goes to the mailbox owner and points at the same client.
+      mail.sent.length = 0;
+      users.findByEmail.mockResolvedValue(record());
+      await service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        name: 'A',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+      expect(mail.sent[0]!.link).toBe('chatofy://forgot-password');
+    });
+
     it('mails an account-exists notice for a taken address, from the attacker-class budget', async () => {
       users.findByEmail.mockResolvedValue(record());
       await service.register({
@@ -138,6 +172,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -169,6 +204,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
 
@@ -186,6 +222,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: '\n\nSecurity alert: confirm at https://evil.tld\n\n',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -215,6 +252,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
       await settle();
@@ -297,6 +335,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       // The folded address is what the existence check asks about, and what the
       // verification link is later minted for. `auth.service.spec.ts` proves

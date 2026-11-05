@@ -70,6 +70,7 @@ describe('mail language', () => {
         const parsed = forgotPasswordRequestSchema.safeParse({
           email: 'a@b.com',
           locale,
+          client: 'web',
         });
         expect(parsed.success).toBe(true);
         expect(parsed.success && parsed.data.locale).toBe('en');
@@ -145,7 +146,11 @@ describe('mail language', () => {
         googleSub: null,
       });
 
-      await service.forgotPassword({ email: 'a@b.com', locale: 'en' });
+      await service.forgotPassword({
+        email: 'a@b.com',
+        locale: 'en',
+        client: 'web',
+      });
       await settle();
 
       // The mailbox owner is not necessarily the person who filled in the form.
@@ -156,7 +161,11 @@ describe('mail language', () => {
     it('writes the no-account notice in the REQUEST language, consulting no row', async () => {
       users.findCredentialsByEmail.mockResolvedValue(null);
 
-      await service.forgotPassword({ email: 'nobody@b.com', locale: 'vi' });
+      await service.forgotPassword({
+        email: 'nobody@b.com',
+        locale: 'vi',
+        client: 'web',
+      });
       await settle();
 
       expect(mail.sent[0]?.purpose).toBe(MailPurpose.NoAccountNotice);
@@ -185,12 +194,20 @@ describe('mail language', () => {
         passwordHash: '$argon2-a-hash',
         googleSub: null,
       });
-      await service.forgotPassword({ email: 'a@b.com', locale: 'en' });
+      await service.forgotPassword({
+        email: 'a@b.com',
+        locale: 'en',
+        client: 'web',
+      });
       const found = awaited();
 
       vi.clearAllMocks();
       users.findCredentialsByEmail.mockResolvedValue(null);
-      await service.forgotPassword({ email: 'nobody@b.com', locale: 'en' });
+      await service.forgotPassword({
+        email: 'nobody@b.com',
+        locale: 'en',
+        client: 'web',
+      });
       const missing = awaited();
 
       // One lookup each, and the same one. An extra awaited read on either path runs
@@ -212,12 +229,14 @@ describe('mail language', () => {
         const found = await service.forgotPassword({
           email: 'a@b.com',
           locale,
+          client: 'web',
         });
 
         users.findCredentialsByEmail.mockResolvedValue(null);
         const missing = await service.forgotPassword({
           email: 'nobody@b.com',
           locale,
+          client: 'web',
         });
 
         // The HTTP body is one constant and stays one. Localizing it would have to

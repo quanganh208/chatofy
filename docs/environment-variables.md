@@ -74,6 +74,7 @@ D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 | `AUTH_SECRET`                                                                      | web                                     | yes                                     | —                                | ✓                | ✓              |
 | `AUTH_GOOGLE_ID`                                                                   | web, api                                | no; both halves or neither              | —                                | ✓                | ✓              |
 | `AUTH_GOOGLE_SECRET`                                                               | web                                     | no                                      | —                                | ✓                | ✓              |
+| `AUTH_GOOGLE_MOBILE_IDS`                                                           | api                                     | no                                      | —                                | —                | —              |
 | `NEXT_PUBLIC_API_BASE_URL`                                                         | web (build time)                        | prod yes                                | `http://localhost:3000`          | default          | ✓              |
 | `SMTP_USER`, `SMTP_PASS`                                                           | api                                     | prod yes                                | —                                | ignored          | ✓              |
 | `SMTP_HOST`, `SMTP_PORT`                                                           | api                                     | no                                      | `smtp.gmail.com`, `465`          | —                | —              |
@@ -193,8 +194,25 @@ is documented in `apps/api/src/modules/translate/session/translation-cost-policy
 `AUTH_GOOGLE_ID` is the web's OAuth client id, the name Auth.js reads, and the
 only audience `POST /auth/google` accepts. Both web halves or neither: the button
 is offered only when `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set. Unset on
-the api, the route answers 501 rather than blocking the boot. A second client
-(mobile's per-platform ids) will be a new variable when that client exists.
+the api, the route answers 501 rather than blocking the boot.
+
+`AUTH_GOOGLE_MOBILE_IDS` adds the phone app's clients to the accepted audiences: a
+comma-separated list of OAuth client ids (iOS and Android), each
+named, never a wildcard. The route accepts an id_token issued to any id in
+`AUTH_GOOGLE_ID` plus this list. With only mobile ids set the route still works.
+
+Creating the mobile clients (Google Cloud Console → APIs & Services → Credentials):
+
+1. iOS: a client of type iOS with bundle id `dev.quanganh208.chatofy`.
+2. Android: a client of type Android with package `dev.quanganh208.chatofy` and the SHA-1
+   of the keystore that signs the build (a debug build uses the debug keystore's).
+3. Put the ids in `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS` and
+   `EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID`, and the same ids in the api's
+   `AUTH_GOOGLE_MOBILE_IDS`. The mobile ids are inlined at build time, so rebuild the
+   dev client after a change. A platform with no id does not show "Continue with Google".
+
+`apps/mobile/app.config.ts` derives the iOS redirect scheme from the iOS client id,
+so no URL scheme is copied by hand.
 
 Production reuses the dev client on purpose: one Google client carries several
 redirect URIs. The redirect URI must be registered exactly:
