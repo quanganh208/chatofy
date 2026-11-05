@@ -36,6 +36,12 @@ node benchmarks/conference/export-judge-rows.mjs --run <tag> --results benchmark
 
 Its rows are per turn, like a meeting's, so a `/translate` block retranslation is not in them.
 
+For media, `media-call.mjs` joins two browsers to a real meeting and reads WebRTC stats. `--force-relay` proves the call connects through TURN:
+
+```bash
+node benchmarks/conference/media-call.mjs --base-url <site> --account-file "$A" --account-file "$B" --seconds 120 --run-tag <tag> [--force-relay]
+```
+
 ## What the numbers mean
 
 | Field               | Measured from               | To                                                             |
