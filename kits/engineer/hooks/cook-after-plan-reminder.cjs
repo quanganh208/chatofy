@@ -74,10 +74,10 @@ try {
       // backslash path would lose its separators the moment it reaches a shell.
       // path.join hands back native separators; render it before interpolating.
       const planMdPath = toDisplayPath(path.join(planPath, 'plan.md'));
-      lines.push(`Optional implementation command after user approval: /ak:cook ${safeDisplayValue(planMdPath)}`);
+      lines.push(`Optional implementation command after user approval: /ak-cook ${safeDisplayValue(planMdPath)}`);
     } else {
       // Fallback when plan path unavailable
-      lines.push('Optional implementation command after user approval: /ak:cook {full-absolute-path-to-plan.md}');
+      lines.push('Optional implementation command after user approval: /ak-cook {full-absolute-path-to-plan.md}');
     }
     lines.push('Add --auto only if the user explicitly asks for autonomous implementation.');
 

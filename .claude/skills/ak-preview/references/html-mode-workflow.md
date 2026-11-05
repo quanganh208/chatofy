@@ -3,9 +3,11 @@
 Adding `--html` to any generation flag (or running HTML-implying modes `--diff`, `--plan-review`, `--recap`) switches output to a self-contained HTML file.
 
 Follow the shared HTML composition contract in `html-skill-composition.md`:
-1. Activate `ak:frontend-design` first for layout, design tokens, responsive shell, and accessibility.
-2. Activate `ak:diagram` second (when installed) to compile typed JSON IR or trusted diagram fragments.
-3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+1. Activate `ak-frontend-design` first for layout, design tokens, responsive shell, and accessibility.
+2. Activate `ak-diagram` second (when installed) to compile typed JSON IR or trusted diagram fragments.
+3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+
+**AK Render route (opt-in):** with `--ak-render`, or when the project has an `.ak-render/` directory, `--explain`, `--diff`, `--plan-review` and `--recap` write `{slug}.page.yaml` beside the output and compile it with the pinned CLI per `ak-render-route.md`, which also lists their section-to-block mappings. Skip the reference loading below on that route. `--slides` and `--diagram` stay on this default route.
 
 **Output:** Single `.html` file with all CSS/JS inline. Opens directly in browser — no server needed.
 **Location:** `{plan_dir}/visuals/{slug}.html` (same plan-aware logic as markdown mode)
@@ -27,7 +29,7 @@ Select references by artifact and complexity; reuse a previously loaded unchange
 
 Multi-section pages (`--explain`, `--diff`, `--plan-review`, `--recap`): also read `html-responsive-nav.md`.
 
-Use `/ak:mermaidjs-v11` skill for Mermaid syntax validation.
+Use `/ak-mermaidjs-v11` skill for Mermaid syntax validation.
 
 ### Editorial visual layer (on by default, additive)
 
@@ -66,5 +68,5 @@ Output: project identity, architecture snapshot (Mermaid), recent activity, deci
 
 ### Style Strategy
 - Default: static anti-slop rules from `html-design-guidelines.md` (6 curated presets)
-- For `--slides`: consider invoking `/ak:ui-ux-pro-max` for richer style selection
+- For `--slides`: consider invoking `/ak-ui-ux-pro-max` for richer style selection
 - Agent must vary aesthetics between consecutive HTML outputs (different font pair, palette)

@@ -20,7 +20,8 @@ from pathlib import Path
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 CODE_FENCE_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
-BODY_REF_RE = re.compile(r"/ak:([a-z0-9][a-z0-9-]*)")
+# Body references use /ak-<slug>; the legacy /ak:<slug> alias still resolves.
+BODY_REF_RE = re.compile(r"(?<![\w./-])/ak[-:]([a-z0-9][a-z0-9-]*)")
 NAME_RE = re.compile(r"^name:\s*[\"']?([^\"'\n]+)[\"']?\s*$", re.MULTILINE)
 LIST_FIELD_RE = re.compile(r"^(requires|related):\s*\[(.*?)\]\s*$", re.MULTILINE)
 SKIP_PARTS = frozenset({".git", ".venv", "node_modules", "__pycache__"})
@@ -125,7 +126,7 @@ def print_report(result: dict[str, object]) -> None:
     print(f"Broken references: {len(result['broken'])}")
     print(f"Ambiguous aliases: {len(result['ambiguous_aliases'])}")
     for item in result["broken"]:  # type: ignore[union-attr]
-        print(f"  {item['from']} -> /ak:{item['ref']}")
+        print(f"  {item['from']} -> /ak-{item['ref']}")
     for alias, owners in result["ambiguous_aliases"].items():  # type: ignore[union-attr]
         print(f"  alias {alias}: {', '.join(owners)}")
 
@@ -134,9 +135,10 @@ def self_test() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
         fixtures = {
-            "ak-build": "---\nname: ak:build\nrelated: [ak:review]\n---\nRun /ak:review.\n",
-            "ak-review": "---\nname: ak:review\n---\nReview output.\n```\n/ak:not-real\n```\n",
-            "ak-broken": "---\nname: ak:broken\n---\nRun /ak:missing.\n",
+            "ak-build": "---\nname: ak-build\nrelated: [ak-review]\n---\nRun /ak-review, see skills/ak-gone.\n",
+            "ak-review": "---\nname: ak-review\n---\nReview output.\n```\n/ak-not-real\n```\n",
+            "ak-broken": "---\nname: ak-broken\n---\nRun /ak-missing.\n",
+            "ak-legacy": "---\nname: ak:legacy\n---\nRun /ak:build.\n",
         }
         for name, content in fixtures.items():
             folder = root / name
@@ -144,7 +146,7 @@ def self_test() -> None:
             (folder / "SKILL.md").write_text(content, encoding="utf-8")
         result = validate_references(scan_skills(root))
         assert result["skills"] == len(fixtures)
-        assert result["edges"] == {"ak-build": ["ak-review"]}
+        assert result["edges"] == {"ak-build": ["ak-review"], "ak-legacy": ["ak-build"]}
         assert result["broken"] == [{"from": "ak-broken", "ref": "missing"}]
         assert result["ambiguous_aliases"] == {}
     print("[OK] source-derived cross-reference self-test")

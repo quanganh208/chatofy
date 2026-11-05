@@ -1,7 +1,7 @@
 # Plan State: Files-First Model
 
-Shared by every skill that creates, resolves, or mutates a plan (`ak:plan`,
-`ak:issue-to-plan`, `ak:cook`, and any other skill referencing this file).
+Shared by every skill that creates, resolves, or mutates a plan (`ak-plan`,
+`ak-issue-to-plan`, `ak-cook`, and any other skill referencing this file).
 This is the single description of where plan state lives — do not restate a
 divergent copy in another skill; link here instead.
 
@@ -36,7 +36,7 @@ divergent copy in another skill; link here instead.
 ## Current-plan resolution
 
 - `ak plan use <plan-dir>` sets the current-plan pointer for this worktree so
-  downstream tooling (`ak:cook`, dashboards, other agents) can resolve the
+  downstream tooling (`ak-cook`, dashboards, other agents) can resolve the
   active plan without re-scanning or requiring a GitHub link.
 - `ak plan resolve` finds the plan matching the current repo remote + branch
   (worktree path as tiebreaker) when no explicit pointer is set.
@@ -55,7 +55,7 @@ divergent copy in another skill; link here instead.
   but `gh`/GitHub auth is unavailable, skip without failing and report one line
   suggesting how to enable it (e.g. `gh auth login`).
 - Publishing never overwrites the body of a pre-existing issue a plan was
-  created from (e.g. via `ak:issue-to-plan`); it only adds links, comments, or
+  created from (e.g. via `ak-issue-to-plan`); it only adds links, comments, or
   labels.
 - If the index and a linked issue ever disagree on status, the local files
   (and the index rebuilt from them) win. The issue is a mirror, not a lock.

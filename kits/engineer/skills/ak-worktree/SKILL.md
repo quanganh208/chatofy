@@ -1,8 +1,7 @@
 ---
-name: ak:worktree
-description: "Create, inspect, and clean isolated git worktrees. Use for feature isolation, worktree health audits, stale cleanup, and monorepo or submodule workflows."
-user-invocable: true
-when_to_use: "Invoke for isolated worktrees, stale cleanup, or worktree audits."
+name: ak-worktree
+description: "Create, inspect and clean isolated git worktrees, including monorepo and submodule workflows."
+when_to_use: "Invoke for feature isolation, health audits or stale cleanup."
 category: workflow
 keywords: [worktree, parallel, monorepo, isolation]
 argument-hint: "[feature-description] OR [project] [feature]"
@@ -169,10 +168,10 @@ ak config prefs unset worktree.root --scope project
 Codex's Worktree root setting
 (https://learn.chatgpt.com/docs/environments/git-worktrees) manage worktrees
 independently of this skill. `worktree.root` only changes where
-`ak:worktree`'s own `create` command places a new worktree; it has no effect
+`ak-worktree`'s own `create` command places a new worktree; it has no effect
 on worktrees the host application creates through its native mechanism.
 
 ## Workflow Position
 
-**Typically precedes:** `/ak:cook` (implement in worktree), `/ak:fix` (fix in worktree)
+**Typically precedes:** `/ak-cook` (implement in worktree), `/ak-fix` (fix in worktree)
 **Setup skill** — creates isolated environment before implementation.

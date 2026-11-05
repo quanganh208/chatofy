@@ -17,5 +17,5 @@ means fewer rounds, not lower taste: the brief and one critique round still appl
    remains unverified. When the user approves durable choices and the project keeps
    design docs, record them there (for example `docs/design-guidelines.md`).
 
-Optional input: when `ak:ui-ux-pro-max` is installed, search its style, palette and
+Optional input: when `ak-ui-ux-pro-max` is installed, search its style, palette and
 typography data to inform the brief; follow that skill's own usage instructions.

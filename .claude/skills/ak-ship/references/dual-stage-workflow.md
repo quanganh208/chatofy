@@ -35,6 +35,10 @@ Do not start the stable stage until:
   commit on the target branch. A red, pending, cancelled, or unknown beta CI
   state blocks the stable stage; report the blocker instead of proceeding.
 
+In a batch-landing repository, the beta stage ends at an open ready PR that
+the landing owner merges later, so treat it as if `--merge` were absent: with a
+promotion convention, report the stable stage as `pending beta merge`.
+
 Without `--merge`, detect the repository's stable-delivery convention:
 
 - **Promotion convention** (stable receives dev/beta promotions, not feature

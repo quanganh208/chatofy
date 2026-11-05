@@ -37,7 +37,7 @@ Load `banner-sizes-and-styles.md` for complete sizes and styles reference.
 1. **Gather requirements** — use the batched intake in `design-workflow.md`. If the brief names a real brand or product, run `brand-asset-protocol.md` first.
 2. **Research** — Activate `ui-ux-pro-max`, browse Pinterest for references
 3. **Design** — Create HTML/CSS banner with `frontend-design`, generate visuals with `ai-artist`/`ai-multimodal`
-4. **Export** — Screenshot to PNG at exact dimensions via `ak:agent-browser`, Chrome headless, or Playwright
+4. **Export** — Screenshot to PNG at exact dimensions via `ak-agent-browser`, Chrome headless, or Playwright
 5. **Present** — Show all options side-by-side, iterate on feedback
 
 ### Banner: Quick Size Reference
@@ -96,9 +96,9 @@ Load `social-photos-design.md` for sizes, templates, best practices.
 1. **Orchestrate** — `project-management` skill for TODO tasks; parallel subagents for independent work
 2. **Analyze** — Parse prompt: subject, platforms, style, brand context, content elements
 3. **Ideate** — 3-5 concepts using the 4-pass discipline in `design-workflow.md` (assumptions + placeholders → real + variations → polish → verify); present via `ask_user capability`.
-4. **Design** — `the marketing brand skill` → `the marketing design-system skill` → randomly invoke `/ak:ui-ux-pro-max` OR `/ak:frontend-design`; HTML per idea × size
-5. **Export** — `ak:agent-browser`, Chrome headless, or Playwright screenshot at exact px (2x deviceScaleFactor)
-6. **Verify** — Use Chrome MCP / `chrome-devtools-mcp`, `ak:agent-browser`, or Playwright to visually inspect exported designs; fix layout/styling issues and re-export
+4. **Design** — `the marketing brand skill` → `the marketing design-system skill` → randomly invoke `/ak-ui-ux-pro-max` OR `/ak-frontend-design`; HTML per idea × size
+5. **Export** — `ak-agent-browser`, Chrome headless, or Playwright screenshot at exact px (2x deviceScaleFactor)
+6. **Verify** — Use Chrome MCP / `chrome-devtools-mcp`, `ak-agent-browser`, or Playwright to visually inspect exported designs; fix layout/styling issues and re-export
 7. **Report** — Summary to `plans/reports/` with design decisions
 8. **Organize** — Invoke `assets-organizing` skill to sort output files and reports
 

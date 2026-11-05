@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ak:diagram snapshot test — verify golden PNGs match freshly-rendered output.
+"""ak-diagram snapshot test — verify golden PNGs match freshly-rendered output.
 
 For each template variant, render → freeze → screenshot → byte-hash. Compare
 against golden hash stored in references/snapshot-hashes.yaml. A verification
@@ -81,7 +81,7 @@ def _save_hashes(hashes: dict) -> None:
         raise SystemExit("yaml module required — install pyyaml in shared venv")
     HASHES_FILE.parent.mkdir(parents=True, exist_ok=True)
     HASHES_FILE.write_text(
-        "# ak:diagram golden PNG hashes — regenerate via snapshot_test.py --update-goldens\n"
+        "# ak-diagram golden PNG hashes — regenerate via snapshot_test.py --update-goldens\n"
         + yaml.safe_dump(hashes, sort_keys=True),
         encoding="utf-8",
     )
@@ -166,7 +166,7 @@ def run(update_goldens: bool, only_type: str | None,
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="ak:diagram snapshot suite")
+    parser = argparse.ArgumentParser(description="ak-diagram snapshot suite")
     parser.add_argument("--all", action="store_true", help="Test every template")
     parser.add_argument("--type", type=str, default=None, help="Filter to one type")
     parser.add_argument("--variant", type=str, default=None, help="Filter to one variant")

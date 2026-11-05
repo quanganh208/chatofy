@@ -17,7 +17,7 @@ Always finish plan authoring with an explicit handoff so the user or orchestrato
 ### Next Recommended Step
 To execute this plan:
 ```bash
-/ak:cook {relative-plan-dir}/plan.md
+/ak-cook {relative-plan-dir}/plan.md
 ```
 ```
 
@@ -25,4 +25,4 @@ To execute this plan:
 
 When `--advice` is active:
 - Keep the **Handover Contract** row shown in the template above; it names the phased-task, success-criteria, mechanical-verification, and per-phase Failure Protocol shape the executor must honor.
-- Recommend running `/ak:cook {relative-plan-dir}/plan.md --advice` so advisory supervision carries forward.
+- Recommend running `/ak-cook {relative-plan-dir}/plan.md --advice` so advisory supervision carries forward.

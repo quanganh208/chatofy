@@ -105,7 +105,7 @@ candidate looks good →
 
 ### Environment Pinning (User Responsibility)
 
-ak:loop cannot control the environment. User must ensure:
+ak-loop cannot control the environment. User must ensure:
 - Fixed random seeds for ML workloads
 - Warmed caches (or cold caches) consistently
 - No background processes competing for CPU

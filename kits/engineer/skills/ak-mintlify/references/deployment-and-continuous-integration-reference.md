@@ -206,10 +206,10 @@ Configure base path in `docs.json`:
 }
 ```
 
-All routes prefixed with `/ak:docs`:
-- `/ak:docs/introduction`
-- `/ak:docs/api/users`
-- `/ak:docs/guides/quickstart`
+All routes prefixed with `/ak-docs`:
+- `/ak-docs/introduction`
+- `/ak-docs/api/users`
+- `/ak-docs/guides/quickstart`
 
 ## Platform-Specific Deployment
 

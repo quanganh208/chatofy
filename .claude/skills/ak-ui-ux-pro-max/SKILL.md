@@ -1,10 +1,10 @@
 ---
-name: ak:ui-ux-pro-max
-description: "UI/UX design intelligence for web and mobile: style selection, color systems, typography, layout, accessibility, interaction states, responsive behavior, forms, charts, design systems, and code review across React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui, and HTML/CSS."
-user-invocable: true
-when_to_use: "Invoke for UX strategy, design systems, accessibility, or a UI/UX guideline review of existing interface code."
+name: ak-ui-ux-pro-max
+description: "Guide web and mobile UI/UX design systems across React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui and HTML/CSS."
+when_to_use: "Invoke for color, typography, accessibility or UI guideline reviews."
 category: design
 keywords: [ui-ux, styles, palettes, fonts, ui-review, accessibility, ux-audit]
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 argument-hint: "[component|page|design-system] [--style <style>] [--framework <fw>]"
 metadata:
   author: agentkit

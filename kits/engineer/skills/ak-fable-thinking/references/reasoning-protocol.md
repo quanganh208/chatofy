@@ -191,7 +191,7 @@ effort was insufficient. Never repeat a failed probe harder. Change exactly one 
 - **Ground** — stop reasoning; go collect the missing observation (a log, a minimal
   reproduction, a bisect).
 
-Deeper toolkit for stuck-ness: `ak:problem-solving`. Long multi-step chains with explicit
+Deeper toolkit for stuck-ness: `ak-problem-solving`. Long multi-step chains with explicit
 revision: the sequential mode in `references/thinking-modes.md`. This skill governs how
 single conclusions get made and reported; the stuck toolkit governs larger exploration
 structures.

@@ -53,7 +53,7 @@ only when the event/snapshot cannot answer the current diagnostic question.
 ## Intervene with evidence
 
 For a supervisor run, use `stop <run-id>` and confirm settled state. Never signal
-from a copied PID. For internal jobs, use live native follow-up/interrupt when
+from a copied PID. For session jobs, use the live native follow-up and stop operations when
 supported and retain the handle, reason and outcome in coordinator evidence.
 A request sent is not cancellation confirmed.
 

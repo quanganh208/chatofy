@@ -21,6 +21,12 @@ import pytest
 SCRIPTS_DIR = Path(__file__).parent.parent
 PYTHON = sys.executable
 
+# chmod 000 cannot deny access on Windows or to root, which bypasses file modes.
+skip_unless_permissions_enforced = pytest.mark.skipif(
+    os.name == 'nt' or (hasattr(os, 'geteuid') and os.geteuid() == 0),
+    reason="File permission denial is not enforced on Windows or for root",
+)
+
 
 class TestCompressionEvaluatorEdgeCases:
     """Test edge cases in compression_evaluator.py"""
@@ -109,7 +115,7 @@ class TestCompressionEvaluatorEdgeCases:
         result = self.run_script("evaluate", str(utf8_file), str(compressed))
         assert result.returncode == 0
 
-    @pytest.mark.skipif(os.name == 'nt', reason="Permission test not reliable on Windows")
+    @skip_unless_permissions_enforced
     def test_permission_denied(self, tmp_path):
         """Test permission denied error."""
         protected = tmp_path / "protected.json"
@@ -202,7 +208,7 @@ class TestContextAnalyzerEdgeCases:
         result = self.run_script("analyze", str(f))
         assert result.returncode == 0
 
-    @pytest.mark.skipif(os.name == 'nt', reason="Permission test not reliable on Windows")
+    @skip_unless_permissions_enforced
     def test_permission_denied(self, tmp_path):
         """Test permission denied error."""
         protected = tmp_path / "protected.json"

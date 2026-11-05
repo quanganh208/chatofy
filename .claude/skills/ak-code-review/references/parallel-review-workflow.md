@@ -10,7 +10,7 @@ Activate the skills the scope needs. Write findings in complete sentences and ke
 
 Main agent deeply analyzes the scope to LIST all potential edge cases FIRST:
 - Read repository instructions and follow the existing documentation navigation to find applicable requirements, architecture, and standards
-- Use `/ak:scout` to find relevant files
+- Use `/ak-scout` to find relevant files
 - Confirm documentation claims against current source and tests in the review scope
 - Cover each failure class below:
   - Null/undefined scenarios
@@ -70,7 +70,7 @@ After aggregation, verify accepted findings against the full scope:
 ### 6. Auto-Fix Pipeline
 
 **IF** unhandled/partial edge cases found:
-- Ask: "Found N unhandled edge cases. Fix with /ak:fix --parallel? [Y/n]"
+- Ask: "Found N unhandled edge cases. Fix with /ak-fix --parallel? [Y/n]"
 
 ### 7. Final Report
 - Summary of verification

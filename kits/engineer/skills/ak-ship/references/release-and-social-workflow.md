@@ -33,15 +33,15 @@ Command errors or any other output default to enabled. Precedence: flag,
 project config, user config, then `true`.
 
 Print `journal skipped by --skip-journal` or `journal skipped by preference`
-when skipped. Explicit `/ak:journal` and `ak journal create` remain unaffected.
+when skipped. Explicit `/ak-journal` and `ak journal create` remain unaffected.
 
-Otherwise invoke `/ak:journal` via a `journal-writer` subagent in the
+Otherwise invoke `/ak-journal` via a `journal-writer` subagent in the
 background. Include shipped changes, decisions, and technical challenges; save
 the chronological record under `./plans/journals/`. Continue without waiting.
 
 ## Step 9: Docs update
 
-Skip for `--skip-docs` or beta mode. Otherwise invoke `/ak:docs update` via a
+Skip for `--skip-docs` or beta mode. Otherwise invoke `/ak-docs update` via a
 `docs-manager` subagent in the background and continue without waiting.
 
 ## Step 14: Social publish

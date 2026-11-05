@@ -8,7 +8,7 @@ Guidance for choosing between `agent-browser` and MCP-based browser diagnostics.
 Need browser automation?
 |
 +-- Needs the user's real Chrome profile, cookies, tenant, or Google account?
-|   +-- YES --> ak:chrome-profile
+|   +-- YES --> ak-chrome-profile
 |   +-- NO --> Continue
 |
 +-- Long autonomous AI session?
@@ -29,7 +29,7 @@ Need browser automation?
 |
 +-- Ad-hoc page driving, snapshots, screenshots, forms?
 |   +-- YES --> agent-browser
-+-- Otherwise --> ak:web-testing for test strategy/runners
++-- Otherwise --> ak-web-testing for test strategy/runners
 ```
 
 ## Primary Patterns

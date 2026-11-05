@@ -1,8 +1,8 @@
 # Advisory Supervision (`--advice`)
 
 Shared protocol for the opt-in `--advice` mode of workflow skills
-(`ak:brainstorm`, `ak:plan`, `ak:cook`, `ak:fix`, `ak:code-review`,
-`ak:review-pr`, `ak:ship`, and siblings that opt in). Each skill keeps its own
+(`ak-brainstorm`, `ak-plan`, `ak-cook`, `ak-fix`, `ak-code-review`,
+`ak-review-pr`, `ak-ship`, and siblings that opt in). Each skill keeps its own
 checkpoint list, then defers here for supervisor identity and model routing.
 
 ## What this is
@@ -15,7 +15,7 @@ security policy.
 ## Supervisor identity
 
 Always spawn the kit agent `kongming` (portable frontmatter `model: fable`).
-Do not substitute `advisor` / `ak:advise` for these checkpoints — those are
+Do not substitute `advisor` / `ak-advise` for these checkpoints — those are
 interview-driven and interactive. Kongming is one-shot autonomous counsel.
 
 Invoke shape (capability names vary by runtime):
@@ -68,7 +68,7 @@ When handing off to a downstream workflow skill, pass `--advice` so supervision
 persists. After required CI is terminal-green on a PR, spawn kongming once more
 to review the whole implementation and post assessment plus concrete next steps
 on the PR and source issue (when one exists) — unless a skill (e.g.
-`ak:review-pr`) already owns that checkpoint.
+`ak-review-pr`) already owns that checkpoint.
 
 ## Non-negotiables
 

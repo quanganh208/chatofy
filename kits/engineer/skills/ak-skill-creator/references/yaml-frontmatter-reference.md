@@ -29,14 +29,15 @@ metadata:                                            # Custom key-value pairs
 ---
 ```
 
-Kit skills in the AgentKit repository add `user-invocable`, `when_to_use`,
-`category`, `keywords`, `argument-hint`, and `metadata.workflow`; the runtime
-reads those fields. See `references/agentkit-kit-skill-contract.md`.
+Kit skills in the AgentKit repository are named `ak-<slug>` and add
+`when_to_use`, `category`, `keywords`, `argument-hint`, and `metadata.workflow`;
+the runtime reads those fields. They do not set `user-invocable` or
+`disable-model-invocation`. See `references/agentkit-kit-skill-contract.md`.
 
 ## Field Details
 
 ### name (required)
-- Supports either `skill-name` or `namespace:skill-name` (for example `ak:plan`)
+- Supports either `skill-name` or `namespace:skill-name` (for example `team:plan`); AgentKit kit skills use `ak-<slug>`
 - If namespaced, namespace and skill id both use kebab-case only (no spaces, no capitals)
 - Folder name must match the skill id segment (after `:`)
 - Cannot contain "claude" or "anthropic" (reserved)

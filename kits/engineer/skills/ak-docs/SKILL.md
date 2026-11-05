@@ -1,14 +1,13 @@
 ---
-name: ak:docs
-description: "Analyze a codebase and create, refresh, summarize, or audit project documentation without imposing a fixed docs layout, with an opt-in classic layout via --preset classic, including authoring and optimizing the root CLAUDE.md/AGENTS.md agent context file, or distilling DO/DON'T rules for that file from git history, CI runs, and (with --source) current source-tree markers."
-user-invocable: true
-when_to_use: "Invoke to create, refresh, summarize, or audit project documentation; to author or optimize the root CLAUDE.md/AGENTS.md agent context file; or to distill DO/DON'T rules for that file from git history, CI runs, and optionally source-tree markers via --source."
+name: ak-docs
+description: "Create, refresh, summarize or audit project docs and root CLAUDE.md/AGENTS.md, mining DO/DON'T rules from git/CI and --source markers."
+when_to_use: "Invoke for docs upkeep; --preset classic fixes the layout and philosophy interviews need explicit opt-in."
 category: workflow
-keywords: [documentation, init, update, summarize, audit, agent-context, claude-md, agents-md, agents, rules, git-history, ci-failures, source-mining, scout, preset, classic-layout]
-argument-hint: "init|update|summarize|agent-context|agents|llms"
+keywords: [documentation, init, update, summarize, audit, agent-context, claude-md, agents-md, agents, rules, git-history, ci-failures, source-mining, scout, preset, classic-layout, philosophy, product-principles]
+argument-hint: "init|update|summarize|agent-context|agents|llms|philosophy"
 metadata:
   author: agentkit
-  version: "1.11.0"
+  version: "1.13.0"
 ---
 
 # Documentation Management
@@ -29,6 +28,18 @@ A root agent context file (`CLAUDE.md`/`AGENTS.md`) is a distinct artifact
 class: process memory that owns imperative HOW-TO-BEHAVE, not WHY/WHERE. It
 follows `references/agent-context-rules.md`, which shares this skill's
 deletion-test spine but keeps its own keep-or-cut filter and enforcement rules.
+
+### Invariants and variation points
+
+When a design has real variants, record the invariants across them that code
+cannot express, and link the rest to their executable owner (interface,
+registry, schema, or matrix). Name the seam where the variants differ: WHY it
+sits at its boundary, the alternatives rejected, and the trade-off accepted. Name only variation
+that current code, tests, contracts, or approved decisions evidence. A future
+variant nobody has committed to is an open question at most, never a roadmap
+or a promised extension point. Do not copy the seam's HOW from code. Docs for a
+design without real variation need no such section. Carry this paragraph into
+delegated context together with the doc-content rules.
 
 ## Opening Gate
 
@@ -54,11 +65,21 @@ Parse the first word of `$ARGUMENTS`:
 | `summarize` | `references/summarize-workflow.md` | Summarize current evidence without forcing a new file |
 | `agent-context` | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file |
 | `agents` | `references/agents-workflow.md` | Mine bounded git and CI history for recurring failures and non-derivable gotchas; distill confirmed DO/DON'T rules into the root agent context file |
+| `philosophy` | `references/philosophy-workflow.md` | Opt-in author interview using repo and same-project local sessions to establish durable product principles; approve the exact diff before writing |
 | `llms` | `references/llms.md` | Generate or update `llms.txt` and `llms-full.txt` per llmstxt.org |
 | empty or unclear | ask the user | Choose the operation; never assume `init` |
 
 Other workflows deciding whether docs are affected should load
 `references/documentation-management.md`.
+
+Load the philosophy workflow only for `philosophy` or an explicit request for
+that interview. Mentioning product intent in ordinary docs work is not opt-in.
+Ordinary docs maintenance does not read local session history unless explicitly
+requested; preserve existing principles using the current guidance instead.
+The operation is interactive by design; when required answers or exact-diff
+approval are unavailable, return a proposal and unresolved questions without
+writing. Reuse valid approval from an earlier turn. It adds no approval-bypass
+flag and does not inherit `agents` mining gates, bounds, or implied advice.
 
 `init`, `update`, and `agent-context` also load
 `references/operational-lookup.md` when the operation establishes, changes, or
@@ -81,7 +102,7 @@ Composable with any operation unless noted:
   proposed rule.
 - `--dry-run` — scoped to `agents`. Stops after signal ranking (step 3), reports
   mined signals and the watchlist, spawns no advisor, writes no file.
-- `--source` — scoped to `agents`. Layers `ak:scout` source-tree mining onto
+- `--source` — scoped to `agents`. Layers `ak-scout` source-tree mining onto
   the git/CI pass (never replaces it). Read-only: no generators, no tests.
   Adds a corroboration gate for source-only clusters (≥2 anchors plus a
   code/test guard or git-CI corroboration). Composes with `--dry-run` and

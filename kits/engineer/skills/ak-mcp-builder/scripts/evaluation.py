@@ -1,3 +1,5 @@
+# Modified by AgentKit from anthropics/skills (Apache-2.0); see NOTICE.txt and
+# LICENSE.txt in the skill directory.
 """MCP Server Evaluation Harness
 
 This script evaluates MCP servers by running test questions against them using Claude.

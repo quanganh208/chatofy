@@ -1,8 +1,7 @@
 ---
-name: ak:markdown-novel-viewer
-description: View markdown files in a calm, book-like reader served via HTTP. Use for long-form content review — RFCs, runbooks, design docs, reports, specs, novels — anywhere you want a distraction-free reading mode in the browser.
-user-invocable: true
-when_to_use: "Invoke to read long markdown comfortably in the browser."
+name: ak-markdown-novel-viewer
+description: "View markdown in a calm, book-like reader served over HTTP."
+when_to_use: "Invoke to read long RFCs, runbooks, specs or novels distraction-free."
 category: media
 keywords: [markdown, viewer, reading, preview]
 argument-hint: "[file-or-directory]"
@@ -14,7 +13,7 @@ metadata:
 # Markdown novel viewer
 
 Open a Markdown file or directory in the local reader. Resolve and quote paths, including
-Windows paths containing spaces. HTML generation belongs to `ak:preview --html`.
+Windows paths containing spaces. HTML generation belongs to `ak-preview --html`.
 
 1. Reuse a known owned server for this project; inspect its process/port before starting one.
 2. Verify Node and required `marked`, `highlight.js`, `gray-matter` dependencies. Run

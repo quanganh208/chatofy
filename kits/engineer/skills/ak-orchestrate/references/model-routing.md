@@ -1,6 +1,6 @@
 # Model Routing
 
-This file is the sole selection-policy authority for `/ak:orchestrate`. It
+This file is the sole selection-policy authority for `/ak-orchestrate`. It
 decides which live runtime, model capability tier, and safety posture a job
 needs. Other orchestrate references describe evidence collection or dispatch
 mechanics and must link here instead of copying routes.
@@ -9,10 +9,31 @@ Routing is resolved at execution time. Runtime availability, model catalogs,
 aliases, permission controls, and CLI flags are volatile. Never treat a model
 name, provider catalog, or previous run as current evidence.
 
-Scope: CLI runtimes and the `runtime: internal` branch. Preserve the internal
-agent's configured model unless the live dispatch interface permits selection
-and the user's pin or applicable routing policy requests it. Capability comes
-from that interface, not a blanket assumption about all internal agents.
+Scope: CLI runtimes and the `runtime: internal` session branch. Keep a
+session's default model unless its live create surface permits selection and
+the user's pin or applicable routing policy requests it. Capability comes from
+that surface, not a blanket assumption about every session.
+
+## Runtime Scope Gate
+
+Apply this gate before any other rule:
+
+- **Default `current-runtime`.** Candidates are independent sessions of the
+  runtime the coordinator is running in, and that runtime's own supervised
+  headless CLI.
+- **Cross-runtime is opt-in.** Another runtime becomes a candidate only when
+  the run passes `--cross-runtime`, a job pins it with `runtime:` or lists it
+  in `fallback_runtime`, or the user names it in the request. Record which of
+  these admitted it.
+- **No silent widening.** When no current-runtime candidate qualifies and the
+  run is not opted in, block the job with the evidence; do not reach for an
+  installed runtime because it happens to be present.
+- **Subagents are not candidates.** A nested agent is used only through the
+  permission fallback in
+  [session-routing.md](session-routing.md#permission-fallback).
+
+Runtimes that share an upstream account share one quota pool; count them
+once when admitting work.
 
 ## Inputs
 
@@ -37,11 +58,12 @@ Before routing any job, build the per-run inventory described in
 
 For each candidate, verify in the actual run environment:
 
-1. executable or internal-agent availability;
+1. executable availability, or session-operation support for the current
+   runtime;
 2. non-interactive authentication readiness without exposing credentials;
 3. current headless command and required flags from live help or current
    official documentation;
-4. models or agents currently selectable by that runtime;
+4. models and effort settings currently selectable by that runtime;
 5. sandbox, approval, tool-gating, cwd, timeout, capture, and resume behavior;
 6. host-OS limitations that weaken any claimed control.
 
@@ -80,14 +102,14 @@ Secrets never belong in prompts, logs, inventory, or reports at any tier.
 
 ## Routing Rules
 
-1. **Honor verified pins.** A pinned runtime, model, or agent must pass the live
+1. **Honor verified pins.** A pinned runtime, model, or role profile must pass the live
    inventory and risk-control gate. If it does not, block or ask before
    changing the user's explicit constraint.
 2. **Fan out cheaply, decide strongly.** Use C1 for independent volume work,
    then C3 for the job that synthesizes, judges, or arbitrates the outputs.
 3. **Require independent judgment.** Review, audit, security, and arbiter jobs
    require C3. Prefer a different model family or independently configured
-   agent from the primary producer when live inventory proves that diversity;
+   session context from the primary producer when live inventory proves that diversity;
    otherwise disclose the same-family fallback.
 4. **Match controls before cost.** Filter candidates by the job's risk tier
    before comparing latency, price, or convenience. An auto-approved or weakly
@@ -133,39 +155,42 @@ For each job:
 5. Rank the remainder by task fit, control strength, evidence quality,
    reliability, then cost and latency.
 6. Prefer independent model-family evidence for C3 review when available.
-7. Record the selected runtime, resolved model or agent, capability tier, risk
+7. Record the selected runtime, resolved model and role profile, capability tier, risk
    tier, controls, evidence source, and fallback reason.
 
 Compare resolved model families, not executable names: two different harnesses
 may invoke the same provider/model. Unknown family metadata cannot establish
 different-family review. Record separately when independence comes only from
-a fresh, independently configured agent context.
+a fresh, independently configured session context.
 
 If no candidate qualifies, mark the job `blocked`. Do not silently weaken the
 risk posture or substitute a lower capability tier.
 
-## Internal Branch
+## Session Branch
 
 For `runtime: internal`:
 
-- validate an explicit `agent:` against the live agent list;
-- otherwise match the job's task and expected output to live agent
-  descriptions and declared tools, choosing the most specific qualified
-  agent;
-- use a general-purpose agent only when it is present and meets the risk tier;
-- honor `model:` only when the live internal dispatch interface supports that
-  exact selection; otherwise preserve the pin and use a qualified CLI route;
+- require `create` to be `supported` for the current runtime; otherwise the
+  session route is unavailable and the scope gate decides what comes next;
+- resolve an explicit `agent:` to an installed role profile; a name that
+  resolves to no installed profile blocks the job, never drops silently; when
+  none is given, choose the most specific profile whose instructions fit the
+  task, or none;
+- honor `model:` only when the session create surface supports that exact
+  selection; otherwise preserve the pin and use a qualified route that
+  supports it, or block;
 - when model-family diversity or stronger isolation is required but cannot be
-  proven internally, choose a verified CLI candidate or disclose a blocked
-  fallback.
+  proven for a session, choose a verified opted-in candidate or disclose the
+  blocked constraint.
 
-Dispatch and capture mechanics live in
-[internal-routing.md](internal-routing.md).
+Session qualification, dispatch and capture live in
+[session-routing.md](session-routing.md).
 
 ## Fallbacks
 
-Evaluate `fallback_runtime` entries through the same live gate and in declared
-order. Recompute the resolved model, capability tier, controls, and command for
+The fallback ladder and failure classes live in
+[failure-modes.md](failure-modes.md). Evaluate `fallback_runtime` entries
+through the same live gate and in declared order. Recompute the resolved model, capability tier, controls, and command for
 the new runtime. Never carry an identifier or flags from the failed runtime to
 its fallback.
 
@@ -180,6 +205,29 @@ by the task and operator budget. If no verified control exists, select based on
 the verified model capability tier and omit the setting. Never copy an old
 configuration key or assume values are portable between runtimes.
 
+## Strongest Judgment Model
+
+Arbiter, advisor, review, audit and security jobs resolve the strongest model
+the active route can actually use:
+
+1. Start from the models the live runtime lists as selectable for this
+   account, then drop any the user, project or organisation disallows.
+2. Apply precedence: an explicit job or user pin, then a project or user model
+   policy, then the strongest remaining C3 candidate by the live runtime's
+   catalog rank or documented tier. Earlier run metrics are recorded for
+   reviewed policy changes; they never reorder this ranking.
+3. Order the rest deterministically by the same ranking so a fallback is
+   reproducible; break ties by the runtime's documented default.
+4. When the route cannot select a model at all, use its default and state that
+   no override happened.
+5. Record the requested candidate, the resolved provider-native identifier,
+   effort, the selection reason and any fallback reason, without credentials,
+   account details or raw provider errors.
+
+A display name in a request or catalog is a candidate, not a provider-native
+identifier. Never claim a model ran unless the runtime reported it. The final
+report states the runtime and model that actually served each judgment job.
+
 ## Worked Example
 
 "Audit a settings surface, implement the accepted fix, then review it":
@@ -191,13 +239,14 @@ configuration key or assume values are portable between runtimes.
 | implement-fix | `implement` | C2/R1, or C3/R2 when marked high importance |
 | review-fix | `review` | C3/R0, independent model family when live and qualified |
 
-Exact runtime, model, agent, and flags are resolved and recorded during that
+Exact runtime, model, role profile, and flags are resolved and recorded during that
 run; this document does not preselect them.
 
 ## Operator Checklist
 
 - `runtimes.json` reflects this host and this run.
-- Every selected runtime and model or agent was found live.
+- Every selected runtime, session capability and model was found live.
+- Cross-runtime candidates were admitted by an explicit opt-in.
 - Capability and risk floors are recorded.
 - No candidate relies on a copied provider catalog or stale command example.
 - Permission bypasses are off unless the user explicitly approved the exact

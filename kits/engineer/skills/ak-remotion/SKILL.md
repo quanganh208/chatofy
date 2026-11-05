@@ -1,8 +1,7 @@
 ---
-name: ak:remotion
-description: "Build video content with Remotion in React. Use for programmatic video creation, animated sequences, data-driven video rendering."
-user-invocable: true
-when_to_use: "Invoke for programmatic video generation with React."
+name: ak-remotion
+description: "Build programmatic video with Remotion in React, including animated sequences and data-driven renders."
+when_to_use: "Invoke for React-based video generation."
 category: media
 keywords: [video, react, remotion, rendering]
 metadata:

@@ -8,18 +8,27 @@ The unified HTML composition protocol activates whenever a skill produces an HTM
 
 | Logical Skill | Physical File | HTML Activation Trigger |
 |---|---|---|
-| `ak:explain` | `kits/core/skills/ak-explain/SKILL.md` | `--html` |
-| `ak:brainstorm` | `kits/core/skills/ak-brainstorm/SKILL.md` | `--html` |
-| `ak:plan` (Engineer) | `kits/engineer/skills/ak-plan/SKILL.md` | `--html` |
-| `ak:plan` (Marketing) | `kits/marketing/skills/ak-plan/SKILL.md` | `--html` |
-| `ak:preview` | `kits/core/skills/ak-preview/SKILL.md` | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
-| `ak:advise` | `kits/engineer/skills/ak-advise/SKILL.md` | `--html` |
-| `ak:show-off` | `kits/engineer/skills/ak-show-off/SKILL.md` | Every invocation (inherently HTML output) |
-| `ak:retro` | `kits/engineer/skills/ak-retro/SKILL.md` | `--format html` |
-| `ak:cti-expert` | `kits/engineer/skills/ak-cti-expert/SKILL.md` | `--format html` |
-| `ak:issue-to-plan` | `kits/engineer/skills/ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak:plan --html` delegation |
+| `ak-explain` | `kits/core/skills/ak-explain/SKILL.md` | `--html` |
+| `ak-brainstorm` | `kits/core/skills/ak-brainstorm/SKILL.md` | `--html` |
+| `ak-plan` | `kits/core/skills/ak-plan/SKILL.md` | `--html` |
+| `ak-preview` | `kits/core/skills/ak-preview/SKILL.md` | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
+| `ak-advise` | `kits/engineer/skills/ak-advise/SKILL.md` | `--html` |
+| `ak-show-off` | `kits/engineer/skills/ak-show-off/SKILL.md` | Every invocation (inherently HTML output) |
+| `ak-retro` | `kits/engineer/skills/ak-retro/SKILL.md` | `--format html` |
+| `ak-cti-expert` | `kits/engineer/skills/ak-cti-expert/SKILL.md` | `--format html` |
+| `ak-issue-to-plan` | `kits/engineer/skills/ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak-plan --html` delegation |
 
 Non-HTML modes (Markdown, terminal CLI) do NOT activate visual capabilities or load this protocol.
+
+## Route Selection
+
+The activation sequence below is the **default route**. The **AK Render route**
+(`ak-render-route.md`) is opt-in for `ak-preview`, `ak-plan`, `ak-explain` and
+`ak-brainstorm`: use it when the user passes `--ak-render` (which implies `--html`) or the
+project has an `.ak-render/` directory (AK Render theme presets). The invoking skill keeps the
+same required sections on either route. If the AK Render route cannot run, use
+the default route and say why in the report. Other skills in the table use the
+default route only.
 
 ## Canonical Activation Sequence
 
@@ -33,10 +42,10 @@ operations never activate this sequence:
    ↓
 2. Query Live Skill Catalog (Runtime Discovery)
    ↓
-3. Activate ak:frontend-design
+3. Activate ak-frontend-design
    (Obtain Design Read, design tokens, typography, responsive shell, dark/light styles, a11y checks)
    ↓
-4. Activate ak:diagram (When Installed)
+4. Activate ak-diagram (When Installed)
    (Author typed JSON IR for archetype: architecture, workflow, sequence, dataflow, or lifecycle;
     compile trusted fragment)
    ↓
@@ -50,8 +59,8 @@ operations never activate this sequence:
 ## Responsibility Boundaries
 
 - **Invoking Skill**: Owns the document shell (`<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`), factual narrative, artifact path, and final verification. Never compose competing nested documents or `<iframe>`s.
-- **`ak:frontend-design`**: Owns layout architecture, typography hierarchy, token styling, container responsiveness, accessible navigation, and visual critique.
-- **`ak:diagram`**: Owns typed JSON IR compilation, deterministic SVG geometry, and interactive reader tools (search, reach, route, lens, presentation stage, share cards).
+- **`ak-frontend-design`**: Owns layout architecture, typography hierarchy, token styling, container responsiveness, accessible navigation, and visual critique.
+- **`ak-diagram`**: Owns typed JSON IR compilation, deterministic SVG geometry, and interactive reader tools (search, reach, route, lens, presentation stage, share cards).
 - **Fragment Trust Boundary**: **Only compiler-produced typed IR fragments may be embedded.** Legacy raw HTML, Mermaid source, and unslotted templates remain standalone compatibility artifacts and must NEVER be embedded into composed documents.
 
 ## Fallback Matrix

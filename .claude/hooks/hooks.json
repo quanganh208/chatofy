@@ -2,18 +2,6 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"
-            ]
-          }
-        ]
-      },
-      {
         "matcher": "Edit|Write",
         "hooks": [
           {
@@ -92,7 +80,7 @@
         ]
       },
       {
-        "matcher": "Read|Write|Edit|Bash",
+        "matcher": "Read|Write|Edit|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -104,7 +92,7 @@
         ]
       },
       {
-        "matcher": "Bash|Read",
+        "matcher": "Bash|PowerShell|Read",
         "hooks": [
           {
             "type": "command",
@@ -116,7 +104,7 @@
         ]
       },
       {
-        "matcher": "Bash|WebFetch",
+        "matcher": "Bash|PowerShell|WebFetch",
         "hooks": [
           {
             "type": "command",
@@ -128,7 +116,7 @@
         ]
       },
       {
-        "matcher": "Bash|Read|Grep|Glob",
+        "matcher": "Bash|PowerShell|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -176,13 +164,6 @@
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs"
             ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
-            ]
           }
         ]
       }
@@ -229,13 +210,6 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/agent-behavior-linter.cjs"
-            ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]
@@ -291,6 +265,13 @@
             "type": "command",
             "command": "node",
             "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"
             ]
           },
@@ -310,35 +291,7 @@
             "type": "command",
             "command": "node",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/secret-output-guardrail.cjs"
-            ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"
-            ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"
-            ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
-            ]
-          },
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]

@@ -29,7 +29,7 @@ runtime permits the needed delegation.
 ### Step 1: Scout Codebase (parallel with Steps 2+3)
 Record the scout phase as active.
 
-**Mandatory:** Activate `ak:scout` skill or, when delegation is permitted,
+**Mandatory:** Activate `ak-scout` skill or, when delegation is permitted,
 launch 2-3 `Explore` subagents in parallel through `delegate_agent`. In Codex
 Desktop, expose deferred multi-agent tools with `tool_search` first, then use
 `multi_agent_v1.spawn_agent(agent_type="Explore", message="...")`.
@@ -46,10 +46,10 @@ Record the diagnose phase as active.
 
 **Mandatory skill chain:**
 1. **Capture pre-fix state:** Record ALL error messages, failing tests, stack traces, logs.
-2. Activate `ak:debug` skill (systematic-debugging + root-cause-tracing).
-3. Use `ak:fable-thinking` (sequential mode) only when a decision/evidence log would help — structured hypothesis formation.
+2. Activate `ak-debug` skill (systematic-debugging + root-cause-tracing).
+3. Use `ak-fable-thinking` (sequential mode) only when a decision/evidence log would help — structured hypothesis formation.
 4. Use delegated `Explore` subagents to test hypotheses only when delegation is explicitly requested/permitted.
-5. If 2+ hypotheses fail → auto-activate `ak:problem-solving`.
+5. If 2+ hypotheses fail → auto-activate `ak-problem-solving`.
 6. Trace backward through call chain to ROOT CAUSE origin.
 
 Use the root-cause checklist in the parent skill as the diagnosis protocol.
@@ -70,7 +70,7 @@ Record the research phase as completed after relevant evidence is retained.
 
 ### Step 4: Brainstorm
 Record brainstorming as active after scout, diagnosis, and research are complete.
-Activate `ak:brainstorm` skill.
+Activate `ak-brainstorm` skill.
 
 - Evaluate multiple approaches using scout + diagnosis + research findings
 - Consider trade-offs
@@ -140,10 +140,10 @@ Record review as completed after accepted findings are resolved.
 ### Step 9: Finalize
 Record finalization as active.
 - Report summary: root cause, evidence chain, changes, prevention measures, confidence score
-- Activate `ak:project-management` for task sync-back, plan status updates, and progress tracking
+- Activate `ak-project-management` for task sync-back, plan status updates, and progress tracking
 - Evaluate docs impact; use delegated docs-manager only for affected authority
   surfaces and git-manager only when explicitly requested/permitted
-- Run `/ak:journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
+- Run `/ak-journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
 
 Record finalization as completed in the live surface when available and in the active plan.
 **Output:** `✓ Step 9: Complete - [actions taken]`
@@ -152,16 +152,16 @@ Record finalization as completed in the live surface when available and in the a
 
 | Step | Skills/Subagents |
 |------|------------------|
-| 1 | `ak:scout` OR parallel `Explore` subagents when delegation is permitted |
-| 2 | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated Explore when permitted, optional `ak:problem-solving` when stuck |
+| 1 | `ak-scout` OR parallel `Explore` subagents when delegation is permitted |
+| 2 | `ak-debug`, `ak-fable-thinking` (sequential mode), optional delegated Explore when permitted, optional `ak-problem-solving` when stuck |
 | 3 | `researcher` via `delegate_agent` when permitted |
-| 4 | `ak:brainstorm` |
+| 4 | `ak-brainstorm` |
 | 5 | `planner` |
-| 6 | `ak:problem-solving`, `ak:fable-thinking` (sequential mode), `ak:context-engineering` |
+| 6 | `ak-problem-solving`, `ak-fable-thinking` (sequential mode), `ak-context-engineering` |
 | 7 | `run_shell` verification; optional delegated tester when permitted |
 | 8 | `code-reviewer` via `delegate_agent` when permitted, otherwise local review |
-| 9 | `ak:project-management`; docs/git delegation only when permitted |
+| 9 | `ak-project-management`; docs/git delegation only when permitted |
 
 **Rules:** Don't skip steps. Validate before proceeding. One phase at a time.
-**Frontend:** Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.
-**Visual Assets:** Use `ak:ai-multimodal` for visual assets generation, analysis and verification.
+**Frontend:** Use `ak-agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.
+**Visual Assets:** Use `ak-ai-multimodal` for visual assets generation, analysis and verification.

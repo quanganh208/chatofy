@@ -57,6 +57,40 @@ function pruneOldEntries(directory, suffix, root, keep = MAX_REVISIONS) {
   }
 }
 
+// Hard-link errors that mean the filesystem cannot link at all; the caller then
+// falls back to an exclusive create, which briefly exposes an empty reservation.
+const LINK_UNSUPPORTED = new Set(['EPERM', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP', 'EXDEV']);
+
+// Publishes a reservation that already holds its owner pid. Readers treat an
+// unreadable pid as a dead owner, so the file must never be visible while empty.
+function publishReservation(directory, target) {
+  const temporary = path.join(directory, `.${path.basename(target)}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(temporary, 'wx', 0o600);
+    fs.writeFileSync(descriptor, `${process.pid}\n`, 'utf8');
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    try {
+      fs.linkSync(temporary, target);
+      return;
+    } catch (error) {
+      if (!LINK_UNSUPPORTED.has(error?.code)) throw error;
+    }
+  } finally {
+    if (descriptor != null) try { fs.closeSync(descriptor); } catch { /* ignore */ }
+    try { fs.unlinkSync(temporary); } catch { /* best effort */ }
+  }
+  descriptor = fs.openSync(target, 'wx', 0o600);
+  try {
+    fs.writeFileSync(descriptor, `${process.pid}\n`, 'utf8');
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 function allocateRevision({ root, directory }) {
   if (!root || !directory) return null;
   try {
@@ -64,17 +98,11 @@ function allocateRevision({ root, directory }) {
     for (let attempt = 0; attempt < 64; attempt += 1) {
       const revisions = listRevisions(directory, '.reserve', root);
       const revision = (revisions[revisions.length - 1] || 0) + 1;
-      let descriptor = null;
       try {
-        descriptor = fs.openSync(reservationPath(directory, revision), 'wx', 0o600);
-        fs.writeFileSync(descriptor, `${process.pid}\n`, 'utf8');
-        fs.fsyncSync(descriptor);
-        fs.closeSync(descriptor);
-        descriptor = null;
+        publishReservation(directory, reservationPath(directory, revision));
         pruneOldEntries(directory, '.reserve', root);
         return revision;
       } catch (error) {
-        if (descriptor != null) try { fs.closeSync(descriptor); } catch { /* ignore */ }
         if (error?.code !== 'EEXIST') return null;
       }
     }

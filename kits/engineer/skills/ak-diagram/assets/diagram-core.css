@@ -1,4 +1,4 @@
-/* ak:diagram core SVG styles: shared by the reader fragment and standalone SVG.
+/* ak-diagram core SVG styles: shared by the reader fragment and standalone SVG.
    Colour comes from --ak-* palette variables and --ak-role-* family tokens. */
 
 .ak-diagram-svg { font-family: var(--ak-font-sans); display: block; }

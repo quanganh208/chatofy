@@ -1,69 +1,88 @@
-# Test Report Format
+# Test report
 
-Structured QA report template. Write complete sentences; keep it short by selecting content.
+Lead with the outcome and its limits. For a small run, return a short inline
+summary; use a durable report only when the scope needs it. Include applicable
+fields below, linking existing receipts/logs instead of creating another schema
+or duplicating their contents. A report is execution evidence, not a new policy.
 
-## Template
+## Compact template
 
 ```markdown
-# Test Report — {date} — {scope}
+# Test report — {date} — {scope}
 
-## Test Results Overview
-- **Total**: X tests
-- **Passed**: X | **Failed**: X | **Skipped**: X
-- **Duration**: Xs
+Outcome: verified within {scope} / observed violation / insufficient evidence.
+Authority: {accepted requirement/spec and any inferred expectations}.
 
-## Coverage Metrics
-| Metric   | Value | Threshold | Status |
-|----------|-------|-----------|--------|
-| Lines    | X%    | 80%       | PASS/FAIL |
-| Branches | X%    | 70%       | PASS/FAIL |
-| Functions| X%    | 80%       | PASS/FAIL |
+| Contract | Check/command | Observed result | Gap / required follow-up |
+| --- | --- | --- | --- |
+| {behavior and risk} | {existing test or bounded probe} | {raw status and interpretation} | {not run/skip/blocker} |
 
-## Failed Tests
-### `test/path/file.test.ts` — TestName
-- **Error**: Error message
-- **Stack**: Relevant stack trace (truncated)
-- **Cause**: Brief root cause analysis
-- **Fix**: Suggested resolution
+Source: {base/head plus relevant dirty/untracked input fingerprints before/after}.
+Execution: {run ID, cwd, actual runner/version/config and environment class}.
+Evidence: {separate output for each attempt, receipt/artifact paths and digests}.
+Mandatory gates: {completed, failed, skipped or unavailable; reasons}.
 
-## UI Test Results (if applicable)
-- **Pages tested**: X
-- **Screenshots**: ./screenshots/
-- **Console errors**: none | [list]
-- **Responsive**: checked at [viewports] | skipped
-- **Performance**: LCP Xs, FID Xms, CLS X
-
-## Build Status
-- **Build**: PASS/FAIL
-- **Warnings**: none | [list]
-- **Dependencies**: all resolved | [issues]
-
-## Critical Issues
-1. [Blocking issue description + impact]
-
-## Recommendations
-1. [Actionable improvement with priority]
-
-## Unresolved Questions
-- [Any open questions, if any]
+Failures: {all observed failures; expected/observed, repro, classification,
+and linked raw logs; retries do not erase failures}.
+Coverage: {measured values, repo threshold and its source, or no configured threshold}.
+Changes: {applied versus proposed; authorization; contract and remaining protection}.
+Costs: {observed time/resources/model usage, estimates explicitly labelled,
+and unknown metrics; no inferred zeroes}.
+Cleanup: {owned processes/ports/temp roots/data; verified cleanup or remaining owner}.
+Limitations: {source mismatch, partial execution, untested claims, live/provider gaps}.
 ```
 
-## Guidelines
+Do not include credentials, private settings or sensitive screenshots. Preserve
+raw runner outcomes and classify product defects separately from expectation,
+fixture, environment, provider and tooling failures. A mandatory skip or an
+unverified final-source state prevents a fully verified conclusion. Aggregate
+pass counts cannot hide failed, skipped or unfinished claims.
 
-- Include ALL failed tests with error messages — don't summarize away details
-- Coverage: highlight specific uncovered files/functions, not just percentages
-- Screenshots: embed paths directly in report for easy access
-- Recommendations: prioritize by impact (critical > high > medium > low)
-- Keep report under 200 lines — split into sections if larger scope needed
-- Save report using naming pattern from `## Naming` section injected by hooks
+## Freshness and reproducibility
 
-## Impact-selection receipts
+Capture the relevant source/input identity before and after the run. Commit SHA
+alone is insufficient for dirty/untracked files. Include configuration, environment
+and probe/artifact identity; use existing fingerprint/receipt tools where available.
+If inputs changed during execution or identity cannot be verified, state exactly
+which observation remains useful and which final-state claim is unverified.
 
-For `optimize`, include source/manifest/policy fingerprints, provider provenance,
-selected and skipped group reasons, required checks, broadening, observed exit
-status, retries, and elapsed time. Report unobserved cost as unknown, never zero.
-For comparisons, separate baseline validity and missed known regressions from
-wall-time differences. Synthetic corpus savings are not production savings.
+Reuse evidence only when its required validity conditions match. A replay recording
+may cross revisions to perform actions again, but its new results belong to the
+current source and environment. Give reruns unique output locations; preserve
+earlier failures rather than overwriting them. A seed or a line saying pass is not
+a reproducible evidence package. Retain artifacts under repository retention policy.
+
+## Suite changes and efficiency
+
+For create/audit/optimize, apply `test-lifecycle.md`. Report contract protection,
+test count and per-test/shared setup timing before/after where measured. For
+sampled mutation, identify the same valid faults and show killed/survived/invalid/
+equivalent/inconclusive counts; setup failure is not a killed regression.
+
+Compare planning and test-generation effort, runner/model calls, tokens, retries,
+CI minutes, device CPU/peak memory and human review effort when observable.
+Separate benchmark overhead from task execution. Report false positives and missed
+known/seeded regressions, including the denominator and untested classes. Unknown
+values stay unknown/null. Elapsed time is not billable CI minutes. Estimates and
+synthetic fixture results are not measured production savings; test count or prompt
+length reductions alone do not establish efficiency.
+
+## UI and optional agentic execution
+
+Record the charter, exact path/goal exercised, identities and outcomes asserted,
+observed surfaces/viewports, and only relevant screenshot references. If an agentic
+engine ran, include its version, raw errors, actual replay/live/handoff and reasons,
+budget/termination state and unfinished steps. No findings from exploration does
+not establish mandatory claims. Label semantic judgments separately from exact
+assertions and live runs separately from synthetic fixtures.
+
+## Impact-selection and semantic receipts
+
+Reuse source/manifest/policy fingerprints, provider provenance, selected/skipped
+group reasons, required checks and broadening from existing impact-selection
+receipts. Selection evidence declares why a group was chosen, not that it passed;
+link actual execution outcomes separately. Preserve deterministic fallback and
+mandatory policy, including when advice is unavailable or uncertain.
 
 Semantic reports keep baseline, effective and hypothetical plans separate. Include
 consumer status, profile/threshold revisions, attempted/completed/abstained counts,

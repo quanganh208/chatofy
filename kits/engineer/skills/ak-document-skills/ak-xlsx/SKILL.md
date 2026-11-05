@@ -1,8 +1,7 @@
 ---
-name: ak:xlsx
-description: Create, edit, analyze spreadsheets (.xlsx, .csv, .tsv). Use for Excel formulas, data analysis, visualization, formatting, pivot tables, charts, formula recalculation.
-user-invocable: true
-when_to_use: "Invoke for spreadsheet analysis, formulas, charts, or edits."
+name: ak-xlsx
+description: "Create, edit and analyze .xlsx, .csv or .tsv spreadsheets: Excel formulas, pivot tables, charts, formatting, recalculation."
+when_to_use: "Invoke for spreadsheet data analysis or visualization."
 category: multimedia
 keywords: [xlsx, excel, spreadsheet, data]
 license: Proprietary. LICENSE.txt has complete terms

@@ -1,6 +1,6 @@
 # Job Spec
 
-`/ak:orchestrate` accepts YAML or turns a free-form request into YAML under the
+`/ak-orchestrate` accepts YAML or turns a free-form request into YAML under the
 run report directory. This file owns the durable data shape and execution
 semantics. It does not own a runtime roster, model catalog, or provider route.
 
@@ -10,13 +10,13 @@ before dispatch:
 - [runtime-matrix.md](runtime-matrix.md): live candidate evidence;
 - [model-routing.md](model-routing.md): the sole selection policy;
 - [harness-profiles.md](harness-profiles.md): control evidence;
-- [internal-routing.md](internal-routing.md): in-session agent mechanics.
+- [session-routing.md](session-routing.md): current-runtime session mechanics.
 
 ## Schema
 
 ```yaml
 version: 1
-concurrency: 2
+concurrency: <admitted-concurrency>   # from concurrency-admission.md
 workspace_roots: [<authorized-workspace-root>]
 defaults:
   timeout: 10m
@@ -68,8 +68,9 @@ jobs:
 ```
 
 Candidate identifiers are opaque strings until the current run verifies them.
-`agent` is meaningful only for in-session dispatch. `skill` is meaningful only
-for the AgentKit skill-run branch. Do not copy a candidate list into this file.
+`agent` names a role profile loaded into a session brief; it is meaningful
+only for `runtime: internal` and never selects a nested agent. `skill` is
+meaningful only for the AgentKit skill-run branch. Do not copy a candidate list into this file.
 
 `effect` and `approval` are normalized coordinator intent, not runtime flags.
 The live harness profile maps them to verified native sandbox, permission, and
@@ -86,8 +87,8 @@ Every job includes:
 - `model` or a routable `task`.
 
 When `model` is present it is an explicit constraint, not proof of availability.
-The live inventory gate still applies. Internal model selection is allowed
-only when the current native dispatch interface proves that capability.
+The live inventory gate still applies. Session model selection is allowed
+only when the current runtime's session create surface proves that capability.
 
 `isolation: worktree` is required for parallel writers in one repository and
 for any write whose verified harness controls do not otherwise satisfy the
@@ -108,7 +109,7 @@ Before stage construction:
 4. Require bounded timeout and capture for every job.
 5. Verify each primary and fallback runtime in the live matrix.
 6. Map effect, approval, and tool constraints to verified native controls.
-7. Verify explicit model and agent constraints.
+7. Verify explicit model and role-profile constraints.
 8. Reject parallel write overlap unless file ownership is disjoint and each
    writer has the required isolation.
 9. Bind external/destructive work to existing scoped user authorization; ask
@@ -163,7 +164,12 @@ Declared verification commands run under a persisted supervisor run. Acceptance
 may report verification pending; retain the same receipt and repeat `accept`
 after observing its run. A client interruption never authorizes a second set
 of checks. On hosts without process supervision, declared subprocess checks
-remain unsupported rather than silently losing their deadline guarantee.
+remain unsupported rather than silently losing their deadline guarantee: block
+a job whose user or supplied spec declares `verification:`, and never convert
+it to `checks:`. A coordinator-authored spec on such a host lists its check
+commands under descriptive `checks:`; the harness runs them with its own
+bounded timeout, and the report records each command, exit status and output
+as harness-attested, not supervisor-verified.
 
 Record selected route separately from receipt `observed` identity and its
 evidence source. Unknown actual provider/model stays absent; executable names

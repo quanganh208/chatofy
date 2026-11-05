@@ -1,14 +1,14 @@
-# `ak:handoff --dispatch` Job Spec Template
+# `ak-handoff --dispatch` Job Spec Template
 
-`ak:handoff --dispatch` builds one deterministic single-job YAML spec and dispatches
-it through `ak:orchestrate`. This file defines the template and the field
+`ak-handoff --dispatch` builds one deterministic single-job YAML spec and dispatches
+it through `ak-orchestrate`. This file defines the template and the field
 mapping rules.
 
 **Do not restate** the full job-spec schema, runtime matrix, or
 model-routing policy — those live in
-`ak:orchestrate/references/job-spec.md`,
-`ak:orchestrate/references/runtime-matrix.md`,
-and `ak:orchestrate/references/model-routing.md`.
+`ak-orchestrate/references/job-spec.md`,
+`ak-orchestrate/references/runtime-matrix.md`,
+and `ak-orchestrate/references/model-routing.md`.
 This template only fills in the subset a dispatch-generated single job
 needs.
 
@@ -30,8 +30,9 @@ or another routing shape.
 
 ### Trap 2 — `model:` is not allowed for `runtime: internal`
 
-`job-spec.md` explicitly says internal jobs do not set `model`. `--model`
-must therefore be:
+Orchestrate allows `model:` on an internal job only when the live session
+surface proves model selection, which dispatch mode cannot check before
+handing off. As a handoff policy, `--model` must therefore be:
 
 - Passed through to `model:` for CLI runtimes (`claude-code`, `codex`,
   `ak-run`, and all external CLIs).
@@ -105,8 +106,8 @@ Only add these fields when the resolved runtime requires them; leave
 absent otherwise.
 
 - `agent:` — meaningful only for `runtime: internal` (per `job-spec.md`).
-  Dispatch mode does not choose the in-session agent; leave it to
-  `ak:orchestrate/references/internal-routing.md`.
+  It names a role profile for the session; dispatch mode does not choose
+  one. Leave it to `ak-orchestrate/references/session-routing.md`.
 - `skill:` — meaningful only for `runtime: ak-run`. Set to the target
   skill's name when the handoff's Exact next actions section is a skill
   invocation.
@@ -130,7 +131,7 @@ absent otherwise.
 
 ## Validation checklist (pre-dispatch)
 
-Before calling `ak:orchestrate`, verify the built spec by inspection:
+Before calling `ak-orchestrate`, verify the built spec by inspection:
 
 - [ ] Exactly one job.
 - [ ] `runtime:` matches a first-class or external ID from
@@ -152,5 +153,5 @@ Any failure is a hard blocker. Print the failing check(s) and stop; do not
 
 The built spec is written to
 `plans/reports/orchestrate-<timestamp>/jobs.yaml` before dispatch, per
-`ak:orchestrate` convention. The handoff artifact path is preserved as an
+`ak-orchestrate` convention. The handoff artifact path is preserved as an
 input pointer in the run report.

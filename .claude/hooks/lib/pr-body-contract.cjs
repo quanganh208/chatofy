@@ -1,6 +1,6 @@
 /**
- * Evidence-rich PR body contract for ak:ship (#1195).
- * ak:review-pr validates these sections without inventing missing narrative.
+ * Evidence-rich PR body contract for ak-ship (#1195).
+ * ak-review-pr validates these sections without inventing missing narrative.
  */
 
 'use strict';

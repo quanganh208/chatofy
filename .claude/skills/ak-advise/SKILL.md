@@ -1,16 +1,14 @@
 ---
-name: ak:advise
-description: "Interview until user and agent share the same picture of the outcome, preview it visually, then deliver evidence-backed technical advice. Use for advisory interviews and second opinions; implementation belongs to a delivery workflow."
-user-invocable: true
-disable-model-invocation: true
-when_to_use: "Invoke when the user wants honest advice, a second opinion, requirement reframing, or an interview that pressure-tests an existing plan, design, or proposal — before planning or implementation."
+name: ak-advise
+description: "Interview until user and agent share the outcome picture, preview it, then give evidence-backed advice."
+when_to_use: "Invoke for second opinions or plan pressure-tests before planning; implementation goes to a delivery workflow."
 category: workflow
 keywords: [advice, interview, requirements, reframing, alignment, preview, tradeoffs, second-opinion, github, wiki, html, report]
 argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
-license: MIT
+license: Proprietary
 metadata:
   author: agentkit
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # Advise
@@ -105,10 +103,10 @@ For a new or materially changed reframing, draft it, render a visual preview of 
 
 **Preview.** Users rarely picture the result accurately from text, so show it. Render what the finished outcome will look like or how it will behave, drawn only from the reframing, labelled as a hypothetical end state rather than existing code, with your assumptions marked visibly so the user can correct them:
 
-- Use `ak:diagram` when the outcome has parts and connections: architecture, workflow, data flow, lifecycle, sequence, or the scope boundary (what is in, what is out).
-- Use `ak:explain --html` when the user needs to see how the result will work or feel: a walkthrough of the end state, a before/after, sample inputs and outputs. Add `--eli5` for a non-technical reader.
+- Use `ak-diagram` when the outcome has parts and connections: architecture, workflow, data flow, lifecycle, sequence, or the scope boundary (what is in, what is out).
+- Use `ak-explain --html` when the user needs to see how the result will work or feel: a walkthrough of the end state, a before/after, sample inputs and outputs. Add `--eli5` for a non-technical reader.
 - When neither skill is installed or the runtime cannot open HTML, show an inline Mermaid diagram plus a text mockup (sample output, a sketched screen, or a before/after table) in the conversation.
-- For `ak:diagram`, write to the reports directory with `--out`, using the injected `## Naming` pattern with type `advise` and a `-preview` suffix. `ak:explain` writes to its own visuals location; use the path it reports. Give the user the actual path. Without an injected naming pattern, show the preview inline instead of writing a file. Label the preview as the proposed outcome, not an implementation.
+- For `ak-diagram`, write to the reports directory with `--out`, using the injected `## Naming` pattern with type `advise` and a `-preview` suffix. `ak-explain` writes to its own visuals location; use the path it reports. Give the user the actual path. Without an injected naming pattern, show the preview inline instead of writing a file. Label the preview as the proposed outcome, not an implementation.
 - Skip the preview only when the outcome has no structure worth drawing (a single factual answer) or the user already declined previews in an earlier answer; never spend a separate question on it. Say it was skipped.
 - Fold each round of preview feedback into the reframing before re-rendering, so the confirmed reframing carries everything the preview changed.
 
@@ -131,9 +129,9 @@ Then structure the advice as:
 7. **Trade-offs**: bulleted, honest costs of the recommendation — including what the user's own decisions cost where you disagreed. State the condition under which the recommendation stops being the right call, and what it costs to switch away from it then.
 8. **Unverified** (only when something is): claims the advice relies on that you could not confirm, each with where you looked (files, commands, URLs) and what would confirm it. Keep verified evidence and belief visibly separate.
 9. **Work checklist, success metrics & handoff brief**: end the advice so the reader can act, know when the work is finished, and know whether it worked:
-   - *Work checklist*: an ordered checkbox list (`- [ ] ...`) of the actual tasks needed to execute the recommendation, small enough to hand to `ak:plan` or `ak:cook`.
+   - *Work checklist*: an ordered checkbox list (`- [ ] ...`) of the actual tasks needed to execute the recommendation, small enough to hand to `ak-plan` or `ak-cook`.
    - *Success metrics*: signals that the delivered result is working once it is delivered or adopted — each verifiable by a command, a number, or an observable state, not a vibe. State the target value where one exists.
-   - *Handoff brief*: a fenced block the user can paste as a single message to an executor (`ak:plan`, `ak:cook`, or a long autonomous run) so it can work to the end without back-and-forth:
+   - *Handoff brief*: a fenced block the user can paste as a single message to an executor (`ak-plan`, `ak-cook`, or a long autonomous run) so it can work to the end without back-and-forth:
 
      ```text
      Objective: <the recommended work in one sentence>
@@ -144,6 +142,8 @@ Then structure the advice as:
      ```
 
      Stop conditions are few and specific; everything else the executor decides and continues. Choose from: a failure it cannot explain, a destructive or irreversible action (deleting data, force-pushing, rewriting published history), a change outside the confirmed scope or repository, and a decision listed under Needs from you. Do not add "ask before each step" or other check-ins that stall a long run. If the recommended path would change a confirmed end state, keep the confirmed item in Done means, list the proposed change under Needs from you, and add it as a stop condition.
+
+**Extensibility check** (only when the advice shapes an architecture or a boundary several variants share): name the one next extension the evidence makes credible (a provider, runtime, tenant, workflow, or policy) and trace it through the recommendation: what must be edited, what stays unchanged, and which data, APIs, tests, migrations, and operational controls it touches. Compare a narrow seam now with staying concrete and refactoring when the second case arrives, counting compatibility, switching, migration, test, and operational cost, including what the abstraction itself costs to build, read, and maintain. Recommend the lower total cost. With one real case and no credible second, advise concrete, reversible code and name any registry, plugin system, factory, or config layer built only for future-proofing, and not requested by the user, under *What you shouldn't do*; when the user asked for it, keep it in scope and record its cost under *Trade-offs*. Two real variants keep their shared behavior out of the variant-specific code. Variants with different capabilities share semantics behind a capability-aware boundary; never advise pretending they support identical primitives. Label any unevidenced future requirement as speculation. Fold the result into the existing sections; it adds no interview question, section, or gate, and a local fix skips it.
 
 Apply **KISS** and **DRY**. Advise on the full requested scope — never recommend trimming or deferring what the user explicitly asked for; if you believe scope is wrong, say so as a trade-off, not as a cut. Add nothing unrequested. Prefer boring, proven approaches; flag novelty as risk unless the user's goals demand it. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 
@@ -171,6 +171,6 @@ Load [optional-modes.md](references/optional-modes.md); preserve five candidates
 ## Workflow Position
 
 **Typically starts from:** a raw user idea before requirements are clear.
-**Typically follows:** `/ak:scout` (advise after discovery)
-**Typically precedes:** `ak:brainstorm` (deeper solution exploration), `ak:plan` (plan the accepted advice)
-**Related:** `ak:ask` (single-shot answers without interview), `ak:brainstorm` (design-focused, ends in a plan handoff; advise ends in a recommendation the user takes elsewhere)
+**Typically follows:** `/ak-scout` (advise after discovery)
+**Typically precedes:** `ak-brainstorm` (deeper solution exploration), `ak-plan` (plan the accepted advice)
+**Related:** `ak-ask` (single-shot answers without interview), `ak-brainstorm` (design-focused, ends in a plan handoff; advise ends in a recommendation the user takes elsewhere)

@@ -1,6 +1,6 @@
 /**
  * Resolve the writing language for human-facing GitHub prose authored by
- * ak:ship and ak:review-pr.
+ * ak-ship and ak-review-pr.
  *
  * Precedence (first non-empty wins):
  *   1. AGENTKIT_LANGUAGE

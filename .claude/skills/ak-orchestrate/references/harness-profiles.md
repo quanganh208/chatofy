@@ -12,16 +12,16 @@ installed, authenticated, safe, or capable.
 ## Profile Schema
 
 Record these fields for every candidate named by the job spec, fallback chain,
-or current internal harness:
+or current runtime's session surface:
 
 | Evidence | What to record |
 | --- | --- |
-| Identity | Runtime id, executable or internal mechanism, live version when exposed |
-| Availability | Resolved path or live agent-list evidence; available, constrained, unavailable, or unverified |
+| Identity | Runtime id, executable or session-start surface, live version when exposed |
+| Availability | Resolved path or live session-operation evidence; available, constrained, unavailable, or unverified |
 | Authentication | Non-interactive readiness only; never credentials, tokens, or raw environment values |
-| Headless entry | Verified command shape or internal dispatch mechanism |
+| Headless entry | Verified command shape or session-start mechanism |
 | Working directory | Whether cwd can be pinned and how it is enforced |
-| Model or agent discovery | Live listing mechanism and resolved choices; no copied catalog |
+| Model discovery | Live listing mechanism and resolved choices, including whether a session can select them; no copied catalog |
 | Provider identity | Resolved provider and model family when exposed; different harnesses may use the same model |
 | Extension and nested-agent controls | Enabled extensions and child-agent tools, enforcement and limits; include nested work in concurrency/budget accounting |
 | Permissions | Approval modes, tool allow/deny controls, and whether headless mode auto-approves |
@@ -64,9 +64,8 @@ For a CLI candidate:
    establish, and record the page or command checked in the run inventory.
 7. Run no write probe against the user's shared tree.
 
-For `runtime: internal`, profile the current session's agent interface and live
-agent definitions instead of a binary. See
-[internal-routing.md](internal-routing.md).
+For `runtime: internal`, profile the current runtime's session operations
+instead of a binary. See [session-routing.md](session-routing.md).
 
 Unknown flags, aliases, or model identifiers are probe failures. Re-verify the
 candidate; never guess a replacement.
@@ -84,8 +83,8 @@ Profile safety behavior by observed control, not product reputation.
 - **Isolation:** state whether the boundary is OS-enforced, containerized,
   worktree-only, prompt-only, or absent.
 - **Timeout:** coordinator-owned process timeout is required for CLI jobs even
-  when a native budget exists. Internal timeouts are accounting-only unless
-  the current harness proves cancellation.
+  when a native budget exists. Session timeouts are accounting-only unless
+  the runtime proves cancellation.
 - **Bypass controls:** identify the live runtime's bypass options only to keep
   them disabled. Never add one to a default command.
 

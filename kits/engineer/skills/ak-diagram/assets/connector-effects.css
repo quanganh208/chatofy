@@ -1,5 +1,5 @@
 /*
- * ak:diagram animated connector effects
+ * ak-diagram animated connector effects
  * 8 zero-dependency effects. Apply via data-fx="<name>" on SVG <path>, <line>, <polyline>.
  * Every effect exposes CSS custom properties for tuning — see references/animation-effects.md.
  * All effects respect prefers-reduced-motion via the media query at the bottom.

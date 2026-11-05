@@ -1,3 +1,5 @@
+# Modified by AgentKit from anthropics/skills (Apache-2.0); see NOTICE.txt and
+# LICENSE.txt in the skill directory.
 """Lightweight connection handling for MCP servers (mcp Python SDK v2)."""
 
 from typing import Any

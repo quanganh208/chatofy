@@ -4,7 +4,9 @@ Use the executable run's `metrics.jsonl` plus arbiter evidence. Compare accepted
 quality and first-pass verification, retries, intervention count and reason,
 wall time, and usage/cost only when reported. Preserve runtime, provider, model
 family, task class, inputs and budget so comparisons mean the same thing.
-Unknown cost is null, not free; more output is not better work.
+Unknown cost is null, not free; more output is not better work. Exclude
+attempts with error class `unsupported_platform`: they record a host limit, not
+a runtime result.
 
 Turn a diagnosed failure into a bounded regression case, rerun with equivalent
 inputs and checks, and compare the result. A meaningful sample of comparable

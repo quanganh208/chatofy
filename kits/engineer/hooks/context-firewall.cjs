@@ -32,6 +32,7 @@ try {
   const { resolveThresholds } = require('./lib/context-firewall/thresholds.cjs');
   const journal = require('./lib/context-firewall/journal.cjs');
   const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
+  const { blockToolUse } = require('./lib/hook-block.cjs');
 
   try {
     const timer = createHookTimer('context-firewall', { event: 'PreToolUse' });
@@ -115,9 +116,9 @@ try {
     }
 
     if (verdict.action === 'block') {
-      console.error(message);
-      timer.end({ tool: toolName, status: 'block', exit: 2, target, note: verdict.signalId });
-      process.exit(2);
+      const exitCode = blockToolUse(message);
+      timer.end({ tool: toolName, status: 'block', exit: exitCode, target, note: verdict.signalId });
+      process.exit(exitCode);
     }
 
     // warn and narrow both let the call proceed; narrow additionally hands the

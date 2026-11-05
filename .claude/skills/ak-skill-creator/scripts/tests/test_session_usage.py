@@ -1,9 +1,10 @@
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
@@ -271,6 +272,108 @@ class SessionUsageTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             self.assertEqual(session_usage.main(['ak-demo-skill', '--root', root, '--exclude-session', 'sess-claude-1']), 1)
             self.assertEqual(session_usage.main(['ak-demo-skill', '--root', root, '--entrypoint', 'codex_exec']), 1)
+
+    def test_session_inventory_lists_every_skill_with_trigger_and_files(self):
+        path = self.root / 'claude' / 'proj' / 'sess-claude-1.jsonl'
+        other = {'file_path': '/home/u/.claude/skills/ak-other/references/a.md'}
+        write_jsonl(path, [
+            user(0, '<command-name>/ak:demo-skill</command-name>\n<command-args>audit</command-args>'),
+            user(0, [{'type': 'text', 'text': 'Base directory for this skill: /home/u/.claude/skills/ak-demo-skill'}], isMeta=True),
+            assistant(1, 'm1', [tool_use('t1', 'Read', other)]),
+            user(2, result('t1')),
+            assistant(3, 'm2', [tool_use('t2', 'Skill', {'skill': 'plugin:ak-third'}), tool_use('t3', 'Read', other)]),
+            user(4, result('t2') + result('t3', is_error=True)),
+            user(5, 'This session is being continued from a previous conversation.', isCompactSummary=True),
+            user(6, [{'type': 'text', 'text': '[Request interrupted by user]'}]),
+        ])
+        inv = session_usage.session_inventory('claude-code', path)
+        by_name = {s['skill']: s for s in inv['skills']}
+        self.assertEqual([s['skill'] for s in inv['skills']], ['ak-demo-skill', 'ak-other', 'ak-third'])
+        self.assertEqual((by_name['ak-demo-skill']['triggers'], by_name['ak-demo-skill']['files']), ({'user': 1}, {'SKILL.md': 1}))
+        self.assertEqual((by_name['ak-other']['invoked'], by_name['ak-other']['files']), (False, {'references/a.md': 2}))
+        self.assertEqual(by_name['ak-third']['triggers'], {'model': 1})
+        self.assertEqual((inv['tool_calls'], inv['tool_errors'], inv['duplicate_calls']), (3, 1, 1))
+        self.assertEqual(inv['errors_by_tool'], {'Read': 1})
+        self.assertEqual((inv['turns'], inv['compactions'], inv['interruptions']), (2, 1, 1))
+        self.assertEqual(inv['session'], 'sess-cla')
+
+    def test_codex_session_inventory_counts_mentions_and_skill_reads(self):
+        path = self.root / 'codex' / 'rollout-9.jsonl'
+
+        def item(second, payload, kind='response_item'):
+            return {'timestamp': ts(second), 'type': kind, 'payload': payload}
+
+        write_jsonl(path, [
+            item(0, {'id': 'codex-session-9', 'cwd': str(self.root)}, 'session_meta'),
+            item(1, {'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'use $ak-demo-skill now, not $MY_PRIVATE_codename or $500'}]}),
+            item(2, {'type': 'function_call', 'name': 'exec_command', 'call_id': 'c0',
+                     'arguments': json.dumps({'cmd': 'cat ~/.agents/skills/ak-demo-skill/SKILL.md'})}),
+            item(3, {'type': 'function_call', 'name': 'exec_command', 'call_id': 'c1',
+                     'arguments': json.dumps({'cmd': 'cat ~/.agents/skills/ak-two/SKILL.md'})}),
+            item(4, {'type': 'function_call_output', 'call_id': 'c1', 'output': 'Exit code: 1'}),
+        ])
+        inv = session_usage.session_inventory('codex', path)
+        self.assertEqual([(s['skill'], s['triggers']) for s in inv['skills']],
+                         [('ak-demo-skill', {'user': 1}), ('ak-two', {'model': 1})])
+        self.assertNotIn('MY_PRIVATE_codename', json.dumps(inv))
+        self.assertEqual((inv['session'], inv['human_prompts'], inv['tool_errors']), ('codex-se', 1, 1))
+
+    def test_latest_session_falls_back_to_the_nearest_project_ancestor(self):
+        project = self.root / 'repo'
+        sub = project / 'kits' / 'core'
+        sub.mkdir(parents=True)
+        path = self.root / 'claude' / re.sub(r'[^A-Za-z0-9]', '-', str(project)) / 's1.jsonl'
+        write_jsonl(path, [user(0, 'hi')])
+        roots = {'claude-code': [self.root / 'claude']}
+        self.assertEqual(session_usage.find_session(roots, 'latest', sub), ('claude-code', path))
+        self.assertIsNone(session_usage.find_session(roots, 'latest', self.root / 'elsewhere'))
+
+    def test_main_session_resolves_path_or_id_and_rejects_ambiguous_input(self):
+        path = self.claude_fixture()
+        root = f'claude-code={self.root / "claude"}'
+        for selector in (str(path), 'sess-claude-1'):
+            out = io.StringIO()
+            with redirect_stdout(out):
+                self.assertEqual(session_usage.main(['--session', selector, '--root', root]), 0)
+            self.assertEqual(json.loads(out.getvalue())['skills'][0]['skill'], 'ak-demo-skill')
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            self.assertEqual(session_usage.main(['--session', 'missing', '--root', root]), 1)
+            for argv in (['ak-demo-skill', '--session', 'latest'], []):
+                with self.assertRaises(SystemExit):
+                    session_usage.main(argv)
+
+    def test_all_sessions_rank_skills_and_keep_troubled_sessions_as_leads(self):
+        claude = self.root / 'claude'
+        write_jsonl(claude / 'p1' / 'a.jsonl', [
+            user(0, '<command-name>/ak-demo-skill</command-name>'),
+            user(0, [{'type': 'text', 'text': 'Base directory for this skill: /home/u/.claude/skills/ak-demo-skill'}], isMeta=True),
+            assistant(1, 'm1', [tool_use('t1', 'Bash', {'command': 'x'}), tool_use('t2', 'Bash', {'command': 'x'})]),
+            user(2, result('t1', is_error=True) + result('t2', is_error=True)),
+        ])
+        write_jsonl(claude / 'p2' / 'b.jsonl', [
+            {**user(0, '<command-name>/ak-demo-skill</command-name>'), 'sessionId': 'sess-b'},
+            {**user(0, [{'type': 'text', 'text': 'Base directory for this skill: /home/u/.claude/skills/ak-demo-skill'}], isMeta=True), 'sessionId': 'sess-b'},
+            {**user(0, '<command-name>/compact</command-name>'), 'sessionId': 'sess-b'},
+            {**assistant(1, 'm1', [tool_use('t1', 'Skill', {'skill': 'ak:other'})]), 'sessionId': 'sess-b'},
+        ])
+        write_jsonl(claude / 'p3' / 'plain.jsonl', [{**user(0, 'no skill here'), 'sessionId': 'sess-plain'}])
+        write_jsonl(claude / 'p4' / 'current.jsonl', [{**assistant(0, 'm1', [tool_use('t1', 'Skill', {'skill': 'ak-third'})]), 'sessionId': 'current-1'}])
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = session_usage.main(['--all', '--root', f'claude-code={claude}', '--jobs', '1', '--exclude-session', 'current-1'])
+        report = json.loads(out.getvalue())
+        self.assertEqual(code, 0)
+        self.assertEqual((report['transcripts_scanned'], report['sessions_with_skills']), (4, 2))
+        by_name = {s['skill']: s for s in report['skills']}
+        self.assertEqual([s['skill'] for s in report['skills']], ['ak-demo-skill', 'ak-other'])
+        demo = by_name['ak-demo-skill']
+        self.assertEqual((demo['sessions'], demo['sessions_with_errors'], demo['tool_errors'], demo['duplicate_calls']), (2, 1, 2, 1))
+        self.assertEqual(demo['errors_by_tool'], {'Bash': 2})
+        self.assertEqual([(lead['session'], lead['score']) for lead in demo['leads']], [('sess-cla', 3)])
+        self.assertEqual(by_name['ak-other']['triggers'], {'model': 1})
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                session_usage.main(['--all', '--session', 'latest'])
 
 
 if __name__ == '__main__':

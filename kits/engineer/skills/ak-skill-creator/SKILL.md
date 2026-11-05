@@ -1,15 +1,14 @@
 ---
-name: ak:skill-creator
-description: "Create, update, audit, validate, and package agent skills. Use when authoring SKILL.md resources or diagnosing skill routing and behavior. Not for implementing CLI or MCP servers."
-user-invocable: true
-when_to_use: "Use when creating or maintaining a skill, auditing its instructions, or evaluating its activation and outputs."
+name: ak-skill-creator
+description: "Create, update, audit, validate and package agent skills and their SKILL.md resources, or diagnose skill routing; not for implementing CLI or MCP servers."
+when_to_use: "Use when diagnosing skill routing, activation or outputs."
 category: meta
 keywords: [skills, authoring, audit, routing, evaluation]
-license: Apache-2.0 and MIT; see LICENSE.txt and LICENSE-MIT.txt
+license: Proprietary; includes Apache-2.0 and MIT material, see LICENSE.txt, LICENSE-MIT.txt and NOTICE.txt
 argument-hint: "<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user] [--long-horizon] [--apply] [--from-audit <report>] [--advice]"
 metadata:
   author: agentkit
-  version: "5.7.0"
+  version: "5.9.0"
 ---
 
 # Skill Creator
@@ -17,6 +16,23 @@ metadata:
 Build practical instructions for fresh consumers on the runtimes the user targets.
 Capture the outcome, audience, constraints and completion criteria; preserve accepted
 behavior and user-owned files. Load only the resources needed for the selected task.
+
+`references/production-skill-standard.md` is the canonical authoring contract; the other
+references explain how to meet it.
+
+Before scaffolding, make the placement decision: prove that a skill is the right packaging
+unit. Prefer extending an existing owner, adding a reference corpus, script, validator,
+template, or scoped rule or agent context when those satisfy the need without adding
+another activation surface. Consolidate by task contract (intent, output, authority,
+evidence, resources), not by shared topic. Knowledge libraries are not automatically
+skills. A new skill should add at least one thing the consumer cannot reliably infer from
+the task alone: runtime or organizational contracts, domain-specific evidence/rules,
+deterministic capabilities, authority boundaries, or recurring failure protections.
+
+Favor **guardrails, not railroads**. Define the observable destination, authority, evidence,
+and known bad solution space; leave implementation choices to the consumer unless order is
+required by data dependency, safety, reproducibility, or a proven reliability gain. Encode
+organizational scar tissue and domain-specific failure modes before generic textbook advice.
 
 ## Choose the workflow
 
@@ -37,6 +53,13 @@ a particular native tool, model or provider is available.
 
 - Write outcome, context, constraints and verification at normal volume. Keep exact
   steps where order protects data or a later step consumes an earlier result.
+- Separate the common-path core from optional knowledge. Keep SKILL.md focused on outcome,
+  authority, done criteria, high-value constraints, failure modes and routing; move frameworks,
+  catalogs, examples and broad domain education to references.
+- Prefer constraints that exclude a concrete failure mode over vague prohibitions. A run of
+  `do not` lines is still micromanagement when the rules are generic or untestable.
+- Treat generic expertise as suspect by default. If a capable consumer can infer the advice
+  from the task and project context, omit it unless evaluation shows a measurable benefit.
 - Make routing concise and specific. `references/metadata-quality-criteria.md` owns
   description guidance; length and emphatic wording do not establish activation quality.
 - State authority and sensitive-data boundaries for credentials, external services
@@ -64,12 +87,16 @@ exemption for a real constraint; heuristic findings are not deletion instruction
 |---|---|
 | Metadata/activation | Actual catalog routing traces, positives and adjacent negatives |
 | Instructions, examples or scripts | Matched original/candidate consumer artifacts; create also compares no skill |
+| New routable skill | Evidence that an existing skill/reference/script/context owner is insufficient, plus routing negatives against adjacent owners |
 | Creator workflow | `references/creator-consumer-evaluation.md`: evaluate generated skills with independent consumers |
 | Packaging or target layout | Inspect package contents and validate extracted resources |
 | Spelling/format only, no semantic change | Structural checks and review; explain why consumer reruns are unnecessary |
 
 `references/testing-and-iteration.md` owns comparisons, holdout and completion
 evidence; `references/evaluation-tools.md` owns executable records and observed cost.
+When evaluating a knowledge-heavy skill, distinguish information value from packaging value:
+where practical compare current skill, thin skill, no skill with equivalent resources/tools,
+and direct-context delivery of the same useful material.
 Audit ends with session evidence, findings, retained constraints and proposed changes. Optimize ends
 with the diff or authorized application and comparison results. Do not repeat passed
 checks without new changes, failures or unresolved risk.
@@ -91,6 +118,7 @@ configuration are protected by that mode's scope contract.
 
 | Need | Read |
 |---|---|
+| Production contract, placement and validator rules | `references/production-skill-standard.md` |
 | Body writing, examples and specificity | `references/writing-effective-instructions.md` |
 | Layout, metadata fields and context loading | `references/skill-anatomy-and-requirements.md`, `references/yaml-frontmatter-reference.md`, `references/token-efficiency-criteria.md` |
 | Reusable scripts and dependencies | `references/script-quality-criteria.md`, `references/script-dependency-strategy.md` |
@@ -99,10 +127,12 @@ configuration are protected by that mode's scope contract.
 | Packaging and marketplace delivery | `references/distribution-guide.md`, `references/cross-marketplace-distribution.md` |
 | Skillmark listing | `references/benchmark-optimization-guide.md` |
 
-Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>]` for a new skeleton.
+Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>]` for a new skeleton and
+`scripts/skill_standard_report.py <root>` for a warning-first summary across many skills.
 `scripts/eval_skill.py` validates cases, grades existing artifacts and summarizes
 observations; it does not invoke providers. `scripts/session_usage.py` measures a skill's
-past invocations in local transcripts without printing their content. For packaging, follow the distribution
+past invocations in local transcripts without printing their content; `--session` inventories
+every skill one session used. For packaging, follow the distribution
 guide's inspection steps and `scripts/package_skill.py`. Script regression tests:
 
 ```bash

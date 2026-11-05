@@ -7,12 +7,22 @@ from unittest.mock import patch
 from test_semantic_routing import catalog, cases, record
 from semantic_routing_contract import encoded, fingerprint
 from semantic_routing_metrics import compare
-from semantic_routing_providers import ReplayProvider
+from semantic_routing_providers import CLI_ENVELOPE_LIMIT, DecisionCLIProvider, ReplayProvider
 from semantic_routing_runner import evaluate
 from semantic_routing_runtime import summarize_runtime
 
 
 class RoutingValidationTests(unittest.TestCase):
+    def test_cli_envelope_fits_full_routing_catalog(self):
+        self.assertEqual(CLI_ENVELOPE_LIMIT, 131072 + 8192)
+        base = len(encoded({"state": ""}))
+        with patch("semantic_routing_providers.subprocess.Popen", side_effect=OSError("started")) as popen:
+            with self.assertRaisesRegex(OSError, "started"):
+                DecisionCLIProvider("ak").call({"state": "x" * (CLI_ENVELOPE_LIMIT - base)}, validate=True)
+            with self.assertRaisesRegex(ValueError, "cli_envelope_limit"):
+                DecisionCLIProvider("ak").call({"state": "x" * (CLI_ENVELOPE_LIMIT - base + 1)}, validate=True)
+            self.assertEqual(popen.call_count, 1)
+
     def test_nested_malformed_replay_and_incompatible_fields(self):
         cat, doc = catalog(), cases(1)
         for field in ("answers", "provenance", "answer", "data"):

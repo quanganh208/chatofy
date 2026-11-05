@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Resolve the persisted `worktree.root` AgentKit config value for ak:worktree.
+ * Resolve the persisted `worktree.root` AgentKit config value for ak-worktree.
  *
  * Precedence (highest → lowest), matching `getWorktreeRoot()` in
  * `worktree.cjs`:

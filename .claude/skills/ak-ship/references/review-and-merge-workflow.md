@@ -2,6 +2,10 @@
 
 ## Step 13: Review, fix, reply, and merge
 
+Skip this step in a batch-landing repository (see "Batch-landing
+repositories" in the skill): the repository's landing owner merges, so report
+`Merge=delegated` and stop.
+
 Run only when `--merge` is present and after Step 12 created or updated a PR,
 its body passed validation, and Step 12b completed or explicitly skipped
 without a plan. Capture one concrete PR URL or number as `PR_REF`; missing or
@@ -10,16 +14,16 @@ ambiguous PR state is a blocker.
 Activate the inherited review skill exactly once:
 
 ```text
-ak:review-pr <PR_REF> --fix --reply --merge
+ak-review-pr <PR_REF> --fix --reply --merge
 ```
 
 When `--advice` was passed, preserve supervision across the handoff:
 
 ```text
-ak:review-pr <PR_REF> --fix --reply --merge --advice
+ak-review-pr <PR_REF> --fix --reply --merge --advice
 ```
 
-`ak:review-pr` exclusively owns PR review, fix convergence, GitHub reply,
+`ak-review-pr` exclusively owns PR review, fix convergence, GitHub reply,
 merge-readiness, merge mechanics, and post-merge CI convergence. Do not
 reimplement or bypass those gates. `--skip-review` affects only local Step 5;
 it never removes `--fix --reply` here.

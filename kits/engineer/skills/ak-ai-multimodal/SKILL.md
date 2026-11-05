@@ -1,11 +1,10 @@
 ---
-name: ak:ai-multimodal
-description: Analyze and generate image, audio, video, and document content. Prefers the active model's native vision for image/document understanding; falls back to the npm-latest Multix CLI and live provider catalogs only when native vision is ineligible or a generation/audio/video task needs a configured provider.
-user-invocable: true
-when_to_use: "Invoke for media generation, transcription, or vision/OCR tasks the active model's native vision cannot handle."
+name: ak-ai-multimodal
+description: "Analyze and generate image, audio, video and document content, falling back from native vision to the Multix CLI and live provider catalogs."
+when_to_use: "Invoke for media generation, transcription or OCR the model cannot do."
 category: media
 keywords: [vision, image, video, audio, Gemini]
-license: MIT
+license: Proprietary
 allowed-tools:
   - Bash
   - Read
@@ -158,7 +157,7 @@ lines:
 
 ## Outputs
 
-Invoke `ak:project-organization` when generated assets need to be grouped into a
+Invoke `ak-project-organization` when generated assets need to be grouped into a
 project, campaign, report, or deliverable folder.
 
 ## Resources

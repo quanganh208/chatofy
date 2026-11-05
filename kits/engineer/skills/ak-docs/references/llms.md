@@ -109,7 +109,7 @@ user explicitly requests them. Prefer essential, citation-worthy content.
 
 ## 6. Generation path
 
-When the engineer `ak:llms` skill and its `generate-llms-txt.py` script are
+When the engineer `ak-llms` skill and its `generate-llms-txt.py` script are
 installed in this environment, you MAY delegate generation to it:
 
 ```bash

@@ -1,6 +1,6 @@
 {
   "fixture": "synthetic-third-party-action",
-  "note": "Synthetic input for the ak:docs handoff evaluation. No production, staging, or provider system was contacted, and every identifier below is a placeholder.",
+  "note": "Synthetic input for the ak-docs handoff evaluation. No production, staging, or provider system was contacted, and every identifier below is a placeholder.",
   "action": "first deploy to a managed hosting provider under an authorized task",
   "provider": "example-hosting",
   "dashboard": "provider console -> project -> deployments",

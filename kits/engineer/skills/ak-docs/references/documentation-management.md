@@ -1,8 +1,8 @@
 # Documentation Impact Routing
 
 Use this file when another workflow must decide whether docs are affected. For
-full operations, invoke `/ak:docs init`, `/ak:docs update`, `/ak:docs summarize`,
-or `/ak:docs agent-context` (root `CLAUDE.md`/`AGENTS.md`).
+full operations, invoke `/ak-docs init`, `/ak-docs update`, `/ak-docs summarize`,
+or `/ak-docs agent-context` (root `CLAUDE.md`/`AGENTS.md`).
 
 ## Update docs when a change affects
 
@@ -44,12 +44,12 @@ another reconciliation layer.
 
 ## Cross-skill handoffs
 
-- `/ak:cook` and `/ak:fix`: update docs during finalize only when the impact
+- `/ak-cook` and `/ak-fix`: update docs during finalize only when the impact
   criteria above apply.
 - The installed planning skill reads routed project context before creating an
   execution plan.
-- `/ak:preview`: keep temporary visuals with the active plan; link them from
+- `/ak-preview`: keep temporary visuals with the active plan; link them from
   evergreen docs only when they remain useful.
-- `/ak:tech-graph`: use for publish-grade diagrams when a visual materially
+- `/ak-tech-graph`: use for publish-grade diagrams when a visual materially
   improves the document.
 - Any skill editing `docs/` applies `references/doc-content-rules.md`.

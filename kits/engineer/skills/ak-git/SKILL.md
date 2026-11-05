@@ -1,8 +1,7 @@
 ---
-name: ak:git
-description: "Git operations with conventional commits. Use for staging, committing, pushing, PRs, merges, stacked PRs. Auto-splits commits by type/scope. Security scans for secrets."
-user-invocable: true
-when_to_use: "Invoke for commits, PRs, stacked PRs, branch hygiene, or release git steps."
+name: ak-git
+description: "Run Git staging, commits, pushes and merges with conventional commits, auto-split by type/scope, and secret scanning."
+when_to_use: "Invoke for merges, PRs, stacked PRs, branch hygiene or release steps."
 category: workflow
 keywords: [git, commits, staging, PR, merge, merge-pr, stack, stacked-prs, ci]
 argument-hint: "cm|cp|pr|merge|merge-pr|stack [args]"

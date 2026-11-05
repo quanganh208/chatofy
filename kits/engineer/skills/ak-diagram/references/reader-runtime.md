@@ -1,6 +1,6 @@
 # Interactive Reader Runtime Guide
 
-The `ak:diagram` interactive reader provides rich, browser-free, self-contained tools embedded directly into emitted HTML artifacts.
+The `ak-diagram` interactive reader provides rich, browser-free, self-contained tools embedded directly into emitted HTML artifacts.
 
 ## Grounded Reader Tools
 

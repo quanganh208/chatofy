@@ -53,7 +53,7 @@ Diagnosis discipline: fetch `--log-failed` and quote the exact failing lines
 as evidence before concluding anything. A failure that also reproduces on the
 base branch predates the change — verify with
 `gh run list --branch <base> --workflow <wf>` before blaming the PR. To fix a
-diagnosed failure in code, activate `ak:fix` with the run URL, job name, and
+diagnosed failure in code, activate `ak-fix` with the run URL, job name, and
 log excerpt.
 
 ### Rerun / dispatch

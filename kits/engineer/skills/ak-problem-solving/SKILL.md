@@ -1,8 +1,7 @@
 ---
-name: ak:problem-solving
-description: Apply systematic problem-solving techniques when stuck. Use for complexity spirals, innovation blocks, recurring patterns, assumption constraints, simplification cascades, scale uncertainty.
-user-invocable: true
-when_to_use: "Invoke when stuck and needing structured reframing."
+name: ak-problem-solving
+description: "Apply systematic techniques when stuck: complexity spirals, innovation blocks, recurring patterns, assumptions, simplification or scale."
+when_to_use: "Invoke for structured reframing of a blocked problem."
 category: reasoning
 keywords: [problem-solving, stuck, patterns, simplify]
 argument-hint: "[problem description] [--ultra]"

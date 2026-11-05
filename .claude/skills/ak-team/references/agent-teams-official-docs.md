@@ -2,7 +2,7 @@
 
 > Canonical live source: <https://code.claude.com/docs/en/agent-teams>
 
-This reference records the durable model used by `ak:team`. It deliberately
+This reference records the durable model used by `ak-team`. It deliberately
 does not copy current flags, tool schemas, model choices, storage paths,
 shortcuts, client support, limits, or experimental status. Inspect those from
 the live runtime and canonical documentation at execution time.

@@ -35,25 +35,29 @@ const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 
 const { resolveAkBinary } = require('./lib/ak-prefs-client.cjs');
+const { asciiJson, blockToolUse } = require('./lib/hook-block.cjs');
+const { readRuntimeMarker } = require('./lib/runtime-state-identity.cjs');
 
 /**
  * The fields a reference may appear in, per tool. Anything not listed here is
  * left byte-for-byte alone, including the fields of tools that are not listed
  * at all.
  *
- * Bash.command and WebFetch.url are the two places a credential is actually
- * needed at call time. Both put the value on a command line or in a URL, which
- * the operator opted into by writing the reference; the hook's job is to keep
- * that to the fields they named, not to widen it.
+ * A shell command (Bash.command, PowerShell.command) and WebFetch.url are the
+ * places a credential is actually needed at call time. They put the value on a
+ * command line or in a URL, which the operator opted into by writing the
+ * reference; the hook's job is to keep that to the fields they named, not to
+ * widen it.
  */
 const SUBSTITUTABLE_FIELDS = Object.freeze({
   Bash: Object.freeze(['command']),
+  PowerShell: Object.freeze(['command']),
   WebFetch: Object.freeze(['url'])
 });
 
 /**
  * Fields that name a single network destination, so the hook can tell
- * `ak secrets resolve` where a released value is about to go. Bash.command
+ * `ak secrets resolve` where a released value is about to go. A shell command
  * is not here even though it also reaches the network sometimes: a shell
  * command line has no one field that is "the destination", so there is
  * nothing safe to extract from it.
@@ -65,7 +69,10 @@ const DESTINATION_FIELDS = Object.freeze({ WebFetch: Object.freeze(['url']) });
  * not data, it is part of a command line, and the hook has no way to know the
  * quoting context the operator wrote around the reference.
  */
-const SHELL_FIELDS = Object.freeze({ Bash: Object.freeze(['command']) });
+const SHELL_FIELDS = Object.freeze({
+  Bash: Object.freeze(['command']),
+  PowerShell: Object.freeze(['command'])
+});
 
 /**
  * Characters that can end an argument and start something else, widen it into
@@ -95,6 +102,20 @@ const SHELL_FIELDS = Object.freeze({ Bash: Object.freeze(['command']) });
  * original set already refused.
  */
 const SHELL_UNSAFE_PATTERN = /[\s`$"'\\;&|<>()*?[\]{}~#!%^\x00-\x1f\x7f]/;
+
+/**
+ * What PowerShell additionally treats as structure, on top of
+ * SHELL_UNSAFE_PATTERN (which already refuses its variable sigil `$`, its
+ * escape backtick, `;`, `|`, `&`, `(`, `{`, `[`, and its `#` comment):
+ *
+ * - `,` builds an array in argument mode, and an array passed to a native
+ *   command becomes separate arguments, so it splits one value into several;
+ * - `@` at the start of an argument splats a variable (`@args`);
+ * - typographic quotes (U+2018-U+201E) are quote characters to the
+ *   PowerShell tokenizer, so one can end the quoted string the operator wrote;
+ * - C1 control characters (U+0080-U+009F), which include NEL.
+ */
+const POWERSHELL_UNSAFE_PATTERN = /[,@\u2018-\u201e\u0080-\u009f]/;
 
 /** Matches one complete reference. An unterminated one is left as written. */
 const REF_PATTERN = /\$\{secret:([^{}\s]+)\}/g;
@@ -197,10 +218,12 @@ function destinationHost(toolName, field, rawValue) {
  * Whether value can be substituted into a shell command line without changing
  * its structure.
  * @param {string} value
+ * @param {string} [toolName] - the PowerShell tool also refuses POWERSHELL_UNSAFE_PATTERN
  * @returns {boolean}
  */
-function isShellSafeValue(value) {
-  return typeof value === 'string' && !SHELL_UNSAFE_PATTERN.test(value);
+function isShellSafeValue(value, toolName) {
+  if (typeof value !== 'string' || SHELL_UNSAFE_PATTERN.test(value)) return false;
+  return toolName !== 'PowerShell' || !POWERSHELL_UNSAFE_PATTERN.test(value);
 }
 
 /**
@@ -364,6 +387,15 @@ function refusalReason(ref, status) {
         'refused until a cool-down passes. Do not retry: retrying is the thing the limit exists to ' +
         'stop, and each attempt is recorded. Say that the reference is unavailable and continue ' +
         'without it.';
+    case 5:
+      // Most often the audit ledger: an operational store this ak build
+      // cannot open, such as one a newer build wrote. The remedy belongs to
+      // the operator, so this names where to read it, not how to apply it.
+      return `"${ref}" could not be resolved: the secret backend, the grant file, or the audit ledger ` +
+        'failed, and a release that cannot be recorded never happens, so approving the request will ' +
+        'not help. The usual cause is an operational store this ak build cannot open (for example one ' +
+        'a newer build wrote); `ak data status` names its state and the safe remedy. Report it and ' +
+        'continue without the reference.';
     case 3:
       return `no secret named "${ref}" is stored. Run \`ak secrets set ${ref}\`, or remove the reference.`;
     case 2:
@@ -374,16 +406,34 @@ function refusalReason(ref, status) {
         'in the memory of the process that asked for it. Set `secrets.backend` to the keychain on hosts ' +
         'where agents resolve secrets unattended, or run the command that needs this secret directly ' +
         'in a terminal instead of through a hook.';
+    case 15:
+      return `"${ref}" is refused by a synced vault policy, or this device cannot tell whether one ` +
+        'governs it (a synced record it cannot decrypt, an unsettled policy conflict, or unreadable ' +
+        'sync state). No grant or approval answers it from here; the operator has to fix the vault ' +
+        '(`ak secrets sync status` shows the state). Report it and continue without the reference.';
     default:
       return `"${ref}" could not be resolved (ak exited ${status === null ? 'abnormally' : status}). ` +
         'Run `ak data status` to check the audit ledger.';
   }
 }
 
+/**
+ * Codex has no "ask" decision: it fails a hook that returns one open, and the
+ * call runs with the literal reference. Without the operator's opt-in to
+ * "allow", refuse a Codex call before any value is released.
+ */
+function refuseUnconfirmableRuntime() {
+  if (process.env.AGENTKIT_SECRETS_INJECT_AUTO_ALLOW === '1' || readRuntimeMarker() !== 'codex') return;
+  // Like refusalReason, this tells the model nothing it could do to resolve
+  // its own request; the opt-in is the operator's, documented for them.
+  block('Codex cannot ask the operator to confirm a call that carries a stored secret, so ' +
+    'references are not resolved on Codex unless the operator has opted in from their own ' +
+    'environment (see the AgentKit secrets guide). Report it and continue without the reference.');
+}
+
 /** Block the tool call, explaining why without naming any value. */
 function block(reason) {
-  process.stderr.write(`SECRETS BLOCK: ${reason}\n`);
-  process.exit(2);
+  process.exit(blockToolUse(`SECRETS BLOCK: ${reason}`));
 }
 
 /**
@@ -458,7 +508,7 @@ function makeResolver(binary, payload, verifiedHosts) {
     // A field whose destination could not be verified before substitution
     // (destinationIsVerifiable said no, so it is absent from verifiedHosts)
     // sends no --dest-host at all -- the same as a field with no single
-    // destination to name in the first place, like Bash.command.
+    // destination to name in the first place, like a shell command.
     // `ak secrets resolve` is what turns that into a decision: it refuses an
     // empty destination outright for a grant --allow-host restricts, and
     // places no restriction at all for one that does not, which is what
@@ -500,10 +550,14 @@ function makeResolver(binary, payload, verifiedHosts) {
       block(`the answer for "${ref}" is in an unsupported format; update the ak CLI.`);
     }
     // The character is deliberately not named: it is one byte of a credential.
-    if (isShellField(payload.tool_name, field) && !isShellSafeValue(envelope.data.value)) {
+    if (isShellField(payload.tool_name, field) && !isShellSafeValue(envelope.data.value, payload.tool_name)) {
+      const powershell = payload.tool_name === 'PowerShell'
+        ? '; and for PowerShell also `,`, `@`, or a typographic quote'
+        : '';
       block(`the stored value of "${ref}" contains a character that would change the structure of the ` +
         'shell command it was about to be placed in (whitespace; a quote, backslash, or redirection/' +
-        'separator character; a glob or brace character; `~`, `#`, `!`, `%`, or `^`; or a control character). ' +
+        'separator character; a glob or brace character; `~`, `#`, `!`, `%`, or `^`; or a control character' +
+        `${powershell}). ` +
         'Pass it to the command through an environment variable instead, or store a value without it.');
     }
     return envelope.data.value;
@@ -528,6 +582,7 @@ function main() {
 
   const toolInput = payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {};
   if (!fields.some((field) => extractRefs(toolInput[field]).length > 0)) process.exit(0);
+  refuseUnconfirmableRuntime();
 
   const destFields = Object.prototype.hasOwnProperty.call(DESTINATION_FIELDS, payload.tool_name)
     ? DESTINATION_FIELDS[payload.tool_name]
@@ -576,9 +631,10 @@ function main() {
   // "allow" would also skip the permission prompt the call would otherwise
   // get. An operator who wants unattended runs opts in from their own
   // environment, never from a file a cloned repository could ship. Codex
-  // rejects "allow" unless updatedInput comes with it, which it always does.
+  // rejects "allow" unless updatedInput comes with it, which it always does,
+  // and has no "ask" (see refuseUnconfirmableRuntime).
   const decision = process.env.AGENTKIT_SECRETS_INJECT_AUTO_ALLOW === '1' ? 'allow' : 'ask';
-  process.stdout.write(JSON.stringify({
+  process.stdout.write(asciiJson({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: decision,

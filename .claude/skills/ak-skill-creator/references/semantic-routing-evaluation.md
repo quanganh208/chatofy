@@ -19,7 +19,8 @@ runtime name/version/settings, scope, provenance kind/source/complete, canonical
 namespaced skill ids, descriptions, optional when_to_use/keywords and trace paths.
 Use opaque IDs only inside decision requests; reports retain canonical identities.
 `cases.json` shows stable IDs, natural unforced prompts, expected canonical skill or
-`none`, positive/indirect/near-miss class and fixed train/holdout split. Expected
+`none`, positive/indirect/near-miss/no-skill class and fixed train/holdout split. A
+`no-skill` case asks for something no skill owns and must expect `none`. Expected
 labels stay local and never enter the shared decision request. The public fixtures
 are protocol examples, not measured skill quality or an independent holdout.
 
@@ -29,7 +30,7 @@ python3 scripts/semantic_routing_eval.py snapshot --export visible-catalog.json 
 
 Each batch contains the complete 2–127-skill catalog plus `none`, and 1–8 cases.
 The case file supports 10,000 cases. Every normalized request and exact provider
-encoding must fit the Go-owned 16 KiB state/32 KiB request ceilings. No truncation,
+encoding must fit the Go-owned routing-eval ceilings (64 KiB state, 128 KiB request). No truncation,
 competitor removal or partial-catalog selection is permitted. Catalogs that cannot
 fit even one case are unavailable. Case batches execute sequentially.
 
@@ -54,6 +55,46 @@ video false positive. It demonstrates a regression being retained in the report;
 it is not a measured improvement. Comparison permits changed metadata hashes but
 requires matching cases/splits, holdout identity, canonical roster, runtime/settings,
 scope, resolved provider/model, Go profile version, protocol and batch schedule. Mismatch is confounded.
+
+## AgentKit catalogs and cases
+
+`agentkit-engineer-cases.json` and `agentkit-marketing-cases.json` hold natural
+AgentKit prompts with positives, indirect requests, near-misses between adjacent
+owners and no-skill requests in both splits. Validate them against a catalog built
+from the frozen kit snapshot (`docs/conformance/skill-catalog/<kit>.json` in the
+AgentKit repository; only model-invocable skills enter):
+
+```bash
+python3 scripts/semantic_routing_eval.py catalog-from-snapshot --snapshot docs/conformance/skill-catalog/engineer.json --output engineer-catalog.json
+```
+
+That catalog is `source-derived-composition` with `complete: false`: it predicts the
+roster from kit composition but is not a runtime-visible export, so `run` and
+`replay` report it incomplete rather than scoring it. For a scored diagnostic, use
+a runtime-visible export (`tools/evals/catalog-exposure` in the AgentKit repository
+captures one per runtime); full Engineer and Marketing catalogs fit the ceilings.
+
+## Restructured rosters
+
+`compare` requires one canonical roster. When skills are renamed, merged, split or
+removed, author an identity map (`agentkit-engineer-identity-example.json` is a
+hypothetical example, not a roster decision): each mapping names `from`, `to` and
+`kind`; a split needs `case_owners` naming the owner of every affected case. Unmapped
+baseline skills must still exist in the candidate roster.
+
+```bash
+python3 scripts/semantic_routing_eval.py remap --cases cases.json --identity-map identity.json --catalog catalog.json --candidate-catalog candidate.json --output candidate-cases.json
+python3 scripts/semantic_routing_eval.py compare-restructure --baseline before.json --candidate after.json --baseline-records before.json.records.jsonl --candidate-records after.json.records.jsonl --cases cases.json --identity-map identity.json --output restructure.json
+```
+
+Run the candidate with the remapped cases. The comparison is confounded unless the
+candidate case hash equals the remap of the baseline cases and runtime, scope,
+provider, split and batch schedule match. It reports owner accuracy, false
+activations on no-skill cases, per-class and per-owner counts, and fixed/regressed
+cases. A baseline choice of a merged skill counts for its new owner. Cases whose
+original label is `none` judge each run's raw choice, so picking a skill the map
+removes is still wrong there, and false activations count only `no-skill` cases.
+Per-owner false positives for a removed skill stay under its baseline id.
 
 ## Explicit live experiment and fixed holdout
 

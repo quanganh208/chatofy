@@ -1,8 +1,7 @@
 ---
-name: ak:pptx
-description: Create, edit, analyze .pptx PowerPoint files. Use for presentations, slides, layouts, speaker notes, template modification, content extraction, slide generation.
-user-invocable: true
-when_to_use: "Invoke for presentation deck creation, edits, or extraction."
+name: ak-pptx
+description: "Create, edit and analyze .pptx PowerPoint decks: layouts, speaker notes, templates, extraction, slide generation."
+when_to_use: "Invoke for presentation work."
 category: multimedia
 keywords: [pptx, powerpoint, slides, office]
 license: Proprietary. LICENSE.txt has complete terms

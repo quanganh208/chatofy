@@ -3,7 +3,7 @@
 ## Input
 
 ```text
-/ak:goal-warmup "Deploy staging and verify health" --fast
+/ak-goal-warmup "Deploy staging and verify health" --fast
 ```
 
 ## Estimate

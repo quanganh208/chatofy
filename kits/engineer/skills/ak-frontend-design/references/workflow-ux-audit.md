@@ -10,8 +10,8 @@ or unfinished, with concrete fixes. Judge every finding against
 - Ask which environment to audit and its URL. Prefer dev or staging; audit production
   read-only unless the user explicitly allows mutations there.
 - Drive the browser through the user's real Chrome session (Chrome MCP, or
-  `ak:chrome-profile` when installed and a specific profile is needed) so existing
-  logins apply. Fall back to `ak:agent-browser` when the audit needs no account state.
+  `ak-chrome-profile` when installed and a specific profile is needed) so existing
+  logins apply. Fall back to `ak-agent-browser` when the audit needs no account state.
 - If a page needs authentication, ask the user to sign in themselves in that browser
   and wait. Never type passwords, tokens or payment details, and never create accounts.
 - Agree on destructive boundaries before clicking: do not submit real payments, send

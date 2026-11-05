@@ -1,11 +1,10 @@
 ---
-name: ak:backend-development
-description: Build backends with Node.js, Python, Go (NestJS, FastAPI, Django). Use for REST/GraphQL/gRPC APIs, auth (OAuth, JWT), databases, microservices, security (OWASP), Docker/K8s.
-user-invocable: true
-when_to_use: "Invoke when backend/API implementation is the main surface."
+name: ak-backend-development
+description: "Implement server code in Node.js, Python or Go (Express, NestJS, FastAPI, Django): endpoints, services, data access, auth, tests."
+when_to_use: "Invoke for handlers, slow endpoints or N+1 queries; schema-only design is ak-databases."
 category: engineering
 keywords: [nodejs, python, go, api, rest, graphql]
-license: MIT
+license: Proprietary
 argument-hint: "[framework] [task]"
 metadata:
   author: agentkit

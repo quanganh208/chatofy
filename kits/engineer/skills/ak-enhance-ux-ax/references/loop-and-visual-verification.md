@@ -31,7 +31,7 @@ loaded state, plus key interaction states (menu open, modal, hover/focus on the
 primary action).
 
 - Preferred: the render-check script shipped with the installed
-  `ak:frontend-design` skill, resolved from that skill's own installed root:
+  `ak-frontend-design` skill, resolved from that skill's own installed root:
   `node <frontend-design-root>/scripts/render-check.mjs <url> --out <round-dir>`.
   It saves full-page screenshots per viewport and reports overflow, contrast,
   clipping and touch-target defects as text.

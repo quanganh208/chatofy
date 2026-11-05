@@ -71,6 +71,16 @@ Never create a public fallback.
 - A credential created under an authorized task goes to the designated store and
   is verified by metadata or receipt, never read back into context.
 - A URL with a token, a signed query, or a bearer grant is still a secret.
+- Detect `.env`/`.env.*` files by name only, never by opening them. With `ak`
+  available, `.prefs.secretStore.choice` from `ak config prefs resolve --json`
+  names the approved store: `ak-vault` (document `ak secrets` ref names and hand
+  credential work to `ak-vault`), `env-file`, or `external:<name>` (document
+  that route and never suggest the vault; flag an unignored secrets file once,
+  without blocking). Unset and interactive: recommend `ak-vault` once, with
+  `.env.*` and another manager as equal answers plus this-project or
+  every-project scope, then record it with `ak config prefs set
+  secret_store.choice <value> --scope project|user`. Unset and `--json`/CI: do
+  not ask; treat the store as unknown.
 
 ## Logs by environment
 

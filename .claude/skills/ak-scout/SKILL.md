@@ -1,8 +1,7 @@
 ---
-name: ak:scout
-description: "Fast codebase scouting using native search, optional Explore agents, and user-permitted OpenCode probes. Use for file discovery, task context gathering, and scoped searches across directories."
-user-invocable: true
-when_to_use: "Invoke for fast file discovery and codebase orientation."
+name: ak-scout
+description: "Scout a codebase fast with native search, optional Explore agents and user-permitted OpenCode probes."
+when_to_use: "Invoke for file discovery, task context or scoped searches."
 category: workflow
 keywords: [codebase, scouting, file-discovery, search]
 argument-hint: "[search-target] [ext] [--ultra]"
@@ -152,5 +151,5 @@ verifier mode inspired by LLM-as-a-Verifier, not the full framework.
 
 ## Workflow Position
 
-**Typically precedes:** `/ak:fix` (fix after locating code)
-**Related:** `the engineer debug skill` (investigate after scouting), `/ak:brainstorm` (explore after scouting), `the installed code-review skill` (scout edge cases before review, engineer tier)
+**Typically precedes:** `/ak-fix` (fix after locating code)
+**Related:** `the engineer debug skill` (investigate after scouting), `/ak-brainstorm` (explore after scouting), `the installed code-review skill` (scout edge cases before review, engineer tier)

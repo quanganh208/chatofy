@@ -8,7 +8,7 @@ Adversarially review an implementation plan by spawning parallel reviewer subage
 
 1. If `$ARGUMENTS` provided → Use that path
 2. Else check `## Plan Context` section → Use active plan path
-3. If no plan found → Ask user to specify path or run `/ak:plan` first
+3. If no plan found → Ask user to specify path or run `/ak-plan` first
 
 ## Workflow
 
@@ -85,8 +85,8 @@ Required checks:
 - Key risks addressed
 
 ## Next Steps
-Remind user they can run `/ak:plan validate {plan-directory-path}` before implementation.
-When the user approves implementation, run `/ak:cook {ABSOLUTE_PATH_TO_PLAN_DIR}/plan.md`.
+Remind user they can run `/ak-plan validate {plan-directory-path}` before implementation.
+When the user approves implementation, run `/ak-cook {ABSOLUTE_PATH_TO_PLAN_DIR}/plan.md`.
 Add `--auto` only when the user explicitly asks for autonomous implementation.
 
 ## Important Notes

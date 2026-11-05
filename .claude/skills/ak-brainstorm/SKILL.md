@@ -1,15 +1,14 @@
 ---
-name: ak:brainstorm
+name: ak-brainstorm
 description: "Turn unclear intent into an accepted outcome and compare viable approaches before delivery."
-user-invocable: true
-when_to_use: "Use at the opening of multi-step delivery or when a diagnosed problem has meaningful solution choices."
+when_to_use: "Use when opening multi-step delivery or picking between viable fixes."
 category: workflow
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
-license: MIT
-argument-hint: "[topic or problem] [--ask] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
+license: Proprietary
+argument-hint: "[topic or problem] [--ask] [--advice] [--html] [--ak-render] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: "2.8.2"
+  version: "2.9.0"
   workflow:
     precedes: [ak-plan, ak-cook]
 ---
@@ -91,6 +90,21 @@ When the work has a real design choice:
    cheapest to abandon.
 5. Resolve material disagreement before implementation begins.
 
+**Evolutionary design lens.** Generalize the stable, isolate the variable, defer
+the speculative. When the choice shapes a boundary that evidenced variants share,
+separate the invariants the cases actually share from the axes of variation that
+code, tests, contracts, or approved decisions evidence. Take one credible second
+case (provider, runtime, tenant, workflow, or policy) and ask what each approach
+would make you edit and what would stay unchanged. Compare a narrow seam at an
+existing boundary now with concrete code refactored when that case arrives, and
+pick the lower total cost, counting the abstraction's own cost. One real case
+with no credible second stays concrete unless the user requested the seam, in
+which case it stays in scope with its cost recorded as a trade-off; two real variants keep their shared
+behavior out of the variant-specific code; variants with different capabilities
+share semantics behind a capability-aware boundary. Label an unevidenced future
+as speculation. Record the result in the existing Trade-offs or Better
+approaches field; it adds no contract field, and a local fix or simple change skips it.
+
 Challenge assumptions with evidence. Apply KISS and DRY. Deliver the full
 requested scope — never trim or defer what the user explicitly asked for. Do not
 invent extra components, migrations, or governance to make a design look
@@ -105,6 +119,7 @@ the stated outcome.
 |---|---|
 | `--ask` | `references/interview-mode.md`; interview once, never forward this flag |
 | `--html` | `references/html-output-mode.md`; additional HTML brief |
+| `--ak-render` | Opt-in (implies `--html`): compile the brief with AK Render (also selected by a project `.ak-render/` directory); see `references/html-output-mode.md` |
 | `--report` | `references/report-output-mode.md`; durable Markdown, composes with HTML |
 | `--advice` | `references/advice-mode.md`; explicit supervisor checkpoints |
 | `--ultra` | `references/brainstorm-ultra-mode.md`; five candidates and verifier |
@@ -144,8 +159,8 @@ When `--ask` is present and unsettled material decisions remain after evidence i
 Pass the contract fields, including Trade-offs and Better approaches when present, chosen direction, evidence, and unresolved risks
 to the next owning workflow:
 
-- feature or documentation delivery: the installed plan skill, then `/ak:cook`;
-- diagnosed bug: `/ak:fix`;
+- feature or documentation delivery: the installed plan skill, then `/ak-cook`;
+- diagnosed bug: `/ak-fix`;
 - exploration only: report the recommendation and stop.
 
 If the user passed `--yagni`, include the literal flag in every downstream skill
@@ -173,7 +188,7 @@ do not create a report merely to satisfy the gate.
 
 ## Workflow position
 
-**Typically precedes:** `ak-plan`, `/ak:cook`.
+**Typically precedes:** `ak-plan`, `/ak-cook`.
 
 **Bug path:** opening intent frame -> scout and debug -> solution brainstorm when
-needed -> `/ak:fix`.
+needed -> `/ak-fix`.

@@ -13,7 +13,7 @@ Scan and analyze the codebase following the Orchestration Protocol, Core Respons
 ### Research
 * Use 2 `researcher` subagents in parallel to search up to 5 sources
 * Keep every research report concise (≤150 lines)
-* Use `/ak:scout` skill invocation to search the codebase
+* Use `/ak-scout` skill invocation to search the codebase
 
 ### Code Review
 * Use multiple `code-reviewer` subagents in parallel to review code

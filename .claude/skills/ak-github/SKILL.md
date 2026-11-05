@@ -1,8 +1,7 @@
 ---
-name: ak:github
-description: "Operate and manage GitHub projects fluently with the gh CLI — create/update/close issues with evidence-backed dedup checks, manage labels, PRs (create, review, rebase, auto-merge), GitHub Projects, Actions CI/CD, and org/repo/environment/secret administration. Use whenever the user asks to file an issue, triage issues, manage a PR lifecycle, inspect CI runs, or administer repositories via gh."
-user-invocable: true
-when_to_use: "Invoke for any gh CLI operation: issue lifecycle (create/update/close with dedup + evidence checks), label management, PR lifecycle, GitHub Projects, Actions runs, or org/repo/environment/secret administration."
+name: ak-github
+description: "Operate GitHub via gh CLI: deduped issues, labels, PRs (create, review, rebase, auto-merge), Projects, Actions CI/CD, org/repo/env/secret admin."
+when_to_use: "Invoke to file or triage issues, manage a PR or inspect CI runs."
 category: workflow
 keywords: [github, gh, issue, label, pr, pull request, projects, actions, ci, cd, workflow, org, repo, environment, secrets, auto-merge, rebase, triage]
 argument-hint: "<task description or issue/PR ref> [--interactive] [--advice]"
@@ -109,12 +108,12 @@ Flags compose (`--interactive --advice` is valid). Strip flags from
 ## Cross-skill activation
 
 - Before creating an issue, scout only when its claims depend on source not already inspected. Reuse supplied evidence tied to the same revision; keep the issue-workflows dedup and history checks before publication.
-- PR review, fix loop, or merge-with-CI-watch: activate `ak:review-pr`
+- PR review, fix loop, or merge-with-CI-watch: activate `ak-review-pr`
   (`--fix`, `--reply`, `--merge` as needed) instead of reimplementing review.
-- Security scan of a PR or repo: activate `ak:security` and attach its
+- Security scan of a PR or repo: activate `ak-security` and attach its
   findings as evidence.
-- Commits, pushes, branch hygiene behind a PR task: activate `ak:git`.
-- Fixing a CI failure found via Actions: activate `ak:fix` with the exact
+- Commits, pushes, branch hygiene behind a PR task: activate `ak-git`.
+- Fixing a CI failure found via Actions: activate `ak-fix` with the exact
   failing run URL, job, and log excerpt.
 
 ## Templates

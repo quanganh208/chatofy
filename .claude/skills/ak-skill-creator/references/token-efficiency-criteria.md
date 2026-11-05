@@ -21,17 +21,24 @@ Skills use progressive disclosure to minimize context window usage.
 
 **Include in SKILL.md:**
 - Outcome, scope and completion criteria
+- Authority boundaries and domain-specific recurring failure protections
 - A minimal router for multiple workflows, with conditions for loading each resource
 - Safety and authorization boundaries needed across workflows
 - Exact common commands where their placement prevents mistakes
 
 **Move to references/:**
 - Detailed documentation
+- Framework, mental-model and idea catalogs
+- Broad professional education or textbook material
 - Database schemas
 - API specs
 - Step-by-step guides
 - Examples and templates
 - Best practices
+
+Progressive disclosure is not only a file-size optimization. It preserves the consumer's
+solution space by keeping optional frameworks out of the common reasoning path until the
+task provides a reason to load them.
 
 ## Measure actual loading
 

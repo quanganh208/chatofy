@@ -341,5 +341,5 @@ curl -sI localhost:3000/docs/intro/opengraph-image
 ```
 
 Then click each page action in a browser on desktop and mobile widths. For the
-full audit contract, use the marketing kit's `ak:seo geo` checklist when that
+full audit contract, use the marketing kit's `ak-seo geo` checklist when that
 kit is installed.

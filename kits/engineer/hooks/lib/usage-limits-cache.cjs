@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -11,12 +12,32 @@ const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 const DEFAULT_USER_AGENT = 'claudekit-engineer/1.0';
 const DEFAULT_ELIGIBILITY_CACHE_TTL_MS = 60_000;
 
-function getUsageCachePath() {
-  return process.env.CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
+// claudeConfigDir is the Claude Code config directory a profile launcher such
+// as CCS selects through CLAUDE_CONFIG_DIR, or null for the default ~/.claude.
+function claudeConfigDir(envObj = process.env) {
+  const dir = typeof envObj?.CLAUDE_CONFIG_DIR === 'string' ? envObj.CLAUDE_CONFIG_DIR.trim() : '';
+  return dir || null;
 }
 
-function getQuotaEligibilityCachePath() {
-  return process.env.CK_USAGE_ELIGIBILITY_CACHE_PATH || `${getUsageCachePath()}.eligibility`;
+function sha256Hex(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+// Each Claude config directory signs in its own account, so its quota cache
+// gets its own file and profiles never read each other's quota. The default
+// directory keeps the original file name. The core context builder and the
+// marketing statusline derive the same path.
+function getUsageCachePath(envObj = process.env) {
+  if (envObj?.CK_USAGE_CACHE_PATH) return envObj.CK_USAGE_CACHE_PATH;
+  const dir = claudeConfigDir(envObj);
+  const name = dir
+    ? `ck-usage-limits-cache-${sha256Hex(path.resolve(dir)).slice(0, 12)}.json`
+    : 'ck-usage-limits-cache.json';
+  return path.join(os.tmpdir(), name);
+}
+
+function getQuotaEligibilityCachePath(envObj = process.env) {
+  return envObj?.CK_USAGE_ELIGIBILITY_CACHE_PATH || `${getUsageCachePath(envObj)}.eligibility`;
 }
 
 function readUsageCache(cachePath = getUsageCachePath()) {
@@ -110,14 +131,24 @@ function hasAnthropicRuntimeOverride(envObj = process.env) {
     .some((key) => typeof envObj?.[key] === 'string' && envObj[key].trim() !== '');
 }
 
+// readClaudeCredentials reads the credentials of the Claude config directory
+// in use: CLAUDE_CONFIG_DIR when set, otherwise ~/.claude. A profile's own
+// directory never falls back to the default account's credentials. On macOS
+// Claude Code keeps them in the keychain, under a service name suffixed with
+// a hash of a non-default config directory.
 function readClaudeCredentials({
   platform = os.platform(),
   homedir = os.homedir(),
+  env: envObj = process.env,
   execSyncImpl = execSync
 } = {}) {
+  const configDir = claudeConfigDir(envObj);
   if (platform === 'darwin') {
+    const service = configDir
+      ? `Claude Code-credentials-${sha256Hex(configDir).slice(0, 8)}`
+      : 'Claude Code-credentials';
     try {
-      const raw = execSyncImpl('security find-generic-password -s "Claude Code-credentials" -w', {
+      const raw = execSyncImpl(`security find-generic-password -s "${service}" -w`, {
         timeout: 5_000,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'ignore']
@@ -128,7 +159,8 @@ function readClaudeCredentials({
   }
 
   try {
-    const credentialsPath = path.join(homedir, '.claude', '.credentials.json');
+    const dir = configDir ? path.resolve(configDir) : path.join(homedir, '.claude');
+    const credentialsPath = path.join(dir, '.credentials.json');
     const parsed = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
@@ -263,6 +295,7 @@ module.exports = {
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_FETCH_TIMEOUT_MS,
   DEFAULT_ELIGIBILITY_CACHE_TTL_MS,
+  claudeConfigDir,
   getUsageCachePath,
   getQuotaEligibilityCachePath,
   readUsageCache,

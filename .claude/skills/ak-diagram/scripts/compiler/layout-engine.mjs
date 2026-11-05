@@ -1,5 +1,5 @@
 /**
- * Layout engine for the ak:diagram compiler.
+ * Layout engine for the ak-diagram compiler.
  * Turns validated IR into a scene: sized nodes placed in rank columns (or
  * swimlane cells), frames for boundaries / lanes / stages, routed edges, a
  * legend and motion steps. Sequence diagrams use their own lifeline layout.

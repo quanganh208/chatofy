@@ -6,7 +6,7 @@ Interview the user with critical questions to validate assumptions, confirm deci
 
 1. If `$ARGUMENTS` provided → Use that path
 2. Else check `## Plan Context` section → Use active plan path
-3. If no plan found → Ask user to specify path or run `/ak:plan --hard` first
+3. If no plan found → Ask user to specify path or run `/ak-plan --hard` first
 
 ## Configuration
 
@@ -94,7 +94,7 @@ Present user-choice next steps with the absolute path:
 > **Best Practice:** Run `/clear` before implementing to start with fresh context.
 > If the user chooses implementation, run:
 > ```
-> /ak:cook {ABSOLUTE_PATH_TO_PLAN_DIR}/plan.md
+> /ak-cook {ABSOLUTE_PATH_TO_PLAN_DIR}/plan.md
 > ```
 > **Flag selection:** If Verification Results show `Failed: 0`, the plan is eligible for implementation. Ask the user before proceeding. Add `--auto` only when the user explicitly asks for autonomous implementation. If `Failed: N > 0`, revise the plan before cooking.
 > **Why absolute path?** After `/clear`, the new session loses previous context.

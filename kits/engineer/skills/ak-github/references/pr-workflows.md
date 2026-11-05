@@ -1,14 +1,14 @@
 # PR Workflows
 
 Playbooks for the PR lifecycle with `gh`. Delegate review mechanics to
-`ak:review-pr` and commit/push mechanics to `ak:git` — this reference owns
+`ak-review-pr` and commit/push mechanics to `ak-git` — this reference owns
 the orchestration and the gh-specific state handling.
 
 ## Create a PR
 
 1. Branch state: `git status`, `git log origin/<base>..HEAD --oneline` —
    confirm the commits belong to this PR and nothing unrelated rides along.
-2. Push via `ak:git cp` (or `git push -u origin <branch>` when already
+2. Push via `ak-git cp` (or `git push -u origin <branch>` when already
    committed).
 3. Body: repo template (`.github/pull_request_template.md` or
    `.github/PULL_REQUEST_TEMPLATE/`) wins; otherwise `assets/templates/pr-body.md`.
@@ -24,12 +24,12 @@ gh pr ready <n>          # once CI is green and body is final
 
 ## Review a PR
 
-Activate `ak:review-pr <ref>` — it owns the full review protocol
+Activate `ak-review-pr <ref>` — it owns the full review protocol
 (correctness, security, breaking changes, anti-slop), plus `--fix` (fix
 loop), `--reply` (post formal review), `--merge` (merge + watch CI).
 Do not reimplement review logic here.
 
-For a security-focused pass, additionally activate `ak:security` scoped to
+For a security-focused pass, additionally activate `ak-security` scoped to
 the PR's changed files and attach its findings to the review as evidence.
 
 ## Update / rebase a PR branch
@@ -72,7 +72,7 @@ Enable auto-merge when checks are pending instead of polling. After an
 immediate merge, watch post-merge CI on the target branch for the merge
 commit until every required check concludes (`gh run list --branch <base> --commit <sha>`,
 `gh run watch <id>`); a red post-merge run is your follow-up, not someone
-else's. Prefer `ak:review-pr <ref> --merge` / `ak:git merge-pr` when
+else's. Prefer `ak-review-pr <ref> --merge` / `ak-git merge-pr` when
 installed — they own the watch-and-fix loop.
 
 Never merge red/stale evidence; never bypass branch protection; a cancelled

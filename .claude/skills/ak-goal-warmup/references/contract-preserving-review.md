@@ -1,6 +1,6 @@
 # Contract-preserving review (warmup-local)
 
-Warmup-only mode. **Does not** change default `ak:plan red-team` workflow.
+Warmup-only mode. **Does not** change default `ak-plan red-team` workflow.
 
 ## Intent
 
@@ -28,7 +28,7 @@ redefine user intent or silently reduce scope.
 
 ## Hard stop vs default plan red-team
 
-Do **not** invoke `/ak:plan red-team` as a black box. Its default Step 8 applies
+Do **not** invoke `/ak-plan red-team` as a black box. Its default Step 8 applies
 accepted findings to the plan. That path can redefine scope and is forbidden here.
 
 Allowed patterns:

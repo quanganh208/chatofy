@@ -5,7 +5,8 @@ Select checks for the changed behavior and delivery surface, then inspect their 
 dependency; uv resolves it into a central cache:
 
 ```bash
-uv run scripts/quick_validate.py <skill-dir>          # structure, frontmatter, limits, links
+uv run scripts/quick_validate.py <skill-dir>          # structure, frontmatter, limits, links, standard warnings
+uv run scripts/skill_standard_report.py <root>        # warning-first summary across many skills
 uv run --with PyYAML==6.0.3 scripts/lint_cruft.py <skill-dir-or-kits-dir> --routing  # body and metadata
 uv run --with PyYAML==6.0.3 scripts/package_skill.py <skill-dir>  # only for ZIP distribution
 ```
@@ -28,7 +29,13 @@ must resolve without exemptions.
 ### Metadata
 - [ ] `name` is `skill-name` or `namespace:skill-name`, kebab-case, at most 64 characters per segment
 - [ ] `description` is at most 1024 characters and states a precise activation boundary; brevity alone is not a defect
+- [ ] Description plus `when_to_use` within 1536 characters, owned task first (`descriptor-length`)
 - [ ] `when_to_use` present for kit skills and consistent with the description
+
+### Production standard (`references/production-skill-standard.md`)
+- [ ] Placement decision recorded: a new skill only when no owner, reference, template, script or rule fits
+- [ ] Activation boundary, outcome sections and definition of done present, or a reasoned exemption (`standard-sections`)
+- [ ] Every `ak:` skill mention resolves; intentional aliases marked (`dead-skill-reference`)
 
 ### Size and structure
 - [ ] Size warnings reviewed for readability and ownership; useful context retained
@@ -45,8 +52,8 @@ must resolve without exemptions.
 - [ ] No volatile facts (model names, context sizes, version pins) without a link to their owner
 
 ## Scripts, if any
-- [ ] Tests exist under `scripts/tests/` and pass
-- [ ] Cross-platform (Python or Node.js); UTF-8 console configured on Windows
+- [ ] Tests exist under `scripts/tests/` and pass (`script-tests`)
+- [ ] Cross-platform (Python or Node.js); UTF-8 console configured on Windows; supported platforms stated (`script-platform-notes`)
 - [ ] Dependencies declared at the invocation site (pinned runner or inline metadata), see `references/script-dependency-strategy.md`
 - [ ] `.env.example` shipped, never `.env`; env hierarchy respected (`process.env` > skill `.env` > shared `.env` > global `.env`)
 
@@ -64,5 +71,5 @@ must resolve without exemptions.
 
 ## Integration
 - [ ] Plausible overlaps resolved by activation boundaries; not-for cases included when useful
-- [ ] Related topics consolidated rather than split into near-duplicate skills
+- [ ] Capabilities consolidated by task contract (intent, output, authority, evidence, resources), not by shared topic
 - [ ] For kit skills: `metadata.workflow` refs resolve in every consuming kit; contract tests still pass

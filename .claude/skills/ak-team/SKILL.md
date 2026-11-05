@@ -1,8 +1,7 @@
 ---
-name: ak:team
-description: "Orchestrate Agent Teams for parallel multi-session collaboration. Use for research, implementation, review, and debug workflows requiring independent teammates."
-user-invocable: true
-when_to_use: "Invoke for coordinated multi-session agent teamwork."
+name: ak-team
+description: "Orchestrate Agent Teams of independent teammates for parallel multi-session work."
+when_to_use: "Invoke for research, build, review or debug work split across teammates."
 category: workflow
 keywords: [agents, parallel, multi-session, collaboration]
 argument-hint: "<template> <context> [--devs|--researchers|--reviewers N] [--delegate]"
@@ -33,13 +32,13 @@ operation names, schemas, enablement flags, client restrictions, model lists,
 limits, shortcuts, environment settings, or storage paths in this skill.
 
 If a required capability is absent or fails, stop and report the observed
-error. Do not silently substitute ordinary subagents: `/ak:team` either uses a
+error. Do not silently substitute ordinary subagents: `/ak-team` either uses a
 live team surface or aborts.
 
 ## Usage
 
 ```text
-/ak:team <template> <context> [flags]
+/ak-team <template> <context> [flags]
 ```
 
 Templates: `research`, `cook`, `review`, `debug`.
@@ -69,7 +68,7 @@ Use this lifecycle for every template:
 7. **Verify** the combined result; teammate completion messages are not proof.
 8. **Shut down** teammates gracefully, wait for acknowledgements or concise
    handoffs, then invoke the live cleanup capability.
-9. **Close out** with the durable report and `/ak:journal` (unless the shared
+9. **Close out** with the durable report and `/ak-journal` (unless the shared
    "Journal step — opt-out" applies — see kits/core/skills/ak-journal/SKILL.md).
 
 Do not poll a copied command name or fixed client interval. Wait through the

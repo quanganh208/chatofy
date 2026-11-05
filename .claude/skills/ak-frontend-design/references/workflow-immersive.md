@@ -7,7 +7,7 @@ optional 3D, and crafted micro-interactions. The bar is intentional, not busy.
    here: name the one moment people will remember and derive it from the content.
 2. **Research when useful.** Study 3–5 references in the same category with
    `visual-analysis.md` (competitive section) and note patterns to meet and openings to
-   differentiate. `ak:ui-ux-pro-max`, when installed, is optional extra input.
+   differentiate. `ak-ui-ux-pro-max`, when installed, is optional extra input.
 3. **Story outline.** List sections as story beats: hook, problem, turn, proof,
    action. For each, write the content, the layout family and the one motion idea.
    Vary layout families where the content differs; keep repeated patterns for

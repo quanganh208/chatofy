@@ -1,5 +1,5 @@
 /**
- * Visual semantics for the ak:diagram compiler.
+ * Visual semantics for the ak-diagram compiler.
  * Every archetype role or kind maps onto a small set of visual families. A
  * family owns a colour token (`--ak-role-<family>-*`), a 16x16 stroke sigil and
  * a legend label, so the five archetypes share one consistent language.

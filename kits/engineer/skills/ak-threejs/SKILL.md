@@ -1,11 +1,10 @@
 ---
-name: ak:threejs
-description: "Build 3D web experiences with Three.js. Use for WebGL/WebGPU scenes, GLTF models, animations, physics, VR/XR."
-user-invocable: true
-when_to_use: "Invoke for 3D, WebGL/WebGPU, GLTF, physics, or XR."
+name: ak-threejs
+description: "Build 3D web experiences with Three.js: WebGL/WebGPU scenes, GLTF models, animations, physics and VR/XR."
+when_to_use: "Invoke when a page needs real-time 3D."
 category: engineering
 keywords: [threejs, 3d, webgl, webgpu, gltf]
-license: MIT
+license: Proprietary
 argument-hint: "[3D scene or feature]"
 metadata:
   author: agentkit

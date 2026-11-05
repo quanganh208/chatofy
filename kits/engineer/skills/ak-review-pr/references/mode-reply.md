@@ -65,7 +65,7 @@ The review still lands in the timeline; the verdict text inside the body still r
 
 In `--fix --reply` mode, post **only the final re-review** when the loop converges. Iteration history lives in the commit log; the PR conversation stays clean.
 
-If the loop terminates due to a blocker (non-converging, `ak:fix` blocked, CI unresolvable), still post the final review — but the verdict will reflect remaining findings (likely **Request changes** or **Comment**), and the body should include the blocker so the human reviewer knows where to take over.
+If the loop terminates due to a blocker (non-converging, `ak-fix` blocked, CI unresolvable), still post the final review — but the verdict will reflect remaining findings (likely **Request changes** or **Comment**), and the body should include the blocker so the human reviewer knows where to take over.
 
 ## 6. Idempotency
 

@@ -10,7 +10,7 @@
 ## Step 2: Generate Content
 
 **Mermaid Diagram Syntax:**
-When generating mermaid code blocks, use `/ak:mermaidjs-v11` skill for v11 syntax rules.
+When generating mermaid code blocks, use `/ak-mermaidjs-v11` skill for v11 syntax rules.
 
 **Essential rules (always apply):**
 - Quote node text with special characters: `A["text with /slashes"]`
@@ -94,7 +94,7 @@ After rendering a diagram, do not trust syntactic validity alone — load the re
 - Widen inter-row / inter-column gutters so same-layer arrows have clear corridors
 - Re-render and re-inspect — repeat until visually clean
 
-For full SVG layout rules (spacing minimums, arrow connection points, z-index ordering, anti-pattern catalog), read `/ak:tech-graph`'s `../../ak-tech-graph/references/svg-layout-best-practices.md`. For full publish-grade SVG+PNG diagram generation (7 visual styles, agent/memory primitives), use `/ak:tech-graph` directly.
+For full SVG layout rules (spacing minimums, arrow connection points, z-index ordering, anti-pattern catalog), read `/ak-tech-graph`'s `../../ak-tech-graph/references/svg-layout-best-practices.md`. For full publish-grade SVG+PNG diagram generation (7 visual styles, agent/memory primitives), use `/ak-tech-graph` directly.
 
 ## Step 3: Save and Preview
 
@@ -125,6 +125,8 @@ When `--html` flag is present (or implied by `--diff`, `--plan-review`, `--recap
 - Create `visuals/` directory if needed
 
 ### HTML Step 2: Read References
+On the opt-in AK Render route (`--ak-render` or a project `.ak-render/` directory; `--explain`, `--diff`, `--plan-review`, `--recap` only), follow `ak-render-route.md` instead of Steps 2–3 and keep the `.page.yaml` beside the HTML.
+
 Always read `html-design-guidelines.md` first (anti-slop rules, style presets).
 
 Then read mode-specific references:
@@ -161,12 +163,12 @@ Follow the 4-phase workflow:
 - No emoji icons in section headers
 - No three-dot window chrome on code blocks
 
-**Deliver:** Write single self-contained `.html` file — all CSS and JavaScript inline. External resources: CDN only (Google Fonts, Mermaid.js v11, Chart.js, anime.js).
+**Deliver:** Write single self-contained `.html` file — all CSS and JavaScript inline. External resources: CDN only (Google Fonts, Mermaid.js v11, Chart.js, anime.js, AntV). This CDN guidance is legacy: disclose the network dependency in the report, and use the AK Render route (`ak-render-route.md`) when the page must open offline.
 
 **Theme toggle:** Every HTML page includes the light/dark theme toggle button from the `html-css-patterns.md` → "Theme Toggle Button" section. Place the toggle button (`<button class="theme-toggle">`) as the first child of `<body>` with its CSS and JS inlined, so the page paints in the reader's theme without a flash.
 
-For `--slides`: recommend invoking `/ak:ui-ux-pro-max` for richer style selection.
-Must use `/ak:mermaidjs-v11` for any Mermaid diagrams.
+For `--slides`: recommend invoking `/ak-ui-ux-pro-max` for richer style selection.
+Must use `/ak-mermaidjs-v11` for any Mermaid diagrams.
 
 ### HTML Step 4: Open in Browser
 - macOS: `open "{output-path}"`

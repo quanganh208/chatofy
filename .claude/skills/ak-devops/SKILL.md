@@ -1,11 +1,10 @@
 ---
-name: ak:devops
-description: Deploy to Cloudflare (Workers, R2, D1), Docker, GCP (Cloud Run, GKE), Kubernetes (kubectl, Helm). Use for serverless, containers, CI/CD, GitOps, security audit.
-user-invocable: true
-when_to_use: "Invoke for cloud, containers, Kubernetes, CI/CD, or GitOps."
+name: ak-devops
+description: "Deploy to Cloudflare (Workers, R2, D1), Docker, GCP (Cloud Run, GKE) and Kubernetes (kubectl, Helm)."
+when_to_use: "Invoke for serverless, containers, CI/CD, GitOps or security audits."
 category: engineering
 keywords: [cloudflare, docker, gcp, kubernetes, cicd]
-license: MIT
+license: Proprietary
 argument-hint: "[platform] [task]"
 metadata:
   author: agentkit
@@ -75,7 +74,7 @@ When an authorized task sets up or changes an operational route — a deploy pat
 a log source, a credential retrieval route, a webhook/OAuth/DNS entry, or a
 backup/rollback route — update the affected project guide within authorized
 scope, or report the proposed diff and the blocker when the write is not
-authorized. Route it through the project's documentation workflow (`/ak:docs update`).
+authorized. Route it through the project's documentation workflow (`/ak-docs update`).
 
 ## Resources
 

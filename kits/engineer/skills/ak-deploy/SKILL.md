@@ -1,11 +1,10 @@
 ---
-name: ak:deploy
-description: Deploy projects to any platform with auto-detection. Use when user says "deploy", "publish", "ship", "go live", "push to production", "host this app", or mentions any hosting platform (Vercel, Netlify, Cloudflare, Railway, Fly.io, Render, Heroku, TOSE, Github Pages, AWS, GCP, Digital Ocean, Vultr, Coolify, Dokploy). Auto-detects the deployment target from config files and documents or updates the project's existing deployment guide.
-user-invocable: true
-when_to_use: "Invoke when the goal is hosting or publishing an app."
+name: ak-deploy
+description: "Deploy to Vercel, Netlify, Cloudflare, Railway, Fly.io, Render, Heroku, TOSE, Github Pages, AWS, GCP, Digital Ocean, Vultr, Coolify or Dokploy."
+when_to_use: "Invoke to deploy, publish, go live or push to production; auto-detects the target and updates the existing deployment guide."
 category: engineering
 keywords: [deploy, hosting, Vercel, Netlify, Cloudflare]
-license: MIT
+license: Proprietary
 argument-hint: "[platform] [environment]"
 metadata:
   author: agentkit
@@ -20,7 +19,7 @@ Auto-detect deployment target and deploy the current project. Supports 15 platfo
 
 This skill handles: project deployment, platform selection, and deployment-guide update.
 Does NOT handle: infrastructure provisioning, database migrations, DNS management, SSL certificates, CI/CD pipeline creation.
-For advanced infrastructure/troubleshooting, activate `/ak:devops` skill.
+For advanced infrastructure/troubleshooting, activate `/ak-devops` skill.
 
 ## Workflow
 
@@ -85,7 +84,7 @@ Verify the returned URL, health endpoint or primary user flow, deployed revision
 and environment. Record the rollback command or prior deployment identifier.
 Update the existing owning deployment document discovered through repository
 navigation only when the operational contract changes, and make that change
-through the project's documentation workflow (`/ak:docs update`) when it is
+through the project's documentation workflow (`/ak-docs update`) when it is
 available, applying the same rules when it is not. Include configuration names,
 never secret values. A successful upload without health evidence is not
 verified deployment completion.
@@ -93,7 +92,7 @@ verified deployment completion.
 ### 7. Troubleshooting
 
 1. Check error output, attempt auto-fix for common issues
-2. If unresolvable → activate `/ak:devops` skill
+2. If unresolvable → activate `/ak-devops` skill
 3. Record reusable recovery guidance in the owning deployment document when warranted
 
 ## ask_user capability Template

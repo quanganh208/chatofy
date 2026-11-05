@@ -30,14 +30,14 @@ No research. Analyze → Plan → Hydrate Tasks. Fast mode reduces workflow dept
 1. Read repository instructions and follow existing documentation navigation to locate current requirements, architecture, and standards; confirm them against relevant source and tests.
 2. Use `planner` subagent to create plan.
 3. Hydrate tasks (unless `--no-tasks`).
-4. **Implementation option:** `/ak:cook {absolute-plan-path}/plan.md`.
+4. **Implementation option:** `/ak-cook {absolute-plan-path}/plan.md`.
 
 ## Hard Mode (`--hard`)
 
 Research → Scout → Plan → Red Team → Validate → Hydrate Tasks.
 
 1. Spawn max 2 `researcher` agents in parallel.
-2. Read repository instructions and use `/ak:scout` when owning evidence is missing or ambiguous.
+2. Read repository instructions and use `/ak-scout` when owning evidence is missing or ambiguous.
 3. Gather research + scout report filepaths → pass to `planner` subagent.
 4. Post-plan red team review (see `red-team-workflow.md`).
 5. Post-plan validation (see `validate-workflow.md`).
@@ -59,7 +59,7 @@ Designed for parallel execution with strict file ownership.
 1. Research & design decoupled modular architecture.
 2. Decompose into phases with strictly disjoint file boundaries.
 3. Post-plan red team review & validation.
-4. Pass plan to `/ak:cook --parallel`.
+4. Pass plan to `/ak-cook --parallel`.
 
 ## Two Approaches Mode (`--two`)
 

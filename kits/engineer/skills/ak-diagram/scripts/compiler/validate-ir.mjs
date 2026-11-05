@@ -1,5 +1,5 @@
 /**
- * ak:diagram typed IR validation (schema envelope, ID discipline, dangling endpoints, text limits).
+ * ak-diagram typed IR validation (schema envelope, ID discipline, dangling endpoints, text limits).
  * Extracted from compile.mjs; the compiler calls validateIR before any layout work.
  */
 

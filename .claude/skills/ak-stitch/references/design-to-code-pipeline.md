@@ -27,7 +27,7 @@ npx tsx stitch-generate.ts "E-commerce product page with image gallery, price, r
 npx tsx stitch-export.ts <screen-id> --format all --output ./stitch-exports/
 
 # 3. Implementation skill reads ./stitch-exports/DESIGN.md
-# 4. Activate ak:frontend-design to implement React components from the spec
+# 4. Activate ak-frontend-design to implement React components from the spec
 ```
 
 ## Advanced Pipeline (with Variants)
@@ -99,13 +99,13 @@ DESIGN.md is an agent-readable markdown file containing extracted design tokens.
 
 | Design Need | Skill | What It Does |
 |-------------|-------|-------------|
-| React/Vue/Svelte components | `ak:frontend-design` | Converts Tailwind HTML to framework components |
-| Full page with style guide | `ak:ui-ux-pro-max` | Builds complete layouts with design system |
-| Design token extraction | `ak:ui-styling` | Extracts shadcn/Tailwind tokens from DESIGN.md |
+| React/Vue/Svelte components | `ak-frontend-design` | Converts Tailwind HTML to framework components |
+| Full page with style guide | `ak-ui-ux-pro-max` | Builds complete layouts with design system |
+| Design token extraction | `ak-ui-styling` | Extracts shadcn/Tailwind tokens from DESIGN.md |
 
 ## Handoff Protocol
 
-1. `ak:stitch` exports artifacts to `./stitch-exports/` (or plan directory)
+1. `ak-stitch` exports artifacts to `./stitch-exports/` (or plan directory)
 2. Copy `DESIGN.md` to project root if implementation skill expects it there
 3. Activate target skill with instruction: "Implement from DESIGN.md in project root"
 4. Target skill reads DESIGN.md, applies tokens, generates code
@@ -120,7 +120,7 @@ Always check quota before generating:
 npx tsx stitch-quota.ts check
 
 # If exhausted (exit code 2):
-# -> Skip Stitch, use ak:ui-ux-pro-max for text-based design instead
+# -> Skip Stitch, use ak-ui-ux-pro-max for text-based design instead
 
 # If available:
 npx tsx stitch-generate.ts "<prompt>"

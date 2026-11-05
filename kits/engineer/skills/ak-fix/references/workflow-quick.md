@@ -14,6 +14,6 @@ on a change believed complete requires kongming counsel before edits or re-diagn
 does not waive that contract. Explicit `--review` retains human checkpoints.
 
 Reconcile an existing plan only if one exists; assess docs impact, report cause and before/
-after evidence, and run `/ak:journal` only as allowed by SKILL.md's **Journal step — opt-out**.
+after evidence, and run `/ak-journal` only as allowed by SKILL.md's **Journal step — opt-out**.
 Git actions require their
 own authorization. No blanket reasoning skill, parallel lint agents or finalizer is required.

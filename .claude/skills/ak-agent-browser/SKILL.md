@@ -1,11 +1,10 @@
 ---
-name: ak:agent-browser
-description: Automate tool-managed browsers with agent-browser for snapshots, clicks, forms and browser testing. Use chrome-profile when real Chrome account state is required.
-user-invocable: true
-when_to_use: "Invoke for browser/app automation that needs snapshots or clicks and does not require the user's real Chrome profile state."
+name: ak-agent-browser
+description: "Automate tool-managed browsers with agent-browser for snapshots, clicks, forms and browser testing."
+when_to_use: "Invoke for browser automation; real Chrome account state needs chrome-profile."
 category: engineering
 keywords: [browser, automation, playwright, testing, e2e, browserbase, autonomous, headless, electron, slack, dogfood, agentcore, vercel-sandbox]
-license: Apache-2.0
+license: Proprietary; includes Apache-2.0 material from vercel-labs/agent-browser, see LICENSE.txt and NOTICE.txt
 allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
 argument-hint: "[url or task]"
 metadata:
@@ -18,9 +17,9 @@ metadata:
 
 Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessibility-tree snapshots and compact `@eN` element refs .
 
-Use `ak:agent-browser` for browser testing, screenshots, form fills, scraping, exploratory QA, bug hunts, cloud browsers, Electron apps, Slack automation, and flows where a fresh or tool-managed browser is fine. Prefer it over generic browser tools for profile-independent browser work.
+Use `ak-agent-browser` for browser testing, screenshots, form fills, scraping, exploratory QA, bug hunts, cloud browsers, Electron apps, Slack automation, and flows where a fresh or tool-managed browser is fine. Prefer it over generic browser tools for profile-independent browser work.
 
-Use `ak:chrome-profile` instead when the task needs the user's actual Chrome profile: existing cookies, logged-in sessions, a specific Google account, a tenant/workspace already open in daily Chrome, or deterministic targeting across multiple Chrome profiles.
+Use `ak-chrome-profile` instead when the task needs the user's actual Chrome profile: existing cookies, logged-in sessions, a specific Google account, a tenant/workspace already open in daily Chrome, or deterministic targeting across multiple Chrome profiles.
 
 For a missing binary/browser dependency or a requested upgrade, load `references/setup-and-upgrade.md`. Reuse a working binary; do not reinstall periodically.
 
@@ -53,7 +52,7 @@ Run `agent-browser skills list` to see everything available on the installed ver
 
 Default for browser automation that does not depend on the user's real Chrome login state: autonomous sessions, ad-hoc navigation, screenshots, form fills, scraping, multi-tab work, self-verifying build loops, Electron desktop apps, Slack automation, and Browserbase/cloud browsers.
 
-For low-level Chrome DevTools Protocol diagnostics, use the configured `chrome-devtools-mcp` bridge or client when one is available. Reason first: if the task does not need a specific real Chrome profile, Chrome DevTools MCP may use its normal navigation tools. If it does need profile/cookie/account state, use `ak:chrome-profile`; let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools. See `references/agent-browser-vs-chrome-devtools.md` for the trade-off.
+For low-level Chrome DevTools Protocol diagnostics, use the configured `chrome-devtools-mcp` bridge or client when one is available. Reason first: if the task does not need a specific real Chrome profile, Chrome DevTools MCP may use its normal navigation tools. If it does need profile/cookie/account state, use `ak-chrome-profile`; let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools. See `references/agent-browser-vs-chrome-devtools.md` for the trade-off.
 
 ## Why agent-browser
 

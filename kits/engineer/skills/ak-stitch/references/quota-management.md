@@ -45,8 +45,8 @@ The bundled tracker reads a local file rather than querying the service. Verify 
 When quota is exhausted:
 
 1. `stitch-quota.ts check` returns exit code 2
-2. Skill prints: "Daily quota exhausted. Use ak:ui-ux-pro-max as fallback."
-3. Activate `ak:ui-ux-pro-max` with the same design prompt
+2. Skill prints: "Daily quota exhausted. Use ak-ui-ux-pro-max as fallback."
+3. Activate `ak-ui-ux-pro-max` with the same design prompt
 4. `ui-ux-pro-max` generates text-based design spec (no external API needed)
 5. Proceed with implementation using text-based spec
 

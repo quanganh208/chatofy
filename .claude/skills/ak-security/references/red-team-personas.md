@@ -1,4 +1,4 @@
-# Red-Team Personas — ak:security Discovery Loop
+# Red-Team Personas — ak-security Discovery Loop
 
 Adapted from upstream `/autoresearch:security` adversarial lenses (uditgoenka/autoresearch, MIT).
 

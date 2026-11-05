@@ -35,7 +35,7 @@ The probe is silent by design; the library never fails hard on probe failure —
 
 ## Merge write op
 
-`gh pr merge` is handled by `ak:git merge-pr`. This PR updates that workflow (`kits/core/skills/ak-git/references/workflow-merge-pr.md`) to source the same `gh-api-helpers.sh` loader for its readiness-gate reads (`gh pr view`, `gh pr checks`, `gh pr list`) and to fall back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=…` when GraphQL is blocked.
+`gh pr merge` is handled by `ak-git merge-pr`. This PR updates that workflow (`kits/core/skills/ak-git/references/workflow-merge-pr.md`) to source the same `gh-api-helpers.sh` loader for its readiness-gate reads (`gh pr view`, `gh pr checks`, `gh pr list`) and to fall back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=…` when GraphQL is blocked.
 
 Important gap: GitHub's auto-merge enable is **GraphQL-only** (`enablePullRequestAutoMerge`) with no REST endpoint. When `AK_GH_REST=1`, the merge-pr workflow degrades from "merge with `--auto` while checks pending" to "poll checks until terminal-green, then `PUT /pulls/{n}/merge`". That's documented in the merge-pr workflow, not here.
 

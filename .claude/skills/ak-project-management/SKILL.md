@@ -1,8 +1,7 @@
 ---
-name: ak:project-management
-description: "Track progress, update plan statuses, coordinate runtime work, generate reports, and preserve cross-session continuity."
-user-invocable: true
-when_to_use: "Invoke for progress tracking, plan status, or handoffs."
+name: ak-project-management
+description: "Track progress and plan statuses, coordinate runtime work, report, and keep cross-session continuity."
+when_to_use: "Invoke when work spans sessions or needs a handoff."
 category: workflow
 keywords: [project, progress, status, reports]
 argument-hint: "[task: status, hydrate, sync, report]"
@@ -136,6 +135,6 @@ Update `status` when plan state changes.
 
 ## Related Skills
 
-- `ak:plan` — Creates implementation plans (planning phase)
-- `ak:cook` — Implements plans (execution phase, invokes project-manager at finalize)
+- `ak-plan` — Creates implementation plans (planning phase)
+- `ak-cook` — Implements plans (execution phase, invokes project-manager at finalize)
 - `plans-kanban` — Visual dashboard for plan viewing

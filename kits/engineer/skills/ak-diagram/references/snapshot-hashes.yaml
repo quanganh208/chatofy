@@ -1,4 +1,4 @@
-# ak:diagram golden PNG hashes — regenerate via snapshot_test.py --update-goldens
+# ak-diagram golden PNG hashes — regenerate via snapshot_test.py --update-goldens
 architecture/dark: d6fda461e6de5ee1ab66406e4439168ab360234eb6c090ac85650b16226a1544
 architecture/full: e3279f8ef5f36d9ac592a4482cf8142e62e9252bfde5c894e9af3df479df3cfa
 architecture/light: dd8b8d74d5ea0910793cdbec04acd270838a0a66952387e931f077ade2b90d98

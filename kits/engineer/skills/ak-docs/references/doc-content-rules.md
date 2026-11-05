@@ -7,6 +7,11 @@ delegate prompt because delegated contexts are isolated.
 Root agent context files (`CLAUDE.md`/`AGENTS.md`) are process memory, not
 WHY/WHERE docs; follow `agent-context-rules.md` for those. This file's deletion
 test and drift-resistance rules are the shared spine both operations rely on.
+For audit or update touching author-confirmed product principles, apply that
+file's confirmed-principle exception before pruning. Lack of incidents or a
+different implementation does not authorize changing product intent. Keep the
+behavioral principle in root guidance and extended rationale at its existing
+owner; ordinary maintenance does not start a philosophy interview.
 
 ## Ownership Rule
 

@@ -1,8 +1,8 @@
 # Frontend Verification
 
-Visual verification of frontend implementations using `ak:agent-browser`, `ak:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests.
+Visual verification of frontend implementations using `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests.
 
-Reason first: does this verification need real Chrome profile state? If no, Chrome MCP is safe for generic pages and low-level inspection. If yes, open the page with `ak:chrome-profile` first and bind to the exact selector it returns. Do not create or navigate profile-scoped tabs with raw Chrome MCP tools.
+Reason first: does this verification need real Chrome profile state? If no, Chrome MCP is safe for generic pages and low-level inspection. If yes, open the page with `ak-chrome-profile` first and bind to the exact selector it returns. Do not create or navigate profile-scoped tabs with raw Chrome MCP tools.
 
 ## Applicability Check
 
@@ -17,15 +17,15 @@ If none match, skip this technique.
 
 First decide whether the verification needs real user Chrome state.
 
-- No real login/cookies needed: use `ak:agent-browser`, Chrome MCP, or project-native browser tests.
-- Real user login/cookies/profile needed: invoke `ak:chrome-profile` and run:
+- No real login/cookies needed: use `ak-agent-browser`, Chrome MCP, or project-native browser tests.
+- Real user login/cookies/profile needed: invoke `ak-chrome-profile` and run:
 
 ```bash
 chrome-profile doctor
 ```
 
 **ok=true** -> Proceed to Step 2A (Chrome profile + MCP)
-**ok=false** -> Follow the skill's setup playbook, or use `ak:agent-browser` / project-native browser tests if profile state is not required.
+**ok=false** -> Follow the skill's setup playbook, or use `ak-agent-browser` / project-native browser tests if profile state is not required.
 
 ## Step 2A: Chrome Profile Available — Direct Verification
 

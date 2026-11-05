@@ -35,21 +35,21 @@ Reuse the accepted stack; ask only when a new stack decision materially changes 
 1. Ask user if they want wireframes/design. If no → skip to Step 5.
 2. Use `ui-ux-designer` + `researcher` subagents in parallel:
    - Research style, trends, fonts (predict Google Fonts name, NOT just Inter/Poppins), colors, spacing, positions
-   - Describe assets for `ak:ai-multimodal` skill generation
+   - Describe assets for `ak-ai-multimodal` skill generation
 3. `ui-ux-designer` creates:
    - Design guidelines at the documentation path discovered from repository instructions
    - Wireframes in HTML at `./docs/wireframe/`
-4. If no logo provided: generate with `ak:ai-multimodal` skill
-5. Screenshot wireframes with `ak:agent-browser` -> save to `./docs/wireframes/`
+4. If no logo provided: generate with `ak-ai-multimodal` skill
+5. Screenshot wireframes with `ak-agent-browser` -> save to `./docs/wireframes/`
 
 Reuse the accepted design direction; resolve any material outstanding design choice.
 
-**Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
+**Image tools:** `ak-ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
 ## Step 5: Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook <brainstorm contract>`
+Activate **ak-cook** skill: `/ak-cook <brainstorm contract>`
 - No separate planning phase; cook sizes its own implementation plan from the contract
 - Continue within accepted scope through tests and review; ask only about material scope changes

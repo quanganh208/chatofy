@@ -1,6 +1,6 @@
 {
   "fixture": "synthetic-tool-catalog",
-  "note": "Synthetic capabilities for the ak:docs handoff evaluation. Describes what a consumer runtime may call in this fixture; it is not a claim about any real installation.",
+  "note": "Synthetic capabilities for the ak-docs handoff evaluation. Describes what a consumer runtime may call in this fixture; it is not a claim about any real installation.",
   "tools": [
     {
       "name": "provider-console",

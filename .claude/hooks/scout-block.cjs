@@ -48,6 +48,7 @@ try {
   const { formatBroadPatternError } = require('./scout-block/broad-pattern-detector.cjs');
 
   const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
+  const { blockToolUse } = require('./lib/hook-block.cjs');
 
   try {
     const timer = createHookTimer('scout-block', { event: 'PreToolUse' });
@@ -56,9 +57,9 @@ try {
 
     // Validate input not empty
     if (!hookInput || hookInput.trim().length === 0) {
-      console.error('ERROR: Empty input');
-      timer.end({ status: 'error', exit: 2, note: 'empty-input' });
-      process.exit(2);
+      const exitCode = blockToolUse('ERROR: Empty input');
+      timer.end({ status: 'error', exit: exitCode, note: 'empty-input' });
+      process.exit(exitCode);
     }
 
     // Parse JSON
@@ -113,15 +114,15 @@ try {
         reason: result.reason,
         suggestions: result.suggestions
       }, claudeDir);
-      console.error(errorMsg);
+      const exitCode = blockToolUse(errorMsg);
       timer.end({
         tool: toolName,
         status: 'block',
-        exit: 2,
+        exit: exitCode,
         target: result.pattern || toolInput.path || toolInput.file_path || '',
         note: result.reason || 'broad-pattern'
       });
-      process.exit(2);
+      process.exit(exitCode);
     }
 
     // Handle pattern blocks
@@ -133,15 +134,15 @@ try {
         claudeDir: claudeDir,
         configPath: result.configPath
       });
-      console.error(errorMsg);
+      const exitCode = blockToolUse(errorMsg);
       timer.end({
         tool: toolName,
         status: 'block',
-        exit: 2,
+        exit: exitCode,
         target: result.path || '',
         note: result.pattern || 'blocked-path'
       });
-      process.exit(2);
+      process.exit(exitCode);
     }
 
     // All paths allowed

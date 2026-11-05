@@ -1,11 +1,10 @@
 ---
-name: ak:research
-description: "Research technical solutions, analyze architectures, gather requirements thoroughly. Use for technology evaluation, best practices research, solution design, scalability/security/maintainability analysis."
-user-invocable: true
-when_to_use: "Invoke for deep technical research before implementation."
+name: ak-research
+description: "Research technical solutions, analyze architectures and gather requirements."
+when_to_use: "Invoke before implementation to evaluate technology or best practices."
 category: workflow
 keywords: [research, evaluation, analysis, solutions]
-license: MIT
+license: Proprietary
 argument-hint: "[topic] [--ultra] [--yagni]"
 metadata:
   author: agentkit
@@ -42,7 +41,7 @@ You will employ a multi-source research strategy:
    - Respect explicit user budgets. Otherwise stop when requested questions have credible coverage, disagreements are explained and gaps recorded; do not impose an arbitrary tool-call cap or search without a decision-relevant gap.
 
 2. **Deep Content Analysis**:
-   - When you found a potential Github repository URL, use `ak:docs-seeker` skill to find read it.
+   - When you found a potential Github repository URL, use `ak-docs-seeker` skill to find read it.
    - Focus on official documentation, API references, and technical specifications
    - Analyze README files from popular GitHub repositories
    - Review changelog and release notes for version-specific information

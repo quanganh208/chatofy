@@ -6,7 +6,8 @@
 
 Checks frontmatter (name, description, block scalars), size limits, broken
 links to bundled resources, leftover template files, and, for kit skills,
-literal native tool names that the AgentKit capability lint rejects.
+literal native tool names that the AgentKit capability lint rejects. It also
+reports warning-only drift from references/production-skill-standard.md.
 
 Usage:
     python3 quick_validate.py <skill-dir> [--json] [--kit]
@@ -23,6 +24,7 @@ from pathlib import Path
 from encoding_utils import configure_utf8_console, read_text_utf8
 from frontmatter_validation import MissingDependencyError, parse_frontmatter, metadata_errors
 from resource_validation import contained_file, validate_resources
+from standard_validation import check_standard
 
 configure_utf8_console()
 
@@ -171,8 +173,11 @@ def validate_skill_detailed(skill_path, kit=None):
     def error(file, line, message):
         errors.append({'file': file, 'line': line, 'message': message})
 
-    def warn(file, line, message):
-        warnings.append({'file': file, 'line': line, 'message': message})
+    def warn(file, line, message, rule=None):
+        item = {'file': file, 'line': line, 'message': message}
+        if rule:
+            item['rule'] = rule
+        warnings.append(item)
 
     skill_md = skill_path / 'SKILL.md'
     if not skill_md.exists():
@@ -212,11 +217,15 @@ def validate_skill_detailed(skill_path, kit=None):
         except ValueError as exc:
             error('SKILL.md', 1, str(exc))
         else:
+            # Kit skills are named ak-<slug>; the legacy ak:<slug> alias maps to the same directory.
             expected_dir = f'{namespace}-{slug}' if kit and namespace else slug
             if kit and skill_path.resolve().name != expected_dir:
-                warn('SKILL.md', 1, f"Directory '{skill_path.resolve().name}' does not match name '{name}' (expected '{expected_dir}')")
-            if kit and namespace != 'ak':
-                warn('SKILL.md', 1, f"Kit skills use the 'ak:' namespace; found '{name}'")
+                warn('SKILL.md', 1, f"Directory '{skill_path.resolve().name}' does not match name '{name}' (expected '{expected_dir}')",
+                     rule='directory-name')
+            if kit and (namespace is not None or not slug.startswith('ak-')):
+                canonical = f'ak-{slug}' if namespace == 'ak' else name
+                warn('SKILL.md', 1, f"Kit skills use the 'ak-<slug>' name; found '{name}' (use '{canonical}')",
+                     rule='kit-namespace')
 
     description = data['description']
     if description is None or description == '':
@@ -229,7 +238,7 @@ def validate_skill_detailed(skill_path, kit=None):
             error('SKILL.md', 1, f'Description exceeds {MAX_DESCRIPTION_LENGTH} characters ({length})')
 
     if kit and data.get('when_to_use') in (None, ''):
-        warn('SKILL.md', 1, "Kit skills should set 'when_to_use' for the routing catalog")
+        warn('SKILL.md', 1, "Kit skills should set 'when_to_use' for the routing catalog", rule='when-to-use')
 
     for markdown, _ in _markdown_files(skill_path):
         rel = markdown.relative_to(skill_path).as_posix()
@@ -241,13 +250,17 @@ def validate_skill_detailed(skill_path, kit=None):
             # A warning, not an error: `ak kit validate` does not enforce a line
             # limit and dozens of shipped skills exceed this one, so failing on
             # it would make the check unachievable on the tree it ships in.
-            warn(rel, line_count, f'{rel} has {line_count} lines; {MAX_MARKDOWN_LINES} keeps it loadable')
+            warn(rel, line_count, f'{rel} has {line_count} lines; {MAX_MARKDOWN_LINES} keeps it loadable',
+                 rule='oversized-file')
 
-    validate_resources(skill_path, list(_markdown_files(skill_path)), error, warn)
+    validate_resources(skill_path, list(_markdown_files(skill_path)), error,
+                       lambda file, line, message: warn(file, line, message, rule='asset-link'))
 
     for leftover in LEFTOVER_TEMPLATE_FILES:
         if (skill_path / leftover).exists():
-            warn(leftover, 0, f'Leftover template file {leftover}; delete or replace it')
+            warn(leftover, 0, f'Leftover template file {leftover}; delete or replace it', rule='leftover-template')
+
+    check_standard(skill_path, data, body, list(_markdown_files(skill_path)), warn)
 
     if kit:
         for markdown, allows_native_host_config in _markdown_files(skill_path):
@@ -310,7 +323,8 @@ def _format_text(result):
     for item in result['errors']:
         lines.append(f"ERROR   {item['file']}:{item['line']}: {item['message']}")
     for item in result['warnings']:
-        lines.append(f"WARNING {item['file']}:{item['line']}: {item['message']}")
+        label = f"[{item['rule']}] " if item.get('rule') else ''
+        lines.append(f"WARNING {item['file']}:{item['line']}: {label}{item['message']}")
     if not lines:
         lines.append('Skill is valid!')
     else:

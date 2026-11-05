@@ -1,4 +1,4 @@
-# ak:diagram — animation effects catalog
+# ak-diagram — animation effects catalog
 
 All eight effects are pure CSS living in `assets/connector-effects.css`.
 Apply via `data-fx="<name>"` on any SVG `<path>` (or on an `<svg>` for

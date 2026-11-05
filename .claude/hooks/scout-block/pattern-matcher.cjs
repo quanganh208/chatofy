@@ -33,16 +33,26 @@ const DEFAULT_PATTERNS = [
   'coverage',
 ];
 
+/**
+ * Parse ignore-file content into patterns: one per line, blank lines and
+ * `#` comments dropped.
+ * @param {string} content
+ * @returns {string[]}
+ */
+function parsePatterns(content) {
+  return String(content)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+}
+
 function readPatternsFromFile(filePath) {
   if (!filePath || !fs.existsSync(filePath)) {
     return [];
   }
 
   try {
-    return fs.readFileSync(filePath, 'utf-8')
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('#'));
+    return parsePatterns(fs.readFileSync(filePath, 'utf-8'));
   } catch (error) {
     console.error('WARN: Failed to read .ckignore:', error.message);
     return [];
@@ -201,6 +211,7 @@ function findMatchingPattern(originalPatterns, path) {
 }
 
 module.exports = {
+  parsePatterns,
   loadPatterns,
   createMatcher,
   matchPath,

@@ -1,6 +1,6 @@
 # Agents Workflow
 
-Load for `/ak:docs agents`. Mine bounded git and CI history for recurring
+Load for `/ak-docs agents`. Mine bounded git and CI history for recurring
 failure modes and non-derivable gotchas, and — with `--source` — current
 source-code markers, then distill confirmed rules into the **root** agent
 context file (`CLAUDE.md`/`AGENTS.md`).
@@ -35,7 +35,7 @@ not bypass the evidence, keep-or-cut, placement, or user-confirmation gates.
   A separate `--advice` flag is redundant here.
 - **`--dry-run` stops after step 3.** Reports mined signals and watchlist,
   makes no rule proposals, spawns no advisor, writes no file.
-- **`--source` is additive.** Layers `ak:scout` source-tree mining onto git/CI
+- **`--source` is additive.** Layers `ak-scout` source-tree mining onto git/CI
   mining; never replaces them or their gates. Scout runs read-only: no
   generators, no tests. Composes with `--dry-run` and `--audit`.
 
@@ -79,9 +79,9 @@ Exclude merge commits and mass renames when counting incidents
   `gh run view <id> --log-failed`, cluster by job name + first error line.
 - Long-running jobs → "full suite is slow, use `<filter>`" candidates.
 
-### Source (`--source`, via `ak:scout`)
+### Source (`--source`, via `ak-scout`)
 
-Only when `--source` is set. Spawn `ak:scout` **once** with the fixed pattern
+Only when `--source` is set. Spawn `ak-scout` **once** with the fixed pattern
 query list below, read-only, excluding vendored/generated/dependency dirs
 noted in step 1. Do not force Explore delegation; native search is fine.
 
@@ -241,7 +241,7 @@ same cadence as the existing `--audit` flag.
 - Counting churn inside a bulk refactor or rename window without exclusion.
 - Any git or CI mutation during mining.
 - Persisting the watchlist to a new state file (governance machinery). Users
-  who want cross-run trend tracking should route through `ak:journal`.
+  who want cross-run trend tracking should route through `ak-journal`.
 - `--source` rule from a single anchor without a code/test guard or git-CI
   corroboration (fails the corroboration gate).
 - `--source` rule sourced from a vendored, generated, or dependency
@@ -254,7 +254,7 @@ same cadence as the existing `--audit` flag.
   from source — those fail the keep-or-cut filter regardless of anchor count.
 - Turning a `TODO`/`FIXME`/`HACK` marker into a rule (transient state, not a
   behavior directive).
-- Running `ak:scout` more than once per invocation, or using it to open a
+- Running `ak-scout` more than once per invocation, or using it to open a
   sandbox / run tests / regenerate artifacts.
 
 ## Success signals

@@ -1,4 +1,4 @@
-# GitHub API compatibility helpers for ak:review-pr.
+# GitHub API compatibility helpers for ak-review-pr.
 #
 # Source this file from every per-PR bash block using the multi-install-path
 # loader below (project-scoped installs, user-scoped installs, the AgentKit
@@ -11,7 +11,7 @@
 #   [ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
 #   . "$_ak_lib"
 #
-# Also sourced by `ak:git` merge-pr workflow to keep GraphQL/REST branching
+# Also sourced by `ak-git` merge-pr workflow to keep GraphQL/REST branching
 # consistent across skills.
 #
 # Falls the skill back to REST when the GitHub GraphQL API is blocked at the

@@ -1,4 +1,6 @@
-# External Libraries (CDN)
+# External Libraries (Legacy CDN Route)
+
+> **Legacy CDN guidance.** This loads assets from a CDN, so the page needs network access; say so in the report. For a page that opens offline with zero network requests, use the AK Render route (`ak-render-route.md`).
 
 Optional CDN libraries for cases where pure CSS/HTML isn't enough. Only include what the diagram actually needs — most diagrams need zero external JS.
 
@@ -596,7 +598,7 @@ For prose-heavy pages (documentation, articles, essays), match typography to the
 
 ## Editorial visual layer (on by default) — AntV Infographic + diagram-design
 
-Two additional MIT libraries are wired in as an **on-by-default (3-tier opt-out) editorial visual layer** for the 7 HTML-generating skills (`ak:plan --html`, `ak:preview`, `ak:brainstorm --html`, `ak:advise --html`, `ak:retro --format html`, `ak:show-off`, `ak:cti-expert --format html`). They complement — do not replace — Mermaid v11, Chart.js v4, and anime.js above. Enabled by default; disable at any of 3 tiers (CLI flag `--no-antv|--no-diagram-design|--no-editorial-visuals` > project `.agentkit/config.yaml` > user `~/.agentkit/config.yaml`).
+Two additional MIT libraries are wired in as an **on-by-default (3-tier opt-out) editorial visual layer** for the 7 HTML-generating skills (`ak-plan --html`, `ak-preview`, `ak-brainstorm --html`, `ak-advise --html`, `ak-retro --format html`, `ak-show-off`, `ak-cti-expert --format html`). They complement — do not replace — Mermaid v11, Chart.js v4, and anime.js above. Enabled by default; disable at any of 3 tiers (CLI flag `--no-antv|--no-diagram-design|--no-editorial-visuals` > project `.agentkit/config.yaml` > user `~/.agentkit/config.yaml`).
 
 - **AntV Infographic** — see [`html-antv-infographic.md`](./html-antv-infographic.md). Template-driven SVG panels (~200 templates via `window.AntVInfographic`). CDN + SRI pinned at `@antv/infographic@0.2.19`, `sha384-yIMmVGR7iq/lwiw1nxM0HBFtQop+F1gGc+5CyobDbz6P7sp+SJSSblD7rLkCj0Sd`, 874 KB / 288 KB gz. Global is `AntVInfographic` (not `Infographic`); file is `dist/infographic.min.js` (not `.umd.min.js`).
 - **diagram-design** — see [`html-diagram-design.md`](./html-diagram-design.md). Zero-JS editorial SVG in 22 layout types + 4 primitives. Pinned at commit `09df49d8` of `cathrynlavery/diagram-design`. Font pairing #14 above is its default stack; validators vendored under `references/vendor/diagram-design-scripts/` and are **advisory-only** in v1.

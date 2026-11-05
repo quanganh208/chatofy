@@ -4,7 +4,7 @@ After a successful deploy, update the existing owning deployment document
 discovered through repository navigation, and only when the operational contract
 changed. Create one only when the project has none and the information is worth
 keeping. Route the change through the project's documentation workflow
-(`/ak:docs update`) for the route-record schema.
+(`/ak-docs update`) for the route-record schema.
 
 - Record the retrieval route, never a credential value.
 - Classify dashboard URLs, account or project ids, and vault locators against the repository's audience before recording them. When that audience is public, inaccessible, or unverifiable, keep the detail in an approved restricted owner and record a non-sensitive pointer plus a blocker instead; never create a public fallback.

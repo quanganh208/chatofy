@@ -1,18 +1,17 @@
 ---
-name: ak:show-off
-description: "Create preference-aware self-contained HTML pages to showcase work. Use for demos, visual presentations, interactive showcases."
-user-invocable: true
-when_to_use: "Invoke to create a self-contained showcase or demo page."
+name: ak-show-off
+description: "Create preference-aware self-contained HTML pages that showcase work."
+when_to_use: "Invoke for demos, visual presentations or interactive showcases."
 category: media
 keywords: [HTML, showcase, demo, presentation]
 argument-hint: "[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
-license: Complete terms in LICENSE.txt
+license: Proprietary
 metadata:
   author: agentkit
   version: "1.0.3"
 ---
 
-Activate `ak:frontend-design` to build the showcase page. Run its Decision Procedure (one-line Design Read) and Self-Review Gate, because a demo page converges on the same generic layout as product UI when they are skipped.
+Activate `ak-frontend-design` to build the showcase page. Run its Decision Procedure (one-line Design Read) and Self-Review Gate, because a demo page converges on the same generic layout as product UI when they are skipped.
 
 ## REQUEST / MISSION:
 $ARGUMENTS
@@ -23,7 +22,7 @@ Showcase, social media posting, and optional output images for articles.
 ## PERSISTED PREFERENCES
 
 `show-off` has user-level workflow preferences. Resolve them before invoking
-`/ak:project-management`, because the resolved values decide which tasks the plan
+`/ak-project-management`, because the resolved values decide which tasks the plan
 registers. Defaults preserve legacy behavior:
 
 ```json
@@ -100,9 +99,9 @@ Follow these steps strictly in order, one by one:
 - If `publishing=true`, use `agentwiki` CLI to publish this document (organize or create appropriate folder).
   If `publishing=false`, keep the document local and mark the publish task skipped.
 - Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
-  1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and design critique.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for system maps/flow diagrams.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+  1. Activate `ak-frontend-design` first for layout, typography, responsive shell, and design critique.
+  2. Activate `ak-diagram` second (when installed) to compile typed JSON IR for system maps/flow diagrams.
+  3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
   - Include visual diagrams/illustrations
   - Include decorative elements (optional)
   - Micro-animation or subtle animation (optional)
@@ -165,7 +164,7 @@ Follow these steps strictly in order, one by one:
 - Output images are sized to match their ratios when `screenshots=true`.
 - Modularization & maintainable code
 
-**Editorial visual layer (on by default, additive for non-hero panels):** read `ak config prefs resolve --json | jq '.prefs.visual'` (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). The hero section still delegates to `ak:frontend-design` unchanged. For non-hero KPI / ranked-list / quadrant panels, the AntV Infographic palette (`CandyCardLite`, `CompactCard`, `CompareBinaryHorizontal`, `CircularProgress`, `ChartPie`, `ChartBar`) is available when `.prefs.visual.antv.enabled` AND the artifact carries ≥3 such tiles. For architecture or process diagrams inside a section, `diagram-design` (Architecture, Process, Data flow) is available when `.prefs.visual.diagramDesign.enabled`. Kill switches: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` and `../ak-preview/references/html-diagram-design.md`.
+**Editorial visual layer (on by default, additive for non-hero panels):** read `ak config prefs resolve --json | jq '.prefs.visual'` (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). The hero section still delegates to `ak-frontend-design` unchanged. For non-hero KPI / ranked-list / quadrant panels, the AntV Infographic palette (`CandyCardLite`, `CompactCard`, `CompareBinaryHorizontal`, `CircularProgress`, `ChartPie`, `ChartBar`) is available when `.prefs.visual.antv.enabled` AND the artifact carries ≥3 such tiles. For architecture or process diagrams inside a section, `diagram-design` (Architecture, Process, Data flow) is available when `.prefs.visual.diagramDesign.enabled`. Kill switches: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` and `../ak-preview/references/html-diagram-design.md`.
 
 ## Handoff Gate (mandatory before delivering)
 

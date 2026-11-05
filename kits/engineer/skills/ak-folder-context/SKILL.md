@@ -1,11 +1,10 @@
 ---
-name: ak:folder-context
-description: Create a compact subfolder CLAUDE.md and linked AGENTS.md for durable local conventions. Use when a folder needs agent context beyond the project root.
-user-invocable: true
-when_to_use: Invoke for subfolder-scoped agent context, not root project instructions or general docs.
+name: ak-folder-context
+description: "Create a compact subfolder CLAUDE.md and linked AGENTS.md for durable local conventions."
+when_to_use: "Use when a folder needs its own agent context, not root or general docs."
 category: workflow
 keywords: [claude-md, agents-md, context, folder, conventions]
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 argument-hint: "<target-folder>"
 metadata:
   author: agentkit
@@ -48,7 +47,7 @@ tree or generic project documentation.
 ## Boundaries and Safety
 
 - Use ak-docs for project documentation under docs.
-- For the root CLAUDE.md/AGENTS.md, use `/ak:docs agent-context`; this skill
+- For the root CLAUDE.md/AGENTS.md, use `/ak-docs agent-context`; this skill
   stays subfolder-only and never edits the root.
 - Do not duplicate root instructions, invent constraints, write credentials, or
   create context files outside the confirmed target.

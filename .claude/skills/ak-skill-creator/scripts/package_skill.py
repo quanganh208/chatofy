@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Modified by AgentKit from anthropics/skills (Apache-2.0); see NOTICE.txt and
+# LICENSE.txt in the skill directory.
 """
 Skill Packager - Creates a distributable zip file of a skill folder
 

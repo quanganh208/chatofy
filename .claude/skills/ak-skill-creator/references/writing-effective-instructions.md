@@ -56,6 +56,16 @@ an instruction is harmful. Use `references/testing-and-iteration.md` to decide.
     complete-read requirements when their dependency or format constraint needs
     them; avoid making every request load the whole catalog. Report decisions and
     evidence without requiring a transcript of internal reasoning.
+13. **Encode what the consumer cannot infer.** Prioritize organization/project contracts,
+    domain-specific rules, authority boundaries, deterministic interfaces and recurring
+    failure protections. Generic professional advice needs evidence that it improves the
+    target consumer before it earns common-path context.
+14. **Use guardrails, not railroads.** State the destination, protected boundaries and
+    proof of completion. Prescribe the route only when order encodes a dependency, safety
+    property, reproducibility requirement or measured reliability gain.
+15. **Capture scar tissue, not superstition.** A failure rule should name a concrete bad
+    outcome or invalid solution it prevents. Preserve rules tied to reproduced failures;
+    challenge inherited ritual whose reason is only historical prompt folklore.
 
 A shorter prompt is not automatically better. Test target models independently;
 a less capable consumer may need examples that a stronger consumer can infer.
@@ -70,14 +80,26 @@ description: [What it does] + [when to use it] + [what it does not cover]
 ---
 # Skill Name
 Purpose in two or three sentences, including the audience and quality bar.
-## Workflow router
-Select the task-specific reference; state when to load it. For a single simple
-workflow, inline its instructions instead of creating an unnecessary reference.
-## Completion and boundaries
-Outcome, constraints, authority and verification. Exact commands for fragile steps.
-## Resources
-Point to common-path resources; branch references own their own details.
+## Outcome
+The observable result this skill owns.
+## Authority
+What this skill may change or execute, and what requires separate authorization.
+## Done when
+Observable acceptance and verification criteria.
+## Constraints and known failure modes
+Domain-specific invalid solutions and recurring mistakes worth excluding.
+## Routing
+Select the task-specific reference only when its knowledge is relevant.
+## Tools
+Deterministic scripts, validators or APIs to run instead of regenerating their output.
+## Evidence
+What a completion claim must cite: artifacts, command results or observed state.
 ```
+
+This is the canonical thin-skill schema. Omit a section that has nothing skill-specific
+to say rather than filling it with generic advice; keep `Outcome`, `Authority` and
+`Done when` for every routable skill. A section's job is to encode what the consumer
+cannot infer, not to restate professional knowledge.
 
 Add `## Examples` when domain decisions, edge cases or output shape need clarification;
 label illustrative examples and distinguish exact contracts. Add `## Troubleshooting` when a failure recurs and
@@ -124,6 +146,10 @@ extended examples, domain rules, and troubleshooting into `references/`.
 ## What not to include
 
 - General knowledge the model already has.
+- Large framework, mental-model or idea catalogs merely because they are useful background knowledge.
+- Personas whose only effect is to say the model is an expert.
+- Vague prohibitions such as "do not write bad code", "do not over-engineer", or
+  "do not hallucinate"; replace them with an observable boundary or omit them.
 - Tool documentation. Teach the workflow, not what the tool is.
 - Text that duplicates a reference. Information lives in one place.
 - Boilerplate copied from another skill or agent without a reason that

@@ -1,6 +1,6 @@
 # Pi Sessions
 
-`/ak:orchestrate` can dispatch Pi coding-agent (`pi`) sessions as headless
+`/ak-orchestrate` can dispatch Pi coding-agent (`pi`) sessions as headless
 jobs and chain them through their session files. This reference explains how
 to probe, dispatch, continue, capture and bound those sessions. It sits on top
 of the evidence contract in [runtime-matrix.md](runtime-matrix.md) and

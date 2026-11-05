@@ -4,15 +4,6 @@
       {
         "hooks": [
           {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs\"",
-            "type": "command"
-          }
-        ],
-        "matcher": "Write|Edit"
-      },
-      {
-        "hooks": [
-          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plan-format-kanban.cjs\"",
             "type": "command"
           }
@@ -74,7 +65,7 @@
             "type": "command"
           }
         ],
-        "matcher": "Read|Write|Edit|Bash"
+        "matcher": "Read|Write|Edit|Bash|PowerShell"
       },
       {
         "hooks": [
@@ -83,7 +74,7 @@
             "type": "command"
           }
         ],
-        "matcher": "Bash|Read"
+        "matcher": "Bash|PowerShell|Read"
       },
       {
         "hooks": [
@@ -92,7 +83,7 @@
             "type": "command"
           }
         ],
-        "matcher": "Bash|WebFetch"
+        "matcher": "Bash|PowerShell|WebFetch"
       },
       {
         "hooks": [
@@ -101,7 +92,7 @@
             "type": "command"
           }
         ],
-        "matcher": "Bash|Read|Grep|Glob"
+        "matcher": "Bash|PowerShell|Read|Grep|Glob"
       }
     ],
     "SessionEnd": [
@@ -129,10 +120,6 @@
         "hooks": [
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-init.cjs\"",
-            "type": "command"
-          },
-          {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],
@@ -165,10 +152,6 @@
           },
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-behavior-linter.cjs\"",
-            "type": "command"
-          },
-          {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],
@@ -209,6 +192,10 @@
             "type": "command"
           },
           {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs\"",
+            "type": "command"
+          },
+          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs\"",
             "type": "command"
           },
@@ -222,23 +209,7 @@
       {
         "hooks": [
           {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/secret-output-guardrail.cjs\"",
-            "type": "command"
-          },
-          {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs\"",
-            "type": "command"
-          },
-          {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs\"",
-            "type": "command"
-          },
-          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
-            "type": "command"
-          },
-          {
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],

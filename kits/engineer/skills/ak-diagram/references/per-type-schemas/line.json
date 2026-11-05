@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ak:diagram line spec",
+  "title": "ak-diagram line spec",
   "type": "object",
   "required": [
     "x",

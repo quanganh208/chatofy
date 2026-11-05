@@ -1,11 +1,10 @@
 ---
-name: ak:web-frameworks
-description: Build with Next.js (App Router, RSC, SSR, ISR), Turborepo monorepos. Use for React apps, server rendering, build optimization, caching, shared dependencies, and SEO/GEO surfaces (sitemap, robots, llms.txt, .md page variants, social cards, JSON-LD, copy/share/open-in-AI actions).
-user-invocable: true
-when_to_use: "Invoke for Next.js, RSC, SSR, ISR, Turborepo, caching, or Next.js SEO/GEO implementation."
+name: ak-web-frameworks
+description: "Build Next.js (App Router, RSC, SSR, ISR) React apps, Turborepo monorepos and SEO/GEO surfaces: sitemap, robots, llms.txt, .md pages, social cards, JSON-LD."
+when_to_use: "Invoke for server rendering, build caching, shared dependencies or open-in-AI actions."
 category: engineering
 keywords: [nextjs, turborepo, ssr, isr, rsc, seo, llms-txt, open-graph]
-license: MIT
+license: Proprietary
 argument-hint: "[framework] [feature]"
 metadata:
   author: agentkit

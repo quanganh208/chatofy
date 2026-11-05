@@ -1,12 +1,11 @@
 ---
-name: ak:design
-description: "Design brand identity, logos, banners, posters, and visual assets. Use for brand systems, design tokens, corporate identity programs, event/editorial/marketing posters, and visual campaign assets. Not for UI code patterns."
-user-invocable: true
-when_to_use: "Invoke for brand systems and visual identity, not UI code."
+name: ak-design
+description: "Design brand identity, logos, banners, posters, design tokens and visual campaign assets."
+when_to_use: "Invoke for brand systems or corporate identity; not for UI code patterns."
 category: design
 keywords: [brand, logo, CIP, banners, posters, identity]
 argument-hint: "[design-type] [context]"
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 metadata:
   author: agentkit
   version: "2.4.1"

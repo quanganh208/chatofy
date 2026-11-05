@@ -1,11 +1,10 @@
 ---
-name: ak:codex-goal
-description: Guide long-running Codex goal work with a verifiable stop condition. Use when users mention /goal, goal mode, durable objectives, or autonomous multi-turn Codex runs.
-user-invocable: true
-when_to_use: Invoke for Codex-native /goal guidance, not generic iteration loops or multi-CLI orchestration.
+name: ak-codex-goal
+description: "Guide long-running Codex /goal work to a verifiable stop condition, not generic iteration loops or multi-CLI orchestration."
+when_to_use: "Use for goal mode, durable objectives or autonomous multi-turn runs."
 category: runtime
 keywords: [codex, goal, autonomous, validation, long-running]
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 argument-hint: "<objective | goal draft>"
 metadata:
   author: agentkit
@@ -61,7 +60,7 @@ Review the final diff before merging.
 ## Boundaries
 
 - Before multi-hour or high-dependency goals, prefer engineer-kit
-  `ak:goal-warmup` to lock an outcome contract and preflight blockers; it does
+  `ak-goal-warmup` to lock an outcome contract and preflight blockers; it does
   not start `/goal` for you.
 - Use ak-loop, available in the engineer kit, for local metric-driven iteration.
 - Use ak-orchestrate, available in the engineer kit, for dispatch across

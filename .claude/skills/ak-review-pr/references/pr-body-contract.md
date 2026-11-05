@@ -1,6 +1,6 @@
 # Evidence-rich PR body contract (#1195)
 
-`ak:ship` must create/update PR bodies with these sections (headings localized
+`ak-ship` must create/update PR bodies with these sections (headings localized
 to the effective writing language; English forms shown). Validate with:
 
 ```bash
@@ -45,7 +45,7 @@ Fold prior ship fields into this body without duplicating facts:
 - Diff/changes summary (under Completion evidence)
 - **Ship Mode** (mode + target branch)
 
-## `ak:review-pr` validation
+## `ak-review-pr` validation
 
 - Missing required sections → **Important** findings.
 - Unsupported claims / empty evidence where evidence is asserted → **Important**.

@@ -1,8 +1,7 @@
 ---
-name: ak:sowat
-description: "Analyze recently implemented work and related issues like a product owner. Use to identify high-impact next steps, challenge weak priorities, and explain what matters now."
-user-invocable: true
-when_to_use: "Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing."
+name: ak-sowat
+description: "Analyze recent work and related issues like a product owner to pick high-impact next steps and challenge weak priorities."
+when_to_use: "Invoke after implementation or when asked what matters most."
 category: workflow
 keywords: [product, impact, priorities, next-steps, issues, strategy, outcome]
 argument-hint: "[recent-changes|issue|PR]"

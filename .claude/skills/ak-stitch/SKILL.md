@@ -1,11 +1,10 @@
 ---
-name: ak:stitch
-description: "AI design generation with Google Stitch. Generate UI designs from text prompts, export Tailwind/HTML/DESIGN.md, orchestrate design-to-code pipeline. Use for rapid prototyping, UI generation, design exploration."
-user-invocable: true
-when_to_use: "Invoke for AI-generated UI designs and design-to-code handoff."
+name: ak-stitch
+description: "Generate AI UI designs from text prompts with Google Stitch and export Tailwind, HTML or DESIGN.md for design-to-code."
+when_to_use: "Invoke for rapid prototyping or design exploration."
 category: design
 keywords: [Stitch, UI-generation, prototyping, Tailwind]
-license: MIT
+license: Proprietary
 allowed-tools:
   - Bash
   - Read
@@ -119,9 +118,9 @@ If no plan is active, omit `--project-name` — the script auto-detects from the
 4. **Variants** (optional) — Generate alternatives if user wants exploration
 5. **Export** — Run `stitch-export.ts --format all` to get HTML + DESIGN.md
 6. **Implement** — Hand off exported artifacts to implementation skill:
-   - `ak:frontend-design` — React/Vue/Svelte components from Tailwind export
-   - `ak:ui-ux-pro-max` — Full page layouts with style guide integration
-   - `ak:ui-styling` — Design token extraction from DESIGN.md
+   - `ak-frontend-design` — React/Vue/Svelte components from Tailwind export
+   - `ak-ui-ux-pro-max` — Full page layouts with style guide integration
+   - `ak-ui-styling` — Design token extraction from DESIGN.md
 7. **Track quota** — Record completed generation usage once; inspect whether the generation script already increments before changing the local counter.
 
 ### Handoff Protocol
@@ -138,7 +137,7 @@ See `references/design-to-code-pipeline.md` for detailed patterns and examples.
 - Consult current service/account limits; local defaults are not a live quota reading
 - Local tracking via `~/.claudekit/.stitch-quota.json`
 - Warns when remaining credits < 20%
-- **Fallback:** When exhausted, use `ak:ui-ux-pro-max` for text-based design generation
+- **Fallback:** When exhausted, use `ak-ui-ux-pro-max` for text-based design generation
 
 See `references/quota-management.md` for strategies.
 

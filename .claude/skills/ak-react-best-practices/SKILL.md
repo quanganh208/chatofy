@@ -1,10 +1,10 @@
 ---
-name: ak:react-best-practices
-description: "Apply React and Next.js performance optimization patterns from Vercel Engineering. Use for component optimization, rendering performance, bundle analysis."
-user-invocable: true
-when_to_use: "Invoke for React/Next.js performance and rendering issues."
+name: ak-react-best-practices
+description: "Apply Vercel Engineering's React and Next.js performance patterns."
+when_to_use: "Invoke for component optimization, rendering performance or bundle analysis."
 category: engineering
 keywords: [react, nextjs, performance, vercel]
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 argument-hint: "[component or pattern]"
 metadata:
   author: agentkit

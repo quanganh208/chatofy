@@ -7,7 +7,7 @@ Usage:
 
 Without --kit the skill is a project or user skill: directory <slug>/ and a
 minimal frontmatter. With --kit the skill is an AgentKit kit skill: directory
-ak-<slug>/, name ak:<slug>, and the frontmatter fields the ak runtime reads
+ak-<slug>/, name ak-<slug>, and the frontmatter fields the ak runtime reads
 (see references/agentkit-kit-skill-contract.md). No example files are
 written; add references/, scripts/, or assets/ when the skill needs them.
 """
@@ -33,7 +33,6 @@ description: {description}
 KIT_FRONTMATTER = '''---
 name: {full_name}
 description: {description}
-user-invocable: true
 when_to_use: "Use when [precise activation condition]."
 category: utilities
 keywords: [{keyword}]
@@ -58,10 +57,12 @@ bar. Name the environment or product context only the author knows.]
 
 ## How to work
 
-[State the outcome, constraints, authority and observable completion criteria.
-For multiple workflows, route to references only when their branch applies.
-Number steps when order encodes dependencies or prevents errors. Retain useful
-examples; choose verification by changed behavior and explain real constraints.]
+[Outcome, constraints and authority. Route to references only when their branch
+applies; number steps only where order prevents errors or a later step needs it.]
+
+## Done when
+
+- [Observable evidence that proves the outcome, and the check that produces it]
 
 ## Resources
 
@@ -92,11 +93,12 @@ def init_skill(identifier, parent, kit=None, description=None):
     """Create <parent>/<dir>/SKILL.md and return the skill directory path."""
     full_name, namespace, slug = parse_identifier(identifier)
     if kit:
+        # The legacy ak:<slug> input is still accepted; kit skills are named ak-<slug>.
         if namespace not in (None, KIT_NAMESPACE):
-            raise ValueError(f"Kit skills use the '{KIT_NAMESPACE}:' namespace; got '{namespace}:'.")
-        namespace = KIT_NAMESPACE
-        full_name = f'{KIT_NAMESPACE}:{slug}'
-        directory = Path(parent) / f'{KIT_NAMESPACE}-{slug}'
+            raise ValueError(f"Kit skills use the '{KIT_NAMESPACE}-<slug>' name; got '{namespace}:'.")
+        slug = slug.removeprefix(f'{KIT_NAMESPACE}-')
+        full_name = f'{KIT_NAMESPACE}-{slug}'
+        directory = Path(parent) / full_name
     else:
         directory = Path(parent) / slug
 
@@ -115,7 +117,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Initialize a new skill directory.')
     parser.add_argument('skill_name', help="'skill-name' or 'namespace:skill-name'")
     parser.add_argument('--path', required=True, help='Parent directory that will contain the skill directory')
-    parser.add_argument('--kit', help='AgentKit kit name; emits ak:<slug> frontmatter and an ak-<slug>/ directory')
+    parser.add_argument('--kit', help='AgentKit kit name; emits ak-<slug> frontmatter and an ak-<slug>/ directory')
     parser.add_argument('--description', help='Initial description text (edit it before validating)')
     args = parser.parse_args(argv)
 

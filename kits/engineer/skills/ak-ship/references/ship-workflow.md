@@ -34,7 +34,7 @@
 4. Run `git status` (never use `-uall`). Record task ownership and intended ship scope; preserve unrelated uncommitted changes.
 5. Run `git diff <target>...HEAD --stat` and `git log <target>..HEAD --oneline` to understand what's being shipped.
 6. If `--dry-run`: output what would happen at each step and stop here. Do not
-   spawn `kongming`, activate `ak:review-pr`, publish social content, or perform
+   spawn `kongming`, activate `ak-review-pr`, publish social content, or perform
    any mutation.
 
 7. If `--advice`, run the mandatory post-preflight Kongming checkpoint from
@@ -260,6 +260,10 @@ gh pr view --json body -q .body | node "$PR_BIN"
 ```
 
 **Output the PR URL** — this is the final output the user sees.
+
+In a batch-landing repository (see "Batch-landing repositories" in the skill),
+include the local verification evidence its instructions name in the body and
+create the PR ready for review; after Step 12b, stop.
 
 If PR already exists for this branch, update it instead (same contract):
 ```bash
