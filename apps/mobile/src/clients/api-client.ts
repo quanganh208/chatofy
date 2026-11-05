@@ -7,13 +7,19 @@
  * is about to expire; with nobody signed in the call throws `SignedOutError`.
  */
 
+import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   conferenceDetailResponseSchema,
   conferenceMinutesResponseSchema,
   storedConferenceMinutesResponseSchema,
+  conversationListResponseSchema,
+  conversationResponseSchema,
+  conversationSummaryResponseSchema,
+  voiceGenderSchema,
   type GenerateMinutesRequest,
   type LanguageCode,
+  type SaveConversationRequest,
 } from '@chatofy/types';
 import { API_BASE_URL } from '@/config/api-base-url';
 import { authClient } from './auth-client';
@@ -47,4 +53,63 @@ export function generateConferenceMinutes(conferenceId: string, language: Langua
     conferenceMinutesResponseSchema,
     { method: 'POST', body: JSON.stringify(body) },
   );
+}
+
+/**
+ * Stores a finished translate conversation under `conversationId`. A PUT, so
+ * sending the same id again replaces it: a retry after a dropped response never
+ * makes a second copy.
+ */
+export function saveConversation(conversationId: string, body: SaveConversationRequest) {
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    conversationSummaryResponseSchema,
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+}
+
+/**
+ * The caller's past conversations, newest first. Keyset-paged: pass a previous
+ * page's `nextCursor` back as `cursor`; null means that was the last page.
+ */
+export function listConversations(options: { limit?: number; cursor?: string; q?: string } = {}) {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.cursor) query.set('cursor', options.cursor);
+  // Omitted when empty: a term under the minimum length is a 400, and a cleared box means "list everything".
+  if (options.q) query.set('q', options.q);
+  const suffix = query.toString();
+  return api.apiFetch(
+    `/conversations${suffix ? `?${suffix}` : ''}`,
+    conversationListResponseSchema,
+  );
+}
+
+/** One stored conversation with its transcript. 404 for one the caller does not own. */
+export function getConversation(conversationId: string) {
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    conversationResponseSchema,
+  );
+}
+
+/** Deletes a conversation and its transcript. Answers 204, which parses as `undefined`. */
+export function deleteConversation(conversationId: string) {
+  return api.apiFetch(`/conversations/${encodeURIComponent(conversationId)}`, z.undefined(), {
+    method: 'DELETE',
+  });
+}
+
+/** One voice the running speech backend offers; `token` is opaque and only echoed back. */
+const ttsVoiceSchema = z.object({
+  token: z.string(),
+  label: z.string(),
+  gender: voiceGenderSchema,
+});
+const ttsVoicesResponseSchema = z.object({ voices: z.array(ttsVoiceSchema) });
+export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
+
+/** Voices available for a language. */
+export function listVoices(language: LanguageCode) {
+  return api.apiFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
 }

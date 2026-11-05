@@ -29,6 +29,7 @@ import {
   drainLegThenClose,
   releaseCapture,
 } from './conference-cascade-leg-native';
+import { micLock } from '@/translate/mic-lock';
 import { NativeAudioCapture } from './native-audio-capture';
 import { PeerLanguages, peerSourceLanguage } from './conference-room-peer-language';
 import { CONFERENCE_WS_URL } from './conference-config';
@@ -406,6 +407,11 @@ export function useConferenceNative(
         // Translation of our own mic. A capture failure (e.g. mic contention with
         // webrtc) must not drop the video call — translation just doesn't start.
         try {
+          // One microphone owner at a time: translation on the translate tab holds it
+          // while it runs. The call carries on without translating if it does.
+          if (!micLock.acquire('conference')) {
+            throw new Error('the microphone is in use by the translate screen');
+          }
           captureRef.current ??= new NativeAudioCapture();
           const leg = createNativeConferenceLeg({
             confWs: ws,

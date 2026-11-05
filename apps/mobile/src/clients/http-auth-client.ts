@@ -92,8 +92,32 @@ export class HttpAuthClient implements AuthClient {
     return session;
   }
 
+  async signInWithGoogle(idToken: string): Promise<AuthSession> {
+    const res = await this.post('/auth/google', { idToken });
+    const session = sessionEnvelope.parse(await res.json()).data;
+    await this.setSession(session);
+    return session;
+  }
+
   async signUp(email: string, password: string, name: string): Promise<AuthMessage> {
-    const res = await this.post('/auth/register', { email, password, name });
+    // `client: 'mobile'` makes the verification mail link into the app. The API
+    // only chooses between two origins it was configured with; see AuthMailer.
+    const res = await this.post('/auth/register', { email, password, name, client: 'mobile' });
+    return messageEnvelope.parse(await res.json()).data;
+  }
+
+  async forgotPassword(email: string): Promise<AuthMessage> {
+    const res = await this.post('/auth/forgot-password', { email, client: 'mobile' });
+    return messageEnvelope.parse(await res.json()).data;
+  }
+
+  async verifyEmail(token: string): Promise<AuthMessage> {
+    const res = await this.post('/auth/verify-email', { token });
+    return messageEnvelope.parse(await res.json()).data;
+  }
+
+  async resetPassword(token: string, password: string): Promise<AuthMessage> {
+    const res = await this.post('/auth/reset-password', { token, password });
     return messageEnvelope.parse(await res.json()).data;
   }
 

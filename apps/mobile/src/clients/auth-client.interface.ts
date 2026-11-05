@@ -25,6 +25,17 @@ export interface AuthClient {
    * cannot sit here disagreeing with what the API actually answers.
    */
   signUp(email: string, password: string, name: string): Promise<AuthMessage>;
+  /**
+   * Asks for a password-reset link. Answers the same whether or not the address
+   * has an account, so the caller shows one neutral message either way.
+   */
+  forgotPassword(email: string): Promise<AuthMessage>;
+  /** Redeems the token from a mailed verification link; the account exists afterwards. */
+  verifyEmail(token: string): Promise<AuthMessage>;
+  /** Redeems the token from a mailed reset link. Signs nobody in. */
+  resetPassword(token: string, password: string): Promise<AuthMessage>;
+  /** Trades the id_token Google issued to this app for a session, like `signIn`. */
+  signInWithGoogle(idToken: string): Promise<AuthSession>;
   signOut(): Promise<void>;
   /**
    * Trades a refresh token for a fresh pair. Returns only the TOKEN half — the

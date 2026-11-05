@@ -1,30 +1,24 @@
 /**
  * Email/password sign-in against the API's `POST /auth/login`. On success the
  * session is stored in secure storage and the user goes where they were headed
- * (`?next=`), or to the conference tab. Sign-in is the one accent control here.
- *
- * Registration stays on the web: the account only exists once the mailed
- * verification link is followed, and that link opens the website.
+ * (`?next=`), or to the translate tab. Sign-in is the one accent control here.
  */
 
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
+import { space, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
+import { safeNextPath } from '@/auth/route-guard';
 import { AuthRequestError } from '@/clients/http-auth-client';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
+import { GhostButton } from '@/ui/components/ghost-button';
+import { InlineNotice } from '@/ui/components/inline-notice';
+import { PrimaryButton } from '@/ui/components/primary-button';
+import { Screen } from '@/ui/components/screen';
+import { TextField } from '@/ui/components/text-field';
 
 // English for now, matching the conference screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
@@ -59,9 +53,7 @@ export default function SignInScreen() {
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
-      // Only an in-app path is honoured, so a crafted link cannot send the user elsewhere.
-      const target = typeof next === 'string' && next.startsWith('/') ? next : '/conference';
-      router.replace(target as Href);
+      router.replace(safeNextPath(next, '/translate') as Href);
     } catch (err) {
       setError(failureMessage(err));
       setSubmitting(false);
@@ -69,126 +61,66 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <Screen centered>
+      <Text
+        style={{
+          color: colors.text,
+          fontSize: fontSize.xl,
+          fontWeight: fontWeight.semibold,
+          marginBottom: space.sm,
+        }}
       >
-        <Text style={[styles.title, { color: colors.text }]}>{t('mobile.auth.signInTitle')}</Text>
+        {t('mobile.auth.signInTitle')}
+      </Text>
 
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('common.auth.email')}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
-            ]}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            accessibilityLabel={t('common.auth.email')}
-          />
-        </View>
+      <TextField
+        label={t('common.auth.email')}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoComplete="email"
+        keyboardType="email-address"
+        textContentType="emailAddress"
+      />
+      <TextField
+        label={t('common.auth.password')}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="password"
+        textContentType="password"
+        returnKeyType="go"
+        onSubmitEditing={() => void submit()}
+      />
 
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('common.auth.password')}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
-            ]}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-            textContentType="password"
-            returnKeyType="go"
-            onSubmitEditing={() => void submit()}
-            accessibilityLabel={t('common.auth.password')}
-          />
-        </View>
+      {error ? <InlineNotice tone="error" message={t(error)} /> : null}
 
-        {error ? (
-          <Text accessibilityRole="alert" style={[styles.error, { color: colors.destructive }]}>
-            {t(error)}
-          </Text>
-        ) : null}
+      <PrimaryButton
+        label={t('common.auth.signIn')}
+        onPress={() => void submit()}
+        busy={submitting}
+      />
+      <GhostButton
+        variant="link"
+        label={t('web.auth.forgotPasswordShort')}
+        onPress={() => router.push('/forgot-password')}
+      />
 
-        <TouchableOpacity
-          style={[styles.submit, { backgroundColor: colors.primary }]}
-          onPress={() => void submit()}
-          disabled={submitting}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: submitting, busy: submitting }}
-        >
-          {submitting ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-              {t('common.auth.signIn')}
-            </Text>
-          )}
-        </TouchableOpacity>
+      <GoogleSignInButton
+        onSignedIn={() => router.replace(safeNextPath(next, '/translate') as Href)}
+        onError={setError}
+      />
 
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t('mobile.auth.noAccount')}
+      <View style={{ alignItems: 'center' }}>
+        <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
+          {t('mobile.auth.noAccountPrompt')}
         </Text>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <GhostButton
+          variant="link"
+          label={t('web.auth.createAccount')}
+          onPress={() => router.push('/sign-up')}
+        />
+      </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-    gap: space.md,
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-    marginBottom: space.sm,
-  },
-  field: {
-    gap: space.xs,
-  },
-  label: {
-    fontSize: fontSize.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    fontSize: fontSize.base,
-  },
-  error: {
-    fontSize: fontSize.sm,
-  },
-  submit: {
-    borderRadius: radius.sm,
-    paddingVertical: space.md,
-    alignItems: 'center',
-    marginTop: space.sm,
-  },
-  submitText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  hint: {
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-  },
-});
