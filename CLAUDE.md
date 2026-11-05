@@ -10,7 +10,7 @@ Your role is to analyze user requirements, delegate tasks to appropriate sub-age
 
 This repo runs **AgentKit (AK) engineer kit**, installed project-native into `./.claude` with lifecycle metadata under `./.agentkit`.
 
-- Skills: `./.claude/skills/ak-*` — invoked as `/ak:<name>`
+- Skills: `./.claude/skills/ak-*` — invoked as `/ak-<name>`
 - Agents: `./.claude/agents/*.md`
 - Hooks: `./.claude/hooks/*.cjs`, wired in `./.claude/settings.json`
 - CLI: `ak` (`ak doctor`, `ak update`, `ak kit refresh engineer`)

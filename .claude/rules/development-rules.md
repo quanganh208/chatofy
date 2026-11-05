@@ -60,4 +60,4 @@ the line being read at 4.07:1.
 - Use `gh` for GitHub operations when needed.
 - Use current docs only when the API/tooling may have changed.
 - Use relevant skills by reading their descriptions first, then opening only the needed `SKILL.md`.
-- Use `/ak:preview` only when a visual explanation will materially help the user understand the change.
+- Use `/ak-preview` only when a visual explanation will materially help the user understand the change.
