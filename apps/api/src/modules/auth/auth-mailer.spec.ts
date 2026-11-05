@@ -6,14 +6,8 @@ import type { MailSender } from '../mail/interfaces/mail-sender.interface';
 
 const WEB = 'https://chatofy.example';
 
-function mailer(scheme = 'chatofy') {
-  const values: Record<string, string> = {
-    WEB_BASE_URL: WEB,
-    MOBILE_LINK_SCHEME: scheme,
-  };
-  const config = {
-    get: (key: string) => values[key],
-  } as unknown as ConfigService<never, true>;
+function mailer() {
+  const config = { get: () => WEB } as unknown as ConfigService<never, true>;
   return new AuthMailer({ send: async () => undefined } as MailSender, config);
 }
 
@@ -24,12 +18,9 @@ describe('AuthMailer.link', () => {
     );
   });
 
-  it('builds an app link from the configured scheme for the mobile client', () => {
+  it('builds an app link for the mobile client', () => {
     expect(mailer().link('/verify-email', 'tok', 'mobile')).toBe(
       'chatofy://verify-email?token=tok',
-    );
-    expect(mailer('chatofy-dev').link('/reset-password', 'tok', 'mobile')).toBe(
-      'chatofy-dev://reset-password?token=tok',
     );
   });
 

@@ -65,8 +65,7 @@ export const envSchema = z.object({
   // deployment that never offers Google login should not be stopped from
   // booting over a value it has no use for.
   AUTH_GOOGLE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
-  // The mobile app's Google client ids (one per platform: iOS, Android, and the
-  // web-type id an Expo auth session uses), comma-separated. An id_token issued to
+  // The mobile app's Google client ids (one per platform: iOS and Android), comma-separated. An id_token issued to
   // one of them is accepted alongside the web's. Unset, only AUTH_GOOGLE_ID is.
   // Each id must be listed here by name: there is no wildcard.
   AUTH_GOOGLE_MOBILE_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
@@ -100,18 +99,6 @@ export const envSchema = z.object({
   // fixes local dev; it does not fix production, where main.ts's boot check
   // refuses to start if this is still the default (see DEFAULT_WEB_BASE_URL).
   WEB_BASE_URL: z.string().url().default(DEFAULT_WEB_BASE_URL),
-
-  // The URL scheme the mobile app registers (`scheme` in apps/mobile/app.json).
-  // Mail sent for a request from the app carries `<scheme>://verify-email?token=…`
-  // instead of a web link. Set by the operator and never taken from the request,
-  // for the same host-header reason as WEB_BASE_URL above.
-  MOBILE_LINK_SCHEME: z
-    .string()
-    .regex(
-      /^[a-z][a-z0-9+.-]*$/,
-      'a URL scheme: lowercase letters, digits, + . -',
-    )
-    .default('chatofy'),
 
   // ── Avatar storage (Cloudflare R2) ─────────────────────────────────────
   // The public origin avatars are SERVED from — a custom domain attached to the

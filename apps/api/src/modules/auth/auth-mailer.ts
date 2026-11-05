@@ -2,6 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { RequestClient } from '@chatofy/types';
 import type { Env } from '../../config/env.schema';
+
+/**
+ * The URL scheme the phone app registers (`scheme` in `apps/mobile/app.json`). A fact
+ * about the app rather than about a deployment, so it is a constant, not an env key.
+ */
+const MOBILE_LINK_SCHEME = 'chatofy';
 import {
   MAIL_SENDER,
   type MailDispatch,
@@ -20,14 +26,12 @@ import {
 export class AuthMailer {
   private readonly logger = new Logger(AuthMailer.name);
   private readonly webBaseUrl: string;
-  private readonly mobileScheme: string;
 
   constructor(
     @Inject(MAIL_SENDER) private readonly mail: MailSender,
     @Inject(ConfigService) config: ConfigService<Env, true>,
   ) {
     this.webBaseUrl = config.get('WEB_BASE_URL', { infer: true });
-    this.mobileScheme = config.get('MOBILE_LINK_SCHEME', { infer: true });
   }
 
   /**
@@ -55,14 +59,14 @@ export class AuthMailer {
    * The same destination as a link into the phone app: `<scheme>://<screen>`.
    *
    * `client` only chooses between this and the web link above. The scheme is
-   * configuration and the path is one of ours, so a request still cannot steer
+   * a constant and the path is one of ours, so a request still cannot steer
    * where a mailed token lands. The app names its register screen `sign-up`
    * where the web calls it `register`.
    */
   private mobileLink(path: string, token?: string): string {
     const screen = path.replace(/^\//, '');
     const url = new URL(
-      `${this.mobileScheme}://${screen === 'register' ? 'sign-up' : screen}`,
+      `${MOBILE_LINK_SCHEME}://${screen === 'register' ? 'sign-up' : screen}`,
     );
     if (token !== undefined) url.searchParams.set('token', token);
     return url.toString();

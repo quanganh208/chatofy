@@ -136,6 +136,35 @@ describe('RegistrationService', () => {
       expect(mail.sent[0]!.link.startsWith('http://localhost:3001')).toBe(true);
     });
 
+    it('links the app, not the web, when the request comes from the app', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      await service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        name: 'A',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+
+      expect(
+        mail.sent[0]!.link.startsWith('chatofy://verify-email?token='),
+      ).toBe(true);
+
+      // The taken-address notice goes to the mailbox owner and points at the same client.
+      mail.sent.length = 0;
+      users.findByEmail.mockResolvedValue(record());
+      await service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        name: 'A',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+      expect(mail.sent[0]!.link).toBe('chatofy://forgot-password');
+    });
+
     it('mails an account-exists notice for a taken address, from the attacker-class budget', async () => {
       users.findByEmail.mockResolvedValue(record());
       await service.register({

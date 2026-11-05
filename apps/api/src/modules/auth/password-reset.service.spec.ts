@@ -93,6 +93,33 @@ describe('PasswordResetService', () => {
       expect(mail.sent[0]!.link).toContain('/reset-password?token=');
     });
 
+    it('links the app, not the web, when the request comes from the app', async () => {
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: '$argon2-a-hash',
+        googleSub: null,
+      });
+      await service.forgotPassword({
+        email: 'a@b.com',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+      expect(
+        mail.sent[0]!.link.startsWith('chatofy://reset-password?token='),
+      ).toBe(true);
+
+      mail.sent.length = 0;
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      await service.forgotPassword({
+        email: 'nobody@b.com',
+        locale: 'en',
+        client: 'mobile',
+      });
+      await settle();
+      expect(mail.sent[0]!.link).toBe('chatofy://sign-up');
+    });
+
     it('draws the no-account notice from the attacker-class budget', async () => {
       users.findCredentialsByEmail.mockResolvedValue(null);
       await service.forgotPassword({

@@ -129,8 +129,7 @@ export function realTokens(): PurposeTokenService {
 /** A real mailer over a recording sender, so the detached hop is under test too. */
 export function realMailer(mail: MailSender): AuthMailer {
   return new AuthMailer(mail, {
-    get: (key: string) =>
-      key === 'MOBILE_LINK_SCHEME' ? 'chatofy' : WEB_BASE_URL,
+    get: () => WEB_BASE_URL,
   } as unknown as ConfigService<never, true>);
 }
 
