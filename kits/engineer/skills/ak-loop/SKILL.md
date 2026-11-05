@@ -1,20 +1,17 @@
 ---
-name: ak:loop
-description: "Autonomous iterative optimization loop — run N iterations against a mechanical metric, learn from git history, auto-keep/discard changes. Use for improving measurable metrics (coverage, performance, bundle size, etc.) through repeated experimentation."
-user-invocable: true
-disable-model-invocation: true
-when_to_use: "Invoke only when an objective metric can drive repeated trials."
+name: ak-loop
+description: "Run N autonomous iterations against a mechanical metric, learning from git history and keeping or discarding changes; only on an explicit user request."
+when_to_use: "Invoke only when the user explicitly asks to start an optimization loop on an objective metric; never self-start."
 category: workflow
 keywords: [optimization, iteration, metrics, loop]
 argument-hint: "[Goal/Metric description] or inline config block"
 metadata:
   author: agentkit
   attribution: "Core patterns adapted from autoresearch by Udit Goenka (MIT)"
-  license: MIT
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
-# ak:loop — Autonomous Optimization Loop
+# ak-loop — Autonomous Optimization Loop
 
 > Constraint + Mechanical Metric + Fast Verification = Autonomous Improvement
 
@@ -29,10 +26,10 @@ metadata:
 
 | Situation | Better Tool |
 |-----------|-------------|
-| Subjective goals ("make it cleaner") | `ak:cook` |
-| Bug fixing with known root cause | `ak:fix` or `ak:debug` |
-| One-shot tasks, no repetition needed | `ak:cook` |
-| No mechanical metric to measure progress | `ak:cook --interactive` |
+| Subjective goals ("make it cleaner") | `ak-cook` |
+| Bug fixing with known root cause | `ak-fix` or `ak-debug` |
+| One-shot tasks, no repetition needed | `ak-cook` |
+| No mechanical metric to measure progress | `ak-cook --interactive` |
 | Files outside a defined scope | manual approach |
 
 ## Configuration Format
@@ -111,7 +108,7 @@ See [`references/autonomous-loop-protocol.md`](references/autonomous-loop-protoc
 ### 1. Increase test coverage
 
 ```
-/ak:loop
+/ak-loop
 Goal: Increase test coverage in src/utils from ~60% to 80%
 Scope: src/utils/**/*.ts, tests/utils/**/*.test.ts
 Verify: npx jest tests/utils --coverage --coverageReporters=json-summary 2>/dev/null | node -e "const d=require('./coverage-summary.json');console.log(d.total.lines.pct)"
@@ -123,7 +120,7 @@ Direction: higher
 ### 2. Reduce bundle size
 
 ```
-/ak:loop
+/ak-loop
 Goal: Reduce main bundle size below 200KB
 Scope: src/**/*.ts, src/**/*.tsx
 Verify: npx vite build 2>/dev/null | grep "dist/index" | awk '{print $2}' | sed 's/kB//'
@@ -135,7 +132,7 @@ Min-Delta: 0.5
 ### 3. Eliminate ESLint errors
 
 ```
-/ak:loop
+/ak-loop
 Goal: Drive ESLint error count to zero in src/api
 Scope: src/api/**/*.ts
 Verify: npx eslint src/api --format=json 2>/dev/null | node -e "const r=require('/dev/stdin');console.log(r.reduce((a,f)=>a+f.errorCount,0))" || echo 999
@@ -191,4 +188,4 @@ When a reproduction command needs real credentials, write it as a *template* the
 
 Faithful absorption of upstream `/autoresearch` core ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). Implements Karpathy's Modify → Verify → Keep/Discard pattern with safety guardrails.
 
-See `/ak:autoresearch` for the full family map and what's not yet absorbed.
+See `/ak-autoresearch` for the full family map and what's not yet absorbed.

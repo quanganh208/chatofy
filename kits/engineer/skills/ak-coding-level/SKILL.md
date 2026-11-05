@@ -1,15 +1,13 @@
 ---
-name: ak:coding-level
-description: "Set coding experience level for tailored output. Use for adjusting explanation depth, code complexity, and response format to user expertise."
-user-invocable: true
-disable-model-invocation: true
-when_to_use: "Invoke when response depth should match user expertise."
+name: ak-coding-level
+description: "Set the user's coding experience level to tune explanation depth, code complexity and response format; only on an explicit user request."
+when_to_use: "Invoke only when the user explicitly asks to set or change their coding level; never infer one."
 category: meta
 keywords: [experience, level, explanation, format]
 argument-hint: "[0-5]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # Coding Level
@@ -18,7 +16,7 @@ Set your coding experience level for tailored explanations and output format.
 
 ## Usage
 
-`/ak:coding-level [0-5]`
+`/ak-coding-level [0-5]`
 
 ## Levels
 

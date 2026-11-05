@@ -50,7 +50,7 @@ already supplied in context, inspect `ak eval decision --help` and use the
 `domain-routing` profile. This small shadow profile accepts at most 15 observed
 capabilities. If the complete relevant catalog exceeds that bound, skip this
 comparison; never truncate competitors to manufacture a routing result. Map
-namespaced runtime IDs (for example `ak:debug`) to unique local IDs (`skill-01`,
+namespaced runtime IDs (for example `ak-debug`) to unique local IDs (`skill-01`,
 `skill-02`, ...) and retain the reversible mapping locally. Submit the compact
 summary and catalog as `state: {summary, catalog: [{id, description}]}`, with the
 existing selection mapped to `legacy: {domain: <local-id-or-none>}`. Map the

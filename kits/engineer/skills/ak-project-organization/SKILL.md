@@ -1,8 +1,7 @@
 ---
-name: ak:project-organization
-description: Organize files, directories, and content structure in any project. Use when explicitly designing or reorganizing project structure, resolving a layout conflict, or organizing existing assets.
-user-invocable: true
-when_to_use: "Invoke for project structure design or reorganization, not ordinary file creation."
+name: ak-project-organization
+description: "Organize files, directories and content structure in any project."
+when_to_use: "Invoke when explicitly reorganizing layout or assets; not for ordinary file creation."
 category: workflow
 keywords: [files, directories, structure, layout]
 argument-hint: "[directories or files to organize]"
@@ -182,7 +181,7 @@ When creating a new file, follow this decision tree:
 
 ## Organize Mode Actions
 
-When invoked directly with `/ak:project-organization [targets]`:
+When invoked directly with `/ak-project-organization [targets]`:
 
 1. **Scan** — List all files in target dirs, categorize by type
 2. **Analyze** — Check naming violations, misplaced files, inconsistencies

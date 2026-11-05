@@ -24,7 +24,7 @@ task-management surface when available; otherwise keep it in the active plan.
 Record the scout phase as active.
 
 **Mandatory skill chain:**
-1. Activate `ak:scout` skill OR launch 2-3 parallel `Explore` subagents when delegation is explicitly requested/permitted.
+1. Activate `ak-scout` skill OR launch 2-3 parallel `Explore` subagents when delegation is explicitly requested/permitted.
 2. Map: affected files, module boundaries, dependencies, related tests, recent git changes.
 
 **Pattern:** If delegation is permitted, launch 2-3 Explore agents in one
@@ -42,10 +42,10 @@ Record the diagnose phase as active.
 
 **Mandatory skill chain:**
 1. **Capture pre-fix state:** Record exact error messages, failing test output, stack traces.
-2. Activate `ak:debug` skill. Use `debugger` subagent if needed.
-3. Use `ak:fable-thinking` (sequential mode) only when a decision/evidence log would help — form hypotheses through structured reasoning.
+2. Activate `ak-debug` skill. Use `debugger` subagent if needed.
+3. Use `ak-fable-thinking` (sequential mode) only when a decision/evidence log would help — form hypotheses through structured reasoning.
 4. Use delegated `Explore` subagents to test hypotheses only when delegation is explicitly requested/permitted.
-5. If 2+ hypotheses fail → auto-activate `ak:problem-solving`.
+5. If 2+ hypotheses fail → auto-activate `ak-problem-solving`.
 6. Trace backward to root cause (not just symptom location).
 
 Use the root-cause checklist in the parent skill as the diagnosis protocol.
@@ -55,7 +55,7 @@ Record the diagnose phase as completed after the root cause is proven.
 
 Before implementation, compare only cause-aligned fixes. Record the direct
 choice and its fit with the opening acceptance criteria. If multiple viable
-approaches or an architecture decision remain, activate `ak:brainstorm` and
+approaches or an architecture decision remain, activate `ak-brainstorm` and
 escalate to Deep workflow for a plan.
 
 ### Step 3: Implement Fix
@@ -63,8 +63,8 @@ Record the implementation phase as active once scout and diagnosis are complete.
 
 Fix the ROOT CAUSE per diagnosis findings. Not symptoms.
 
-- Apply `ak:problem-solving` skill if stuck
-- Use `ak:fable-thinking` (sequential mode) for complex logic
+- Apply `ak-problem-solving` skill if stuck
+- Use `ak-fable-thinking` (sequential mode) for complex logic
 - Minimal changes. Follow existing patterns.
 - Preserve the opening constraints and non-goals.
 
@@ -105,10 +105,10 @@ Record the review phase as completed after accepted findings are resolved.
 ### Step 6: Finalize
 Record the finalize phase as active.
 - Report summary: root cause, changes, prevention measures, confidence score
-- Activate `ak:project-management` for task sync-back and plan status updates
+- Activate `ak-project-management` for task sync-back and plan status updates
 - Evaluate docs impact and use `docs-manager` only for affected authority surfaces
 - Ask to commit via git workflow or delegated git-manager when explicitly requested/permitted
-- Run `/ak:journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
+- Run `/ak-journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
 
 Record the finalize phase as completed in the live surface when available and in the active plan.
 **Output:** `✓ Step 6: Complete - [action]`
@@ -117,13 +117,13 @@ Record the finalize phase as completed in the live surface when available and in
 
 | Step | Skills/Subagents |
 |------|------------------|
-| 1 | `ak:scout` OR parallel `Explore` subagents when delegation is permitted |
-| 2 | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated debugger/Explore when permitted, optional `ak:problem-solving` when stuck, conditional `ak:brainstorm` after diagnosis |
-| 3 | `ak:problem-solving` (if stuck), `ak:fable-thinking` (sequential mode) (complex logic) |
+| 1 | `ak-scout` OR parallel `Explore` subagents when delegation is permitted |
+| 2 | `ak-debug`, `ak-fable-thinking` (sequential mode), optional delegated debugger/Explore when permitted, optional `ak-problem-solving` when stuck, conditional `ak-brainstorm` after diagnosis |
+| 3 | `ak-problem-solving` (if stuck), `ak-fable-thinking` (sequential mode) (complex logic) |
 | 4 | `run_shell` verification; optional delegated tester/workers when permitted |
 | 5 | `code-reviewer` via `delegate_agent` when permitted, otherwise local review |
-| 6 | `ak:project-management`; docs/git delegation only when permitted |
+| 6 | `ak-project-management`; docs/git delegation only when permitted |
 
 **Rules:** Don't skip steps. Validate before proceeding. One phase at a time.
-**Frontend:** Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.
-**Visual Assets:** Use `ak:ai-multimodal` for visual assets generation, analysis and verification.
+**Frontend:** Use `ak-agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.
+**Visual Assets:** Use `ak-ai-multimodal` for visual assets generation, analysis and verification.

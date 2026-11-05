@@ -1,8 +1,7 @@
 ---
-name: ak:docs-seeker
-description: Search library/framework documentation via llms.txt (context7.com). Use for API docs, GitHub repository analysis, technical documentation lookup, latest library features.
-user-invocable: true
-when_to_use: "Invoke when current library or framework docs are needed."
+name: ak-docs-seeker
+description: "Search library and framework documentation through llms.txt (context7.com), including GitHub repository analysis."
+when_to_use: "Invoke when current API docs or the latest library features are needed."
 category: engineering
 keywords: [docs, llms-txt, api, library, context7]
 argument-hint: "[library-name] [topic]"

@@ -4,6 +4,9 @@ import json
 
 PROTOCOL = "skill-routing-v1"
 MAX_CASES = 10000
+# A no-skill case asks for something no catalog skill owns, so it must expect
+# "none"; a near-miss negative may also expect "none".
+CLASSES = ("positive", "indirect", "near-miss", "no-skill")
 
 
 def encoded(value):
@@ -72,6 +75,32 @@ def validate_catalog(catalog):
     return sorted(ids)
 
 
+def catalog_from_snapshot(snapshot):
+    """Build a routing catalog from a frozen source-derived kit snapshot.
+
+    Only model-invocable skills enter the catalog. The provenance is never
+    authoritative: a source snapshot predicts, but does not observe, what a
+    runtime actually lists.
+    """
+    fields(snapshot, ("schemaVersion", "kit", "evidenceLayer", "derivation", "estimateBasis", "summary", "skills"))
+    if snapshot["schemaVersion"] != 1 or snapshot["evidenceLayer"] != "source-derived" or not text(snapshot["kit"], 128):
+        raise ValueError("not a source-derived skill catalog snapshot")
+    skills = []
+    for entry in snapshot["skills"]:
+        if not isinstance(entry, dict) or not entry.get("modelInvocable"):
+            continue
+        skill = {"id": entry["name"], "description": entry["description"], "path": entry["path"]}
+        if entry.get("whenToUse"):
+            skill["when_to_use"] = entry["whenToUse"]
+        skills.append(skill)
+    catalog = {"schema_version": 1, "runtime": {"name": "source-snapshot", "version": "kit-composition", "settings": {}},
+               "scope": f"kit:{snapshot['kit']}",
+               "provenance": {"kind": "source-derived-composition", "source": f"docs/conformance/skill-catalog/{snapshot['kit']}.json", "complete": False},
+               "skills": sorted(skills, key=lambda s: s["id"])}
+    validate_catalog(catalog)
+    return catalog
+
+
 def authoritative(catalog):
     p = catalog["provenance"]
     return p["kind"] == "runtime-visible-export" and p["complete"] is True and text(p["source"], 4096)
@@ -85,8 +114,10 @@ def validate_cases(document, catalog):
     seen = set()
     for case in document["cases"]:
         fields(case, ("id", "split", "prompt", "expected", "class"))
-        if not text(case["id"], 128) or case["id"] in seen or not text(case["prompt"], 1500) or case["split"] not in ("train", "holdout") or case["expected"] not in roster + ["none"] or case["class"] not in ("positive", "indirect", "near-miss"):
+        if not text(case["id"], 128) or case["id"] in seen or not text(case["prompt"], 1500) or case["split"] not in ("train", "holdout") or case["expected"] not in roster + ["none"] or case["class"] not in CLASSES:
             raise ValueError("invalid case identity, split, prompt or label")
+        if case["class"] == "no-skill" and case["expected"] != "none":
+            raise ValueError("a no-skill case must expect none")
         for skill in roster:
             if (":" in skill and skill in case["prompt"]) or "$" + skill in case["prompt"] or "/" + skill in case["prompt"]:
                 raise ValueError("forced skill prompt")

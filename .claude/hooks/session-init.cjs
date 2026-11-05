@@ -21,6 +21,7 @@ try {
     createSessionStateContext,
     readSessionState,
     writeEnv,
+    readEnv,
     updateSessionState,
     resolvePlanPath,
     getReportsPath,
@@ -113,23 +114,30 @@ function cleanupOrphanedShadowedSkills() {
 
 /**
  * Detect if this session is running inside an Agent Team.
- * Scans ~/.claude/teams/ for active team configs and checks membership.
- * Note: Returns first team found — Claude Code supports one team per session.
+ * Scans ~/.claude/teams/ for the team that belongs to this session: Claude Code
+ * names a session's team `session-<first 8 chars of the session id>` and keeps
+ * session ids in the team config. Any other team directory belongs to another
+ * session (one that crashed can leave its directory behind), so it is ignored.
  * Note: Team lifecycle (creation/cleanup) is managed by Claude Code, not this hook.
+ * @param {string|null} sessionId - The SessionStart payload's session id
  * @returns {{ teamName: string, memberCount: number } | null}
  */
-function detectAgentTeam() {
+function detectAgentTeam(sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') return null;
   try {
     const teamsDir = path.join(os.homedir(), '.claude', 'teams');
     if (!fs.existsSync(teamsDir)) return null;
 
+    const defaultTeamName = `session-${sessionId.slice(0, 8)}`;
     const teams = fs.readdirSync(teamsDir, { withFileTypes: true });
     for (const entry of teams) {
       if (!entry.isDirectory()) continue;
       const configPath = path.join(teamsDir, entry.name, 'config.json');
       if (!fs.existsSync(configPath)) continue;
       try {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const raw = fs.readFileSync(configPath, 'utf8');
+        if (entry.name !== defaultTeamName && !raw.includes(sessionId)) continue;
+        const config = JSON.parse(raw);
         if (config.members && config.members.length > 0) {
           return { teamName: entry.name, memberCount: config.members.length };
         }
@@ -354,13 +362,23 @@ async function main() {
     });
     const existingSession = sessionContext ? readSessionState(sessionContext) : null;
 
-    const config = loadConfig();
+    // One project root for the whole session. SessionStart re-fires on resume,
+    // clear and compact with the process in whatever directory the agent last
+    // changed into; reading config and markers from there would flip the
+    // project's locale and stack detection mid-session. The root an earlier run
+    // of this session exported wins, which also holds outside a git repository
+    // where the session binding follows the current directory.
+    const exportedRoot = readEnv(envFile, 'CK_PROJECT_ROOT');
+    const baseDir = (exportedRoot && fs.existsSync(exportedRoot) ? exportedRoot : null) ||
+      sessionContext?.sessionLaunchRoot || data.cwd || process.cwd();
+
+    const config = loadConfig({ cwd: baseDir });
     const sessionStateEnabled = config.hooks?.['session-state'] !== false;
 
     const detections = {
-      type: detectProjectType(config.project?.type),
-      pm: detectPackageManager(config.project?.packageManager),
-      framework: detectFramework(config.project?.framework)
+      type: detectProjectType(config.project?.type, baseDir),
+      pm: detectPackageManager(config.project?.packageManager, baseDir),
+      framework: detectFramework(config.project?.framework, baseDir)
     };
 
     // Resolve plan - now returns { path, resolvedBy }
@@ -399,10 +417,6 @@ async function main() {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       claudeSettingsDir: path.resolve(__dirname, '..')
     };
-
-    // Use CWD as the base for subdirectory-aware absolute paths.
-    // Git root is kept in staticEnv for reference, but CWD determines where files are created
-    const baseDir = sessionContext?.sessionLaunchRoot || process.cwd();
 
     // Compute resolved naming pattern (date + issue resolved, {slug} kept as placeholder)
     const namePattern = resolveNamingPattern(config.plan, staticEnv.gitBranch);
@@ -468,7 +482,7 @@ async function main() {
         writeEnv(envFile, 'CK_RESPONSE_LANGUAGE', config.locale.responseLanguage);
       }
 
-      // Plan validation config (for /ak:plan validate, /ak:plan --hard, /ak:plan --parallel)
+      // Plan validation config (for /ak-plan validate, /ak-plan --hard, /ak-plan --parallel)
       const validation = config.plan?.validation || {};
       writeEnv(envFile, 'CK_VALIDATION_MODE', validation.mode || 'prompt');
       writeEnv(envFile, 'CK_VALIDATION_MIN_QUESTIONS', validation.minQuestions || 3);
@@ -476,17 +490,20 @@ async function main() {
       writeEnv(envFile, 'CK_VALIDATION_FOCUS_AREAS', (validation.focusAreas || ['assumptions', 'risks', 'tradeoffs', 'architecture']).join(','));
 
       // Coding level config (for output style selection)
-      const codingLevel = config.codingLevel ?? 5;
+      // -1 (the default) disables coding-level output styles; it has no style
+      // name, so export an empty one rather than the mapper's level-5 fallback.
+      const codingLevel = config.codingLevel ?? -1;
       writeEnv(envFile, 'CK_CODING_LEVEL', codingLevel);
-      writeEnv(envFile, 'CK_CODING_LEVEL_STYLE', getCodingLevelStyleName(codingLevel));
+      writeEnv(envFile, 'CK_CODING_LEVEL_STYLE', codingLevel >= 0 ? getCodingLevelStyleName(codingLevel) : '');
 
     }
 
     // Agent Teams detection — detect once, used for env vars and console output
-    const teamInfo = detectAgentTeam();
-    if (envFile && teamInfo) {
-      writeEnv(envFile, 'CK_AGENT_TEAM', teamInfo.teamName);
-      writeEnv(envFile, 'CK_AGENT_TEAM_MEMBERS', teamInfo.memberCount);
+    const teamInfo = detectAgentTeam(sessionId);
+    // Clear a team an earlier run exported once it no longer applies.
+    if (envFile && (teamInfo || readEnv(envFile, 'CK_AGENT_TEAM'))) {
+      writeEnv(envFile, 'CK_AGENT_TEAM', teamInfo ? teamInfo.teamName : '');
+      writeEnv(envFile, 'CK_AGENT_TEAM_MEMBERS', teamInfo ? teamInfo.memberCount : '');
     }
 
     const displaySource = ['startup', 'resume', 'clear', 'compact'].includes(source) ? source : 'unknown';
@@ -532,7 +549,7 @@ async function main() {
     if (teamInfo) {
       console.log(`[i] Agent Team detected: "${teamInfo.teamName}" (${teamInfo.memberCount} members)`);
       console.log(`    Team config: ~/.claude/teams/${teamInfo.teamName}/config.json`);
-      console.log(`    Use /ak:team skill for orchestration templates.`);
+      console.log(`    Use /ak-team skill for orchestration templates.`);
     }
 
     // Show the git root when running from a supported subdirectory.

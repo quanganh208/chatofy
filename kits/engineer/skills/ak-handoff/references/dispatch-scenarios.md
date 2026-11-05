@@ -5,9 +5,9 @@
 ### Scenario 1 — Generated handoff without recorded write authority
 
 **Given** no matching recorded write authority and no `--handoff` is passed, and the user runs
-`/ak:handoff --dispatch --agent claude-code "continue the OAuth callback fix"`.
+`/ak-handoff --dispatch --agent claude-code "continue the OAuth callback fix"`.
 **When** the skill runs.
-**Expect** `ak:handoff` produces a fresh artifact under `plans/handoffs/`;
+**Expect** `ak-handoff` produces a fresh artifact under `plans/handoffs/`;
 the artifact passes schema validation; the built job spec has
 `runtime: claude-code`, `prompt:` containing both the handoff read
 instruction and the task text, `approval: require`, `effect: scoped-write`;
@@ -17,9 +17,9 @@ seven fields listed above.
 ### Scenario 2 — Supplied handoff, codex
 
 **Given** `plans/handoffs/oauth-callback.md` exists and is valid.
-**When** `/ak:handoff --dispatch --agent codex --handoff plans/handoffs/oauth-callback.md`
+**When** `/ak-handoff --dispatch --agent codex --handoff plans/handoffs/oauth-callback.md`
 runs.
-**Expect** no new `ak:handoff` invocation; the supplied artifact is
+**Expect** no new `ak-handoff` invocation; the supplied artifact is
 validated against the schema and secret patterns; the job spec's
 `runtime: codex`.
 
@@ -32,7 +32,7 @@ available for advanced users who author a spec directly.)_
 unauthenticated.
 **When** the skill runs.
 **Expect** orchestrate's live matrix marks the candidate `unavailable`;
-`ak:handoff --dispatch` prints a blocker naming the missing capability and suggests
+`ak-handoff --dispatch` prints a blocker naming the missing capability and suggests
 `--agent <alternative>`; **no silent substitution**; the handoff artifact
 was written and is included in the blocker report so no work is lost.
 
@@ -41,7 +41,7 @@ was written and is included in the blocker report so no work is lost.
 **Given** the task text explicitly requests destructive or write work
 (the handoff's Exact next actions section says "delete legacy adapter" or
 similar).
-**When** `/ak:handoff --dispatch --agent claude-code "delete the legacy adapter"`
+**When** `/ak-handoff --dispatch --agent claude-code "delete the legacy adapter"`
 runs without `--yes`.
 **Expect** the job spec classifies destructive effects according to the Scope section, uses `approval: require` and the required isolation;
 orchestrate stops at the confirmation gate; the report notes the block and
@@ -50,7 +50,7 @@ suggests rerunning with `--yes` once the user approves.
 ### Scenario 5 — Secret in `--task` text
 
 **Given** the user pastes a Bearer token into the task string.
-**When** `/ak:handoff --dispatch --agent claude-code "use Bearer eyJ… to test"` runs.
+**When** `/ak-handoff --dispatch --agent claude-code "use Bearer eyJ… to test"` runs.
 **Expect** immediate refusal (before the handoff step) with a message
 asking the user to rephrase without the credential. No artifact is
 written. No orchestrate invocation.
@@ -65,7 +65,7 @@ next action. The handoff artifact path is still surfaced.
 
 ### Scenario 7 — `--agent internal` with `--model` rejection
 
-**Given** `/ak:handoff --dispatch --agent internal --model anthropic/claude-sonnet-5
+**Given** `/ak-handoff --dispatch --agent internal --model anthropic/claude-sonnet-5
 "…"`.
 **When** the skill runs.
 **Expect** immediate refusal explaining that job-spec.md forbids `model:`

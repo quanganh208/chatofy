@@ -1,18 +1,17 @@
 ---
-name: ak:hyperframes
-description: "Wrap HeyGen HyperFrames CLI for HTML-first programmatic video generation. Use for short vertical/social videos, product-launch clips, motion graphics rendered from HTML composition. See also the installed remotion skill for a React-based alternative."
-user-invocable: true
-when_to_use: "Invoke for HTML-first programmatic video via HeyGen HyperFrames."
+name: ak-hyperframes
+description: "Wrap the HeyGen HyperFrames CLI to render short social videos, launch clips and motion graphics from HTML compositions."
+when_to_use: "Invoke for HTML-first video; remotion is the React-based alternative."
 category: media
 keywords: [video, hyperframes, heygen, html, vertical, social, motion-graphics]
-license: Apache-2.0
+license: Proprietary
 argument-hint: "[composition or command]"
 metadata:
   author: agentkit
   version: "1.1.0"
 ---
 
-# ak:hyperframes
+# ak-hyperframes
 
 Wrap HeyGen's [`hyperframes`](https://github.com/heygen-com/hyperframes) CLI
 for HTML-first programmatic video generation. This skill is docs+wrap only —

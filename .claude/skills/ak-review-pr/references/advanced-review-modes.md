@@ -12,7 +12,7 @@ Spawn `kongming` at these checkpoints (**per PR**, not once per run):
   for a go/no-go on the verdict, missed findings, and — when `--fix` is set —
   which findings are actually worth fixing versus over-reach.
 - **When the `--fix` loop is stuck** — same finding survives 3 attempts,
-  `ak:fix` is blocked, or CI keeps reding for the same reason; pass every
+  `ak-fix` is blocked, or CI keeps reding for the same reason; pass every
   approach already tried, the exact failure, and ask for a new angle or a
   legitimate stop condition.
 - **Before posting `--reply`** — pass the final review body (summary, risk

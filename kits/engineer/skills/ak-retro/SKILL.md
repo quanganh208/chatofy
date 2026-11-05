@@ -1,11 +1,10 @@
 ---
-name: ak:retro
-description: "Generate data-driven sprint retrospectives from any git history. Use for sprint reviews, commit analysis, code-health indicators, team-velocity reporting, and quarterly engineering reviews. Works on solo or team repos."
-user-invocable: true
-when_to_use: "Invoke to summarize engineering history from git activity."
+name: ak-retro
+description: "Generate data-driven sprint retrospectives from any solo or team git history."
+when_to_use: "Invoke for sprint or quarterly reviews, code health or team velocity."
 category: workflow
 keywords: [retrospective, sprint, metrics, review]
-license: MIT
+license: Proprietary
 argument-hint: "[timeframe] [--compare] [--team] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
@@ -98,9 +97,9 @@ Use the resolved local report date for `YYMMDD` and the timeframe for `slug`.
 
 If `--format html` flag is set:
 - Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
-  1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and design critique.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for timeline, process, or workflow visuals.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+  1. Activate `ak-frontend-design` first for layout, typography, responsive shell, and design critique.
+  2. Activate `ak-diagram` second (when installed) to compile typed JSON IR for timeline, process, or workflow visuals.
+  3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - Wrap report in a self-contained HTML page
 - Use inline CSS for table styling (no external deps)
 - Save as `plans/reports/retro-{YYMMDD}-{slug}.html`

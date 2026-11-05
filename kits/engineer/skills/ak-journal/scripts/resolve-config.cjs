@@ -42,18 +42,40 @@ function getHomeDir() {
   return process.env.HOME || process.env.USERPROFILE || os.homedir();
 }
 
-/** Walk up from `startDir` looking for `.agentkit/` or `.git/`; falls back to startDir. */
+const MAX_ROOT_WALK_DEPTH = 64;
+
+function samePathOrAncestor(candidate, target) {
+  const fold = (value) => (process.platform === 'win32' ? value.toLowerCase() : value);
+  const relative = path.relative(fold(candidate), fold(target));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+/**
+ * Walk up from `startDir` looking for `.agentkit/` or `.git/`; falls back to startDir.
+ *
+ * The home directory and its ancestors are never a project root: the CLI
+ * creates `~/.agentkit/` on every machine, so accepting it would resolve every
+ * marker-less project to home. The boundary comes from `os.homedir()` only —
+ * an env-first home can carry the MSYS form `/c/Users/<user>`, which
+ * `path.resolve()` mangles on win32 and would let home pass the check.
+ */
 function findProjectRoot(startDir) {
-  let dir = path.resolve(startDir);
-  const { root } = path.parse(dir);
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  const start = path.resolve(startDir);
+  let homeDir = null;
+  try {
+    homeDir = path.resolve(os.homedir());
+  } catch { /* no home: nothing to exclude */ }
+  let dir = start;
+  for (let depth = 0; depth < MAX_ROOT_WALK_DEPTH; depth += 1) {
+    if (homeDir && samePathOrAncestor(dir, homeDir)) break;
     if (fs.existsSync(path.join(dir, '.agentkit')) || fs.existsSync(path.join(dir, '.git'))) {
       return dir;
     }
-    if (dir === root) return path.resolve(startDir);
-    dir = path.dirname(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
+  return start;
 }
 
 function readYamlFile(filePath) {

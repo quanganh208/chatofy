@@ -1,19 +1,18 @@
 ---
-name: ak:cti-expert
-description: "Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports."
-user-invocable: true
-when_to_use: "Invoke for OSINT, exposure review, or threat intelligence reports."
+name: ak-cti-expert
+description: "Analyze threat intel and OSINT: domain and tenant recon, breach checks, username/email/phone lookups, image forensics, blockchain tracing, darknet checks."
+when_to_use: "Invoke for exposure reviews, CVE lookup, threat models or reports."
 category: engineering
 keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breach, forensics]
 argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE
 metadata:
   version: "2.1.2"
   author: "Hieu Ngo - chongluadao.vn"
   source: "https://github.com/7onez/cti-expert"
 ---
 
-# CTI Expert (`ak:cti-expert`)
+# CTI Expert (`ak-cti-expert`)
 
 Cyber threat intelligence and open-source intelligence analysis skill. Generates precision search queries, interprets public threat data, builds case timelines, and delivers structured intelligence products.
 
@@ -60,9 +59,9 @@ Every `/report`, `/brief`, and `/case` auto-saves two files to disk:
 When `--format html` is specified, generate a self-contained, offline editorial HTML mirror (`CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.html`):
 
 - Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md` and `references/html-mirror.md`:
-  1. Activate `ak:frontend-design` first for layout, typography, responsive containers, and dark/light styling.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for entity relationships, threat models, and sequence timelines.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+  1. Activate `ak-frontend-design` first for layout, typography, responsive containers, and dark/light styling.
+  2. Activate `ak-diagram` second (when installed) to compile typed JSON IR for entity relationships, threat models, and sequence timelines.
+  3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - **Zero Outbound Requests**: All assets must be inlined or vendored locally (0 CDN calls).
 - **Evidence Integrity**: Distinguish verified indicators from analyst hypotheses; sanitize internal credentials and private IPs.
 
@@ -75,4 +74,4 @@ When `--format html` is specified, generate a self-contained, offline editorial 
 
 - **Passive OSINT Only**: Never perform active network penetration, unauthorized port scanning, brute-forcing, credential stuffing, or vulnerability exploitation.
 - **Privacy & Compliance**: Respect GDPR, CCPA, and applicable legal privacy boundaries. Do not dox private individuals or investigate targets for harassment or stalking.
-- **Tool Cascade**: `ak:agent-browser` (when installed) $\rightarrow$ direct web fetch $\rightarrow$ search dorks. See `references/tool-cascade.md` and `handbook/tool-cascade-reference.md`.
+- **Tool Cascade**: `ak-agent-browser` (when installed) $\rightarrow$ direct web fetch $\rightarrow$ search dorks. See `references/tool-cascade.md` and `handbook/tool-cascade-reference.md`.

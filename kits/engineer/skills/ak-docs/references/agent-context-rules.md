@@ -1,8 +1,8 @@
 # Agent Context File Rules
 
-Load for `/ak:docs agent-context`: author, audit, or optimize a project's
+Load for `/ak-docs agent-context`: author, audit, or optimize a project's
 **root** agent context file (`CLAUDE.md` / `AGENTS.md`). For a subfolder context
-file use `/ak:folder-context`; for human `docs/` use `init` or `update`.
+file use `/ak-folder-context`; for human `docs/` use `init` or `update`.
 
 ## Artifact class
 
@@ -19,6 +19,7 @@ the rules below; do not paste the reference wholesale into the context file.
 
 ## Keep-or-cut filter
 
+Apply the confirmed-principle exception below before cutting a candidate.
 Run every candidate line through four questions:
 
 1. **Can the agent find this itself** with `ls`, `grep`, or reading a config
@@ -45,6 +46,29 @@ Run every candidate line through four questions:
 | Out-of-code conventions (commit / PR / branch naming) | "Always write clean, readable code" |
 | A one-line pointer to the owning operational guide | Credential values, tokenized URLs, account or project ids, dashboard locators, customer names |
 | Definition of done (what to run before reporting complete) | Architecture prose the agent can read from code |
+| Author-confirmed product boundaries and priorities with concrete behavioral consequences | Unconfirmed preferences, generic slogans, or assistant suggestions promoted to policy |
+
+## Confirmed product principles
+
+Keep author-confirmed, durable product principles when they govern a concrete
+decision or trade-off. A principle can be verifiable through a decision scenario;
+it need not name an exact command or path. Do not cut it merely because it has
+not caused an incident, code currently violates it, or the same intent is visible
+in implementation. Code is evidence of behavior, not authority to change intent.
+
+Distinguish mandatory boundaries (only the author/builder may approve a change)
+from guiding priorities (collaborators may choose a different approach within
+the boundaries and explain the trade-off). Leave implementation choices open.
+Markdown expresses the collaboration contract; it does not enforce compliance.
+
+During audit or update, preserve the meaning and authority of confirmed principles.
+Surface conflicts and suspected supersession to the author instead of silently
+weakening, deleting or promoting a principle. Keep concise behavioral guidance
+here and link extended rationale to its existing owning document. When merging
+duplicates, preserve the owning principle and its authority.
+
+For explicit discovery/interview requests only, load `philosophy-workflow.md`.
+Routine maintenance preserves these principles without starting that interview.
 
 ## Audit procedure
 
@@ -114,7 +138,7 @@ with authority.
 
 Add a line only when the agent repeats a mistake, review catches something it
 should have known, or the user re-types a prior correction. A large file written
-before any run is mostly cost. `/ak:docs agents` operationalizes this rule by
+before any run is mostly cost. `/ak-docs agents` operationalizes this rule by
 mining bounded git and CI history for the required evidence; with `--source`
 it additionally surfaces editor-directed imperatives and sync invariants from
 the current source tree, gated by corroboration rather than recurrence.
@@ -122,3 +146,5 @@ the current source tree, gated by corroboration rather than recurrence.
 The recurrence rule governs speculative gotchas. A first authorized action that
 establishes a verified, durable operational route earns its minimal record and
 navigation pointer immediately, without waiting for a repeated mistake.
+Author-confirmed product principles also need no incident count; use the
+confirmed-principle exception above, not the `agents` recurrence threshold.

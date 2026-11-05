@@ -96,14 +96,16 @@ When the decision is build, the decision record is the input for ak-brainstorm
 **Campaign** (class plan-campaign):
 
 ```
-ak-marketing-research → ak-persona → ak-funnel → ak-campaign (brief)
+ak-marketing-research (market + personas) → ak-marketing-planning (funnel)
+  → ak-campaign (brief)
   → per-channel production: ak-write | ak-social | ak-email | ak-paid-ads
   → ak-analytics (tracking setup)
 ```
 
 Researcher roles run the research links in parallel; content roles produce
 channels in parallel once the brief exists; content-reviewer role gates every
-channel before publish (mass-audience send = high risk).
+channel before publish (mass-audience send = high risk). Hand deep funnel
+design or bottleneck analysis to a funnel-architect role when one is installed.
 
 **Single content piece** (class create-content):
 
@@ -122,7 +124,7 @@ needed) → distribution channels → ak-analytics
 **Funnel diagnosis** (class analyze-performance):
 
 ```
-ak-analyze → ak-funnel (bottleneck) → ak-form-cro or ak-onboarding-cro (fix)
+ak-analytics → ak-marketing-planning (bottleneck) → ak-form-cro or ak-onboarding-cro (fix)
   → ak-ab-test-setup (prove it)
 ```
 

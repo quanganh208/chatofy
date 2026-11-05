@@ -1,12 +1,11 @@
 ---
-name: ak:graphify
-description: "Build queryable knowledge graphs from code, docs, papers, and images. Use for repeated relationship queries and architecture analysis when a reusable graph adds value beyond native search."
-user-invocable: true
-when_to_use: "Invoke to turn code or docs into a queryable graph."
+name: ak-graphify
+description: "Build queryable knowledge graphs from code, docs, papers and images."
+when_to_use: "Invoke when repeated relationship queries justify a reusable graph over native search."
 category: engineering
 keywords: [knowledge-graph, code-analysis, tree-sitter, codebase-understanding, ast]
 argument-hint: "[path] [--mcp|--report|--watch]"
-related: [ak:repomix, ak:scout, ak:gkg]
+related: [ak-repomix, ak-scout, ak-gkg]
 maturity: beta
 metadata:
   version: "1.0.1"
@@ -139,7 +138,7 @@ graphify .
 ```bash
 # Reuse the graph for high-level structure; scout specific files
 graphify .                        # build graph
-/ak:scout "auth module"           # find specific files
+/ak-scout "auth module"           # find specific files
 ```
 
 ### Incremental Updates
@@ -161,5 +160,5 @@ Graph rebuilds are incremental — only changed files get reprocessed. Cache at 
 
 ## Workflow Position
 
-**Typically precedes:** `/ak:plan` (understand architecture before planning)
-**Related:** `/ak:scout` (quick file search), `/ak:repomix` (full context dump), `/ak:gkg` (semantic symbol navigation)
+**Typically precedes:** `/ak-plan` (understand architecture before planning)
+**Related:** `/ak-scout` (quick file search), `/ak-repomix` (full context dump), `/ak-gkg` (semantic symbol navigation)

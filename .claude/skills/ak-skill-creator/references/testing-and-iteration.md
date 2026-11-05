@@ -36,6 +36,24 @@ independent holdout for evaluating this creator.
 6. Repeat runs when stability matters. Report raw counts per case/model/runtime,
    compare matched case sets and settings, and state small-sample limitations.
 
+### Separate knowledge value from packaging value
+
+For knowledge-heavy skills or migrations from a large prescriptive skill to a thin one,
+use additional matched arms when practical:
+
+- **Current/full skill:** existing routing and instructions.
+- **Thin skill:** outcome, authority, completion, high-value constraints/failure modes,
+  and progressive routing to the same owned resources.
+- **No skill:** no target skill instructions; keep otherwise available tools and public
+  project context equivalent.
+- **Direct context (optional):** provide the same useful reference material directly,
+  without the skill activation/package layer.
+
+The direct-context arm answers a different question from no-skill: whether performance came
+from the knowledge itself or from packaging/routing it as a skill. Keep the resource version,
+task inputs and tool access matched. Do not claim "skills help" when the baseline was simply
+deprived of information required to solve the task.
+
 This loop applies to normal create/update. Long-horizon adds experiment history
 and promotion governance. Commands and record format: `references/evaluation-tools.md`.
 

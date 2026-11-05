@@ -1,8 +1,7 @@
 ---
-name: ak:debug
-description: "Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation."
-user-invocable: true
-when_to_use: "Invoke when root cause must be proven before a fix."
+name: ak-debug
+description: "Debug failing or misbehaving code by proving the root cause before any fix; diagnose why something fails, gives wrong output or is flaky in CI."
+when_to_use: "Invoke before editing code for any error, stack trace or failing test; writing new tests is ak-test."
 category: workflow
 keywords: [debug, root-cause, bugs, test-failures]
 languages: all
@@ -89,7 +88,7 @@ so debugging never depends on a particular client's task API.
 
 ### 10. Frontend Verification (`references/frontend-verification.md`)
 
-Visual verification of frontend implementations via `ak:agent-browser`, `ak:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests. Use `ak:chrome-profile` and its exact tab binding when real Chrome profile state matters; raw Chrome MCP navigation is only for generic/profile-independent inspection. Detect if frontend-related -> check browser tool availability -> screenshot + console error check -> report. Skip if not frontend.
+Visual verification of frontend implementations via `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests. Use `ak-chrome-profile` and its exact tab binding when real Chrome profile state matters; raw Chrome MCP navigation is only for generic/profile-independent inspection. Detect if frontend-related -> check browser tool availability -> screenshot + console error check -> report. Skip if not frontend.
 
 **Load when:** Implementation touches frontend files (tsx/jsx/vue/svelte/html/css), UI bugs, visual regressions
 
@@ -113,10 +112,10 @@ Frontend fix   → frontend-verification.md (agent-browser/chrome-profile/Chrome
 
 - **Database:** `psql` for PostgreSQL queries and diagnostics
 - **CI/CD:** `gh` CLI for GitHub Actions logs and pipeline debugging
-- **Codebase:** `ak:docs-seeker` skill for package/plugin docs; `ak:repomix` skill for codebase summary
-- **Scouting:** `/ak:scout` or `/ak:scout ext` for finding relevant files
-- **Frontend:** `ak:agent-browser`, `ak:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests for visual verification. For real profile state, let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools.
-- **Skills:** Activate `ak:problem-solving` skill when stuck on complex issues
+- **Codebase:** `ak-docs-seeker` skill for package/plugin docs; `ak-repomix` skill for codebase summary
+- **Scouting:** `/ak-scout` or `/ak-scout ext` for finding relevant files
+- **Frontend:** `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests for visual verification. For real profile state, let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools.
+- **Skills:** Activate `ak-problem-solving` skill when stuck on complex issues
 
 ## Red Flags
 
@@ -131,9 +130,9 @@ Stop and follow process if thinking:
 
 ## Workflow Position
 
-**Typically follows:** `/ak:scout` (after locating relevant code)
-**Typically precedes:** `/ak:fix` (fix the diagnosed issue), `/ak:brainstorm` (explore solutions for complex problems)
-**Related:** `/ak:scout` (discover before debugging), `/ak:fix` (fix after diagnosing)
+**Typically follows:** `/ak-scout` (after locating relevant code)
+**Typically precedes:** `/ak-fix` (fix the diagnosed issue), `/ak-brainstorm` (explore solutions for complex problems)
+**Related:** `/ak-scout` (discover before debugging), `/ak-fix` (fix after diagnosing)
 
 ## Ultra Verifier Mode (`--ultra`)
 

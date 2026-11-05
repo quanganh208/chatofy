@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ak:diagram doctor — probe required tools, report only, never install.
+"""ak-diagram doctor — probe required tools, report only, never install.
 
 Exit codes:
     0 — all required deps present, skill ready.
@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
-MERMAID_JS = SKILL_ROOT / "assets" / "mermaid.min.js"
+PELE_JS = SKILL_ROOT / "assets" / "pele.mjs"
+MIN_NODE_MAJOR = 20
 PW_BROWSERS_HINT = "PLAYWRIGHT_BROWSERS_PATH"
 
 
@@ -89,11 +90,34 @@ def _probe_ffmpeg() -> tuple[bool, str]:
     return False, "ffmpeg missing (needed only for --video output)"
 
 
-def _probe_mermaid() -> tuple[bool, str]:
-    if MERMAID_JS.exists():
-        size_kb = MERMAID_JS.stat().st_size // 1024
-        return True, f"mermaid.min.js vendored ({size_kb} KB)"
-    return False, f"mermaid.min.js missing at {MERMAID_JS} — run scripts/vendor_from_upstream.py"
+def _probe_pele() -> tuple[bool, str]:
+    if PELE_JS.exists():
+        size_kb = PELE_JS.stat().st_size // 1024
+        return True, f"pele.mjs vendored ({size_kb} KB)"
+    return False, (
+        f"pele.mjs missing at {PELE_JS} — reinstall the skill "
+        "(see references/vendoring-metadata.yaml for the pinned source)"
+    )
+
+
+def _probe_node() -> tuple[bool, str]:
+    """Node runs the Pele bridge (.mmd input) and the typed-IR compiler."""
+    node = _which("node")
+    if not node:
+        return False, f"node missing — install Node.js >= {MIN_NODE_MAJOR}"
+    try:
+        res = subprocess.run([node, "--version"], capture_output=True, text=True,
+                             timeout=10, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"node --version failed: {exc}"
+    version = res.stdout.strip()
+    try:
+        major = int(version.lstrip("v").split(".")[0])
+    except ValueError:
+        return False, f"node version unreadable: {version!r}"
+    if major < MIN_NODE_MAJOR:
+        return False, f"node {version} too old — need >= {MIN_NODE_MAJOR}"
+    return True, f"node {version}"
 
 
 def _probe_mmdc() -> tuple[bool, str]:
@@ -108,10 +132,11 @@ def run_probes() -> dict:
         "playwright": _probe_playwright(),
         "chromium": _probe_chromium(),
         "ffmpeg": _probe_ffmpeg(),
-        "mermaid_js": _probe_mermaid(),
+        "pele_js": _probe_pele(),
+        "node": _probe_node(),
         "mmdc": _probe_mmdc(),
     }
-    required = ("playwright", "chromium", "mermaid_js")
+    required = ("playwright", "chromium", "pele_js", "node")
     report = {
         name: {"ok": ok, "detail": detail}
         for name, (ok, detail) in probes.items()
@@ -122,7 +147,7 @@ def run_probes() -> dict:
 
 
 def _print_human(report: dict) -> None:
-    print("ak:diagram — dependency report")
+    print("ak-diagram — dependency report")
     print("-" * 40)
     for name, entry in report.items():
         if name.startswith("_"):
@@ -138,7 +163,7 @@ def _print_human(report: dict) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="ak:diagram dep probe")
+    parser = argparse.ArgumentParser(description="ak-diagram dep probe")
     parser.add_argument("--json", action="store_true", help="emit JSON")
     args = parser.parse_args()
     report = run_probes()

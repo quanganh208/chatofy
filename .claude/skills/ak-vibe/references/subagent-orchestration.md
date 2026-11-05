@@ -3,7 +3,7 @@
 The vibe controller stays the single owner of interpretation, taste, and every
 gate. Subagents accelerate work and supply **fresh, unbiased context**; they do
 not own decisions. Delegate through the runtime's parallel task capability
-(`ak:orchestrate` / `ak:team` when a structured DAG or worktree isolation is needed).
+(`ak-orchestrate` / `ak-team` when a structured DAG or worktree isolation is needed).
 
 ## When to fan out to subagents
 
@@ -11,7 +11,7 @@ Fan out only across **genuinely independent slices** — work that can run at th
 same time without waiting on each other's output.
 
 - **Fresh-context reads (no write contention):** planning fanout, code-review
-  fanout (e.g. `/ak:code-review --ultra`, `/ak:plan --ultra` best-of-5 waves),
+  fanout (e.g. `/ak-code-review --ultra`, `/ak-plan --ultra` best-of-5 waves),
   research, debugging investigation, test analysis, and advisory review. These
   are read-only or produce isolated artifacts, so they parallelize freely and
   avoid the single-context bias of one agent grading its own work.
@@ -19,7 +19,7 @@ same time without waiting on each other's output.
   set of files. Give every delegate an explicit, non-overlapping file-ownership
   boundary and the full slice requirements (subagents have no conversation
   history). For complex multi-file writes, prefer worktree-isolated subagents
-  via `ak:orchestrate`.
+  via `ak-orchestrate`.
 
 ## Safety rules (prevent stepping on each other)
 

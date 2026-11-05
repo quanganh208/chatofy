@@ -1,11 +1,10 @@
 ---
-name: ak:frontend-design
-description: Create polished frontend interfaces with deliberate art direction, from a brief, design, screenshot or video, and audit live products for UI/UX polish. Use for landing pages, product/dashboard UI, web components, 3D experiences, replicating UI designs, quick prototypes, immersive interfaces, avoiding AI slop, and hands-on UX audits of dev/staging/production apps across desktop, tablet and mobile.
-user-invocable: true
-when_to_use: "Invoke when visual fidelity, taste and polished UI are primary, or to audit and improve the UX of a running product."
+name: ak-frontend-design
+description: "Build polished frontend UI with art direction from a brief, design, screenshot or video, and audit live apps for UX polish."
+when_to_use: "Invoke for landing pages, dashboards, 3D UI or UX audits."
 category: design
 keywords: [ui, ux, design, art-direction, screenshots, ux-audit]
-license: Complete terms in LICENSE.txt
+license: Proprietary
 argument-hint: "[prompt|image-path|component|url]"
 metadata:
   author: agentkit
@@ -122,5 +121,5 @@ Use `../ak-design/references/handoff-gate.md` for the final artifact handoff whe
 | Analyze screenshots, extract a design system from references | `references/visual-analysis.md` |
 | Shared anti-slop preflight for other design skills | `references/design-quality-preflight.md` |
 
-`ak:ui-ux-pro-max`, when installed, adds searchable style, palette and typography data;
+`ak-ui-ux-pro-max`, when installed, adds searchable style, palette and typography data;
 it is optional input to the brief, never a prerequisite.

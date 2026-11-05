@@ -4,6 +4,9 @@ import tempfile
 import threading
 from semantic_routing_contract import decode, encoded, unwrap
 
+# Mirrors the ak CLI skill-routing-eval input bound: 131072-byte request plus envelope headroom.
+CLI_ENVELOPE_LIMIT = 131072 + 8192
+
 
 class DecisionCLIProvider:
     def __init__(self, executable="ak", live=False):
@@ -13,7 +16,7 @@ class DecisionCLIProvider:
         if not validate and not self.live:
             raise ValueError("explicit --live consent required")
         raw = encoded(payload)
-        if len(raw) > 32768:
+        if len(raw) > CLI_ENVELOPE_LIMIT:
             raise ValueError("cli_envelope_limit")
         argv = [self.executable, "eval", "decision", "-", "--json"]
         if validate:

@@ -227,20 +227,28 @@ function getGitRoot() {
 // PROJECT DETECTION
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Resolve a marker file under `dir`, or relative to the process directory when
+// no directory is given. Hooks pass the session's project root so detection does
+// not follow the agent into whatever subdirectory it last changed into.
+function inDir(dir, file) {
+  return dir ? path.join(dir, file) : file;
+}
+
 /**
  * Detect project type based on workspace indicators
  * @param {string} [configOverride] - Manual override from config
+ * @param {string} [dir] - Project directory to inspect (defaults to cwd)
  * @returns {'monorepo' | 'library' | 'single-repo'}
  */
-function detectProjectType(configOverride) {
+function detectProjectType(configOverride, dir) {
   if (configOverride && configOverride !== 'auto') return configOverride;
 
-  if (fs.existsSync('pnpm-workspace.yaml')) return 'monorepo';
-  if (fs.existsSync('lerna.json')) return 'monorepo';
+  if (fs.existsSync(inDir(dir, 'pnpm-workspace.yaml'))) return 'monorepo';
+  if (fs.existsSync(inDir(dir, 'lerna.json'))) return 'monorepo';
 
-  if (fs.existsSync('package.json')) {
+  if (fs.existsSync(inDir(dir, 'package.json'))) {
     try {
-      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const pkg = JSON.parse(fs.readFileSync(inDir(dir, 'package.json'), 'utf8'));
       if (pkg.workspaces) return 'monorepo';
       if (pkg.main || pkg.exports) return 'library';
     } catch (e) { /* ignore */ }
@@ -252,15 +260,16 @@ function detectProjectType(configOverride) {
 /**
  * Detect package manager from lock files
  * @param {string} [configOverride] - Manual override from config
+ * @param {string} [dir] - Project directory to inspect (defaults to cwd)
  * @returns {'npm' | 'pnpm' | 'yarn' | 'bun' | null}
  */
-function detectPackageManager(configOverride) {
+function detectPackageManager(configOverride, dir) {
   if (configOverride && configOverride !== 'auto') return configOverride;
 
-  if (fs.existsSync('bun.lockb')) return 'bun';
-  if (fs.existsSync('pnpm-lock.yaml')) return 'pnpm';
-  if (fs.existsSync('yarn.lock')) return 'yarn';
-  if (fs.existsSync('package-lock.json')) return 'npm';
+  if (fs.existsSync(inDir(dir, 'bun.lockb'))) return 'bun';
+  if (fs.existsSync(inDir(dir, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (fs.existsSync(inDir(dir, 'yarn.lock'))) return 'yarn';
+  if (fs.existsSync(inDir(dir, 'package-lock.json'))) return 'npm';
 
   return null;
 }
@@ -268,14 +277,16 @@ function detectPackageManager(configOverride) {
 /**
  * Detect framework from package.json dependencies
  * @param {string} [configOverride] - Manual override from config
+ * @param {string} [dir] - Project directory to inspect (defaults to cwd)
  * @returns {string|null}
  */
-function detectFramework(configOverride) {
+function detectFramework(configOverride, dir) {
   if (configOverride && configOverride !== 'auto') return configOverride;
-  if (!fs.existsSync('package.json')) return null;
+  const packageJson = inDir(dir, 'package.json');
+  if (!fs.existsSync(packageJson)) return null;
 
   try {
-    const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(packageJson, 'utf8'));
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
     if (deps['next']) return 'next';

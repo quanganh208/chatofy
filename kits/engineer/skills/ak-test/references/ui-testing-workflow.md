@@ -1,9 +1,10 @@
 # UI Testing Workflow
 
-Use `ak:agent-browser` for live browser interaction when a fresh/tool-managed browser is enough. Use `ak:chrome-profile` only when the test needs the user's real Chrome profile, cookies, or already-logged-in state. Use `ak:web-testing` or project-native Playwright/Vitest/k6 commands for repeatable test runs.
+Use `ak-agent-browser` for live browser interaction when a fresh/tool-managed browser is enough. Use `ak-chrome-profile` only when the test needs the user's real Chrome profile, cookies, or already-logged-in state. Use `ak-web-testing` or project-native Playwright/Vitest/k6 commands for repeatable test runs.
 
 ## Purpose
-Run comprehensive UI tests on a website and generate a detailed report.
+Verify the requested UI contracts with bounded browser work and report the
+observed scope. A focused change does not imply a whole-application audit.
 
 ## Arguments
 - $1: URL - The URL of the website to test
@@ -11,14 +12,13 @@ Run comprehensive UI tests on a website and generate a detailed report.
 
 ## Testing Protected Routes (Authentication)
 
-### Step 1: User Manual Login
-Instruct the user to:
-1. Open the target site in their browser
-2. Log in manually with their credentials
-3. Open browser DevTools (F12) → Application tab → Cookies/Storage
+### Step 1: Resolve test authentication
+Prefer approved project test accounts and auth fixtures in an isolated environment.
+Ask for manual login only when needed; do not request cookie/token exports or use
+real customer data. Existing real-profile access must be necessary and authorized.
 
 ### Step 2: Persist Auth State Or Select The Chrome Profile
-Prefer project-native auth helpers for repeatable tests. For ad-hoc browser driving with real user auth/cookies, invoke `ak:chrome-profile` and run:
+Prefer project-native auth helpers for repeatable tests. For ad-hoc browser driving with real user auth/cookies, invoke `ak-chrome-profile` and run:
 
 ```bash
 chrome-profile doctor
@@ -46,14 +46,28 @@ Then select the MCP page whose URL contains the returned `bind_selector` such as
 This restriction applies only when real user Chrome state is required. For profile-scoped testing, do not use raw Chrome MCP `new_page` or `navigate_page` as the opening path. Those tools use whichever profile/page the bridge currently targets.
 
 ## Workflow
-- Use `ak:plan` skill to organize the test plan & report
-- All screenshots saved in the same report directory
-- Browse URL, discover all pages, components, endpoints
-- Create test plan based on discovered structure
-- Use multiple `tester` subagents in parallel for: pages, forms, navigation, user flows, accessibility, responsive layouts, performance, security, seo
-- Use `ak:ai-multimodal` to analyze all screenshots
-- Generate comprehensive Markdown report
-- Ask user if they want to preview with `/ak:preview`
+
+1. State a narrow charter: accepted expectation, target journey/control, affected
+   routes, account/data boundary and mandatory checks. Separate a goal that may
+   use different paths from a claim that a specific button/path works.
+2. Inspect only relevant pages and dependencies; broaden for discovered risk or
+   policy. Use existing project browser tests first. No `e2e`, model, key or consent
+   is required for this native route. Load `agentic-e2e-workflow.md` only when the
+   project already uses that engine or the user requests its setup.
+3. Set time/step/retry/model-call budgets appropriate to the charter. Run sequentially;
+   delegate only independent targets with isolated resources and justified capacity.
+4. Assert exact identities, permissions, counts and side effects deterministically.
+   Use screenshots/vision only for claims requiring visual evidence, not every page.
+5. Investigate findings: establish expected versus observed behavior, then reproduce
+   a failure for the intended reason. Classify confirmed defect, semantic hypothesis,
+   environment/tooling blocker or unknown; setup failures are not product defects.
+6. Save each run's artifacts separately, check source/environment freshness, and
+   report using `report-format.md`. Verify cleanup of owned browser/service/test data.
+
+Exploration stopping without findings proves only what was observed within that
+charter and budget. It cannot replace mandatory assertions. For a confirmed bug,
+propose a durable regression test using `test-lifecycle.md`. An unfixed bug outside
+this task remains visible and follows existing release policy, not silent quarantine.
 
 ## Output Requirements
 - Clear, structured Markdown with headers, lists, code blocks
@@ -64,7 +78,7 @@ This restriction applies only when real user Chrome state is required. For profi
 
 ## Optional semantic regression experiment
 
-The ordinary UI workflow above remains unchanged. Only for a requested shadow
+Only for a requested shadow
 experiment with an explicit user `ui-regression` consumer grant, use
 `ak eval ui capture.json --mode shadow --json`. Default mode is `off`; ambient
 credentials do not authorize inference. The command consumes reviewed compact

@@ -1,5 +1,5 @@
 /**
- * Layered graph utilities for the ak:diagram compiler.
+ * Layered graph utilities for the ak-diagram compiler.
  * Ranks nodes along the main flow direction, breaks cycles by marking back
  * edges, and orders each layer with barycenter sweeps to reduce crossings.
  * Every step uses deterministic tie-breaks (authored order) so identical IR

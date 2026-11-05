@@ -1,8 +1,7 @@
 ---
-name: ak:llms
-description: "Generate llms.txt, llms-full.txt, and per-page .md variants from docs or codebase scanning, following the llmstxt.org spec. Use for LLM-friendly site indexes, Markdown page mirrors, documentation summaries, AI context optimization."
-user-invocable: true
-when_to_use: "Invoke to produce llms.txt, llms-full.txt, or .md page variants for AI readers."
+name: ak-llms
+description: "Generate llms.txt, llms-full.txt and per-page .md variants from docs or a codebase scan per the llmstxt.org spec."
+when_to_use: "Invoke for LLM-friendly site indexes or Markdown mirrors."
 category: engineering
 keywords: [llms-txt, llms-full-txt, markdown-mirror, documentation, AI-context]
 argument-hint: "[path|url] [--full] [--md-links] [--output path]"
@@ -17,7 +16,7 @@ Generate [llms.txt](https://llmstxt.org/) files — LLM-friendly markdown indexe
 
 ## Scope
 
-This skill generates `llms.txt` and `llms-full.txt` and defines the per-page `.md` variant contract they link to. Framework routing that serves those files, sitemaps, robots.txt, social metadata, and page actions belong to the site's framework skill (for Next.js, the SEO/GEO reference in `ak:web-frameworks`).
+This skill generates `llms.txt` and `llms-full.txt` and defines the per-page `.md` variant contract they link to. Framework routing that serves those files, sitemaps, robots.txt, social metadata, and page actions belong to the site's framework skill (for Next.js, the SEO/GEO reference in `ak-web-frameworks`).
 
 ## When to Use
 

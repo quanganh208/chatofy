@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ak:diagram record — frame-step an animated HTML to MP4 (default) or GIF (--gif).
+"""ak-diagram record — frame-step an animated HTML to MP4 (default) or GIF (--gif).
 
 Deterministic capture: instead of Playwright's video recorder (vsync-dependent),
 we step `document.getAnimations()` currentTime frame-by-frame and screenshot
@@ -114,7 +114,7 @@ def _assemble_gif(ffmpeg: str, frames_dir: Path, output: Path, fps: int) -> None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Record ak:diagram animation to MP4/GIF")
+    parser = argparse.ArgumentParser(description="Record ak-diagram animation to MP4/GIF")
     parser.add_argument("--input", type=Path, required=True, help="HTML file with animations")
     parser.add_argument("--out", type=Path, required=True, help="Output MP4 or GIF path")
     parser.add_argument("--duration", type=float, default=5.0, help="Seconds to capture")

@@ -106,7 +106,7 @@ shell-quoting damage. Report the created URL.
 
 1. **Fetch current state**: `gh issue view <n> --json title,body,state,labels,comments,assignees`.
 2. **Verify actual progress against evidence** — diff the issue's claims
-   against live code: run `ak:scout` on the affected paths, check
+   against live code: run `ak-scout` on the affected paths, check
    `git log --oneline -10 -- <paths>`, and linked PR states
    (`gh pr view <ref> --json state,mergedAt`). Do not trust checkbox state or
    old comments; verify each item.

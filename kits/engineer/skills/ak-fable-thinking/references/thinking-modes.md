@@ -105,7 +105,7 @@ decides.
 
 **Tells you are doing it wrong.** The first option won; all options are variations of one
 shape; the "creative" pick shipped without meeting the evidence bar; creativity spent on a
-problem that had a known answer. Deeper stuck toolkit: `ak:problem-solving`. The
+problem that had a known answer. Deeper stuck toolkit: `ak-problem-solving`. The
 engineering application — option sheet, kill-tests, timeboxed spikes, decision record —
 is `references/solution-exploration.md`.
 

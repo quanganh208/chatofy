@@ -10,7 +10,7 @@ Merge a GitHub pull request via `gh`, then watch post-merge CI on the target bra
 
 ## GitHub API compatibility
 
-Every bash block in this workflow that reads or writes PR state MUST source the `ak:review-pr` compatibility helper first — it probes the GitHub GraphQL API once and provides REST fallbacks for environments (notably Claude Cloud Environment) that block GraphQL at the egress proxy. Native `gh pr view / checks / merge / list` all issue GraphQL and 403 in that environment.
+Every bash block in this workflow that reads or writes PR state MUST source the `ak-review-pr` compatibility helper first — it probes the GitHub GraphQL API once and provides REST fallbacks for environments (notably Claude Cloud Environment) that block GraphQL at the egress proxy. Native `gh pr view / checks / merge / list` all issue GraphQL and 403 in that environment.
 
 ```bash
 _ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
@@ -158,7 +158,7 @@ If a post-merge run fails with a deterministic, repo-fixable error:
 
 1. Inspect logs: `gh run view <run-id> --log-failed`.
 2. Create a follow-up fix branch from the target branch (never fix on the merged head branch).
-3. Activate `ak:fix --auto` with the exact failing command and error evidence.
+3. Activate `ak-fix --auto` with the exact failing command and error evidence.
 4. Ship the fix through the repo's normal PR flow, merge it with this same workflow, and watch again.
 
 Stop conditions — stop and report when any of:

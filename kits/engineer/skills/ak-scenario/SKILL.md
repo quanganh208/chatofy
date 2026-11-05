@@ -1,19 +1,17 @@
 ---
-name: ak:scenario
-description: "Generate comprehensive edge cases and test scenarios by decomposing features across 12 dimensions. Use for pre-implementation risk discovery, QA planning, regression design, and bounded iterative exploration of coverage gaps."
-user-invocable: true
-when_to_use: "Invoke to expand requirements into edge cases and QA scenarios."
+name: ak-scenario
+description: "Generate edge cases and test scenarios by decomposing a feature across 12 dimensions."
+when_to_use: "Invoke for risk discovery, QA planning or regression design."
 category: workflow
 keywords: [edge-cases, test-scenarios, dimensions, saturation, iterations]
 argument-hint: "<file path or feature description> [--iterations N] [--saturation]"
 metadata:
   author: agentkit
   attribution: "Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)"
-  license: MIT
   version: "1.3.0"
 ---
 
-# ak:scenario — Edge Case & Scenario Explorer
+# ak-scenario — Edge Case & Scenario Explorer
 
 Decompose any feature or code path across 12 dimensions to surface edge cases, risks, and test targets before implementation begins.
 
@@ -191,9 +189,9 @@ Halted: [after N iterations — bounded] | [saturation — 2 consecutive iterati
 
 | Next Step | Skill | How |
 |-----------|-------|-----|
-| Generate test cases from scenarios | `ak:test` | Pass scenario table as input context |
-| Inform implementation plan risks | `ak:plan` | Paste Critical/High rows into risk assessment |
-| Deep persona debate on top risks | `ak:predict` | Feed Critical scenarios as the change proposal |
+| Generate test cases from scenarios | `ak-test` | Pass scenario table as input context |
+| Inform implementation plan risks | `ak-plan` | Paste Critical/High rows into risk assessment |
+| Deep persona debate on top risks | `ak-predict` | Feed Critical scenarios as the change proposal |
 
 ---
 
@@ -207,17 +205,17 @@ Saturation loop mechanics, novelty detection, and generation strategy are embedd
 
 ```
 # One-shot (default — backwards compatible)
-/ak:scenario src/api/payment.ts
-/ak:scenario "User registration with OAuth providers"
+/ak-scenario src/api/payment.ts
+/ak-scenario "User registration with OAuth providers"
 
 # Bounded iterative — exactly 25 iterations
-/ak:scenario src/api/payment.ts --iterations 25
+/ak-scenario src/api/payment.ts --iterations 25
 
 # Saturation — stop when the novelty heuristic is satisfied
-/ak:scenario "Add multi-tenancy to the database layer" --saturation
+/ak-scenario "Add multi-tenancy to the database layer" --saturation
 
 # Saturation with domain hint for priority dimension ordering
-/ak:scenario src/middleware/auth.ts --saturation --domain security
+/ak-scenario src/middleware/auth.ts --saturation --domain security
 ```
 
 ---
@@ -226,7 +224,7 @@ Saturation loop mechanics, novelty detection, and generation strategy are embedd
 
 Faithful absorption (in scope) of upstream `/autoresearch:scenario` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). The local version supports both one-shot generation and the iterative saturation loop.
 
-See `/ak:autoresearch` for the full family map.
+See `/ak-autoresearch` for the full family map.
 
 ## Optional workflow shadow experiment
 

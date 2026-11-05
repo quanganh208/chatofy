@@ -1,11 +1,10 @@
 ---
-name: ak:chrome-profile
-description: Target a real Google Chrome profile for browser automation through Chrome DevTools MCP. Provides the chrome-profile CLI, profile discovery, live DevTools probing guidance, setup playbooks, and URL-anchor tab selection.
-user-invocable: true
-when_to_use: "Invoke when browser automation needs the user's real Chrome profile, cookies, account, or a deterministic profile target."
+name: ak-chrome-profile
+description: "Drive a real Google Chrome profile via Chrome DevTools MCP with the chrome-profile CLI, deterministic profile discovery and URL-anchor tab selection."
+when_to_use: "Invoke when automation needs the user's own cookies or account."
 category: engineering
 keywords: [chrome, browser, profile, mcp, devtools, automation, cookies]
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE
 allowed-tools:
   - Bash(bash:*)
   - Bash(chrome-profile:*)
@@ -25,7 +24,7 @@ metadata:
 
 Profile-aware browser automation path when the agent needs the user's real Chrome state: the right Google account, cookies, workspace, tenant, or logged-in product session.
 
-This is not the default for ordinary browser testing. Use `ak:agent-browser` when a fresh or tool-managed browser is enough. Use project-native Playwright or `ak:web-testing` for repeatable CI tests. Use this skill when the user's actual Chrome profile state matters.
+This is not the default for ordinary browser testing. Use `ak-agent-browser` when a fresh or tool-managed browser is enough. Use project-native Playwright or `ak-web-testing` for repeatable CI tests. Use this skill when the user's actual Chrome profile state matters.
 
 ## What This Skill Provides
 
@@ -67,7 +66,7 @@ For missing profile mapping or a failed live bridge probe, load `references/setu
 
 ## Runtime Workflow
 
-Decision step: first decide whether this browser action needs a specific real Chrome profile: cookies, account state, workspace, tenant, or isolated profile key. If no real profile state is required, use `ak:agent-browser`, `ak:web-testing`, project-native browser tests, or ordinary Chrome DevTools MCP navigation instead. Continue with this workflow only when the profile identity matters.
+Decision step: first decide whether this browser action needs a specific real Chrome profile: cookies, account state, workspace, tenant, or isolated profile key. If no real profile state is required, use `ak-agent-browser`, `ak-web-testing`, project-native browser tests, or ordinary Chrome DevTools MCP navigation instead. Continue with this workflow only when the profile identity matters.
 
 When profile identity matters, open the target URL in the intended profile. Agents should prefer JSON output because it gives an exact selector:
 

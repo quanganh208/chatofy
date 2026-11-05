@@ -1,9 +1,9 @@
 # Ultra Verifier Mode (`--ultra`)
 
-Shared protocol for the opt-in `--ultra` mode of `ak:brainstorm`, `ak:plan`,
-`ak:code-review`, `ak:review-pr`, `ak:advise`, `ak:scout`, `ak:research`,
-`ak:debug`, `ak:fix`, `ak:problem-solving`, `ak:agentize`, and `ak:test`
-(`ak:bootstrap` participates by
+Shared protocol for the opt-in `--ultra` mode of `ak-brainstorm`, `ak-plan`,
+`ak-code-review`, `ak-review-pr`, `ak-advise`, `ak-scout`, `ak-research`,
+`ak-debug`, `ak-fix`, `ak-problem-solving`, `ak-agentize`, and `ak-test`
+(`ak-bootstrap` participates by
 delegation — see the finalizer list). Each of those skills adds a short section
 that sets its own candidate task and rubric, then defers to this file for the
 mechanics.
@@ -114,8 +114,8 @@ so reject-all and evidence-backed rubric scores stay mandatory, not optional.
    of the rubric's full range on the deciding criteria, `low` otherwise; a `low`
    margin means the default single-pass path would likely have produced
    equivalent output at a fifth of the cost. `unanimous=yes` means the winner
-   topped every rubric criterion. For union finalizers (`ak:code-review`,
-   `ak:review-pr`, `ak:scout`) report coverage instead:
+   topped every rubric criterion. For union finalizers (`ak-code-review`,
+   `ak-review-pr`, `ak-scout`) report coverage instead:
 
    ```
    ultra: union=<findings-kept>/<findings-proposed> single_candidate_only=<n>
@@ -130,51 +130,51 @@ so reject-all and evidence-backed rubric scores stay mandatory, not optional.
 
 The finalizer differs by skill and MUST NOT be collapsed to one behavior:
 
-- **`ak:brainstorm` and `ak:plan` select the single winning candidate.** The
+- **`ak-brainstorm` and `ak-plan` select the single winning candidate.** The
   verifier picks one winner (or rejects all); the controller materializes that
   winner unchanged. It does not synthesize a new blended artifact, because a
   blend would not be the verified output.
-- **`ak:advise` selects the single winning candidate advice.** The interview and
+- **`ak-advise` selects the single winning candidate advice.** The interview and
   reframing run once; only the advice generation is fanned to five candidates,
   and the verifier picks one winning advice unchanged (or rejects all). Same
   winner-selection rule as brainstorm/plan — never a union.
-- **`ak:code-review` returns the evidence-validated, deduplicated union** of
+- **`ak-code-review` returns the evidence-validated, deduplicated union** of
   findings across the five reviews. The 1-20 ranking only orders severity and
   confidence; it never selects one review wholesale, because a real defect may
   appear in only one (possibly lower-ranked) candidate. The verifier drops
   findings it cannot validate against cited evidence and merges duplicates.
-- **`ak:review-pr` returns the evidence-validated, deduplicated union** of PR
+- **`ak-review-pr` returns the evidence-validated, deduplicated union** of PR
   findings across the five initial reviews of one PR, under the same
   union rationale; the fix/reply/merge flow then runs once on that union and
   fix-loop re-reviews stay single-pass.
-- **`ak:scout` returns the evidence-validated, deduplicated union of scouted findings**
+- **`ak-scout` returns the evidence-validated, deduplicated union of scouted findings**
   across the five scout passes — a relevant file may surface in only one
   candidate, so winner selection would lose coverage. The verifier drops paths
   it cannot validate and merges duplicates.
-- **`ak:research` selects the single winning report** unchanged (or rejects
+- **`ak-research` selects the single winning report** unchanged (or rejects
   all) — one coherent report beats a stitched blend.
-- **`ak:debug` selects the single winning diagnosis** unchanged; the controller
+- **`ak-debug` selects the single winning diagnosis** unchanged; the controller
   then verifies the winning root cause with fresh evidence before any fix.
   Candidates are read-only analysis passes — never fan mutating steps.
-- **`ak:fix` selects the single winning fix plan** unchanged. The confirmed
+- **`ak-fix` selects the single winning fix plan** unchanged. The confirmed
   diagnosis is part of the immutable evidence packet; candidates propose fix
   plans and never re-derive the confirmed root cause.
-- **`ak:problem-solving` selects the single winning reframing** unchanged
+- **`ak-problem-solving` selects the single winning reframing** unchanged
   (technique choice, application, and unblock path).
-- **`ak:agentize` selects the single winning decision record** unchanged
+- **`ak-agentize` selects the single winning decision record** unchanged
   (Agentization Map plus mode/tool decisions); implementation phases execute
   once from the winner.
-- **`ak:test` selects the single winning suite design or optimization plan**
+- **`ak-test` selects the single winning suite design or optimization plan**
   for `create`/`optimize` runs, and returns the evidence-validated,
   deduplicated union of audit findings for `audit` runs — a real deceptive
   test may be caught by only one candidate.
-- **`ak:bootstrap` does not fan itself: its code review phase runs `ak:code-review --ultra`**
+- **`ak-bootstrap` does not fan itself: its code review phase runs `ak-code-review --ultra`**
   (bootstrap has no planning phase), and that skill's evidence-validated union
   finalizer applies. Bootstrap `--ultra` combines with every bootstrap mode.
 
 ## Code-review Stage mapping
 
-For `ak:code-review --ultra`, the controller runs the Stage 1 spec-compliance
+For `ak-code-review --ultra`, the controller runs the Stage 1 spec-compliance
 pass once, fans **Stage 2** (quality review) out to the five independent
 reviewers, and runs the final verification gate once over the deduplicated union
 of validated findings. Stage 1 and the final gate keep their existing

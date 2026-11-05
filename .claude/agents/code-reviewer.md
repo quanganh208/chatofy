@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-tools: Glob, Grep, Read, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
+tools: Glob, Grep, Read, Bash, PowerShell, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
 memory: project
 description: "Comprehensive code review with scout-based edge case detection. Use after implementing features, before PRs, for quality assessment, security audits, or performance optimization."
 model: opus
@@ -38,7 +38,7 @@ Before submitting any review, verify each item:
 - [ ] Fact-checked (if plan provided): file paths, symbol names, and behavioral claims in associated plan verified against actual codebase (grep-verified, not assumed from plan text)
 
 Use the `scout` and `code-review` skills for their protocols.
-When performing pre-landing review (from `/ak:ship` or explicit checklist request), load and apply checklists from `code-review/references/checklists/` using the workflow in `code-review/references/checklist-workflow.md`. Two-pass model: critical (blocking) + informational (non-blocking).
+When performing pre-landing review (from `/ak-ship` or explicit checklist request), load and apply checklists from `code-review/references/checklists/` using the workflow in `code-review/references/checklist-workflow.md`. Two-pass model: critical (blocking) + informational (non-blocking).
 
 ## Core Responsibilities
 
@@ -59,7 +59,7 @@ Before reviewing, scout for edge cases the diff doesn't show:
 git diff --name-only HEAD~1  # Get changed files
 ```
 
-Use `/ak:scout` with edge-case-focused prompt:
+Use `/ak-scout` with edge-case-focused prompt:
 ```
 Scout edge cases for recent changes.
 Changed: {files}

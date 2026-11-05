@@ -1,6 +1,6 @@
 # Runtime Matrix
 
-`/ak:orchestrate` builds a runtime matrix for each run. This reference defines
+`/ak-orchestrate` builds a runtime matrix for each run. This reference defines
 that live evidence contract; it is intentionally not a durable provider roster
 or command catalog. Runtime installation, authentication, flags, models, and
 safety behavior must be revalidated in the actual execution environment.
@@ -31,23 +31,27 @@ probe timeout bounds the direct child only; it does not prove descendant cleanup
 
 ## Candidate Set
 
-Start with only candidates relevant to the requested run:
+Start with only candidates relevant to the requested run. The runtime scope
+gate in [model-routing.md](model-routing.md#runtime-scope-gate) decides which
+of these may route work:
 
+- `runtime: internal` when the current runtime exposes a session-start
+  surface;
+- the current runtime's own headless CLI;
 - explicit `runtime:` values in the job spec;
 - entries in each job's `fallback_runtime` chain;
-- `runtime: internal` when the current harness exposes an agent-dispatch
-  interface;
-- a runtime the user explicitly asks the coordinator to consider.
+- a runtime the user explicitly asks the coordinator to consider;
+- other installed runtimes, only when the run passes `--cross-runtime`.
 
-When the user asks to use other installed runtimes if available, discover
+When the run opts into other installed runtimes, discover
 optional candidates through the active dispatcher's runtime registry and
 explicit executable configuration. Use the optional CLI probes below for
 requested candidates that have no dispatcher entry. A kit emitter or registry
 entry is a discovery hint, not proof of a working headless runner.
 
 Record whether each candidate is required by a job pin or optional discovery.
-Skip unavailable optional candidates with a reason; do not block a qualified
-route because another optional runtime is missing. Never substitute for a
+Skip unavailable optional candidates with a reason; never let a missing
+optional runtime block a qualified route. Never substitute for a
 pinned runtime without the user's authorization.
 
 Treat each value as a candidate identifier, not proof of support. Do not add a
@@ -113,13 +117,26 @@ contain at least:
 {
   "id": "<candidate-id>",
   "kind": "cli|internal|skill-run",
+  "currentRuntime": true,
+  "admittedBy": "default|pin|fallback|user-named|cross-runtime",
   "state": "available|constrained|unverified|unavailable",
   "binary": "<resolved-path-or-null>",
   "version": "<live-value-or-null>",
   "authenticated": true,
   "hostOS": "<live-os>",
   "models": ["<live-resolved-choice>"],
-  "agents": [],
+  "profiles": [],
+  "sessions": {
+    "create": "supported|unsupported|unverified",
+    "observe": "supported|unsupported|unverified",
+    "send": "supported|unsupported|unverified",
+    "resume": "supported|unsupported|unverified",
+    "cancel": "supported|unsupported|unverified",
+    "modelSelection": "supported|unsupported|unverified",
+    "isolation": "supported|unsupported|unverified",
+    "permissions": "supported|unsupported|unverified"
+  },
+  "quotaPool": "<shared-upstream-account-key-or-null>",
   "headless": true,
   "cwdControl": "enforced|argument-only|prompt-only|none|unverified",
   "approval": "per-operation|scoped|auto|none|unverified",
@@ -134,9 +151,8 @@ contain at least:
 }
 ```
 
-Never include tokens, cookies, credential values, raw environment variables,
-or sensitive command arguments. Empty arrays and `null` are preferable to
-guessed capability.
+Never include tokens, cookies, credential values, raw environment variables
+or sensitive command arguments; prefer empty arrays and `null` to guesses.
 
 ## CLI Probe Sequence
 
@@ -163,20 +179,21 @@ An unknown flag or model is a failed probe. Re-check live help and current
 official docs, then rebuild the command. Never guess a replacement or carry
 flags between runtimes.
 
-## Internal Probe Sequence
+## Session Probe Sequence
 
 For `runtime: internal`, do not probe a binary:
 
-1. list the agent types the current harness exposes;
-2. read live agent descriptions, tools, permission boundaries, and model
-   metadata when exposed;
-3. record only agents available in this session;
-4. mark unenforced prompt constraints and accounting-only timeouts plainly;
-5. apply dispatch and capture behavior from
-   [internal-routing.md](internal-routing.md).
+1. identify the current runtime and its session-start surface from the live
+   tool list and current documentation;
+2. record each session operation in `sessions` per
+   [session-routing.md](session-routing.md#live-discovery);
+3. record selectable models and effort only when `modelSelection` is
+   supported;
+4. list installed role profiles as instruction sources, not dispatch targets;
+5. mark unenforced brief constraints and accounting-only timeouts plainly.
 
-An on-disk agent definition is supporting evidence, not proof that the current
-session can dispatch it. Prefer the live harness list.
+A nested-agent interface is not session evidence. An on-disk definition or a
+projected skill is supporting evidence only; prefer the live surface.
 
 ## Command Construction
 
@@ -216,6 +233,15 @@ When OS enforcement is weaker than the requested risk tier, use a stronger
 external boundary or block the route. A worktree prevents edit collisions but
 is not an OS sandbox.
 
+`ak orchestrate` supervises CLI and Pi processes only on Darwin. On any other
+host, record supervised candidates as `unavailable` with the platform reason
+and keep `runtime: internal` in the candidate set when the current runtime
+exposes qualified sessions. The host OS never disqualifies session dispatch by
+itself;
+see [platform-support.md](platform-support.md). A run cannot re-route a
+job after `prepare`; a blocked job needs a new run directory. Do not launch an
+unsupervised CLI process to work around the gate.
+
 ## Support States
 
 The live matrix uses evidence states rather than a permanent support tier:
@@ -236,14 +262,15 @@ defined only in [model-routing.md](model-routing.md).
 - Treat native wall-time, turn, or tool-call limits as defense in depth.
 - On timeout, stop the process using the host's verified mechanism, preserve
   bounded partial output, mark the job failed, and block dependents.
-- Internal timeouts are accounting-only unless the current harness proves a
-  cancellation mechanism; scope those prompts tightly.
+- Session timeouts are accounting-only unless the runtime proves `cancel`;
+  scope those briefs tightly.
 
 ## Safety Gate
 
 Before dispatch, confirm:
 
-- runtime and model or agent were observed live;
+- runtime, session capability and model were observed live, and the runtime
+  was admitted by the scope gate;
 - cwd and writable roots match the job;
 - approval and tool controls meet the assigned risk tier;
 - parallel writers are isolated in separate worktrees and own disjoint files;

@@ -1,16 +1,14 @@
 ---
-name: ak:preview
-description: "View files or generate visual explanations, slides, and diagrams. Use for code walkthroughs, architecture visualization, HTML/Markdown presentations."
-user-invocable: true
-when_to_use: "Invoke for visual explanations, file previews, or diagrams."
+name: ak-preview
+description: "View files or generate visual explanations, slides and diagrams such as code walkthroughs or HTML/Markdown presentations."
+when_to_use: "Invoke for file previews or architecture visualization."
 category: media
 keywords: [preview, visual, slides, diagrams, HTML]
-argument-hint: "[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap [--no-antv|--no-diagram-design|--no-editorial-visuals]"
+argument-hint: "[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap [--ak-render] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
   version: "1.2.2"
   attribution: "Visual self-review pattern for diagram output adapted from fireworks-tech-graph by yizhiyanhua-ai (MIT)"
-  license: MIT
 ---
 
 # Preview
@@ -35,29 +33,30 @@ If invoked without arguments, use `ask_user capability` to present available pre
 | `--html --diff` | Visual diff review (HTML) |
 | `--html --plan-review` | Plan vs codebase comparison (HTML) |
 | `--html --recap` | Project context snapshot (HTML) |
+| `--ak-render` | Opt-in (implies `--html`; also selected by a project `.ak-render/` directory): compile `--explain`, `--diff`, `--plan-review` or `--recap` HTML from a Page Spec with AK Render (`references/ak-render-route.md`) |
 
 Present as options via `ask_user capability` with header "Preview Operation", question "What would you like to do?".
 
 ## Usage
 
 ### View Mode
-- `/ak:preview <file.md>` - View markdown file in novel-reader UI
-- `/ak:preview <directory/>` - Browse directory contents
-- `/ak:preview --stop` - Stop running server
+- `/ak-preview <file.md>` - View markdown file in novel-reader UI
+- `/ak-preview <directory/>` - Browse directory contents
+- `/ak-preview --stop` - Stop running server
 
 ### Generation Mode (Markdown)
-- `/ak:preview --explain <topic>` - Generate visual explanation (ASCII + Mermaid + prose)
-- `/ak:preview --slides <topic>` - Generate presentation slides (one concept per slide)
-- `/ak:preview --diagram <topic>` - Generate focused diagram (ASCII + Mermaid)
-- `/ak:preview --ascii <topic>` - Generate ASCII-only diagram (terminal-friendly)
+- `/ak-preview --explain <topic>` - Generate visual explanation (ASCII + Mermaid + prose)
+- `/ak-preview --slides <topic>` - Generate presentation slides (one concept per slide)
+- `/ak-preview --diagram <topic>` - Generate focused diagram (ASCII + Mermaid)
+- `/ak-preview --ascii <topic>` - Generate ASCII-only diagram (terminal-friendly)
 
 ### Generation Mode (HTML)
-- `/ak:preview --html --explain <topic>` - Self-contained HTML explanation
-- `/ak:preview --html --slides <topic>` - Magazine-quality HTML slide deck
-- `/ak:preview --html --diagram <topic>` - HTML diagram with zoom controls
-- `/ak:preview --html --diff [ref]` - Visual diff review
-- `/ak:preview --html --plan-review [plan-file]` - Plan vs codebase comparison
-- `/ak:preview --html --recap [timeframe]` - Project context snapshot
+- `/ak-preview --html --explain <topic>` - Self-contained HTML explanation
+- `/ak-preview --html --slides <topic>` - Magazine-quality HTML slide deck
+- `/ak-preview --html --diagram <topic>` - HTML diagram with zoom controls
+- `/ak-preview --html --diff [ref]` - Visual diff review
+- `/ak-preview --html --plan-review [plan-file]` - Plan vs codebase comparison
+- `/ak-preview --html --recap [timeframe]` - Project context snapshot
 
 ## Argument Resolution
 
@@ -91,10 +90,10 @@ When processing arguments, follow this priority order:
 | Error | Action |
 |-------|--------|
 | Invalid topic (empty) | Ask user to provide a topic |
-| Flag without topic | Ask user: "Please provide a topic: `/ak:preview --explain <topic>`" |
+| Flag without topic | Ask user: "Please provide a topic: `/ak-preview --explain <topic>`" |
 | Topic becomes empty after sanitization | Ask for topic with alphanumeric characters |
 | File write failure | Report error, suggest checking disk space and permissions |
-| Server startup failure | Check if port in use, try `/ak:preview --stop` first |
+| Server startup failure | Check if port in use, try `/ak-preview --stop` first |
 | No generation flag + unresolvable reference | Ask user to clarify which file they meant |
 | Existing file at output path | Overwrite with new content (no prompt) |
 | Server already running | Reuse existing server instance, just open new URL |

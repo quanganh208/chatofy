@@ -1,7 +1,7 @@
 # Team Coordination Rules
 
 > These rules only apply when operating as a teammate within an Agent Team.
-> They live inside the `ak:team` skill so normal sessions do not load team-only coordination context.
+> They live inside the `ak-team` skill so normal sessions do not load team-only coordination context.
 
 Rules for agents operating as teammates within an Agent Team.
 

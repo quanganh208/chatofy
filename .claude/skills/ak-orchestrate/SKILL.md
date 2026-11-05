@@ -1,23 +1,22 @@
 ---
-name: ak:orchestrate
-description: "Coordinate staged or parallel jobs across live-verified coding-agent runtimes, Pi coding-agent sessions, and in-session subagents, using capability- and risk-based routing, worktree-isolated writes, resumable state, capture, safety gates, and independent arbiter review. Onboards a missing Pi runtime (install, profile, authentication, AgentKit projection) as a visible setup step when a job or the user asks for Pi."
-user-invocable: true
-when_to_use: "Invoke when work should be split across multiple headless runtimes, Pi sessions, or in-session subagents, routed by task capability and risk, isolated where needed, and reviewed before handoff; also when Pi must be installed and set up before it can take orchestrated jobs."
+name: ak-orchestrate
+description: "Run staged or parallel jobs as resumable sessions of this runtime, or opted-in live-verified runtimes and Pi, with worktrees, fallback, safety gates, a final arbiter."
+when_to_use: "Invoke to route split work by capability, risk and quota, or to onboard Pi."
 category: workflow
-keywords: [orchestrate, headless, multi-agent, internal, subagents, pi, pi-sessions, onboarding, live-routing, model-routing, capability, risk, worktree, resume, parallel, arbiter]
-argument-hint: "<job-spec.yaml | task description | --resume <run-dir>> [--yes] [--internal]"
-license: MIT
+keywords: [orchestrate, headless, multi-agent, sessions, session-first, cross-runtime, quota, fallback, pi, pi-sessions, onboarding, live-routing, model-routing, capability, risk, worktree, resume, parallel, arbiter]
+argument-hint: "<job-spec.yaml | task description | --resume <run-dir>> [--yes] [--cross-runtime] [--internal (deprecated)]"
+license: Proprietary
 metadata:
   author: agentkit
-  version: "1.8.0"
+  version: "2.0.0"
 ---
 
 # Orchestrate
 
-Coordinate headless coding-agent jobs, Pi sessions and in-session subagents
-through a staged, captured, resumable workflow. The skill owns routing and
-judgment; `ak orchestrate` owns deterministic plan state, process supervision
-and observable evidence. No service or dashboard is required.
+Coordinate independent sessions and headless coding-agent jobs through a
+staged, captured, resumable workflow. The skill owns routing and judgment;
+`ak orchestrate` owns deterministic plan state, process supervision and
+observable evidence. No service or dashboard is required.
 
 Runtime and model catalogs drift. Resolve every route from live evidence;
 never treat a runtime, provider, model, flag, or agent seen in this file or an
@@ -28,36 +27,65 @@ older report as currently available.
 Accepted forms:
 
 ```bash
-/ak:orchestrate "research three implementation options and compare them"
-/ak:orchestrate "run the three scouts as pi sessions, then one arbiter"
-/ak:orchestrate plans/orchestrate-jobs.yaml [--yes]
-/ak:orchestrate --resume plans/reports/orchestrate-<timestamp>
+/ak-orchestrate "research three implementation options and compare them"
+/ak-orchestrate "run the three scouts as pi sessions, then one arbiter"
+/ak-orchestrate plans/orchestrate-jobs.yaml [--yes] [--cross-runtime]
+/ak-orchestrate --resume plans/reports/orchestrate-<timestamp>
 ```
 
 Use a YAML job spec for repeatable runs; for a free-form request, write one
 to `plans/reports/orchestrate-<timestamp>/jobs.yaml` before dispatch.
 
-`--internal` is a routing preference, not a hard mode: it asks the selection
-policy to consider in-session subagents first for jobs without an explicit
-`runtime:`, and a job needing model selection or stronger isolation may still
-use a live-verified CLI fallback. Never override an explicit runtime, model,
-or agent pin silently. Naming a runtime in the request ("as pi sessions") is
-an explicit ask: that candidate joins the set, and if it is missing or not
-authenticated its onboarding runs as a visible setup step before routing.
+## Session-First Dispatch
+
+Every orchestrated worker runs outside the coordinator's turn: a
+current-runtime or Pi session with its own native handle, context, model and
+lifecycle, or a supervised headless process. A current-runtime session is
+`runtime: internal` in a job spec, defined in
+[session-routing.md](references/session-routing.md). Nested in-harness
+subagents are not workers; the one exception is the permission fallback
+below.
+
+- **Scope defaults to the current runtime.** Candidates are sessions of the
+  runtime you are running in and its own supervised headless CLI.
+- **`--cross-runtime` opts in other installed runtimes** that pass live
+  probes, auth, controls, quota and cost checks. A job's `runtime:` pin or
+  `fallback_runtime` chain, or a runtime the user names ("as pi sessions"),
+  is an equivalent explicit opt-in for that runtime. A named runtime that is
+  missing or not authenticated runs its onboarding as a visible setup step.
+- **Unavailable is visible.** When the current runtime cannot start a
+  qualifying session and no opted-in candidate qualifies, report the job
+  `blocked` with the probe evidence. Never widen scope silently.
+- **Permission fallback.** When the runtime refuses to start a session because
+  the coordinator lacks permission, the job may run as a nested agent under the
+  conditions in
+  [session-routing.md](references/session-routing.md#permission-fallback),
+  disclosed in the report. Quota, budget, resource, missing-runtime and crash
+  failures never fall back to a subagent.
+- **`--internal` is deprecated.** Accept it as "prefer current-runtime
+  sessions" (already the default) and print one line telling the user to drop
+  it. It never selects a nested agent.
+
+Never override an explicit runtime, model or role-profile pin silently.
 
 ## Authority Map
 
 Keep durable facts in one place:
 
 - [model-routing.md](references/model-routing.md) is the **sole route-selection
-  authority**: capability tiers, risk tiers, task defaults, internal
-  selection, fallback qualification, and model-family independence.
+  authority**: runtime scope gate, capability tiers, risk tiers, task
+  defaults, session selection, strongest judgment model, fallback
+  qualification, and model-family independence.
 - [runtime-matrix.md](references/runtime-matrix.md): live candidate discovery,
   probing, command verification, OS evidence, `<run-dir>/runtimes.json`.
 - [harness-profiles.md](references/harness-profiles.md): evidence schema for
   permissions, isolation, capture, budgets, and enablement.
-- [internal-routing.md](references/internal-routing.md): in-session dispatch,
-  capture, timeout, and resume mechanics.
+- [session-routing.md](references/session-routing.md): session qualification,
+  role profiles, dispatch, permission fallback, capture, timeout, and resume.
+- [failure-modes.md](references/failure-modes.md): failure classes and the
+  bounded fallback ladder.
+- [concurrency-admission.md](references/concurrency-admission.md): sizing
+  parallelism from usage windows and host headroom instead of a fixed count.
 - [pi-sessions.md](references/pi-sessions.md): Pi probing, session handles,
   dispatch shape, capture, and intervention limits.
 - [pi-onboarding.md](references/pi-onboarding.md): installing, profiling,
@@ -69,6 +97,13 @@ Keep durable facts in one place:
 
 When references disagree, stop and report the contract mismatch.
 
+## Platform Support
+
+Orchestrate is not macOS-only. Plan state and current-runtime session jobs
+work on every host; only supervised CLI and Pi processes and executable
+`verification:` checks are Darwin-gated. Check the host before refusing a
+request and follow [platform-support.md](references/platform-support.md).
+
 ## Pipeline
 
 ### 1. Brainstorm and intake
@@ -78,7 +113,7 @@ When references disagree, stop and report the contract mismatch.
   destructive or external intent, expected outputs, and runtime constraints.
 - Refuse any plan that would place secrets, credentials, private keys, dotenv
   values, or unrelated private data in prompts or capture.
-- Prefer a direct single-agent workflow when orchestration adds no useful
+- Prefer a direct single-session workflow when orchestration adds no useful
   parallelism, staged dependency, runtime diversity, or arbiter value.
 
 ### 2. Build the job graph
@@ -86,12 +121,13 @@ When references disagree, stop and report the contract mismatch.
 - Convert the accepted outcome into jobs with explicit `task`, `cwd`, timeout,
   expected output, and file ownership.
 - Use `depends_on` to form stages; run same-stage jobs concurrently only when
-  ownership and outputs do not overlap.
+  ownership and outputs do not overlap, and only as many as
+  [concurrency-admission.md](references/concurrency-admission.md) admits.
 - Mark public-contract, security-sensitive, cross-module, or hard-to-revert
   implementation as `importance: high`; set `isolation: worktree` for parallel
   writers, untrusted write prompts, and harnesses with a weak write boundary.
-- Name the skill or instructions each headless job must load; a one-shot
-  process cannot rely on automatic skill discovery.
+- Name the skill, role profile or instructions each job must load; a fresh
+  session or one-shot process cannot rely on automatic skill discovery.
 
 ### 3. Discover, profile, route, and onboard when required
 
@@ -99,6 +135,9 @@ When references disagree, stop and report the contract mismatch.
   permissions, requested controls and model catalog remain unchanged;
   invalidate on change or probe failure. Resume reconciles existing attempts
   before dispatch.
+- Apply the runtime scope gate in
+  [model-routing.md](references/model-routing.md#runtime-scope-gate) first:
+  current runtime by default, other runtimes only with an explicit opt-in.
 - Build a live inventory per [runtime-matrix.md](references/runtime-matrix.md)
   and profile each candidate per
   [harness-profiles.md](references/harness-profiles.md); Pi candidates add
@@ -130,8 +169,8 @@ When references disagree, stop and report the contract mismatch.
 - Treat inherently auto-approved headless modes as constrained: read/report
   work or R2-isolated writes, never shared-tree destructive work. A worktree
   prevents edit collisions but is not an OS sandbox.
-- Give every CLI process an external timeout; internal timeouts are
-  accounting-only unless the current harness proves cancellation.
+- Give every CLI process an external timeout; session timeouts are
+  accounting-only unless the runtime proves cancellation.
 
 ### 5. Dispatch, observe and verify
 
@@ -142,10 +181,10 @@ When references disagree, stop and report the contract mismatch.
 - Persisted attempts and intended supervisor IDs precede launch. Advance
   reconciles existing work before dispatch; never bypass an uncertain attempt
   by calling start manually. Follow [job-spec.md](references/job-spec.md).
-- Dispatch returned internal jobs through the native harness, preserving their
-  attempt IDs. Store handles and capture per
-  [internal-routing.md](references/internal-routing.md); accept only a settled
-  attempt with verified artifacts and checks.
+- Start each returned internal job as a current-runtime session, preserving
+  its attempt ID. Store the session handle and capture per
+  [session-routing.md](references/session-routing.md); accept only a settled
+  attempt with verified artifacts and checks, never a session's report alone.
 - Give Pi jobs a run-scoped session directory and store each session id as
   the resume handle; dependents continue or fork it per
   [pi-sessions.md](references/pi-sessions.md).
@@ -153,19 +192,29 @@ When references disagree, stop and report the contract mismatch.
   supervisor run, each with its own cursor; poll until `all_settled`, not
   merely an aggregate failed status.
 - Supervisor deadlines and bounded redacted capture survive the client exit
-  on supported platforms; elsewhere process supervision is an explicit
-  capability gap, so use a qualified host/harness for jobs that need it.
+  on Darwin. Elsewhere, follow [Platform Support](#platform-support): keep
+  dispatching qualified session jobs through the same `prepare`/`advance`/
+  `accept` loop and block only the jobs that need supervision.
 - Apply the observation and intervention contract in
   [observation.md](references/observation.md): a quiet process is not proof
   of a stall, and a cancelled request is not proof of a stopped writer.
-- Retry only within declared bounded policy after safe settlement and
-  unchanged fingerprints. Unknown flags/models need fresh discovery;
+- Classify each failure and climb the bounded ladder in
+  [failure-modes.md](references/failure-modes.md) and report the mapped
+  `error_class` in the `accept` receipt: reattach, retry through the job's
+  `retry:` policy, then a new run directory that adapts within the current
+  runtime or, when opted in, crosses runtimes; else pause, replan or block. A
+  prepared run never re-routes a job. Unknown flags/models need fresh discovery;
   permission or external-effect failures need a scope-aware decision.
 
 ### 6. Run an arbiter review
 
-- Wait for all runnable jobs to settle, then use a separate C3 judgment route
-  selected by [model-routing.md](references/model-routing.md).
+- Wait for all runnable jobs to settle, then run the arbiter in a fresh,
+  separate session on a C3 route. Resolve its model with the strongest
+  judgment model rule in
+  [model-routing.md](references/model-routing.md#strongest-judgment-model):
+  honour pins and model policy, use only models the live runtime can select,
+  fall back in a deterministic order, and disclose the runtime and model that
+  actually served it.
 - Prefer independently configured or different-family review when live
   evidence proves it; disclose a same-family fallback. A Pi arbiter counts as
   independent only when its resolved model family differs.
@@ -177,10 +226,13 @@ When references disagree, stop and report the contract mismatch.
 ### 7. Report
 
 - Write `plans/reports/orchestrate-<timestamp>/report.md`.
-- Include per-job status, capability/risk tier, resolved runtime and model or
-  agent, artifacts, errors, arbiter verdict, checks, reproduction commands,
-  worktree diffs awaiting integration, Pi session handles and exports,
-  onboarding actions taken, and unresolved questions.
+- Include per-job status, capability/risk tier, resolved runtime, session
+  handle, role profile and model, how each runtime was admitted, failure
+  classes and fallback steps taken (including any permission fallback),
+  artifacts, errors, arbiter verdict with its actual runtime and model,
+  checks, reproduction commands, worktree diffs awaiting integration, Pi
+  session handles and exports, onboarding actions taken, and unresolved
+  questions.
 - Record effective model/effort, startup/fork/communication time and cache
   telemetry when exposed, alongside retries and cost. Unknown cache cost is
   not zero. Metrics never lower capability/risk floors, override explicit
@@ -216,30 +268,9 @@ authentication and AgentKit projection are in
 
 ## Job Spec
 
-Full schema: [job-spec.md](references/job-spec.md). Placeholders below are
-resolved after live discovery:
-
-```yaml
-version: 1
-concurrency: 2
-jobs:
-  - id: scout-session-api
-    runtime: internal
-    task: scout
-    cwd: <workspace-root>
-    prompt: "Inspect the session API and report extension points."
-    timeout: 10m
-    expected_output: "Markdown report with files read and recommended seams."
-
-  - id: independent-review
-    runtime: <verified-cli-runtime>
-    fallback_runtime: [<verified-fallback-runtime>]
-    task: review
-    cwd: <workspace-root>
-    prompt: "Review the proposed change and verify its evidence."
-    timeout: 10m
-    expected_output: "Independent verdict with checks and unresolved risks."
-```
+Schema, examples and acceptance rules: [job-spec.md](references/job-spec.md).
+Runtime and model fields hold placeholders until live discovery resolves them;
+`runtime: internal` marks a current-runtime session job.
 
 ## Safety Defaults
 
@@ -270,17 +301,22 @@ jobs:
 
 - Jobs share no implicit memory; pass artifacts through explicit dependencies.
   A continued Pi session carries context, not accepted proof.
-- Internal jobs may lack force cancellation, per-job sandboxing, or model
-  selection.
+- Session jobs may lack force cancellation, per-job sandboxing, or model
+  selection; each is probed per run. A permission-fallback subagent lacks
+  independent resume and shares the coordinator's quota and permissions.
 - CLI commands, models, authentication, and safety behavior drift; every run
   revalidates them. Worktrees need a git repository and disk headroom and do
   not provide process isolation.
 - Metrics are advisory and cannot authorize an automatic route-policy change.
 - Orchestrate coordinates existing runtimes; it adds no daemon, dashboard,
-  account pool, or provider adapter. Onboarding installs a runtime the user
+  account pool, message broker, or provider adapter. Quota and resource
+  admission are coordinator judgment over observed evidence, not an enforced
+  reservation. Onboarding installs a runtime the user
   asked for and stops at the credentials only the user can supply.
-- `ak orchestrate` process supervision requires Darwin; discovery elsewhere
-  does not imply lifecycle support. Record host and harness limits per route.
+- `ak orchestrate` supervises external CLI and Pi processes only on Darwin.
+  Plan state and current-runtime session dispatch work on every platform; see
+  [Platform Support](#platform-support). Record host and harness limits per
+  route.
 
 ## Completion Report
 

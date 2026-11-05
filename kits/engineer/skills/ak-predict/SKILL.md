@@ -1,19 +1,17 @@
 ---
-name: ak:predict
-description: "5 expert personas debate proposed changes before implementation. Catches architectural, security, performance, and UX issues early. Use before major features or risky changes."
-user-invocable: true
-when_to_use: "Invoke before high-risk changes that need persona debate."
+name: ak-predict
+description: "Have 5 expert personas debate a change to catch architecture, security, performance and UX issues early."
+when_to_use: "Invoke before major features or risky changes."
 category: reasoning
 keywords: [prediction, debate, review, risk]
 argument-hint: "<feature description or change proposal> [--files <glob>] [--chain reason|probe]"
 metadata:
   author: agentkit
   attribution: "Multi-persona prediction pattern adapted from autoresearch by Udit Goenka (MIT)"
-  license: MIT
   version: "1.1.1"
 ---
 
-# ak:predict — Multi-Persona Pre-Analysis
+# ak-predict — Multi-Persona Pre-Analysis
 
 Five expert personas independently analyze a proposed change, then debate conflicts to produce a consensus verdict before a single line of code is written.
 
@@ -26,7 +24,7 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 ## When NOT to Use
 
-- Trivial or low-risk changes (use `ak:debug` for bugs, `ak:plan` for already-decided tasks)
+- Trivial or low-risk changes (use `ak-debug` for bugs, `ak-plan` for already-decided tasks)
 - Already-approved work with no open design questions
 - Pure dependency upgrades with no API changes
 
@@ -114,7 +112,7 @@ After producing the verdict, predict can chain into a follow-on workflow that al
 
 Use the chain-mode summaries below as the supported protocol for this kit.
 
-These chain modes absorb upstream `/autoresearch:reason` and `/autoresearch:probe` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). They're folded into ak:predict — not shipped as standalone skills — because they always chain off a predict invocation. See `/ak:autoresearch` for the family map.
+These chain modes absorb upstream `/autoresearch:reason` and `/autoresearch:probe` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). They're folded into ak-predict — not shipped as standalone skills — because they always chain off a predict invocation. See `/ak-autoresearch` for the family map.
 
 ---
 
@@ -122,23 +120,23 @@ These chain modes absorb upstream `/autoresearch:reason` and `/autoresearch:prob
 
 | Workflow Step | Skill | How |
 |---------------|-------|-----|
-| Deepen risk scenarios | `ak:scenario` | Feed Risk Summary rows as feature description |
-| Create implementation plan | `ak:plan` | Attach Recommendations as constraints to planner |
-| High-risk feature implementation | `ak:cook` | Reference CAUTION/STOP items as acceptance gates |
+| Deepen risk scenarios | `ak-scenario` | Feed Risk Summary rows as feature description |
+| Create implementation plan | `ak-plan` | Attach Recommendations as constraints to planner |
+| High-risk feature implementation | `ak-cook` | Reference CAUTION/STOP items as acceptance gates |
 
 ---
 
 ## Example Invocations
 
 ```
-/ak:predict "Add WebSocket support for real-time notifications"
-/ak:predict "Migrate authentication from JWT to session cookies"
-/ak:predict "Add multi-tenancy to the database layer"
-/ak:predict "Replace REST API with GraphQL" --files src/api/**/*.ts
+/ak-predict "Add WebSocket support for real-time notifications"
+/ak-predict "Migrate authentication from JWT to session cookies"
+/ak-predict "Add multi-tenancy to the database layer"
+/ak-predict "Replace REST API with GraphQL" --files src/api/**/*.ts
 
 # Chain modes
-/ak:predict "Pick auth library: Passport vs Better Auth" --chain reason
-/ak:predict "Move from REST to GraphQL" --chain probe
+/ak-predict "Pick auth library: Passport vs Better Auth" --chain reason
+/ak-predict "Move from REST to GraphQL" --chain probe
 ```
 
 ---
@@ -147,4 +145,4 @@ These chain modes absorb upstream `/autoresearch:reason` and `/autoresearch:prob
 
 Faithful absorption (in scope) of upstream `/autoresearch:predict` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). The local version supports the 5-persona debate plus `--chain reason` (subjective refinement) and `--chain probe` (requirement interrogation), folding upstream's `/autoresearch:reason` and `/autoresearch:probe` sub-commands into chain modes rather than separate skills.
 
-See `/ak:autoresearch` for the full family map.
+See `/ak-autoresearch` for the full family map.

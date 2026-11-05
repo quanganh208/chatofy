@@ -1,7 +1,6 @@
 ---
-name: ak:fix
-description: "Fix bugs, errors, test failures, and CI/CD issues with intelligent routing. Use for type errors, lint issues, log errors, UI bugs, code problems."
-user-invocable: true
+name: ak-fix
+description: "Fix bugs, test failures, type and lint errors, log errors, UI defects and CI/CD failures with intelligent routing."
 when_to_use: "Invoke when there is a concrete bug, error, or CI failure."
 category: workflow
 keywords: [bugfix, error, test-failure, CI, lint]
@@ -61,7 +60,7 @@ Engineer-only skill blocks a local fix. Commit or publish only when already auth
 
 ### Journal step — opt-out
 
-Skip the automatic `/ak:journal` step when either applies:
+Skip the automatic `/ak-journal` step when either applies:
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
@@ -70,7 +69,7 @@ When skipped, print one line:
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
-Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
+Explicit `/ak-journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
 
 
 ## Ultra Verifier Mode (`--ultra`)

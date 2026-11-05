@@ -5,10 +5,13 @@ correct non-activation; a longer description is not evidence of better routing.
 
 ## Name and description
 
-Use a lowercase `skill-name` or `namespace:skill-name` such as `ak:plan`, matching
+Use a lowercase `skill-name` or `namespace:skill-name` such as `ak-plan`, matching
 the target contract in `references/agentkit-kit-skill-contract.md`.
 
-The description has a 1024-character maximum under the current validator contract.
+The description has a hard 1024-character maximum, and the description plus
+`when_to_use` should stay within 1536 characters because runtime listings truncate the
+combined text. The sources and enforcement for both numbers are the length decision in
+`references/production-skill-standard.md`; this file does not restate other limits.
 Write the shortest clear description of the task and its activation boundary.
 Front-load the owned action so a shortened catalog entry remains useful. Put mode
 details, workflow steps and resource inventories in the body or its references.

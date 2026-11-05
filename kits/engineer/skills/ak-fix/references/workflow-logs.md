@@ -31,7 +31,7 @@ finish. Plan files are the durable source of truth.
 
 ### Step 2: Scout the Codebase
 
-Use `ak:scout` or parallel Explore subagents to find affected code. See
+Use `ak-scout` or parallel Explore subagents to find affected code. See
 `references/parallel-exploration.md` for patterns.
 
 ### Step 3: Plan the Fix

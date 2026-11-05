@@ -1,10 +1,10 @@
 ---
-name: ak:ai-artist
-description: "Generate product mockups, marketing assets, brand visuals, and concept art via Nano Banana with 129 curated prompts. Reuse supplied style, mood, and color constraints; ask only for missing consequential choices. 3 modes: search, creative, wild. Styles: Ukiyo-e, Bento grid, cyberpunk, cinematic, vintage patent."
-user-invocable: true
-when_to_use: "Invoke for visual assets, prompt search, or mockups."
+name: ak-ai-artist
+description: "Generate mockups, brand visuals and concept art via Nano Banana in search, creative or wild mode, with styles like Ukiyo-e and Bento grid."
+when_to_use: "Invoke for visual assets or prompt search."
 category: media
 keywords: [image, generation, prompts, styles]
+license: Proprietary; includes CC BY 4.0 third-party material, see NOTICE.txt
 metadata:
   author: agentkit
   version: "3.1.2"

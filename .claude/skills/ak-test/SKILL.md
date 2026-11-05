@@ -1,21 +1,23 @@
 ---
-name: ak:test
-description: "Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports."
-user-invocable: true
+name: ak-test
+description: "Run unit, integration, e2e and UI tests with coverage analysis, build verification, visual regression and QA reports."
 when_to_use: "Invoke for running or designing validation suites."
 category: workflow
 keywords: [test, unit, integration, e2e, coverage]
 argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: "1.2.1"
+  version: "1.3.0"
   workflow:
     precedes: [ak-git]
 ---
 
 # Testing & Quality Assurance
 
-Comprehensive testing framework covering code-level testing (unit, integration, e2e), UI/visual testing via browser automation, coverage analysis, and structured QA reporting.
+Help users ship faster with AI agents without increasing production-release risk.
+Choose useful verification, reuse valid work, and measure development time, CI
+cost, device load and token use before claiming efficiency gains. A shorter suite
+or prompt is not itself evidence of better delivery.
 
 ## Default (No Arguments)
 
@@ -26,18 +28,23 @@ If invoked with context (test scope), proceed with testing. If invoked WITHOUT a
 | `(default)` | Run unit/integration/e2e tests |
 | `ui` | Run UI tests on a website |
 | `create` | Scout the codebase + docs, then create a covering test suite |
-| `optimize` | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
+| `optimize` | Inspect affected tests and CI, then reduce measured cost/time safely |
 | `audit` | Inspect the suite + CI and report evidence-backed findings |
 
 Present as options via `ask_user capability` with header "Test Operation", question "What would you like to do?".
 
 ## Core Principle
 
-**NEVER IGNORE FAILING TESTS.** Fix root causes, not symptoms. No mocks/cheats/tricks to pass builds.
+Investigate every observed failure. Preserve the repository's safety gates and
+expectations; do not weaken tests or policy to obtain a green result.
 
 `references/practical-principles-for-setting-up-and-running-tests.md` is the
 authority for scope, layer, environment, and execution choices. Every workflow
 and operation below assumes it; load it before designing or changing tests.
+
+Before adding tests or launching broad checks, state the contract and its authority,
+affected risk, suitable existing check, and missing evidence. A short inline summary
+is enough for a small change. A covered refactor may need no new tests.
 
 ## When to Use
 
@@ -57,7 +64,7 @@ Execute test suites, analyze results, generate coverage. Supports JS/TS (Jest/Vi
 
 ### 2. UI Testing (`references/ui-testing-workflow.md`)
 
-Browser-based visual testing via `ak:agent-browser`, `ak:chrome-profile`, `ak:web-testing`, or project-native Playwright/Vitest/k6 commands. Covers screenshots, responsive checks, accessibility audits, form automation, and console error collection.
+Browser-based visual testing via `ak-agent-browser`, `ak-chrome-profile`, `ak-web-testing`, or project-native Playwright/Vitest/k6 commands. Covers screenshots, responsive checks, accessibility audits, form automation, and console error collection.
 
 **Load when:** Visual regression testing, UI bugs, responsive layout checks, accessibility audits
 
@@ -69,7 +76,7 @@ Structured QA report template: test results overview, coverage metrics, failed t
 
 ### 4. Suite Creation (`references/create-suite-workflow.md`)
 
-`create`: activate `ak:scout` over the codebase and docs, map features and
+`create`: activate `ak-scout` over the codebase and docs, map features and
 workflows to a coverage matrix, then design and implement a test suite that
 covers them.
 
@@ -77,10 +84,9 @@ covers them.
 
 ### 5. Suite Optimization (`references/optimize-suite-workflow.md`)
 
-`optimize`: multiple parallel `ak:scout` subagents analyze CI/CD workflows, git
-history, codebase, and docs, then restructure tests for speed at equal safety —
-parallel lanes, change-based test selection, docs-only skips. Goal: lower CI
-cost, faster ships, no lost coverage. For repository-owned manifests, the same
+`optimize`: inspect affected CI/CD workflows, history, code and docs; delegate only
+independent areas when the resource budget justifies it. Reduce measured work at
+equal safety using the repository's existing execution policy. For repository-owned manifests, the same
 workflow uses `ak test optimize` for deterministic ranked selection and optional
 execution; external uncertainty broadens and mandatory policy checks remain.
 Explicitly consented semantic shadow/advisory modes can add observations or
@@ -91,8 +97,7 @@ from a key, and never change E2E scheduling from classification advice.
 
 ### 6. Suite Audit (`references/audit-suite-workflow.md`)
 
-`audit`: multiple parallel `ak:scout` subagents analyze the test suite and
-CI/CD workflows, detect deceptive or weak tests (tests written only to pass,
+`audit`: inspect the affected suite and CI/CD workflows, detect deceptive or weak tests (tests written only to pass,
 commented-out/skipped tests, unfinished tests, redundant or outdated tests,
 security gaps), then report ranked findings and proposed repairs. Audit alone does not authorize edits.
 
@@ -110,6 +115,16 @@ evidence, test the final code, and keep tests in sync with specifications.
 slow, flaky, or parallel test earns its place; triaging a failure; or
 reconciling tests with changed specifications. Any suite change, optimize or
 audit proposal, or QA report must be consistent with these rules.
+
+### 8. Test Lifecycle (`references/test-lifecycle.md`)
+
+**Load when:** adding, retaining, combining, lowering the layer of, or retiring tests;
+assessing defect-detection value with bounded mutation and measured cost. This owns
+admission/retirement decisions shared by default, create, audit and optimize.
+
+The UI workflow routes to `references/agentic-e2e-workflow.md` only for a project
+already using that engine or a user-requested setup. Ordinary runs need neither it
+nor a model provider.
 
 ## Quick Reference
 
@@ -131,22 +146,21 @@ Reports        → report-format.md
 
 ## Working Process
 
-1. Identify testing scope from recent changes or requirements
-2. Run the narrowest relevant check; add typecheck/build when it covers the affected contract
-3. Execute appropriate test suites
-4. Analyze results — focus on failures
-5. Generate coverage reports if applicable
-6. For frontend: run UI tests via `ak:agent-browser`, `ak:chrome-profile`, `ak:web-testing`, or project-native browser tests
-7. Produce structured summary report
+1. Resolve repository policy, accepted expectations, changed scope and risk.
+2. Select the lowest reliable existing checks; load only the relevant workflow.
+3. Reuse results only when their source, inputs, configuration and environment still match.
+4. Run missing checks, including mandatory gates; add tests only for an evidenced gap.
+5. Investigate failures without changing expectations to fit observed behavior.
+6. Check source freshness and report verified scope, gaps, costs and owned-resource cleanup.
 
 ## Tools Integration
 
 - **Test runners**: Jest, Vitest, Mocha, pytest, go test, cargo test, flutter test
 - **Coverage**: Istanbul/c8/nyc, pytest-cov, go cover
-- **Browser**: `ak:agent-browser` for live browser interaction without real user cookies; `ak:chrome-profile` for the user's actual Chrome login state, opened with `chrome-profile open --json` and bound by the returned selector; `ak:web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
-- **Analysis**: `ak:ai-multimodal` skill for screenshot analysis
-- **Debugging**: `ak:debug` skill when tests reveal bugs requiring investigation
-- **Thinking**: `ak:fable-thinking` skill for complex test failure analysis
+- **Browser**: `ak-agent-browser` for live browser interaction without real user cookies; `ak-chrome-profile` for the user's actual Chrome login state, opened with `chrome-profile open --json` and bound by the returned selector; `ak-web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
+- **Analysis**: `ak-ai-multimodal` skill for screenshot analysis
+- **Debugging**: `ak-debug` skill when tests reveal bugs requiring investigation
+- **Thinking**: `ak-fable-thinking` skill for complex test failure analysis
 
 ## Quality Standards
 
@@ -176,9 +190,9 @@ or session-scoped.
 
 ## Workflow Position
 
-**Typically follows:** `/ak:cook` (test after implementation), `/ak:fix` (test after bug fix)
+**Typically follows:** `/ak-cook` (test after implementation), `/ak-fix` (test after bug fix)
 **Typically precedes:** `ak-git` (commit once tests pass)
-**Related:** `/ak:cook` (implement then test), `/ak:fix` (fix then test)
+**Related:** `/ak-cook` (implement then test), `/ak-fix` (fix then test)
 
 ## Flags (create / optimize / audit)
 

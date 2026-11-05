@@ -1,6 +1,6 @@
 # Typed JSON Intermediate Representation (IR) Guide
 
-The `ak:diagram` skill compiles typed JSON IR into deterministic SVG and interactive, self-contained HTML readers without requiring a browser or external network access.
+The `ak-diagram` skill compiles typed JSON IR into deterministic SVG and interactive, self-contained HTML readers without requiring a browser or external network access.
 
 ## IR Document Structure
 

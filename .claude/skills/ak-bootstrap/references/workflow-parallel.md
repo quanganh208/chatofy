@@ -25,26 +25,26 @@ No user gate — proceed automatically.
 1. Use `ui-ux-designer` + `researcher` agents in parallel:
    - Research style, trends, fonts, colors, spacing, positions
    - Predict Google Fonts name (NOT just Inter/Poppins)
-   - Describe assets for `ak:ai-multimodal` generation
+   - Describe assets for `ak-ai-multimodal` generation
 2. `ui-ux-designer` creates:
    - Design guidelines at the documentation path discovered from repository instructions
    - Wireframes in HTML at `./docs/wireframe/`
-3. If no logo: generate with `ak:ai-multimodal` skill
-4. Screenshot with `ak:agent-browser` -> save to `./docs/wireframes/`
+3. If no logo: generate with `ak-ai-multimodal` skill
+4. Screenshot with `ak-agent-browser` -> save to `./docs/wireframes/`
 
 Resolve material design gaps; reuse an accepted direction without another approval.
 
-**Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
+**Image tools:** `ak-ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
 ## Step 4: Parallel Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook --parallel <brainstorm contract>`
+Activate **ak-cook** skill: `/ak-cook --parallel <brainstorm contract>`
 - No separate planning phase; cook splits the contract into independent work units with **exclusive file ownership** and a dependency order
 - Launch multiple `fullstack-developer` agents in PARALLEL for independent units
   - Pass: the unit's scope, owned files, environment info
-- Use `ui-ux-designer` for frontend (generate/analyze assets with `ak:ai-multimodal`, edit with `imagemagick`)
+- Use `ui-ux-designer` for frontend (generate/analyze assets with `ak-ai-multimodal`, edit with `imagemagick`)
 - Respect file ownership boundaries
 - Run type checking after implementation
 - Keep verification and safety gates; `--parallel` controls execution shape

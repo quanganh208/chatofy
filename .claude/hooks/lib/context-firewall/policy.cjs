@@ -57,14 +57,19 @@ function strategyFor(signal, facts) {
     case 'shell.file-dump':
       return {
         reason: `\`${signal.verb} ${signal.target}\` prints the whole file (${humanBytes(signal.bytes)}).`,
-        strategy:
-          `Extract only what you need: \`grep -n <pattern> ${signal.target}\`, ` +
-          `\`tail -n 200 ${signal.target}\`, or \`sed -n '<start>,<end>p' ${signal.target}\`.`
+        strategy: signal.dialect === 'powershell'
+          ? `Extract only what you need: \`Select-String -Pattern <pattern> -Path ${signal.target}\`, ` +
+            `\`Get-Content ${signal.target} -Tail 200\`, or ` +
+            `\`Get-Content ${signal.target} | Select-Object -Skip <start> -First <count>\`.`
+          : `Extract only what you need: \`grep -n <pattern> ${signal.target}\`, ` +
+            `\`tail -n 200 ${signal.target}\`, or \`sed -n '<start>,<end>p' ${signal.target}\`.`
       };
     case 'shell.log-stream':
       return {
         reason: `\`${signal.verb}\` streams the full log with no bound.`,
-        strategy: `Bound it with \`${signal.boundFlag}\`, or filter with grep before reading.`
+        strategy: signal.dialect === 'powershell'
+          ? `Bound it with \`${signal.boundFlag}\`, or filter with Where-Object before reading.`
+          : `Bound it with \`${signal.boundFlag}\`, or filter with grep before reading.`
       };
     case 'shell.recursive-search':
       return {
@@ -82,9 +87,11 @@ function strategyFor(signal, facts) {
       return {
         reason: `\`${signal.verb}\` walks the entire tree below its starting point.`,
         strategy:
-          signal.verb === 'find'
-            ? 'Add -maxdepth, scope the starting path, or pipe through head.'
-            : 'Add -L to bound depth, or scope the starting path.'
+          signal.dialect === 'powershell'
+            ? 'Add -Depth, scope the starting path, or pipe through Select-Object -First.'
+            : signal.verb === 'find'
+              ? 'Add -maxdepth, scope the starting path, or pipe through head.'
+              : 'Add -L to bound depth, or scope the starting path.'
       };
     default:
       return { reason: 'This call has a large blast radius.', strategy: 'Narrow it before retrying.' };

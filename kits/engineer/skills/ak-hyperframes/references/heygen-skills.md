@@ -4,7 +4,7 @@
 
 HeyGen ships a family of specialized agent skills alongside the
 [`hyperframes`](https://github.com/heygen-com/hyperframes) CLI, each covering
-one facet of HTML-first video composition. `ak:hyperframes` does not copy or
+one facet of HTML-first video composition. `ak-hyperframes` does not copy or
 re-implement any of them — it wraps the CLI itself and points here so the
 agent can install the deeper skill set on demand.
 

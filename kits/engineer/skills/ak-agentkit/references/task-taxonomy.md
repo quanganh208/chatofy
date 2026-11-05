@@ -20,7 +20,7 @@ opening contract.
 | ship-release | "ship / open PR / release / publish the branch" | verify state (tests green, diff reviewed) → ship skill; reviewer role BEFORE this class starts, not during |
 | create-content | "write / draft / post / email / landing copy" | voice/brand input → writing skill → SEO link (if organic reach) → content-reviewer role → publish/schedule link |
 | discover-validate | "market research / competitor analysis / validate an idea / what should I build", product owner or founder framing | research → competitor → decide (brainstorm) → demand test → plan → record; on installs shipping a playbook skill, its product-discovery template (see chaining-patterns marketing sequences) |
-| plan-campaign | "campaign / launch / funnel / go-to-market" | research → persona/funnel → campaign brief → per-channel production → analytics setup (see chaining-patterns marketing sequences) |
+| plan-campaign | "campaign / launch / funnel / go-to-market" | research (incl. personas) → funnel plan → campaign brief → per-channel production → analytics setup (see chaining-patterns marketing sequences) |
 | analyze-performance | "metrics / traffic / conversion / report on / trends" | analytics skill → analysis → recommendations report; analyst role for large data pulls |
 | design-visual | "mockup / logo / banner / diagram / UI design" | design or visual skill per artifact type; designer role for iteration batches; reviewer only when brand-critical |
 | operate-infra | "deploy / docker / kubernetes / database ops / backup" | ops skill for the platform → verify link (health check, dry-run first when destructive) |

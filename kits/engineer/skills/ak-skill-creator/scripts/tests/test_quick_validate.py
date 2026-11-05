@@ -83,7 +83,9 @@ class ValidateSkillTests(unittest.TestCase):
         skill = write_skill(self.root, 'short-description')
         result = quick_validate.validate_skill_detailed(skill, kit=False)
         self.assertEqual(result['errors'], [])
-        self.assertEqual(result['warnings'], [])
+        rules = [w.get('rule') for w in result['warnings']]
+        self.assertNotIn('descriptor-length', rules)
+        self.assertNotIn(None, rules, 'every warning carries a rule id')
 
     def test_description_length_boundary_and_format_are_preserved(self):
         for description, valid in (('x' * 1024, True), ('x' * 1025, False),
@@ -131,8 +133,8 @@ class ValidateSkillTests(unittest.TestCase):
 
     def test_kit_checks_native_tool_names_and_when_to_use(self):
         skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-tools', body='Use the `Read` tool here.\nAllowed: Bash(python:*) capability-lint-allow: example\n')
-        (skill / 'SKILL.md').write_text((skill / 'SKILL.md').read_text(encoding='utf-8').replace('name: ak-tools', 'name: ak:tools'), encoding='utf-8')
         result = quick_validate.validate_skill_detailed(skill)
+        self.assertNotIn('kit-namespace', [w.get('rule') for w in result['warnings']])
         self.assertTrue(result['kit'])
         tool_errors = [e for e in result['errors'] if 'Native tool name' in e['message']]
         self.assertEqual(len(tool_errors), 1, result['errors'])

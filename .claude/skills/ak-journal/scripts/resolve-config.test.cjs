@@ -5,7 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
-const { resolveConfig, DEFAULTS } = require('./resolve-config.cjs');
+const { resolveConfig, findProjectRoot, DEFAULTS } = require('./resolve-config.cjs');
 const { parseYaml } = require('./mini-yaml-parser.cjs');
 
 function makeProject() {
@@ -244,5 +244,49 @@ test('resolveConfig: CLI without --json still prints valid compact JSON', () => 
     assert.equal(parsed.language, 'English');
   } finally {
     cleanup(projectRoot, homeDir);
+  }
+});
+
+function withOsHome(homeDir, fn) {
+  const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = homeDir;
+  process.env.USERPROFILE = homeDir;
+  try {
+    return fn();
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('findProjectRoot: the home .agentkit directory is never a project marker', () => {
+  const homeDir = makeHome();
+  try {
+    fs.mkdirSync(path.join(homeDir, '.agentkit'), { recursive: true });
+    const markerless = path.join(homeDir, 'work', 'markerless');
+    fs.mkdirSync(markerless, { recursive: true });
+    withOsHome(homeDir, () => {
+      assert.equal(findProjectRoot(markerless), markerless);
+    });
+  } finally {
+    cleanup(homeDir);
+  }
+});
+
+test('findProjectRoot: a project marker below home still wins', () => {
+  const homeDir = makeHome();
+  try {
+    fs.mkdirSync(path.join(homeDir, '.agentkit'), { recursive: true });
+    const project = path.join(homeDir, 'work', 'project');
+    fs.mkdirSync(path.join(project, '.agentkit'), { recursive: true });
+    const nested = path.join(project, 'src', 'deep');
+    fs.mkdirSync(nested, { recursive: true });
+    withOsHome(homeDir, () => {
+      assert.equal(findProjectRoot(nested), project);
+    });
+  } finally {
+    cleanup(homeDir);
   }
 });

@@ -1,8 +1,7 @@
 ---
-name: ak:tanstack
-description: "Build with TanStack Start (full-stack React framework), TanStack Form (headless form management), and TanStack AI (AI streaming/chat). Use when creating TanStack projects, routes, server functions, forms, validation, or AI chat features."
-user-invocable: true
-when_to_use: "Invoke for TanStack Start, Form, Router, or AI features."
+name: ak-tanstack
+description: "Build with TanStack Start (full-stack React), TanStack Form (headless forms) and TanStack AI (streaming chat)."
+when_to_use: "Invoke for TanStack Router routes, server functions or form validation."
 category: engineering
 keywords: [tanstack, start, form, ai, router]
 argument-hint: "[framework] [feature]"

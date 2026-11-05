@@ -4,7 +4,7 @@ Use this during the opening brainstorm gate for every bootstrap. It is a
 coverage check for the brainstorm contract, not a questionnaire: take every
 answer the brief, the existing repositories, and live state already give, then
 close the remaining gaps the way the opening gate's flags say (decide and
-record an assumption by default, interview through `ak:advise` under `--ask`).
+record an assumption by default, interview through `ak-advise` under `--ask`).
 
 Always apply the core sections. Then identify the project's surfaces (a
 project can have several, for example a web app with an API and an MCP server)
@@ -46,12 +46,12 @@ only opt-in to cutting it.
 ### Repository, environments and delivery
 
 - Repository: owner and name, visibility, default branch, protected branches,
-  as stated in the brief. Route to `ak:github`.
+  as stated in the brief. Route to `ak-github`.
 - Environments and channels: map each branch to an environment or release
   channel (for example a staging branch to a staging target, the production
   branch to production; beta and stable package channels).
-- Hosting, registries and stores the brief names; route to `ak:deploy` or
-  `ak:devops`.
+- Hosting, registries and stores the brief names; route to `ak-deploy` or
+  `ak-devops`.
 - CI: build, test, and deploy or publish per environment branch.
 - Secrets: read from the environment or secret store the brief names; check
   presence without printing values; never commit them. Put CI secrets in the
@@ -82,7 +82,7 @@ verify-and-improve loop lives in `references/shared-phases.md`.
 
 - Brand and art direction: personality words, tone, narrative sources,
   mascot or logo motion (respect reduced motion). Route visual work to
-  `ak:frontend-design`.
+  `ak-frontend-design`.
 - Page inventory the brief or real sources require (for example home,
   features with recent releases, use cases, architecture and security,
   integrations, deployment options, a changelog from repository releases by
@@ -92,20 +92,20 @@ verify-and-improve loop lives in `references/shared-phases.md`.
   mobile).
 - Discoverability: `sitemap.xml`, `robots.txt`, canonical URLs, structured
   data, Open Graph and social cards; `llms.txt`, `llms-full.txt` and Markdown
-  twins (`<url>.md`) when requested (route to `ak:llms`); page actions such
+  twins (`<url>.md`) when requested (route to `ak-llms`); page actions such
   as copy as Markdown, open in an AI assistant, share.
 - Brand short links (for example `/discord`) as server-side redirects, when
   the brief asks for them.
 - Cookie consent, when the site sets non-essential cookies, defaults to
   declining them.
 - Page builder with predefined blocks and layouts, when the brief asks for
-  one: `ak:page-builder`.
-- Frameworks: `ak:web-frameworks`.
+  one: `ak-page-builder`.
+- Frameworks: `ak-web-frameworks`.
 
 ## Surface: mobile app
 
 - Platforms and minimum OS versions, native or cross-platform stack; route
-  to `ak:mobile-development`.
+  to `ak-mobile-development`.
 - Target devices and orientations, offline behavior, push notifications,
   deep links, permissions and their rationale strings.
 - Store listing assets, privacy disclosures, signing and provisioning, beta
@@ -118,29 +118,29 @@ verify-and-improve loop lives in `references/shared-phases.md`.
   locations.
 - Supported operating systems and shells; install channels (package
   managers, release binaries, install script); self-update policy.
-- Route agent-facing CLI design to `ak:agentize`.
+- Route agent-facing CLI design to `ak-agentize`.
 
 ## Surface: API or backend service
 
 - Protocol (REST, GraphQL, gRPC, WebSocket), resource model, versioning,
-  pagination and error shape; route to `ak:backend-development`.
-- Authentication and authorization (`ak:better-auth` when it fits), rate
+  pagination and error shape; route to `ak-backend-development`.
+- Authentication and authorization (`ak-better-auth` when it fits), rate
   limits, idempotency, audit logging.
-- Data stores, schema and migrations with backups (`ak:databases`); payments
-  when required (`ak:payment-integration`).
+- Data stores, schema and migrations with backups (`ak-databases`); payments
+  when required (`ak-payment-integration`).
 - Published API reference (for example OpenAPI) and health endpoint.
 
 ## Surface: MCP server
 
 - Tools, resources and prompts with their names, input schemas and error
-  behavior; route to `ak:mcp-builder`.
+  behavior; route to `ak-mcp-builder`.
 - Transport (stdio, streamable HTTP), authentication, the clients it must
   work with, and how users install or connect it.
 
 ## Surface: WebMCP
 
 - Which page actions become agent tools, their schemas, and how they respect
-  the signed-in user's permissions; route to `ak:webmcp`.
+  the signed-in user's permissions; route to `ak-webmcp`.
 
 ## Surface: library or SDK
 

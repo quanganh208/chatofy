@@ -1,5 +1,7 @@
 # AntV Infographic — Editorial visual layer
 
+> **Legacy CDN guidance.** This loads assets from a CDN, so the page needs network access; say so in the report. For a page that opens offline with zero network requests, use the AK Render route (`ak-render-route.md`).
+
 Optional CDN library for polished, template-driven SVG infographic panels (KPI dials, ranked cards, bar/pie/line micro-charts, compare panels). Complements Mermaid (diagram layout) and Chart.js (interactive dashboards); does not replace either.
 
 **License:** MIT · **Pinned version:** `@antv/infographic@0.2.19` · **Deps at runtime:** none (bundled)
@@ -117,7 +119,7 @@ theme: {
 
 AgentWiki's default `Content-Security-Policy` for hosted documents does NOT include `cdn.jsdelivr.net` in `script-src`. Two options when publishing an artifact through the `--wiki` path:
 
-1. **Inline the UMD** — download the pinned file, embed inline in a `<script>` tag (adds 874 KB to the artifact). This is the documented exception for `ak:cti-expert --format html --wiki` where offline-in-incident viewing matters.
+1. **Inline the UMD** — download the pinned file, embed inline in a `<script>` tag (adds 874 KB to the artifact). This is the documented exception for `ak-cti-expert --format html --wiki` where offline-in-incident viewing matters.
 2. **Skip AntV in wiki artifacts** — for anything else, drop to Mermaid/Chart.js.
 
 The publish helper should detect the wiki target and switch to inline automatically; skill guides refer to that helper rather than embedding raw fetch code.

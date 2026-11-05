@@ -8,6 +8,7 @@
  * @module context-builder
  */
 
+const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -30,8 +31,17 @@ const {
 	updateSessionState,
 } = require("./ck-config-utils.cjs");
 
-function getUsageCachePath() {
-	return process["env"].CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), "ck-usage-limits-cache.json");
+// Each Claude config directory (CLAUDE_CONFIG_DIR, as profile launchers such
+// as CCS set it) caches its own account's quota; the default directory keeps
+// the original file name. The engineer usage-limits-cache writer derives the
+// same path.
+function getUsageCachePath(envObj = process["env"]) {
+	if (envObj.CK_USAGE_CACHE_PATH) return envObj.CK_USAGE_CACHE_PATH;
+	const dir = typeof envObj.CLAUDE_CONFIG_DIR === "string" ? envObj.CLAUDE_CONFIG_DIR.trim() : "";
+	const name = dir
+		? `ck-usage-limits-cache-${crypto.createHash("sha256").update(path.resolve(dir)).digest("hex").slice(0, 12)}.json`
+		: "ck-usage-limits-cache.json";
+	return path.join(os.tmpdir(), name);
 }
 
 function execSafe(cmd) {

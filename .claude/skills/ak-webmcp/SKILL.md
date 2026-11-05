@@ -1,8 +1,7 @@
 ---
-name: ak:webmcp
-description: Build agent-ready websites with browser WebMCP tools, schemas, safety annotations, and evals. Use for page actions and agent-callable forms; server MCP belongs to ak:mcp-builder.
-user-invocable: true
-when_to_use: "Invoke to expose website features as WebMCP tools for in-browser AI agents (document.modelContext), imperative or declarative."
+name: ak-webmcp
+description: "Build agent-ready websites with browser WebMCP tools, schemas, safety annotations and evals; server MCP belongs to ak-mcp-builder."
+when_to_use: "Invoke to expose page actions to in-browser AI agents via document.modelContext."
 category: engineering
 keywords: [webmcp, model-context, browser-agents, document-modelcontext, agentic-web]
 argument-hint: "[page, form, or feature to expose as a tool]"
@@ -28,16 +27,16 @@ This skill handles: designing and registering WebMCP tools (imperative +
 declarative), JSON Schemas, safety annotations, cross-origin exposure
 (`exposedTo`/`fromOrigins`/Permissions-Policy `tools`), origin-isolation
 requirements, framework integration, and testing/evals. It does **not** handle:
-building stdio/HTTP MCP servers (use `ak:mcp-builder`), executing MCP tools
+building stdio/HTTP MCP servers (use `ak-mcp-builder`), executing MCP tools
 (use the runtime's native MCP tools and tool search), or generic browser
-automation (use `ak:agent-browser`).
+automation (use `ak-agent-browser`).
 
 ## When to use vs not
 
 - "add AI agent tools to my website" / "make my form agent-callable" → this skill.
-- "build an MCP server for my API" → `ak:mcp-builder`.
+- "build an MCP server for my API" → `ak-mcp-builder`.
 - "run/execute existing MCP tools" → the runtime's native MCP tools; search the live tool catalog before concluding a server is unavailable.
-- "automate a browser / test a page with an agent" → `ak:agent-browser`.
+- "automate a browser / test a page with an agent" → `ak-agent-browser`.
 
 ## Decision tree: imperative vs declarative
 

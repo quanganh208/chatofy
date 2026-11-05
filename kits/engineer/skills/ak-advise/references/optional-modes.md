@@ -7,9 +7,9 @@ Write the canonical advice report first (needed as subagent input), using the na
 **`--html`** — spawn `ui-ux-designer`:
 - Input: the advice report. Output: a self-contained HTML file beside it (inline CSS/JS, no network assets, responsive, reduced-motion handling).
 - Follow the shared HTML composition contract in `../../ak-preview/references/html-skill-composition.md`:
-  1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and tokens.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for decision flow/alternatives.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+  1. Activate `ak-frontend-design` first for layout, typography, responsive shell, and tokens.
+  2. Activate `ak-diagram` second (when installed) to compile typed JSON IR for decision flow/alternatives.
+  3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - Must visualize: needs from you (when present), verdict, requirements/goals, do vs don't columns, alternatives comparison, benefits/trade-offs, unverified claims (when present), and the handoff brief as a verbatim copyable block.
 - **Editorial visual layer (on by default, additive):** the Do vs Don't panel and alternatives-comparison panel are strong candidates for the **diagram-design Quadrant** vernacular (2×2 layout with wine-red accent) when `.prefs.visual.diagramDesign.enabled` (read via `ak config prefs resolve --json | jq '.prefs.visual'`; nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). KPI-shaped verdict tiles (confidence, effort, blast-radius) can use **AntV Infographic** `CandyCardLite` / `CircularProgress` when `.prefs.visual.antv.enabled`. Kill switches on this invocation: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../../ak-preview/references/html-diagram-design.md` and `../../ak-preview/references/html-antv-infographic.md` for exact template usage.
 **`--md`** — spawn `docs-manager`:
@@ -54,7 +54,7 @@ question back to you and is re-spawned with the answer. Loop:
      holds `reframing` (the full draft the user is confirming), `brief` (what to draw, taken from the reframing, with assumptions
      marked), `kind` (`diagram` or `explain`), `preview_path`, and `question`.
      Render the preview yourself, because the advisor cannot invoke skills: use
-     `ak:diagram --out <preview_path>` for `diagram` and `ak:explain --html` for
+     `ak-diagram --out <preview_path>` for `diagram` and `ak-explain --html` for
      `explain` (which writes to its own visuals location); fall back to an inline
      Mermaid diagram plus text mockup when the skill is unavailable. Rendering
      here costs orchestrator context, so prefer `diagram` unless the outcome is

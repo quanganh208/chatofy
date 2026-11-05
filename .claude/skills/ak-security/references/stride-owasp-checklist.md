@@ -1,6 +1,6 @@
 # STRIDE + OWASP Security Checklist
 
-Reference checklist for `ak:security` audits. Use during Step 6 (STRIDE Analysis) and Step 7 (OWASP Top 10 Check).
+Reference checklist for `ak-security` audits. Use during Step 6 (STRIDE Analysis) and Step 7 (OWASP Top 10 Check).
 
 ---
 

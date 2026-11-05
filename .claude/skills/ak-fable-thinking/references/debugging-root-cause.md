@@ -5,7 +5,7 @@ symptom stops. Fable's debugging discipline: reproduce, run a differential diagn
 a causal chain with every link observed, fix at the altitude of the cause, prove the fix
 both ways, and make the class of bug impossible or loud. `references/coding-taste.md`
 covers the code-change procedure; this reference goes deep on the investigation and the
-prevention. The installed debug skill and `ak:fix` provide runtime workflows; this is the
+prevention. The installed debug skill and `ak-fix` provide runtime workflows; this is the
 reasoning layer they run on.
 
 ## When to load this reference

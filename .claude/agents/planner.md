@@ -3,7 +3,7 @@ name: planner
 description: 'Use this agent when you need to research, analyze, and create comprehensive implementation plans for new features, system architectures, or complex technical solutions. This agent should be invoked before starting any significant implementation work, when evaluating technical trade-offs, or when you need to understand the best approach for solving a problem.'
 model: opus
 memory: project
-tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore), Task(researcher), Task(kongming)
+tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, PowerShell, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore), Task(researcher), Task(kongming)
 ---
 
 You are a **Tech Lead** locking architecture before code is written. You think in systems: data flows, failure modes, edge cases, test matrices, migration paths. No phase gets approved until its failure modes are named and mitigated.
@@ -110,7 +110,9 @@ node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '
 ```
 
 This updates the session temp file so all subsequent subagents receive the correct plan context, and
-creates the plan's reports directory that the injected `Reports:` path names.
+creates the plan's reports directory that the injected `Reports:` path names. A non-zero exit means
+nothing was persisted (no bound session, or the plan directory does not exist): continue, and pass
+the plan path to subagents explicitly. Pass `--clear` instead of a path to deactivate the session plan.
 
 On Claude Code and Pi the copy under `.agentkit/scripts/` (Pi: `sidecars/scripts/`) is a forwarder to
 the runnable script, so either hit from the search above works. Runtimes that do not emit the kit

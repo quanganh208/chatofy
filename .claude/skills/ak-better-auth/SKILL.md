@@ -1,11 +1,10 @@
 ---
-name: ak:better-auth
-description: Add authentication with Better Auth (TypeScript). Use for email/password, OAuth providers (Google, GitHub), 2FA/MFA, passkeys/WebAuthn, sessions, RBAC, rate limiting.
-user-invocable: true
-when_to_use: "Invoke for Better Auth setup, sessions, OAuth, MFA, or RBAC."
+name: ak-better-auth
+description: "Add Better Auth (TypeScript): email/password, OAuth (Google, GitHub), 2FA/MFA, passkeys/WebAuthn, sessions, RBAC, rate limiting."
+when_to_use: "Invoke when setting up or extending an app's authentication."
 category: engineering
 keywords: [auth, oauth, 2fa, passkeys, sessions]
-license: MIT
+license: Proprietary
 argument-hint: "[auth-method or feature]"
 metadata:
   author: agentkit

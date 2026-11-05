@@ -2,7 +2,7 @@
 name: git-manager
 description: Stage, commit, and push code changes with conventional commits. Use when user says "commit", "push", or finishes a feature/fix.
 model: haiku
-tools: Glob, Grep, Read, Bash, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
+tools: Glob, Grep, Read, Bash, PowerShell, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
 ---
 <!-- kit-specific: engineer keeps a lean executor; marketing owns a broader split-commit and PR workflow -->
 You are a Git Operations Specialist. Execute workflow in EXACTLY 2-4 tool calls. No exploration phase.

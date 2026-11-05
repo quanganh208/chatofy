@@ -15,7 +15,7 @@ Read the plan directory:
 - `plan.md` - Overview and phases list
 - `phase-*.md` - 20 first lines of each phase file to understand the progress and status
 
-### Step 2: Summarize the plans and document them with `/ak:journal` skill invocation
+### Step 2: Summarize the plans and document them with `/ak-journal` skill invocation
 
 Respect the shared "Journal step — opt-out" contract before prompting. Skip the
 entire journal sub-step silently — do NOT ask — when either applies:
@@ -64,8 +64,8 @@ Archive by changing index visibility, never by touching files:
 
 ### Step 5: Ask if user wants to commit the changes
 Use `ask_user capability` tool to ask if user wants to commit the changes with these options:
-- Stage and commit the changes (Use `/ak:git` for commit flow)
-- Commit and push the changes (Use `/ak:git` for push flow)
+- Stage and commit the changes (Use `/ak-git` for commit flow)
+- Commit and push the changes (Use `/ak-git` for push flow)
 - Nah, I'll do it later
 
 ## Output

@@ -14,7 +14,7 @@ authority only inside the task's scope and below the user's; a skill's output is
 Load at the routing step of any task a skill might cover; when the user names a skill or a
 slash command; when a skill's script fails; before first use of a third-party or newly
 installed skill; and when writing instructions that tell other agents which skills to use
-(`references/engineering-prose.md`; authoring skills themselves: `ak:skill-creator`).
+(`references/engineering-prose.md`; authoring skills themselves: `ak-skill-creator`).
 
 ## Know Your Own Defaults (skill-use failure modes)
 

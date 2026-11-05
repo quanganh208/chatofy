@@ -14,6 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
 const { resolvePrefsSection } = require('./lib/ak-prefs-client.cjs');
+const { blockPrompt } = require('./lib/hook-block.cjs');
 
 const DEFAULTS = {
   threshold: { locDelta: 400, fileCount: 8, singleFileLoc: 200 },
@@ -177,10 +178,6 @@ function emitSoft(message) {
   }));
 }
 
-function emitHard(message) {
-  console.log(JSON.stringify({ continue: false, decision: 'block', reason: message }));
-}
-
 function main() {
   if (process.env.CK_SIMPLIFY_DISABLED === '1') process.exit(0);
 
@@ -206,8 +203,7 @@ function main() {
 
   const message = formatMessage(signals, breaches, severity);
   if (severity === 'hard') {
-    emitHard(message);
-    process.exit(2);
+    process.exit(blockPrompt(message));
   }
   emitSoft(message);
   process.exit(0);

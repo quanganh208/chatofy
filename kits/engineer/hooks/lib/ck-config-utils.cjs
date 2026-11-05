@@ -612,14 +612,52 @@ function escapeShellValue(str) {
     .replace(/`/g, '\\`');    // Backticks (command substitution)
 }
 
+const ENV_ASSIGNMENT = /^export ([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"\r?$/;
+
 /**
- * Write environment variable to CLAUDE_ENV_FILE (with escaping)
+ * Read the value a key was last exported with in CLAUDE_ENV_FILE, as an
+ * escaped shell string, or null when the file or key is absent.
+ */
+function readEscapedEnv(envFile, key) {
+  let contents;
+  try {
+    contents = fs.readFileSync(envFile, 'utf8');
+  } catch (_) {
+    return null;
+  }
+  const lines = contents.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const match = ENV_ASSIGNMENT.exec(lines[i]);
+    if (match && match[1] === key) return match[2];
+  }
+  return null;
+}
+
+/**
+ * Read the value a key was last exported with in CLAUDE_ENV_FILE, unescaped,
+ * or null when the file or key is absent.
+ */
+function readEnv(envFile, key) {
+  if (!envFile) return null;
+  const escaped = readEscapedEnv(envFile, key);
+  return escaped === null ? null : escaped.replace(/\\(.)/g, '$1');
+}
+
+/**
+ * Export an environment variable through CLAUDE_ENV_FILE (with escaping).
+ *
+ * The env file lives for the whole session and SessionStart fires again on
+ * every resume/clear/compact, so appending every key on every run grows it
+ * without bound. Append only when the value differs from the one the file
+ * already exports. The file is shared with other hooks that run in parallel,
+ * so it is only ever appended to, never rewritten: a rewrite could drop or
+ * tear another writer's lines.
  */
 function writeEnv(envFile, key, value) {
-  if (envFile && value !== null && value !== undefined) {
-    const escaped = escapeShellValue(String(value));
-    fs.appendFileSync(envFile, `export ${key}="${escaped}"\n`);
-  }
+  if (!envFile || value === null || value === undefined) return;
+  const escaped = escapeShellValue(String(value));
+  if (readEscapedEnv(envFile, key) === escaped) return;
+  fs.appendFileSync(envFile, `export ${key}="${escaped}"\n`);
 }
 
 /**
@@ -865,6 +903,7 @@ module.exports = {
   sanitizeConfig,
   escapeShellValue,
   writeEnv,
+  readEnv,
   normalizeSessionId,
   createSessionStateContext,
   describeSessionStateContext,

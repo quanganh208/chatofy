@@ -13,7 +13,7 @@ they change, this file should not have to.
 
 ```
 kits/<kit>/skills/ak-<slug>/
-├── SKILL.md            # required; name: ak:<slug>
+├── SKILL.md            # required; name: ak-<slug>
 ├── references/         # optional, each under 300 lines
 ├── scripts/            # optional, with scripts/tests/
 ├── assets/             # optional
@@ -36,9 +36,8 @@ The `ak` adapters read these fields; unknown fields are preserved but unused.
 
 ```yaml
 ---
-name: ak:<slug>
+name: ak-<slug>
 description: "What it does, when to use it, what it does not cover."
-user-invocable: true
 when_to_use: "A precise activation condition for the routing catalog."
 category: workflow
 keywords: [three, to, six, nouns]
@@ -52,9 +51,14 @@ metadata:
 ---
 ```
 
-- `name` uses the `ak:` namespace; the directory is `ak-<slug>`.
-- `user-invocable`, `when_to_use`, `category`, and `keywords` are required on
-  every kit skill; a content test fails the build when one is missing.
+- `name` is `ak-<slug>`, the same as the directory. Every runtime invokes the
+  skill by that name (`/ak-<slug>`, `$ak-<slug>`); readers still accept the
+  legacy colon-form alias of that name, but kit content never uses it.
+- `when_to_use`, `category`, and `keywords` are required on every kit skill; a
+  content test fails the build when one is missing.
+- Kit skills do not set `user-invocable` or `disable-model-invocation`; the
+  same content test fails the build when either is present. Every kit skill is
+  user-invocable and model-invocable.
 - `category` is one of `workflow` (the delivery loop: plan, build, test,
   review, ship, hand off), `engineering` (building and operating software with
   a specific stack or tool), `design` (visual, interface, brand), `marketing`
@@ -64,9 +68,12 @@ metadata:
   (runtime-specific operating modes). The owner is
   `apps/cli/internal/core/kitloader/skill_routing_frontmatter_test.go`.
 - `description` is at most 1024 characters. The block-scalar form (`>-`) is
-  valid, and `quick_validate.py` measures the folded text.
-- `allowed-tools`, `license`, `compatibility`, `disable-model-invocation`
-  are also read; see `references/yaml-frontmatter-reference.md`.
+  valid, and `quick_validate.py` measures the folded text. The length decision and
+  the rest of the authoring contract are in `references/production-skill-standard.md`.
+- A change to routing frontmatter (`name`, `description`, `when_to_use`, `category`)
+  or to the skill set regenerates the frozen catalog snapshot:
+  `cd apps/cli && go run ./cmd/skill-catalog-gen`.
+- `allowed-tools`, `license`, and `compatibility` are also read; see `references/yaml-frontmatter-reference.md`.
 - `metadata.version` follows semver. Bump it on every content change so
   installed copies refresh.
 - `metadata.workflow.follows` / `precedes` build the skill graph. Refs are
@@ -111,6 +118,7 @@ Run these from the repository root before calling a kit skill done:
 
 ```bash
 uv run kits/core/skills/ak-skill-creator/scripts/quick_validate.py kits/<kit>/skills/ak-<slug>
+uv run kits/core/skills/ak-skill-creator/scripts/skill_standard_report.py kits/   # tree-wide warning baseline
 uv run --with PyYAML==6.0.3 kits/core/skills/ak-skill-creator/scripts/lint_cruft.py kits/<kit>/skills/ak-<slug> --routing
 cd apps/cli && go run . kit validate ../../kits/
 ```
@@ -128,8 +136,8 @@ Files under `kits/*/hooks/` are OS-risk paths: a change there needs the
 ## Docs and follow-up obligations
 
 - Changing a skill's commands, flags, or public contract counts as docs
-  impact in the PR; the project-owned `ak:ak` skill must be updated when its
-  command reference or examples are affected (see `CLAUDE.md`).
+  impact in the PR; the project-owned `ak-agentkit` skill's ak CLI guide must be updated
+  when its command reference or examples are affected (see `CLAUDE.md`).
 - Do not put plan ids, finding codes, or audit labels in skill text.
 - Reports and audits go to `plans/reports/`; they are records, not
   documentation.
@@ -138,7 +146,7 @@ Files under `kits/*/hooks/` are OS-risk paths: a change there needs the
 
 | Target | Location | Namespace | Validation |
 |---|---|---|---|
-| Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/` | `ak:<slug>` | everything above |
+| Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/` | `ak-<slug>` | everything above |
 | Project skill | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none | `quick_validate.py`, `lint_cruft.py`, consumer eval |
 | User skill | the runtime's user skill directory | none | same as project |
 | Marketplace / package | `package_skill.py` output | per marketplace | `references/cross-marketplace-distribution.md` |

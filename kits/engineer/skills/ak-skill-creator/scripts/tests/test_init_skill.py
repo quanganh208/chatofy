@@ -32,8 +32,18 @@ class InitSkillTests(unittest.TestCase):
         skill_dir = init_skill.init_skill('data-cleaner', self.root / 'kits' / 'core' / 'skills', kit='core')
         self.assertEqual(skill_dir.name, 'ak-data-cleaner')
         content = (skill_dir / 'SKILL.md').read_text(encoding='utf-8')
-        for token in ('name: ak:data-cleaner', 'user-invocable: true', 'when_to_use:', 'keywords: [data]', 'argument-hint:', 'version: "0.1.0"'):
+        for token in ('name: ak-data-cleaner', 'when_to_use:', 'keywords: [data]', 'argument-hint:', 'version: "0.1.0"'):
             self.assertIn(token, content)
+        self.assertNotIn('user-invocable', content)
+        self.assertNotIn('disable-model-invocation', content)
+
+    def test_kit_accepts_legacy_and_prefixed_names(self):
+        skills = self.root / 'kits' / 'core' / 'skills'
+        for identifier, slug in (('ak:legacy-input', 'legacy-input'), ('ak-prefixed', 'prefixed')):
+            skill_dir = init_skill.init_skill(identifier, skills, kit='core')
+            self.assertEqual(skill_dir.name, f'ak-{slug}')
+            content = (skill_dir / 'SKILL.md').read_text(encoding='utf-8')
+            self.assertIn(f'name: ak-{slug}\n', content)
 
     def test_kit_rejects_foreign_namespace(self):
         with self.assertRaises(ValueError):

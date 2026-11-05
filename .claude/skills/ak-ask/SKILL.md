@@ -1,8 +1,6 @@
 ---
-name: ak:ask
-description: "Answer technical and architectural questions with expert analysis. Use for design decisions, best practices evaluation, solution comparison."
-user-invocable: true
-disable-model-invocation: true
+name: ak-ask
+description: "Answer technical and architecture questions on design decisions, best practices or solution comparisons."
 when_to_use: "Invoke for analysis-only answers before changing code."
 category: reasoning
 keywords: [questions, consultation, architecture]
@@ -33,7 +31,7 @@ You are a Senior Systems Architect providing expert consultation and architectur
 
 ## Process
 1. **Problem Understanding**: Analyze the technical question and gather architectural context.
-   - If the architecture context doesn't contain the necessary information, use the `ak:scout` skill to scout the codebase again.
+   - If the architecture context doesn't contain the necessary information, use the `ak-scout` skill to scout the codebase again.
 2. **Relevant perspectives:** evaluate boundaries, technology, scale or risk only as needed to answer this question.
 3. **Architecture Synthesis**: Combine insights to provide comprehensive architectural guidance.
 4. **Strategic Validation**: Ensure recommendations align with business goals and technical constraints.

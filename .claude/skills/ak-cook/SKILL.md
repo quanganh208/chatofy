@@ -1,7 +1,6 @@
 ---
-name: ak:cook
-description: "Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines."
-user-invocable: true
+name: ak-cook
+description: "Implement features, plans and fixes through a structured workflow."
 when_to_use: "Invoke to implement known scope after requirements are clear."
 category: workflow
 keywords: [implementation, workflow, feature, pipeline]
@@ -16,7 +15,7 @@ metadata:
 
 # Cook
 
-Invoke `/ak:cook <task|plan-path> [flags]` in Claude Code; use the runtime's
+Invoke `/ak-cook <task|plan-path> [flags]` in Claude Code; use the runtime's
 installed invocation form elsewhere.
 
 Implement the full authorized outcome through verification and review. Capture or reuse
@@ -63,7 +62,7 @@ For cross-skill sequence decisions use `references/workflow-routing.md`.
 
 ## Journal step — opt-out
 
-Skip the automatic `/ak:journal` step when either applies:
+Skip the automatic `/ak-journal` step when either applies:
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
@@ -72,4 +71,4 @@ When skipped, print one line:
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
-Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
+Explicit `/ak-journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.

@@ -23,9 +23,9 @@ next workflow.
   editorial contract). Add callouts tying each element to design tokens,
   interaction states, and the acceptance evidence it satisfies.
 - Follow the shared HTML composition contract in `../../ak-preview/references/html-skill-composition.md`:
-  1. Activate `ak:frontend-design` first for layout, tokens, responsive shell, and design critique.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for the implementation workflow diagram.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
+  1. Activate `ak-frontend-design` first for layout, tokens, responsive shell, and design critique.
+  2. Activate `ak-diagram` second (when installed) to compile typed JSON IR for the implementation workflow diagram.
+  3. If `ak-diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - **Editorial visual layer (on by default, additive):** for approach comparisons, prefer the
   diagram-design Quadrant vernacular over a plain 2×2 table when
   `.prefs.visual.diagramDesign.enabled` (read from
@@ -37,3 +37,8 @@ next workflow.
   `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview`
   skill's `../../ak-preview/references/html-diagram-design.md` and
   `../../ak-preview/references/html-antv-infographic.md` for exact template usage.
+- **AK Render route (opt-in):** with `--ak-render`, or when the project has an
+  `.ak-render/` directory, write `brainstorm.page.yaml` beside the brief and
+  compile it per the sibling `ak-preview` skill's
+  `../../ak-preview/references/ak-render-route.md`, which maps the sections
+  above to blocks. The visual switches above apply to the default route only.

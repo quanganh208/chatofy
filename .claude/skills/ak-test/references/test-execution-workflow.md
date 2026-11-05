@@ -10,10 +10,24 @@ Determine what to test based on recent changes:
 
 The risk-scope and lowest-reliable-layer rules in
 `practical-principles-for-setting-up-and-running-tests.md` govern this list.
+Resolve the accepted contract and its authority before choosing checks. Use native
+deterministic mappings and preserve mandatory groups/full-suite fallback. AI advice
+cannot suppress checks. Read `test-lifecycle.md` only if adding/changing tests or
+assessing whether an existing test should remain.
 
 ## Step 2: Pre-flight Checks
 
 Start with the smallest check that can establish the affected contract. Use these syntax/type examples when relevant; do not run every command. Reuse passing evidence only when revision, configuration and environment assumptions remain unchanged:
+
+Discover repository-authoritative commands first; examples below do not authorize
+package downloads or replacing configured runners. Record changed/dirty/untracked
+inputs and a source fingerprint before and after execution. A commit SHA alone
+does not identify a modified worktree. If freshness cannot be established, report
+the tested state and gap; do not certify the final source from stale output.
+
+Reuse an owned running service when compatible. Bound execution, retries and
+workers; track started process IDs, ports, containers and temporary roots. Store
+each attempt's output separately and clean up only resources this run owns.
 
 ```bash
 # JavaScript/TypeScript
@@ -63,7 +77,7 @@ flutter test --coverage     # Flutter
 Focus on:
 1. **Failing tests** — read error messages and stack traces carefully
 2. **Flaky tests** — tests that pass/fail intermittently indicate race conditions or state leaks
-3. **Slow tests** — identify bottlenecks (>5s per test is suspicious)
+3. **Slow tests** — compare measured cost against their contract and existing baseline
 4. **Skipped tests** — ensure skips are intentional, not hiding failures
 
 ## Step 5: Coverage Analysis
@@ -93,14 +107,10 @@ Check for:
 - Unresolved dependencies
 - Production config correctness
 
-## Quality Checklist
+## Completion
 
-- [ ] All tests pass (zero failures)
-- [ ] Coverage meets project threshold
-- [ ] No flaky tests detected
-- [ ] Build completes without errors
-- [ ] Error scenarios tested
-- [ ] Test isolation verified (no shared state)
-- [ ] Test data cleaned up after execution
-- [ ] Mocks/stubs properly configured
-- [ ] Environment variables correctly set
+Use `report-format.md` to report achieved scope and outstanding evidence. A skipped
+mandatory check is not a pass. Preserve raw failure/exit codes and distinguish
+product, expectation, fixture, provider and tooling failures. Retries do not erase
+the first failure. Verify owned-resource cleanup on success, failure or timeout;
+report interrupted/unverified cleanup without killing another session's processes.

@@ -1,11 +1,10 @@
 ---
-name: ak:google-adk-python
-description: "Build AI agents with Google ADK Python. Multi-agent systems, A2A protocol, MCP tools, workflow agents, state/memory, callbacks/plugins, Vertex AI deployment, evaluation."
-user-invocable: true
-when_to_use: "Invoke for Google ADK agents, A2A, MCP, or Vertex deployment."
+name: ak-google-adk-python
+description: "Build AI agents with Google ADK Python: multi-agent workflows, A2A, MCP tools, state, callbacks and Vertex AI deployment."
+when_to_use: "Invoke for ADK agent plugins, memory or evaluation."
 category: engineering
 keywords: [google-adk, agents, a2a, mcp, vertex-ai]
-license: Apache-2.0
+license: Proprietary
 argument-hint: "[agent or feature]"
 metadata:
   author: agentkit

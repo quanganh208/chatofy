@@ -16,7 +16,8 @@ Write the output outside the skill and repository; files left in a skill directo
 become part of its installed content.
 
 - The script is standard-library, read-only and prints metrics, tool names,
-  session-id prefixes, skill-relative paths and home-relative roots (other roots show\n  only their last two folders). It never
+  session-id prefixes, skill-relative paths and home-relative roots (other roots show
+  only their last two folders). It never
   prints prompt, reply or tool-output text; `subcommand` is reported only when it
   is a mode listed first in the skill's `argument-hint`, otherwise `(free-text)`.
 - Default roots are `$CLAUDE_CONFIG_DIR` (else `~/.claude`) `/projects` and
@@ -36,6 +37,41 @@ An invocation spans from its trigger (a slash command, a `$skill` mention, a mod
 skill call, or, in Codex, a model read of the skill's `SKILL.md`) to the next human prompt. The
 span includes work the user chained into the same turn, listed in `skills_chained`.
 Read `limitations` in the output before interpreting numbers.
+
+### One session, every skill
+
+```bash
+python3 scripts/session_usage.py --session latest
+```
+
+`--session` takes `latest` (the newest transcript of the project at the working
+directory or its nearest ancestor that has one), a session id or prefix, or a
+transcript path. It prints one session's inventory: each skill it touched with
+`triggers` (`user` slash or `$mention`, `model` skill call or Codex `SKILL.md` read),
+the skill files named in tool arguments, and `invoked`, which is false for a skill
+that only appears in paths, such as one edited as source. Session-wide turns,
+tokens, tool calls, errors and duplicate calls by tool, compactions and
+interruptions come with it. Same privacy rules as above; `--root` and `--runtime`
+apply.
+
+### Every session, every skill
+
+```bash
+python3 scripts/session_usage.py --all [--since YYYY-MM-DD] [--exclude-session <current-id>]
+```
+
+`--all` inventories every local transcript and ranks each invoked skill by
+`sessions`, with `sessions_with_errors`, `tool_errors`, `errors_by_tool`,
+`duplicate_calls`, `interrupted_sessions` and `compacted_sessions`. These counts
+belong to the whole session, so a session that used three skills counts toward
+all three. `leads` lists up to `--top` (default 5) sessions per skill, scored by
+tool errors + duplicate calls + 3 × interruptions, with each session's id and
+`~/`-relative transcript path. Pass that path to `--session` to inventory the
+session, then read only the parts that explain the counts. Claude Code transcripts
+with no skill marker are skipped without parsing. `--jobs` sets the number of
+parse workers (default: up to 8). On a machine with many gigabytes of transcripts
+a full scan takes minutes, so narrow it with `--since` or `--runtime` when the
+user allows.
 
 ## Read the evidence
 

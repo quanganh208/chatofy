@@ -8,7 +8,7 @@
  * accumulating output that changed nothing, and verifying a documentation-only
  * change with a repository-wide suite.
  *
- * The governing principles live in `ak:context-engineering`; findings link to
+ * The governing principles live in `ak-context-engineering`; findings link to
  * them rather than restating them.
  *
  * This hook is deliberately never registered on `PreToolUse`, the only event

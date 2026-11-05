@@ -1,5 +1,5 @@
 /**
- * Deterministic text metrics for the ak:diagram compiler.
+ * Deterministic text metrics for the ak-diagram compiler.
  * No font is loaded at compile time, so widths are estimated from a per-glyph
  * table for a humanist sans face. The same input always yields the same width,
  * which keeps layout byte-deterministic across machines.

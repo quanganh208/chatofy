@@ -45,14 +45,78 @@ const PATTERN_ARG_FLAGS = [
 // Command wrappers to skip when resolving the governing command of a segment.
 const COMMAND_WRAPPERS = ['sudo', 'env', 'nice', 'nohup', 'time', 'timeout'];
 
+// The PowerShell dialect name scout-checker passes in (kept as a literal here:
+// scout-checker requires this module, so requiring it back would be a cycle).
+const POWERSHELL_DIALECT = 'powershell';
+
+// PowerShell filesystem cmdlets and their built-in aliases, compared
+// lower-cased because PowerShell resolves command names case-insensitively.
+// The POSIX-named aliases PowerShell also ships (cd, ls, cat, rm, cp, mv, ...)
+// are already in FILESYSTEM_COMMANDS.
+const POWERSHELL_FILESYSTEM_COMMANDS = [
+  'get-content', 'gc', 'type',
+  'get-childitem', 'gci', 'dir',
+  'set-location', 'sl', 'chdir', 'push-location', 'pushd',
+  'get-item', 'gi', 'get-itemproperty', 'gp', 'test-path', 'resolve-path', 'rvpa',
+  'copy-item', 'cpi', 'copy', 'move-item', 'mi', 'move',
+  'remove-item', 'ri', 'del', 'erase', 'rd', 'new-item', 'ni',
+  'set-content', 'sc', 'add-content', 'ac', 'out-file', 'tee-object',
+  'import-csv', 'ipcsv', 'get-filehash', 'invoke-item', 'ii', 'expand-archive', 'compress-archive'
+];
+
+// PowerShell's grep: its quoted -Pattern argument is a regex, not a path.
+const POWERSHELL_PATTERN_ARG_COMMANDS = ['select-string', 'sls'];
+const POWERSHELL_PATTERN_ARG_FLAGS = ['-pattern'];
+
+// `-Path:value` binds a PowerShell parameter to its value in one token.
+// PowerShell also accepts an en, em, or horizontal-bar dash as the dash.
+const POWERSHELL_COLON_PARAMETER = /^([-–-―][A-Za-z][\w-]*):(.+)$/;
+
+// PowerShell parameters whose value is the path a cmdlet reads, compared
+// lower-cased. In PowerShell `-path` is one of these in any case, never the
+// `find -path` exclusion that EXCLUDE_FLAGS lists for POSIX commands.
+const POWERSHELL_PATH_PARAMETERS = ['-path', '-literalpath', '-lp', '-pspath'];
+
+/**
+ * Lower-case a PowerShell parameter name and give it an ASCII dash.
+ * @param {string} token
+ * @returns {string}
+ */
+function powerShellParameterName(token) {
+  return token.replace(/^[–-―]/, '-').replace(/:$/, '').toLowerCase();
+}
+
+/**
+ * Whether `token` is a flag whose following value is excluded from access.
+ * @param {string} token
+ * @param {boolean} powershell
+ * @returns {boolean}
+ */
+function isExcludeFlag(token, powershell) {
+  if (powershell && POWERSHELL_PATH_PARAMETERS.includes(powerShellParameterName(token))) return false;
+  return EXCLUDE_FLAGS.includes(token);
+}
+
+/**
+ * Whether `token` is a PowerShell parameter that names the path to read.
+ * @param {string} token
+ * @param {boolean} powershell
+ * @returns {boolean}
+ */
+function isPowerShellPathParameter(token, powershell) {
+  return powershell && POWERSHELL_PATH_PARAMETERS.includes(powerShellParameterName(token));
+}
+
 /**
  * Extract all paths from a tool_input object
  * Handles: file_path, path, pattern params and command strings
  *
  * @param {Object} toolInput - The tool_input from hook JSON
+ * @param {Object} [options]
+ * @param {string} [options.dialect] - Shell syntax of `command`: 'posix' (default) or 'powershell'
  * @returns {string[]} Array of extracted paths
  */
-function extractFromToolInput(toolInput) {
+function extractFromToolInput(toolInput, options = {}) {
   const paths = [];
 
   if (!toolInput || typeof toolInput !== 'object') {
@@ -68,9 +132,9 @@ function extractFromToolInput(toolInput) {
     }
   }
 
-  // Extract from Bash command if present
+  // Extract from a shell command if present
   if (toolInput.command && typeof toolInput.command === 'string') {
-    const cmdPaths = extractFromCommand(toolInput.command);
+    const cmdPaths = extractFromCommand(toolInput.command, options);
     paths.push(...cmdPaths);
   }
 
@@ -85,14 +149,25 @@ function extractFromToolInput(toolInput) {
  * (grep, echo, sed, etc.) only tokens that structurally look like paths are extracted,
  * preventing false positives on search terms and string arguments.
  *
+ * PowerShell commands additionally recognize the filesystem cmdlets and their
+ * aliases (Get-ChildItem node_modules, gc dist\app.js), Select-String's
+ * -Pattern as a search term, and the `-Path:value` single-token form.
+ *
  * @param {string} command - The command string
+ * @param {Object} [options]
+ * @param {string} [options.dialect] - 'posix' (default) or 'powershell'
  * @returns {string[]} Array of extracted paths
  */
-function extractFromCommand(command) {
+function extractFromCommand(command, options = {}) {
   if (!command || typeof command !== 'string') {
     return [];
   }
 
+  const powershell = options.dialect === POWERSHELL_DIALECT;
+  const isFilesystemCommand = name => FILESYSTEM_COMMANDS.includes(name)
+    || (powershell && POWERSHELL_FILESYSTEM_COMMANDS.includes(name));
+  const isPatternArgCommand = name => PATTERN_ARG_COMMANDS.includes(name)
+    || (powershell && POWERSHELL_PATTERN_ARG_COMMANDS.includes(name));
   const paths = [];
 
   // First, extract quoted strings (preserve spaces in real paths). A quoted
@@ -108,9 +183,17 @@ function extractFromCommand(command) {
     // Skip sed/awk substitution expressions (s/pattern/replacement/flags)
     if (/^s[\/|@#,]/.test(content)) continue;
 
-    const ctx = quotedArgContext(command, match.index);
-    if (ctx.command && PATTERN_ARG_COMMANDS.includes(ctx.command)) continue;
+    const ctx = quotedArgContext(command, match.index, options);
+    if (ctx.command && isPatternArgCommand(ctx.command)) continue;
     if (ctx.precededByPatternFlag) continue;
+
+    // A quoted bare blocked dir name is a path wherever an unquoted one is:
+    // as a filesystem command's operand or a PowerShell -Path value.
+    const bare = content.trim();
+    if (isBlockedDirName(bare) && ((ctx.command && isFilesystemCommand(ctx.command)) || ctx.precededByPathParameter)) {
+      paths.push(normalizeExtractedPath(bare));
+      continue;
+    }
 
     if (looksLikePath(content)) {
       paths.push(normalizeExtractedPath(content));
@@ -127,10 +210,25 @@ function extractFromCommand(command) {
   let commandName = null;
   let isFsCommand = false;
   let skipNextToken = false;
+  let nextIsPathValue = false;
   let heredocDelimiter = null;
   let nextIsHeredocDelimiter = false;
 
-  for (const token of tokens) {
+  for (const rawToken of tokens) {
+    // `-Path:node_modules` names its path in the same token as the parameter.
+    const colonParameter = powershell ? rawToken.match(POWERSHELL_COLON_PARAMETER) : null;
+    const token = colonParameter ? colonParameter[2] : rawToken;
+    const isPathValue = nextIsPathValue || Boolean(colonParameter && isPowerShellPathParameter(colonParameter[1], powershell));
+    nextIsPathValue = false;
+
+    // A PowerShell -Path/-LiteralPath value is a path for every cmdlet.
+    if (isPathValue && !isSkippableToken(token)) {
+      if (isBlockedDirName(token) || looksLikePath(token)) {
+        paths.push(normalizeExtractedPath(token));
+      }
+      continue;
+    }
+
     // Heredoc delimiter capture (after << or <<-)
     if (nextIsHeredocDelimiter) {
       heredocDelimiter = token.replace(/^['"]/, '').replace(/['"]$/, '');
@@ -171,7 +269,9 @@ function extractFromCommand(command) {
 
     // Skip flags and shell operators
     if (isSkippableToken(token)) {
-      if (EXCLUDE_FLAGS.includes(token)) {
+      if (isPowerShellPathParameter(token, powershell)) {
+        nextIsPathValue = true;
+      } else if (isExcludeFlag(token, powershell)) {
         skipNextToken = true;
       }
       continue;
@@ -180,7 +280,7 @@ function extractFromCommand(command) {
     // Determine the command for this pipe segment (first non-flag token)
     if (commandName === null) {
       commandName = token.toLowerCase();
-      isFsCommand = FILESYSTEM_COMMANDS.includes(commandName);
+      isFsCommand = isFilesystemCommand(commandName);
       // Skip the command word itself
       if (isCommandKeyword(token) || isFsCommand) continue;
       // Non-keyword command (e.g., ./script.sh) — fall through to path check
@@ -206,7 +306,7 @@ function extractFromCommand(command) {
     // skip.
     if (
       commandName &&
-      PATTERN_ARG_COMMANDS.includes(commandName) &&
+      isPatternArgCommand(commandName) &&
       /^s[\/|@#,]/.test(token)
     ) {
       continue;
@@ -233,9 +333,11 @@ function extractFromCommand(command) {
  *
  * @param {string} command - Full command string
  * @param {number} index - Start index of the opening quote in `command`
- * @returns {{ command: (string|null), precededByPatternFlag: boolean }}
+ * @param {Object} [options]
+ * @param {string} [options.dialect] - 'posix' (default) or 'powershell'
+ * @returns {{ command: (string|null), precededByPatternFlag: boolean, precededByPathParameter: boolean }}
  */
-function quotedArgContext(command, index) {
+function quotedArgContext(command, index, options = {}) {
   const prefix = command.slice(0, index);
   const segments = prefix.split(/&&|\|\||;|\||\n/);
   const segment = segments[segments.length - 1];
@@ -252,12 +354,15 @@ function quotedArgContext(command, index) {
 
   // The flag immediately before the quote (with a trailing `=` stripped so the
   // `--exclude="..."` and `--exclude "..."` forms both match).
+  const powershell = options.dialect === POWERSHELL_DIALECT;
   const lastWord = words.length ? words[words.length - 1] : '';
   const normalizedFlag = lastWord.replace(/=$/, '');
   const precededByPatternFlag =
-    EXCLUDE_FLAGS.includes(normalizedFlag) || PATTERN_ARG_FLAGS.includes(normalizedFlag);
+    isExcludeFlag(normalizedFlag, powershell) || PATTERN_ARG_FLAGS.includes(normalizedFlag) ||
+    (powershell && POWERSHELL_PATTERN_ARG_FLAGS.includes(powerShellParameterName(normalizedFlag)));
+  const precededByPathParameter = isPowerShellPathParameter(normalizedFlag, powershell);
 
-  return { command: commandName, precededByPatternFlag };
+  return { command: commandName, precededByPatternFlag, precededByPathParameter };
 }
 
 // Common blocked directory names that should be extracted even if they
@@ -408,5 +513,7 @@ module.exports = {
   EXCLUDE_FLAGS,
   FILESYSTEM_COMMANDS,
   PATTERN_ARG_COMMANDS,
-  PATTERN_ARG_FLAGS
+  PATTERN_ARG_FLAGS,
+  POWERSHELL_FILESYSTEM_COMMANDS,
+  POWERSHELL_PATTERN_ARG_COMMANDS
 };

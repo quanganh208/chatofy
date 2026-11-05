@@ -14,7 +14,7 @@ All research happens in parallel, then feeds into design and implementation:
 - 2 `researcher` subagents (max 5 sources each): find best-fit tech stack
 - 2 `researcher` subagents (max 5 sources each): research design style, trends, fonts, colors, spacing, positions
   - Predict Google Fonts name (NOT just Inter/Poppins)
-  - Describe assets for `ak:ai-multimodal` generation
+  - Describe assets for `ak-ai-multimodal` generation
 
 Keep all reports ≤150 lines.
 
@@ -23,10 +23,10 @@ Keep all reports ≤150 lines.
 1. `ui-ux-designer` subagent analyzes research, creates:
    - Design guidelines at the documentation path discovered from repository instructions
    - Wireframes in HTML at `./docs/wireframe/`
-2. If no logo provided: generate with `ak:ai-multimodal` skill
-3. Screenshot wireframes with `ak:agent-browser` -> save to `./docs/wireframes/`
+2. If no logo provided: generate with `ak-ai-multimodal` skill
+3. Screenshot wireframes with `ak-agent-browser` -> save to `./docs/wireframes/`
 
-**Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
+**Image tools:** `ak-ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
 No design gate in fast mode — proceed directly to implementation.
 
@@ -34,7 +34,7 @@ No design gate in fast mode — proceed directly to implementation.
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook --fast <brainstorm contract>`
+Activate **ak-cook** skill: `/ak-cook --fast <brainstorm contract>`
 - No separate planning phase; cook writes a concise plan from the contract and the research above
 - Skips redundant research because Step 1 already happened
 - Keeps verification and safety gates; continue within accepted scope

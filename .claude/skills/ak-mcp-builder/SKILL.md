@@ -1,11 +1,10 @@
 ---
-name: ak:mcp-builder
-description: Build, upgrade, test and publish MCP servers that expose external services as tools. Covers MCP spec 2026-07-28, TypeScript SDK v2 and Python mcp v2 (MCPServer), tool design, OAuth, evaluations and the MCP Registry.
-user-invocable: true
-when_to_use: "Invoke when building, migrating or reviewing an MCP server or its tool surface; not for configuring MCP clients or calling existing servers."
+name: ak-mcp-builder
+description: "Build, upgrade, test and publish MCP servers (spec 2026-07-28, TypeScript SDK v2, Python mcp v2 MCPServer), OAuth, evals, MCP Registry."
+when_to_use: "Invoke for MCP server or tool design; not for configuring clients or calling existing servers."
 category: engineering
 keywords: [MCP, server, tools, integration, TypeScript SDK, Python SDK, OAuth, MCP Registry]
-license: Complete terms in LICENSE.txt
+license: Proprietary; includes Apache-2.0 material from anthropics/skills, see LICENSE.txt and NOTICE.txt
 argument-hint: "[service or API to integrate]"
 metadata:
   author: agentkit

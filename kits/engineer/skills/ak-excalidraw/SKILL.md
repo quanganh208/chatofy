@@ -1,14 +1,7 @@
 ---
-name: ak:excalidraw
-description: >-
-  Create Excalidraw diagrams — architecture, data flow, workflows, system design.
-  Use when user wants to visualize, diagram, draw architecture, show data flow,
-  create flowcharts, map components, or export .excalidraw files to PNG/SVG.
-  Supports two modes: live MCP canvas (real-time) or file-based JSON + Playwright
-  rendering. Also supports zero-config codebase auto-diagramming — just say
-  "diagram this repo" or "visualize the architecture".
-user-invocable: true
-when_to_use: "Invoke for editable canvas diagrams or codebase visual maps."
+name: ak-excalidraw
+description: "Create Excalidraw diagrams of architecture, data flow and workflows on a live MCP canvas or as .excalidraw JSON rendered by Playwright to PNG/SVG."
+when_to_use: "Invoke for editable canvases or zero-config maps like \"diagram this repo\"."
 category: engineering
 keywords: [diagrams, architecture, flowcharts, whiteboard, SVG]
 argument-hint: "[diagram description|path] [--export <png|svg>] [--live]"
@@ -208,4 +201,4 @@ After generating, validate before presenting:
 | `references/element-templates.md` | Copy-paste JSON templates for file-based mode |
 | `references/json-schema.md` | Excalidraw JSON format reference |
 
-For universal SVG layout rules that apply across any rendered SVG output, load `/ak:tech-graph` and apply its spacing, arrow routing, label placement, and z-index ordering guidance. Useful when reviewing exported Excalidraw SVGs for collisions or unreadable labels.
+For universal SVG layout rules that apply across any rendered SVG output, load `/ak-tech-graph` and apply its spacing, arrow routing, label placement, and z-index ordering guidance. Useful when reviewing exported Excalidraw SVGs for collisions or unreadable labels.

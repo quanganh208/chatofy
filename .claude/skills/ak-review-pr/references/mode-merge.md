@@ -18,17 +18,17 @@ If any condition fails, do NOT merge that PR. Record the PR as not-ready with th
 
 ## 2. Merge and watch CI
 
-Activate `ak:git merge-pr` with the current PR reference:
+Activate `ak-git merge-pr` with the current PR reference:
 
 ```
-ak:git merge-pr <PR_REF>
+ak-git merge-pr <PR_REF>
 ```
 
-`ak:git merge-pr` (documented in the `ak:git` skill) owns the mechanics:
+`ak-git merge-pr` (documented in the `ak-git` skill) owns the mechanics:
 
 - re-checks readiness with the same `gh-api-helpers.sh` loader (adaptive `_ak_pr_meta` / `_ak_pr_checks`), picks the repo's merge method, merges via `gh pr merge`; when GraphQL is blocked (`AK_GH_REST=1`) it polls checks to terminal-green and then falls back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=...` — REST has no auto-merge endpoint, so pending-checks mode degrades to poll-then-PUT
 - watches post-merge CI on the target branch until every run for the merge commit concludes
-- on deterministic CI failure, drives a follow-up fix (`ak:fix --auto` on a new branch) and repeats, up to 3 attempts
+- on deterministic CI failure, drives a follow-up fix (`ak-fix --auto` on a new branch) and repeats, up to 3 attempts
 - verifies follow-up: PR state `MERGED`, merge commit on the target branch, all watched runs green
 - closes the index row of a plan-backed change (matches the merged PR to its plan via `--linked-pr` or head branch, then `ak plan close`; skips silently when there is no plan) per the shared "Delivery finalization" protocol
 
@@ -51,5 +51,5 @@ Append the same-style traceability footer used by `--reply` (`*Posted by the ins
 
 ## 3. Failure handling
 
-- If `ak:git merge-pr` refuses (gate failure, branch protection, conflicts): record the blocker for this PR and continue with the next; do not retry with different flags to force the merge.
+- If `ak-git merge-pr` refuses (gate failure, branch protection, conflicts): record the blocker for this PR and continue with the next; do not retry with different flags to force the merge.
 - If post-merge CI ends red after exhausted fix attempts or an external blocker: record the failing runs, the fixes attempted, and hand off to the user in the Final output.

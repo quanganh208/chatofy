@@ -1,8 +1,7 @@
 ---
-name: ak:mermaidjs-v11
-description: Create diagrams with Mermaid.js v11 syntax. Use for flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, architecture diagrams, timelines, user journeys.
-user-invocable: true
-when_to_use: "Invoke when inline Mermaid v11 diagrams are needed."
+name: ak-mermaidjs-v11
+description: "Create Mermaid.js v11 flowcharts and sequence, class, ER, Gantt, state, architecture, timeline or user-journey diagrams."
+when_to_use: "Invoke when diagrams belong inline in Markdown."
 category: engineering
 keywords: [mermaid, diagrams, flowcharts, charts]
 argument-hint: "[diagram-type or description]"
@@ -128,4 +127,4 @@ Load `references/examples.md` for:
 - `references/integration.md` - JavaScript API and embedding
 - `references/examples.md` - Practical patterns and use cases
 
-For universal SVG layout rules when reviewing rendered output for collisions or unreadable labels, load `/ak:tech-graph` and apply its component spacing, arrow routing, label placement, and z-index ordering guidance.
+For universal SVG layout rules when reviewing rendered output for collisions or unreadable labels, load `/ak-tech-graph` and apply its component spacing, arrow routing, label placement, and z-index ordering guidance.

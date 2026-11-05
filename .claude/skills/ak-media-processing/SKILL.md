@@ -1,11 +1,10 @@
 ---
-name: ak:media-processing
-description: Process media with FFmpeg (video/audio), ImageMagick (images), RMBG (AI background removal). Use for encoding, format conversion, filters, thumbnails, batch processing, HLS/DASH streaming.
-user-invocable: true
-when_to_use: "Invoke for FFmpeg, ImageMagick, or batch media work."
+name: ak-media-processing
+description: "Process media with FFmpeg (video/audio), ImageMagick (images) and RMBG (AI background removal)."
+when_to_use: "Invoke for encoding, conversion, thumbnails or HLS/DASH streaming."
 category: media
 keywords: [ffmpeg, imagemagick, video, audio, images]
-license: MIT
+license: Proprietary
 argument-hint: "[input-file] [operation]"
 metadata:
   author: agentkit

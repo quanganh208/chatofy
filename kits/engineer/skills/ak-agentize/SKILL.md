@@ -1,8 +1,7 @@
 ---
-name: ak:agentize
-description: "Expose existing code or APIs through an agent-friendly CLI, MCP server, or both. Choose the surface and deployment scope from the user’s task and existing project."
-user-invocable: true
-when_to_use: "Invoke to expose existing code as a reusable CLI or MCP tool across Claude, ChatGPT, Cursor, and skills.sh."
+name: ak-agentize
+description: "Expose existing code or APIs as an agent-friendly CLI, MCP server, or both."
+when_to_use: "Invoke to ship code as a tool for Claude, ChatGPT, Cursor or skills.sh."
 category: engineering
 keywords: [agentize, mcp, cli, monorepo, npm, cloudflare, oauth, openapi, discovery, marketplace, skills-sh]
 argument-hint: "[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]"
@@ -21,12 +20,12 @@ Convert a codebase (or a scoped feature/module) into an AI-agent-ready and user-
 
 Principles: understand before wrapping, preserve existing behavior, expose typed inputs and actionable errors, enforce side-effect boundaries, and verify selected consumers. Schema generation reduces some edits; API changes still require compatibility and authorization checks.
 
-Scope: converting existing code into CLI and/or MCP. Not for: building a server from scratch (use `/ak:mcp-builder`), raw npm scaffolding, or publishing without an agent-use story.
+Scope: converting existing code into CLI and/or MCP. Not for: building a server from scratch (use `/ak-mcp-builder`), raw npm scaffolding, or publishing without an agent-use story.
 
 ## Usage
 
 ```text
-/ak:agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]
+/ak-agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]
 ```
 
 Output modes:

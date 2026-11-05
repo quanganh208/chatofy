@@ -1,6 +1,6 @@
 # 3D design workflow
 
-Interactive 3D and WebGL experiences with Three.js. When `ak:threejs` is installed,
+Interactive 3D and WebGL experiences with Three.js. When `ak-threejs` is installed,
 it owns Three.js APIs, shaders and performance details; this file covers the design side.
 
 1. **Brief.** Write the brief from `../SKILL.md`. Decide what the 3D element means in

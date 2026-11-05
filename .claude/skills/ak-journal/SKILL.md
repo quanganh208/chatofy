@@ -1,8 +1,7 @@
 ---
-name: ak:journal
-description: "Write chronological technical journals for session reflection and change analysis. Journals preserve work history; they do not replace current docs or ADRs."
-user-invocable: true
-when_to_use: "Invoke for technical session reflection or chronological work records."
+name: ak-journal
+description: "Write chronological technical journals that preserve work history without replacing current docs or ADRs."
+when_to_use: "Invoke for session reflection or change analysis."
 category: workflow
 keywords: [journal, reflection, changes, session]
 argument-hint: "[topic or reflection]"
@@ -56,7 +55,7 @@ Created files use `YYYY-MM-DD-<slug>.md` with `-2`, `-3`, … collision suffixes
 
 ## Workflow Position
 
-**Typically follows:** `/ak:cook` (journal after implementation), `/ak:fix` (journal after bug fix)
+**Typically follows:** `/ak-cook` (journal after implementation), `/ak-fix` (journal after bug fix)
 **Related:** `the engineer ship skill` (journal after shipping, engineer tier)
 **Terminal skill** — no typical successor.
 
@@ -64,11 +63,11 @@ Created files use `YYYY-MM-DD-<slug>.md` with `-2`, `-3`, … collision suffixes
 
 ## Automatic vs explicit invocation
 
-Explicit `/ak:journal` and `ak journal create` are always available and are
+Explicit `/ak-journal` and `ak journal create` are always available and are
 unaffected by any preference or flag.
 
-The **automatic** journal step at the end of the `ak:plan`, `/ak:cook`,
-`/ak:fix`, `ak:ship`, and `ak:bootstrap` skills honors:
+The **automatic** journal step at the end of the `ak-plan`, `/ak-cook`,
+`/ak-fix`, `ak-ship`, and `ak-bootstrap` skills honors:
 - The `--skip-journal` flag on the invoking skill.
 - The `journal.auto` config preference (default: `true`).
   Set with: `ak config prefs set journal.auto false` (or `true` to re-enable).

@@ -1,8 +1,7 @@
 ---
-name: ak:docx
-description: Create, edit, analyze .docx Word documents. Use for document creation, tracked changes, comments, formatting preservation, text extraction, template modification.
-user-invocable: true
-when_to_use: "Invoke for Word document creation, edits, or extraction."
+name: ak-docx
+description: "Create, edit and analyze .docx Word files: tracked changes, comments, preserved formatting, text extraction, templates."
+when_to_use: "Invoke when the file is a Word document."
 category: multimedia
 keywords: [docx, word, document, office]
 license: Proprietary. LICENSE.txt has complete terms

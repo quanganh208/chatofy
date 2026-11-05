@@ -1,11 +1,10 @@
 ---
-name: ak:databases
-description: Design schemas, write queries for MongoDB and PostgreSQL. Use for database design, SQL/NoSQL queries, aggregation pipelines, indexes, migrations, replication, performance optimization, psql CLI.
-user-invocable: true
-when_to_use: "Invoke when schema, query, migration, or index work is central."
+name: ak-databases
+description: "Design schemas and SQL/NoSQL queries for MongoDB and PostgreSQL: aggregation, indexes, migrations, replication, performance, psql CLI."
+when_to_use: "Invoke when database design, not app code, is the main work."
 category: engineering
 keywords: [mongodb, postgresql, sql, schemas, queries]
-license: MIT
+license: Proprietary
 argument-hint: "[query or schema task]"
 metadata:
   author: agentkit

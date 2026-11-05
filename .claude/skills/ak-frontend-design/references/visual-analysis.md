@@ -8,13 +8,13 @@ adjectives: `#1E40AF` not "blue", `48px / 1.1 / -0.02em` not "large heading",
 ## Route
 
 1. Native vision: look at the images directly when the active model can view them.
-2. Otherwise the installed analysis owner (`ak:ai-multimodal`), which picks the provider.
+2. Otherwise the installed analysis owner (`ak-ai-multimodal`), which picks the provider.
 3. Optional fallback: the Multix CLI (https://github.com/mrgoonie/multix-cli) when a
    compatible key is already configured; check `--help` for current syntax.
 
 Capture references at real viewport sizes (1440 desktop, 768 tablet, 375 mobile), not
 one tall full-page image, and use 3–5 screens to separate a system from a one-off.
-A browser automation owner such as `ak:agent-browser` can capture them.
+A browser automation owner such as `ak-agent-browser` can capture them.
 
 ## Extraction checklist
 

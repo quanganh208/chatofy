@@ -50,9 +50,9 @@ gh run view <run-id> --log > /tmp/ci-logs.txt
 **For codebase understanding:**
 - Read repository instructions and follow the existing documentation navigation to locate relevant architecture, ownership, and runbook context
 - Verify that context against current source, tests, configuration, and logs
-- Use `/ak:scout` or `/ak:scout ext` to find relevant files whenever context is missing or conflicting
-- Use `ak:repomix` only when a broad packaged snapshot materially improves the investigation; do not generate a mandatory summary document
-- Use `ak:docs-seeker` skill for package/plugin documentation
+- Use `/ak-scout` or `/ak-scout ext` to find relevant files whenever context is missing or conflicting
+- Use `ak-repomix` only when a broad packaged snapshot materially improves the investigation; do not generate a mandatory summary document
+- Use `ak-docs-seeker` skill for package/plugin documentation
 
 ## Step 3: Analysis Process
 

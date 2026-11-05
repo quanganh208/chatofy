@@ -1,11 +1,10 @@
 ---
-name: ak:web-testing
-description: Web testing with Playwright, Vitest, k6. E2E/unit/integration/load/security/visual/a11y testing. Use for test automation, flakiness, Core Web Vitals, mobile gestures, cross-browser.
-user-invocable: true
-when_to_use: "Invoke for browser, visual, load, or accessibility tests."
+name: ak-web-testing
+description: "Test web apps with Playwright, Vitest and k6: E2E, unit, integration, load, security, visual and a11y."
+when_to_use: "Invoke for flakiness, Core Web Vitals, mobile gestures or cross-browser runs."
 category: engineering
 keywords: [Playwright, Vitest, k6, e2e, load-testing]
-license: Apache-2.0
+license: Proprietary
 argument-hint: "[test-type] [target]"
 metadata:
   author: agentkit

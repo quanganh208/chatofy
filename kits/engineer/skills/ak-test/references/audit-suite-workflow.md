@@ -27,11 +27,12 @@ Hunt for each class with concrete evidence (file:line):
   assertions, placeholders left "for later".
 - **Ineffective tests** — pass with the bug present (spot-check by mutating
   the code under test and watching for a failure), assert implementation
-  details instead of contracts, or duplicate another test's coverage.
+  details instead of contracts, or fail to protect their claimed behavior.
 - **Missing edge cases** — boundaries, empty/null inputs, concurrency,
   error paths, permission failures on covered features.
-- **Redundant tests** — overlapping low-value tests whose removal loses no
-  coverage (prove with a coverage diff before deleting).
+- **Potentially redundant tests** — overlapping tests whose contract may already be
+  protected more cheaply. Use `test-lifecycle.md`; unchanged line coverage or
+  sampled mutation kills alone cannot prove safe deletion.
 - **Outdated tests** — tests locked to removed features, renamed APIs, or
   contracts the current code no longer has.
 - **Security gaps in tests** — hardcoded real credentials or tokens in
@@ -42,11 +43,11 @@ Hunt for each class with concrete evidence (file:line):
 
 ## 3. Rank and decide
 
-Classify each finding: **Critical** (deceptive/disabled test hides a real
-regression path, secret exposure) → **Important** (ineffective, outdated,
-missing edge case) → **Minor** (redundancy, style). For each, record evidence,
-the proposed repair (rewrite / re-enable with fix / add cases / delete), and
-the risk of the repair itself.
+Rank by risk and measured cost: **Critical** for hidden critical regressions or
+secret exposure; **Important** for outdated contracts, meaningful protection gaps or expensive
+duplication; **Minor** for low-impact maintenance. Record the contract, evidence,
+proposed repair, remaining protection and repair risk. Include per-test timing
+when available; no timing means unknown cost, not a reason to guess savings.
 
 ## 4. Report, or apply authorized repairs
 
@@ -59,13 +60,16 @@ Audit is report-only by default. The following repair steps apply only when the 
   repaired test must fail when its target bug is reintroduced.
 - Re-enable disabled tests by fixing the underlying cause — never delete a
   skip marker without making the test genuinely pass.
-- Add the missing edge cases; delete redundant tests only with a coverage diff
-  proving nothing is lost.
+- Add confirmed missing cases; combine, lower the layer or retire only with the
+  lifecycle review and authorization above. Check the remaining suite jointly,
+  then rerun the same valid sampled faults and affected contracts.
 - Remove real secrets from fixtures; replace with synthetic values.
-- Run the full suite after repairs; everything green, no new skips.
+- Run affected tests and required gates after repairs. Preserve observed failures
+  and skip reasons; an unavailable mandatory check means insufficient evidence.
 
 ## 5. Report
 
 Per `references/report-format.md`: findings by class and severity with
-evidence, repairs applied vs deferred (and why), coverage before/after,
-suite-trustworthiness assessment, unresolved questions last.
+evidence, repairs applied vs proposed (and why), protection and measured costs
+before/after, untested gaps and unresolved questions last. Hand measured execution
+opportunities to optimize without turning report-only audit into edit authority.

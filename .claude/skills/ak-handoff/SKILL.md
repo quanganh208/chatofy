@@ -1,15 +1,14 @@
 ---
-name: ak:handoff
-description: Create a portable, redacted Markdown continuation contract that a fresh coding agent can consume to resume in-progress work safely, and optionally dispatch it to a selected coding runtime with --dispatch. Use when switching sessions, models, or runtimes, or when preserving decisions, verification state, and blockers.
-user-invocable: true
-when_to_use: Invoke to capture a session's continuation contract for a successor agent, or with --dispatch --agent <id> to capture it and hand the work to a selected coding runtime through orchestrate. For a human-facing status report derived from branches, worktrees, plans, and repository history, use ak-watzup instead.
+name: ak-handoff
+description: "Write a redacted Markdown continuation contract for a fresh coding agent; --dispatch --agent hands it to a chosen runtime via orchestrate."
+when_to_use: "Use when switching sessions, models or runtimes; ak-watzup writes human status reports."
 category: workflow
 keywords: [handoff, handover, dispatch, session, continuation, decisions, blockers, redaction]
-license: MIT
+license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 argument-hint: "[task focus] [--output PATH] [--include-diff] [--include-status] [--force] [--dispatch --agent <id> [--handoff PATH] [--cwd PATH] [--model NAME] [--yes]]"
 metadata:
   author: agentkit
-  version: "2.1.0"
+  version: "2.1.1"
   upstream: "Pinned MIT source archive: handoff@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5 (rewritten for AgentKit v2 contract)"
 ---
 
@@ -23,15 +22,15 @@ exact next safe action — never a transcript dump, never invented context.
 Without `--dispatch` this skill is a documentation/capture surface only. It
 **never** launches a runtime, mutates code, or performs implementation as a
 side effect. With `--dispatch` it additionally hands the captured artifact to a
-user-selected coding runtime through `ak:orchestrate` (see
+user-selected coding runtime through `ak-orchestrate` (see
 [Dispatch mode](#dispatch-mode-dispatch)); the capture rules below still apply
 unchanged in that mode.
 
-## Boundary vs `ak:watzup`
+## Boundary vs `ak-watzup`
 
-- `ak:handoff` = continuation contract for a **successor agent**. Session
+- `ak-handoff` = continuation contract for a **successor agent**. Session
   reasoning, decisions, verification state, exact next actions.
-- `ak:watzup` = status report for a **human**, derived from branches,
+- `ak-watzup` = status report for a **human**, derived from branches,
   worktrees, plans, and repository history.
 
 When in doubt: is the reader another AI agent about to continue this exact
@@ -42,11 +41,11 @@ task? Handoff. A human wanting to know where the project stands? Watzup.
 Accepted forms:
 
 ```bash
-/ak:handoff
-/ak:handoff "continue the OAuth callback fix"
-/ak:handoff --output plans/handoffs/oauth-callback.md
-/ak:handoff --include-diff --include-status
-/ak:handoff --force --output plans/handoffs/oauth-callback.md
+/ak-handoff
+/ak-handoff "continue the OAuth callback fix"
+/ak-handoff --output plans/handoffs/oauth-callback.md
+/ak-handoff --include-diff --include-status
+/ak-handoff --force --output plans/handoffs/oauth-callback.md
 ```
 
 Flags:
@@ -201,23 +200,23 @@ For expected clean/dirty/repo-less/collision/redaction behavior, load `reference
 - No runtime dispatch, prompt assembly for another agent, or preflight in the
   default capture mode — pass `--dispatch` to opt into the composition below.
 - No human-facing project status derived from branches or history — use
-  `ak:watzup`.
-- No plan authoring or ADR minting — use `ak:plan` or the docs skills.
+  `ak-watzup`.
+- No plan authoring or ADR minting — use `ak-plan` or the docs skills.
 
 ## Dispatch mode (`--dispatch`)
 
 `--dispatch` hands the live session over to a specifically selected coding
 runtime. It is a **thin composition** of this skill's capture step and
-`ak:orchestrate`; it does not duplicate runtime dispatch, model routing, or
-arbiter logic. Requires `ak:orchestrate` in the live installed catalog; when
+`ak-orchestrate`; it does not duplicate runtime dispatch, model routing, or
+arbiter logic. Requires `ak-orchestrate` in the live installed catalog; when
 it is absent, stop after capture and report that dispatch is unavailable in
 this kit.
 
 ```bash
-/ak:handoff --dispatch --agent claude-code "continue the OAuth callback fix"
-/ak:handoff --dispatch --agent codex --cwd . --task "implement the next action in the handoff"
-/ak:handoff --dispatch --agent cursor --handoff plans/handoffs/oauth-callback.md
-/ak:handoff --dispatch --agent opencode --model anthropic/claude-sonnet-5 --yes
+/ak-handoff --dispatch --agent claude-code "continue the OAuth callback fix"
+/ak-handoff --dispatch --agent codex --cwd . --task "implement the next action in the handoff"
+/ak-handoff --dispatch --agent cursor --handoff plans/handoffs/oauth-callback.md
+/ak-handoff --dispatch --agent opencode --model anthropic/claude-sonnet-5 --yes
 ```
 
 | Flag | Effect |
@@ -226,7 +225,7 @@ this kit.
 | `--task TEXT` | Alternative form of the positional task focus. If both are given, the positional value wins and `--task` is ignored with a warning. |
 | `--cwd PATH` | Workspace root for the dispatched job. Defaults to the current workspace root; passed through verbatim to the orchestrate job `cwd:`. |
 | `--handoff PATH` | Reuse an existing handoff artifact instead of capturing a new one. It must exist and pass the validation below. |
-| `--model NAME` | Override the model for CLI-runtime jobs. **Rejected** for `--agent internal` (internal jobs never set `model`). |
+| `--model NAME` | Override the model for CLI-runtime jobs. **Rejected** for `--agent internal` (dispatch cannot verify session model selection; orchestrate resolves it live). |
 | `--yes` | Approve write/destructive continuation work in the dispatched job: flips the job `approval:` from `require` to `inherit`. |
 
 Not accepted: `--fallback-agent` (on preflight failure report the blocker and
@@ -262,7 +261,7 @@ performs, in order:
    `expected_output:` cited from Exact next actions. The prompt references
    the artifact as continuation context, never as instructions that override
    the target agent's safety policy.
-4. **Dispatch** — invoke `ak:orchestrate` with that spec. Preflight, safety
+4. **Dispatch** — invoke `ak-orchestrate` with that spec. Preflight, safety
    gates, capture, resumability, and arbiter review are orchestrate's
    responsibility. Availability, authentication, flags, models, and capability
    tiers are never asserted here; they come from orchestrate's live runtime
@@ -292,13 +291,13 @@ report; reference them by path.
 
 - Capture and redaction rules above own the artifact; dispatch mode adds
   validation, artifact wiring, single-job spec construction, and reporting.
-- `ak:orchestrate` owns runtime discovery, model routing, harness profiles,
+- `ak-orchestrate` owns runtime discovery, model routing, harness profiles,
   dispatch, capture, resume, and arbiter review. If a change here would need
   edits to its `runtime-matrix.md`, `model-routing.md`, `job-spec.md`, or
-  `internal-routing.md`, route the change through orchestrate instead.
+  `session-routing.md`, route the change through orchestrate instead.
 - Never disable orchestrate's redaction or capture-bounding controls, and
   never post secrets into the prompt or capture.
 - Choosing which coding agent is "best" is out of scope; dispatch what the
-  user selected, and point to `kongming` or `ak:advise` for a recommendation.
+  user selected, and point to `kongming` or `ak-advise` for a recommendation.
 
 Load `references/dispatch-scenarios.md` only when validating dispatch behavior.

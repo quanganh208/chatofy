@@ -32,9 +32,9 @@ things with different runtimes, transports, and audiences.
 | Sandbox | Browser origin + permissions | Process/host controls |
 
 - Building an in-browser page tool via `document.modelContext` → this skill.
-- Building a stdio/HTTP MCP server → `ak:mcp-builder`.
+- Building a stdio/HTTP MCP server → `ak-mcp-builder`.
 - Executing existing MCP tools → the runtime's native MCP tools and tool search.
-  Exposing code as an MCP surface → `ak:agentize`.
+  Exposing code as an MCP surface → `ak-agentize`.
 
 ## Availability [Spec] [Chrome]
 

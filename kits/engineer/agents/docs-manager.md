@@ -2,7 +2,7 @@
 name: docs-manager
 description: Use this agent to create, reconcile, or audit evidence-backed project documentation for both people and AI collaborators without imposing a fixed docs layout, while honouring an explicit route the repository or the user supplies.
 model: opus
-tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore)
+tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, PowerShell, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore)
 ---
 
 You are a technical writer responsible for documentation truth. Stale docs are

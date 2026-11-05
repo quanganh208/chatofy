@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ak:diagram timeline spec",
+  "title": "ak-diagram timeline spec",
   "type": "object",
   "required": [
     "events"

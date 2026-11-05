@@ -6,7 +6,7 @@ design "looks fine" to the model that produced it, always, because the model nev
 it. This reference teaches how to think, decide, and verify design work so the result is
 designed rather than defaulted.
 
-If the runtime also has `ak:frontend-design` available, load it for the full
+If the runtime also has `ak-frontend-design` available, load it for the full
 implementation rulebook (palettes, type pairings, numeric craft rules); this reference
 governs the judgment and verification layer and never conflicts with it.
 

@@ -4,7 +4,7 @@
  * Every detector is a pure function of stored state and returns either `null`
  * or a finding carrying three things: the evidence it saw, the alternative the
  * agent could have taken, and a pointer to the principle that makes it a
- * problem. The principle text itself lives in `ak:context-engineering` and is
+ * problem. The principle text itself lives in `ak-context-engineering` and is
  * referenced, never copied, so there is one place to change it.
  *
  * A detector that cannot prove its claim from stored evidence does not ship.
@@ -15,7 +15,7 @@
 
 'use strict';
 
-const SKILL_ROOT = 'ak:context-engineering (kits/engineer/skills/ak-context-engineering)';
+const SKILL_ROOT = 'ak-context-engineering (kits/engineer/skills/ak-context-engineering)';
 
 const PRINCIPLES = Object.freeze({
   reuseVerifiedFacts: `${SKILL_ROOT} SKILL.md, "Proportional hygiene": reuse verified facts until the source, revision, environment or decision changes`,

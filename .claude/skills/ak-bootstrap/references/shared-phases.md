@@ -7,15 +7,15 @@ review, UX/AX enhancement, optional release and live verification, then done.
 
 ## Implementation
 
-Handled by **ak:cook** skill. Bootstrap-specific notes:
+Handled by **ak-cook** skill. Bootstrap-specific notes:
 - Implement step by step from the brainstorm contract and the research, stack and design outputs
 - Use `ui-ux-designer` subagent for frontend, following the project's discovered design guidance
-- Asset pipeline: `ak:ai-multimodal` (generate/analyze) → `imagemagick` (crop/resize) → background removal if needed
+- Asset pipeline: `ak-ai-multimodal` (generate/analyze) → `imagemagick` (crop/resize) → background removal if needed
 - Run type checking and compile after each cook work unit
 
 ## Testing
 
-Handled by **ak:cook** skill. Bootstrap-specific notes:
+Handled by **ak-cook** skill. Bootstrap-specific notes:
 - Write real tests — NO fake data, mocks, cheats, tricks, temporary solutions
 - `tester` subagent runs tests → report to main agent
 - If failures: `debugger` subagent → fix → repeat until all pass
@@ -23,14 +23,14 @@ Handled by **ak:cook** skill. Bootstrap-specific notes:
 
 ## Code Review
 
-After cook finishes, activate **ak:code-review** on the whole new project:
-`/ak:code-review codebase` (add `--ultra` when bootstrap received `--ultra`;
+After cook finishes, activate **ak-code-review** on the whole new project:
+`/ak-code-review codebase` (add `--ultra` when bootstrap received `--ultra`;
 never combine it with `codebase parallel`). For work added to an existing
-project, review uncommitted bootstrap work with `/ak:code-review --pending`; if
-cook already committed it, review the PR with `/ak:code-review #<PR>` or each
+project, review uncommitted bootstrap work with `/ak-code-review --pending`; if
+cook already committed it, review the PR with `/ak-code-review #<PR>` or each
 commit hash instead. Keep `--ultra` in every case when bootstrap received it.
 - Code review does not edit. Send blocking findings back through
-  `/ak:cook <mode flag> <findings and brainstorm contract>`, rerun affected
+  `/ak-cook <mode flag> <findings and brainstorm contract>`, rerun affected
   tests, then review again with the same flags
 - Stop and report with evidence when a blocking finding survives three fix
   attempts or after five review rounds
@@ -38,7 +38,7 @@ commit hash instead. Keep `--ultra` in every case when bootstrap received it.
 
 ## UX and AX Enhancement
 
-When the project has a website or web app, activate **ak:enhance-ux-ax** with
+When the project has a website or web app, activate **ak-enhance-ux-ax** with
 `--auto` on the running project after code review passes. It reviews the user
 experience and the AI experience (discovery files, Markdown twins, schema,
 social cards, share and send-to-AI actions), implements its Must and Should
@@ -58,8 +58,8 @@ build, package or binary publish) or its definition of done names a live
 target. Otherwise skip it and report the project as verified locally only.
 
 1. Provision what the brief authorizes: repository settings and CI secrets
-   through `ak:github`; hosting, domains, storage, registries and CI through
-   `ak:deploy` or `ak:devops`. Read secrets from the environment or secret
+   through `ak-github`; hosting, domains, storage, registries and CI through
+   `ak-deploy` or `ak-devops`. Read secrets from the environment or secret
    store and check presence only; never print or commit them. When a
    required secret is missing, explain where to set it and wait instead of
    asking for its value in chat.
@@ -71,7 +71,7 @@ target. Otherwise skip it and report the project as verified locally only.
 
    | Surface | Verify with | Checks |
    |---|---|---|
-   | Website or web app | `ak:agent-browser` or `ak:web-testing`; polish audit with `ak:frontend-design` | every page at desktop, tablet and mobile widths, every locale and theme; no console errors, failed requests, broken links or redirects, overflow, overlap, clipped text or layout shift; discoverability files and metadata respond |
+   | Website or web app | `ak-agent-browser` or `ak-web-testing`; polish audit with `ak-frontend-design` | every page at desktop, tablet and mobile widths, every locale and theme; no console errors, failed requests, broken links or redirects, overflow, overlap, clipped text or layout shift; discoverability files and metadata respond |
    | Mobile app | the store's beta build on a simulator, emulator or device | install, launch, core flows, permissions, deep links, offline, each supported screen size |
    | CLI | a clean install from the released channel | install, `--help`, core commands, exit codes, `--json` output, each supported OS the contract names |
    | API or service | calls against the live endpoint | health, authentication, core routes, error shapes, rate limits, published reference matches behavior |

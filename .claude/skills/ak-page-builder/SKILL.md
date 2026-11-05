@@ -1,8 +1,7 @@
 ---
-name: ak:page-builder
-description: "Build, extend, or operate a dynamic page builder using a project's components and stack. Use for configurable resizable widgets, responsive touch editors, previews, publishing, and agent interfaces with a project operator skill. Not for one-off page design or a generic API wrapper."
-user-invocable: true
-when_to_use: "Invoke to integrate or extend an agent-operated page builder, or operate one when its project operator skill is not yet available."
+name: ak-page-builder
+description: "Build, extend or operate an agent-operated page builder from project components: resizable widgets, touch editors, previews, publishing."
+when_to_use: "Invoke when no operator skill exists yet; not for one-off page design or a generic API wrapper."
 category: engineering
 keywords: [page-builder, blocks, editor, responsive, mcp, publishing]
 argument-hint: "[setup|update|operate] [project-path] [request]"
@@ -37,9 +36,9 @@ skill created through the installed `ak-skill-creator`.
 These are skill arguments, not executable `ak` CLI subcommands:
 
 ```text
-/ak:page-builder setup ./apps/storefront
-/ak:page-builder update Add the existing ProductGrid block with category bindings
-/ak:page-builder operate Create a pricing draft and share its preview
+/ak-page-builder setup ./apps/storefront
+/ak-page-builder update Add the existing ProductGrid block with category bindings
+/ak-page-builder operate Create a pricing draft and share its preview
 ```
 
 Infer the mode from the request and existing project; explicit arguments win.

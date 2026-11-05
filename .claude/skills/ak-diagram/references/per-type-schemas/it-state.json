@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ak:diagram it-state spec",
+  "title": "ak-diagram it-state spec",
   "type": "object",
   "required": [
     "state",

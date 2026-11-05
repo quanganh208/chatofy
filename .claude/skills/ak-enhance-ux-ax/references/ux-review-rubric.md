@@ -2,7 +2,7 @@
 
 Score each area 0–3 with evidence (screenshot path, file:line, or a quoted string).
 0 missing or broken, 1 present but weak, 2 solid, 3 memorable. Any area below 2 needs
-at least one proposal. `ak:frontend-design` owns the underlying polish standards;
+at least one proposal. `ak-frontend-design` owns the underlying polish standards;
 this rubric adds the brand, content and AX-facing lens.
 
 ## Areas

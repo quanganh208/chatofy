@@ -8,7 +8,7 @@ supply, and they never carry the design on their own.
 
 1. Use assets the user or brand already has (product screenshots, photography, logos).
 2. Otherwise generate with the installed image-generation owner, normally
-   `ak:ai-multimodal`, which owns provider routing, credentials and current command syntax.
+   `ak-ai-multimodal`, which owns provider routing, credentials and current command syntax.
 3. Optional fallback when that owner is unavailable but a compatible key is already
    configured: the Multix CLI (https://github.com/mrgoonie/multix-cli). Check the
    current syntax with `--help` before use; never probe for or print credentials.

@@ -1,6 +1,6 @@
 # Writing language for GitHub prose
 
-Shared by `ak:ship` and `ak:review-pr` (#1195).
+Shared by `ak-ship` and `ak-review-pr` (#1195).
 
 ## Resolve before authoring
 
@@ -26,8 +26,8 @@ Use `language` from the JSON for all human-facing GitHub prose. If
 
 ## What is localized
 
-- PR description headings and prose (`ak:ship`)
-- Review Summary / Risk / Findings / Verdict / handoff text (`ak:review-pr`)
+- PR description headings and prose (`ak-ship`)
+- Review Summary / Risk / Findings / Verdict / handoff text (`ak-review-pr`)
 - Checklist labels and human-action requests
 
 ## What stays intact

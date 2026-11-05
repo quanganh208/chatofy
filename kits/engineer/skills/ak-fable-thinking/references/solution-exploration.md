@@ -15,7 +15,7 @@ performance problem, an integration, a migration strategy, a tooling or library 
 when the obvious approach violates a constraint; when every option so far has failed; when
 asked for alternatives or "the best way". Skip it for tasks with a known answer — there the
 Proportionality Gate says Direct. Structured group ideation with verifier passes:
-`ak:brainstorm`; the stuck-specific toolkit: `ak:problem-solving`.
+`ak-brainstorm`; the stuck-specific toolkit: `ak-problem-solving`.
 
 ## Know Your Own Defaults (exploration failure modes)
 

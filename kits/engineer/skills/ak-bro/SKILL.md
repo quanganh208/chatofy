@@ -1,8 +1,7 @@
 ---
-name: ak:bro
-description: "Restate the assistant's last message in simpler, shorter, jargon-free language. Use when the user says ak:bro, simplify that, say it plainly, or explain it like a human."
-user-invocable: true
-when_to_use: "Invoke when the user wants the immediately previous assistant message restated plainly, coherently, and concisely."
+name: ak-bro
+description: "Restate the assistant's last message in simpler, shorter, jargon-free language."
+when_to_use: "Use when the user says ak-bro, simplify that, or say it plainly."
 category: reasoning
 keywords: [restate, simplify, plain-language, concise, jargon-free]
 argument-hint: "[last message]"
@@ -26,7 +25,7 @@ This skill handles restatement only. It does not add new analysis, answer a diff
 5. Reply in the user's language unless they ask for another language.
 6. Return only the restated message. Do not preface it with commentary about simplifying it.
 
-A new topic belongs to `ak:explain`; do not answer it by restating an unrelated message.
+A new topic belongs to `ak-explain`; do not answer it by restating an unrelated message.
 
 If there is no previous assistant message to restate, say that plainly and ask the user to provide the text.
 

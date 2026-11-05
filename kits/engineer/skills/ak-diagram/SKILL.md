@@ -1,28 +1,21 @@
 ---
-name: ak:diagram
-description: >-
-  Compile typed JSON IR into validated interactive system maps and self-contained
-  HTML readers. Use for architecture, workflow, sequence, dataflow and lifecycle
-  maps; use editable-canvas or publication-diagram skills for those artifacts.
-user-invocable: true
-when_to_use: >-
-  Choose ak:diagram when the desired artifact is a validated interactive system map,
-  typed JSON IR diagram, or self-contained HTML reader with grounded graph queries. Route to
-  ak:excalidraw for whiteboard sketches, ak:tech-graph for static publication charts, or
-  ak:mermaidjs-v11 for inline markdown diagrams.
+name: ak-diagram
+description: "Compile typed JSON IR into validated interactive maps and HTML readers of architecture, workflows, sequences, dataflow or lifecycles."
+when_to_use: "Invoke for grounded graph queries; whiteboards use ak-excalidraw, static charts ak-tech-graph, inline markdown ak-mermaidjs-v11."
 category: engineering
 keywords: [diagram, archify, architecture, workflow, sequence, dataflow, lifecycle, interactive-map, system-map, visual-map, reader-runtime]
 argument-hint: "[input-file] [--format <svg|fragment|html>] [--preset <classic|signal-flow|blueprint|editorial>] [--theme <light|dark>] [--out <path>]"
-license: MIT
+license: Proprietary; includes MIT- and ISC-licensed third-party material, see LICENSE.txt
 metadata:
   author: agentkit
   version: "3.0.0"
   upstream_templates: cathrynlavery/diagram-design (MIT)
   design_reference: tt-a1i/archify (MIT; IR archetypes, presets and reader concepts only, no code vendored)
-  vendored_mermaid_version: "11.4.1"
+  vendored_pele_version: "1.6.0"
+  mermaid_fallback_version: "11.4.1"
 ---
 
-# ak:diagram - Unified System Map & Interactive Diagram Surface
+# ak-diagram - Unified System Map & Interactive Diagram Surface
 
 Compile typed JSON IR specifications into deterministic SVGs, embeddable fragments, and self-contained interactive HTML readers without browser dependencies. The compiler owns layout: it ranks the graph, orders columns to reduce crossings, routes orthogonal edges around unrelated nodes, and renders role-aware cards with a legend, so authors describe topology and never coordinates.
 
@@ -82,9 +75,28 @@ node scripts/compiler/compile.mjs --input diagram.json --format fragment --prese
 python3 scripts/render.py --input diagram.json --out ./build/
 ```
 
+## AK Render Page Embedding
+
+Skills that compile an HTML page with AK Render (`@bestagentkits/render`) embed
+diagrams through `scripts/render-page.mjs`. Put the typed IR in a
+`diagram-panel` block's `spec`, then compile the whole page:
+
+```bash
+npx -y -p @bestagentkits/render@0.3.0 node <ak-diagram-dir>/scripts/render-page.mjs page.page.yaml --out page.html --json
+```
+
+The wrapper plugs this compiler into AK Render as its diagram adapter, refuses
+any render version other than the pin; AK Render itself grants the page's CSP
+nonce to the diagram styles. Exit 1 means an invalid spec, as with the AK Render CLI; exit 2
+covers IO, environment and internal failures (the CLI reports internal failures
+as a stack trace). It finds project theme presets from the spec's
+folder upward and prints preset problems as warnings. Its JSON summary lists
+`diagramErrors` and `themeProblems`; each failed panel keeps
+AK Render's structured fallback, so repair the IR and recompile.
+
 ## Security & Boundaries
 
-- **Zero Network**: Compilation operates offline in pure Node.js; no remote calls, telemetry, or font downloads.
+- **Zero Network**: `scripts/compiler/compile.mjs` compiles offline in pure Node.js; no remote calls, telemetry, or font downloads. `.mmd` input also renders offline through the vendored Pele bundle. Two exceptions: the AK Render page wrapper's first `npx` run downloads the pinned package from npm (cached afterwards), and a `.mmd` diagram Pele rejects falls back to a page that loads Mermaid 11.4.1 from jsDelivr (SRI-pinned; see `references/mermaid-input.md`). Compiled typed-IR pages make zero network requests.
 - **Deterministic**: Compiling identical IR bytes emits identical SHA-256 output bytes across environments.
 - **Finite Motion**: Entrance and trace animations are finite (under 8 s in total), replayable, and automatically disabled under `prefers-reduced-motion: reduce`.
-- **Scope Limit**: For freeform whiteboard sketching, use `ak:excalidraw`. For static print infographics, use `ak:tech-graph`. For raw markdown inline doc blocks, use `ak:mermaidjs-v11`.
+- **Scope Limit**: For freeform whiteboard sketching, use `ak-excalidraw`. For static print infographics, use `ak-tech-graph`. For raw markdown inline doc blocks, use `ak-mermaidjs-v11`.

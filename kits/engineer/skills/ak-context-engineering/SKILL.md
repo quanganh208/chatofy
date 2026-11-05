@@ -1,11 +1,7 @@
 ---
-name: ak:context-engineering
-description: >-
-  Manage context, task budgets, compaction and model selection using outcome evidence.
-  Use for token waste, context left, usage limits, slow or forgetful sessions, long tasks,
-  compression evaluation, benchmark cost/duration/agent steps, memory and agent systems.
-user-invocable: true
-when_to_use: "Invoke for context budget, model efficiency, compaction, or agent architecture."
+name: ak-context-engineering
+description: "Manage context, task budgets, compaction and model choice from outcome evidence, plus memory and agent systems."
+when_to_use: "Invoke for token waste, context left, usage limits, long tasks, forgetful sessions or benchmark cost."
 category: engineering
 keywords: [context, tokens, limits, memory, optimization, compaction, budget, benchmarks]
 argument-hint: "[topic or question]"

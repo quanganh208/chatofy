@@ -1,8 +1,7 @@
 ---
-name: ak:enhance-ux-ax
-description: "Combined UX + AI-experience (AX) review of an existing site or app: scores brand recall, punchy content, motion and responsive layouts, scans SEO/GEO discovery surfaces (sitemap, robots, llms.txt, per-URL markdown, schema, social cards, copy/share/send-to-AI actions), and writes ranked proposals with an explicit DONE contract. --auto implements them; --loop [N] repeats review-to-verify rounds with screenshot vision checks. For a UI-polish-only audit or new UI use ak:frontend-design; for an SEO/GEO-only audit or keyword research use ak:seo."
-user-invocable: true
-when_to_use: "Invoke when one review should cover both how the product feels to people and how well AI agents and search engines can read, cite and share it, or when improvements must run to a DONE contract or in rounds."
+name: ak-enhance-ux-ax
+description: "Review a site or app for UX and AI-experience (AX), from brand recall to SEO/GEO surfaces like llms.txt, with ranked proposals and a DONE contract."
+when_to_use: "Invoke to apply via --auto or iterate via --loop [N]; UI-only polish is ak-frontend-design, SEO/GEO-only audits or keyword research are ak-seo."
 category: design
 keywords: [ux, ai-experience, geo, seo, llms-txt, brand, responsive]
 argument-hint: "[url|path|focus] [--auto] [--loop [N]]"
@@ -58,7 +57,7 @@ checkable criteria.
    rather than starting a duplicate) and stop what you started when finished. Capture
    baseline evidence: screenshots at desktop 1440×900, tablet 768×1024 and mobile
    375×812, plus a discovery-surface scan (step 3).
-2. **Review UX.** Load the installed `ak:frontend-design` skill and apply its UX
+2. **Review UX.** Load the installed `ak-frontend-design` skill and apply its UX
    audit and polish standards, then score the project against
    `references/ux-review-rubric.md` (brand recall, first impression, content punch,
    hierarchy, motion, responsive, trust, accessibility). Read screenshots with the
@@ -68,9 +67,9 @@ checkable criteria.
    URL; for a dev server or preview, add `--site-origin <production origin>` so
    sitemap and canonical URLs map onto it and real pages are sampled. Then inspect source for what the scan cannot see. Judge against
    `references/seo-geo-ax-checklist.md`. When the catalog has an SEO skill with a GEO
-   audit (such as `ak:seo geo`), run it as well and reconcile the two results; route
+   audit (such as `ak-seo geo`), run it as well and reconcile the two results; route
    `llms.txt` generation and framework-specific wiring to installed skills that own
-   them (such as `ak:llms` or `ak:web-frameworks`) instead of re-deriving them. Where
+   them (such as `ak-llms` or `ak-web-frameworks`) instead of re-deriving them. Where
    guidance conflicts, prefer the dated evidence in
    `references/best-practices-and-common-mistakes.md` (for example, no FAQ or HowTo
    markup for search appearance, and starting the clipboard write inside the click
@@ -122,7 +121,7 @@ reported as a pass.
   markdown, never user data, tokens or private drafts.
 - Keyword research, rank tracking, paid SEO data and SEO/GEO-only audits belong to
   an installed SEO skill; a new interface from a brief, or a UI-polish-only audit,
-  belongs to `ak:frontend-design`.
+  belongs to `ak-frontend-design`.
 
 ## Resources
 

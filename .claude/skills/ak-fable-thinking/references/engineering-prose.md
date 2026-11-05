@@ -140,7 +140,7 @@ exists.
   instead of tool names so the text runs on any runtime
   (`references/runtime-orchestration.md`).
 - Every sentence costs every future run: keep it short. Skill authoring specifics,
-  including description triggers and evals: `ak:skill-creator`.
+  including description triggers and evals: `ak-skill-creator`.
 
 ## What to avoid (the slop catalog — matches are failed gates)
 

@@ -40,7 +40,24 @@ def find_project_root(start_dir: Path) -> Path:
     return start_dir
 
 
-PROJECT_ROOT = find_project_root(Path(__file__).parent)
+def resolve_project_root(cwd: Path, script_dir: Path) -> Path:
+    """Prefer the project the command runs in, like ak-social's style resolver.
+
+    A user-scoped install lives under ~/.claude, so walking up from the script
+    would land in the home directory instead of the user's project. The
+    script-relative root stays as a fallback for project-scoped installs run
+    from another directory.
+    """
+    for parent in [cwd] + list(cwd.parents):
+        if (parent / 'assets' / 'writing-styles').is_dir():
+            return parent
+    script_root = find_project_root(script_dir)
+    if (script_root / 'assets' / 'writing-styles').is_dir():
+        return script_root
+    return find_project_root(cwd)
+
+
+PROJECT_ROOT = resolve_project_root(Path.cwd(), Path(__file__).resolve().parent)
 STYLES_DIR = PROJECT_ROOT / 'assets' / 'writing-styles'
 MULTIX_COMMAND = ['npx', '-y', '-p', '@mrgoonie/multix@0.2.0', 'multix']
 

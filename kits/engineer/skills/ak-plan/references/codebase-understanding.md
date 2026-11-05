@@ -5,7 +5,7 @@
 ## Core Activities
 
 ### Parallel Scout Agents
-- Use `/ak:scout ext` (preferred) or `/ak:scout` (fallback) skill invocation to search the codebase for files needed to complete the task
+- Use `/ak-scout ext` (preferred) or `/ak-scout` (fallback) skill invocation to search the codebase for files needed to complete the task
 - Each scout locates files needed for specific task aspects
 - Wait for all scout agents to report back before analysis
 - Efficient for finding relevant code across large codebases

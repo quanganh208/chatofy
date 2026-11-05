@@ -1,8 +1,7 @@
 ---
-name: ak:review-pr
-description: "Review GitHub pull requests for correctness, regressions and security. Optional fix, reply and merge modes authorize their respective delivery steps."
-user-invocable: true
-when_to_use: "Invoke to review one or more GitHub PRs by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
+name: ak-review-pr
+description: "Review GitHub PRs for correctness, regressions and security; fix, reply and merge modes authorize those steps."
+when_to_use: "Invoke for PR numbers or URLs, to fix findings, post the review back to GitHub or merge when ready and watch CI."
 category: workflow
 keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop, multi-pr, graphql, rest, cloud-environment]
 argument-hint: "<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice] [--ultra]"
@@ -54,7 +53,7 @@ Review PR(s) `$ARGUMENTS` in this repository.
 - **Review-only** (default): review the PR(s) and print findings to chat. Do not edit, commit, or push.
 - **Fix loop** (`--fix`): review, fix all actionable findings, commit+push, then re-review. Repeat until no actionable findings remain.
 - **Reply** (`--reply`): after the review (or after the fix loop converges), post the review back to the PR via `gh pr review`.
-- **Merge** (`--merge`): after all other modes complete, if the PR is ready to merge, activate `ak:git merge-pr` to merge it, watch post-merge CI until green, and verify follow-up before stopping.
+- **Merge** (`--merge`): after all other modes complete, if the PR is ready to merge, activate `ak-git merge-pr` to merge it, watch post-merge CI until green, and verify follow-up before stopping.
 - **Advice** (`--advice`): run under `kongming` advisory supervision (see Advisory supervision).
 - **Ultra** (`--ultra`): run each PR's initial review as a best-of-5 verifier pass (see Ultra Verifier Mode).
 
@@ -124,7 +123,7 @@ self-PR `COMMENT` fallback, composition with `--fix`, and idempotency.
 ## Merge mode (`--merge`)
 
 Load `references/mode-merge.md` when `$ARGUMENTS` contains `--merge`. It owns the
-merge-readiness gate, the `ak:git merge-pr` handoff, post-merge CI watching, and
+merge-readiness gate, the `ak-git merge-pr` handoff, post-merge CI watching, and
 failure handling.
 ## Final output
 

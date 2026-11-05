@@ -5,7 +5,7 @@ Warmup **never** invokes `/goal` or starts a long-run session.
 ## Ready
 
 ```markdown
-# Goal packet (from ak:goal-warmup)
+# Goal packet (from ak-goal-warmup)
 
 ## Outcome contract (LOCKED)
 - Intended result: ...
@@ -59,7 +59,7 @@ Unresolved blockers (only):
 1. <requirement> — status: missing — action: <exact user action>
 2. ...
 
-Resume: re-run `/ak:goal-warmup` after supplying the above.
+Resume: re-run `/ak-goal-warmup` after supplying the above.
 Do not start /goal until Ready.
 ```
 

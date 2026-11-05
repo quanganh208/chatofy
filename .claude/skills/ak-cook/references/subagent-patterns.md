@@ -18,7 +18,7 @@ delegate_agent capability(subagent_type="researcher", prompt="Research [topic]. 
 ```
 delegate_agent capability(subagent_type="scout", prompt="Find files related to [feature] in codebase", description="Scout [feature]")
 ```
-- Use `/ak:scout ext` (preferred) or `/ak:scout` (fallback)
+- Use `/ak-scout ext` (preferred) or `/ak-scout` (fallback)
 
 ## Planning Phase
 ```

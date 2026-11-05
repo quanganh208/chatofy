@@ -563,10 +563,312 @@ def aggregate(records, sid):
     return summary
 
 
+# ----------------------------------------------------------- session inventory
+
+# Any file under a skills/<name>/ folder: SKILL.md or a resource below it.
+SKILL_FILE = re.compile(r'[/\\]skills[/\\]+([\w.:-]+)[/\\]+((?:references|scripts|assets)(?:[/\\]+[\w.\-]+)+|SKILL\.md)')
+BASE_DIR = re.compile(r'Base directory for this skill:\s*\S*?[/\\]skills[/\\]+([\w.:-]+)')
+SLASH = re.compile(r'<command-name>/([\w.:-]+)</command-name>')
+
+
+def skill_key(name):
+    """Canonical key for a skill name as a runtime spells it: /ak:bro, $ak-bro, plugin:ak-bro."""
+    name = str(name or '').strip().lstrip('/$')
+    if ':' in name:
+        ns, slug = name.rsplit(':', 1)
+        return 'ak-' + slug if ns.rsplit(':', 1)[-1] == 'ak' else slug
+    return name
+
+
+def project_transcripts(roots, cwd):
+    """Transcripts of the project at cwd or its nearest ancestor that has any: the Claude folder named
+    after it, and Codex rollouts recorded there."""
+    for base in (cwd, *cwd.parents):
+        found = list(project_transcripts_at(roots, base))
+        if found:
+            return found
+    return []
+
+
+def project_transcripts_at(roots, cwd):
+    folder_name = re.sub(r'[^A-Za-z0-9]', '-', str(cwd))
+    for folder in roots.get('claude-code', []):
+        project = folder / folder_name
+        if project.is_dir():
+            for path in project.glob('*.jsonl'):
+                yield 'claude-code', path
+    wanted = os.path.normcase(str(cwd))
+    for runtime, path in transcripts({'codex': roots.get('codex', [])}, None):
+        with open(path, encoding='utf-8', errors='replace') as handle:
+            try:
+                meta = json.loads(handle.readline()).get('payload') or {}
+            except json.JSONDecodeError:
+                continue
+        if os.path.normcase(str(meta.get('cwd') or '')) == wanted:
+            yield runtime, path
+
+
+def find_session(roots, session, cwd):
+    """Resolve a transcript from a path, an id prefix, or latest (newest of the current project)."""
+    given = Path(session).expanduser()  # --all prints lead transcripts as ~/...
+    if given.is_file():
+        return ('codex' if 'rollout-' in given.name else 'claude-code'), given
+    pool = project_transcripts(roots, cwd) if session == 'latest' else (
+        (runtime, path) for runtime, path in transcripts(roots, None)
+        if path.stem.startswith(session) or path.stem.endswith(session) or session in path.stem.split('-', 1)[-1])
+    found = []
+    for runtime, path in pool:
+        try:
+            found.append((path.stat().st_mtime, runtime, path))
+        except OSError:
+            continue
+    if not found:
+        return None
+    _, runtime, path = max(found, key=lambda item: item[0])
+    return runtime, path
+
+
+def new_skill_entry():
+    return {'triggers': Counter(), 'files': Counter(), 'first_event': None}
+
+
+def note_skill(skills, key, index, trigger=None, rel=None):
+    entry = skills[key]
+    entry['first_event'] = index if entry['first_event'] is None else entry['first_event']
+    if trigger:
+        entry['triggers'][trigger] += 1
+    if rel:
+        entry['files'][clean_rel(rel)] += 1
+
+
+def note_files(skills, payload, index):
+    for text in strings(payload):
+        for name, rel in SKILL_FILE.findall(text):
+            note_skill(skills, skill_key(name), index, rel=rel)
+
+
+def inventory_claude(path):
+    events = load_jsonl(path)
+    skills, tools, errors, pending, seen = defaultdict(new_skill_entry), Counter(), Counter(), {}, set()
+    duplicates, totals = Counter(), {'turns': 0, 'human_prompts': 0, 'interruptions': 0, 'compactions': 0}
+    usage_by_id, stamps = {}, []
+    for index, event in enumerate(events):
+        if event.get('isSidechain'):
+            continue
+        stamps.append(parse_ts(event.get('timestamp')))
+        message = event.get('message') or {}
+        if event.get('isCompactSummary'):
+            totals['compactions'] += 1
+        if event.get('type') == 'user':
+            text = claude_text(message.get('content'))
+            for name in SLASH.findall(text):
+                note_skill(skills, skill_key(name), index, trigger='user')
+            for name in BASE_DIR.findall(text):
+                note_skill(skills, skill_key(name), index, rel='SKILL.md')
+            if claude_is_human(event):
+                if text.lstrip().startswith(INTERRUPT_PREFIX):
+                    totals['interruptions'] += 1
+                else:
+                    totals['human_prompts'] += 1
+            for block in message.get('content') if isinstance(message.get('content'), list) else []:
+                if isinstance(block, dict) and block.get('type') == 'tool_result' and block.get('tool_use_id') in pending:
+                    name = pending.pop(block['tool_use_id'])
+                    if block.get('is_error'):
+                        errors[name] += 1
+        elif event.get('type') == 'assistant':
+            if message.get('usage'):
+                usage_by_id[message.get('id') or id(event)] = message['usage']
+            for block in message.get('content') or []:
+                if not isinstance(block, dict) or block.get('type') != 'tool_use':
+                    continue
+                name, data = block.get('name', '?'), block.get('input') or {}
+                tools[name] += 1
+                pending[block.get('id')] = name
+                key = (name, json.dumps(data, sort_keys=True))
+                if key in seen:
+                    duplicates[name] += 1
+                seen.add(key)
+                if name == 'Skill':
+                    note_skill(skills, skill_key(data.get('skill')), index, trigger='model')
+                note_files(skills, data, index)
+    # A slash skill loads with its base directory; a slash that touches no file of a skills/ folder is a built-in or plain command.
+    for key in [k for k, e in skills.items() if set(e['triggers']) == {'user'} and not e['files']]:
+        del skills[key]
+    totals['turns'] = len(usage_by_id)
+    tokens = dict.fromkeys(TOKEN_FIELDS, 0)
+    for usage in usage_by_id.values():
+        add_usage(tokens, usage)
+    session = next((e.get('sessionId') for e in events if e.get('sessionId')), path.stem)
+    return session, skills, tools, errors, duplicates, totals, tokens, [t for t in stamps if t]
+
+
+def inventory_codex(path):
+    events = load_jsonl(path)
+    skills, tools, errors, pending, seen = defaultdict(new_skill_entry), Counter(), Counter(), {}, set()
+    duplicates, totals = Counter(), {'turns': 0, 'human_prompts': 0, 'interruptions': 0, 'compactions': 0}
+    tokens, stamps, in_response = dict.fromkeys(TOKEN_FIELDS, 0), [], False
+    meta = next(((e.get('payload') or {}) for e in events if e.get('type') == 'session_meta'), {})
+    mention = re.compile(r'(?:^|\s)\$([\w.:-]+)')
+    for index, event in enumerate(events):
+        kind, payload = event.get('type'), event.get('payload') or {}
+        stamps.append(parse_ts(event.get('timestamp')))
+        if kind == 'event_msg' and payload.get('type') == 'token_count' and payload.get('info'):
+            tokens = codex_totals(payload['info'])
+        elif kind == 'event_msg' and payload.get('type') == 'turn_aborted':
+            totals['interruptions'] += 1
+        elif kind == 'compacted':
+            totals['compactions'] += 1
+        if kind != 'response_item':
+            continue
+        starts_response = codex_model_item(payload) and not in_response
+        in_response = codex_model_item(payload)
+        totals['turns'] += starts_response
+        text = codex_user_text(payload)
+        if text is not None and is_prompt(text) and not text.startswith('<'):
+            totals['human_prompts'] += 1
+            for name in mention.findall(text):
+                note_skill(skills, skill_key(name), index, trigger='user')
+            continue
+        call_type = payload.get('type')
+        if call_type in ('function_call', 'custom_tool_call'):
+            name = payload.get('name', '?')
+            data = payload.get('arguments') if call_type == 'function_call' else payload.get('input')
+            tools[name] += 1
+            pending[payload.get('call_id')] = name
+            key = (name, data if isinstance(data, str) else json.dumps(data, sort_keys=True))
+            if key in seen:
+                duplicates[name] += 1
+            seen.add(key)
+            note_files(skills, data, index)
+        elif call_type in ('function_call_output', 'custom_tool_call_output'):
+            name = pending.pop(payload.get('call_id'), '?')
+            if codex_failed(payload.get('output')):
+                errors[name] += 1
+    # A $mention that touches no file of a skills/ folder is plain prompt text, not a skill; drop it so prompt words never reach the output.
+    for key in [k for k, e in skills.items() if set(e['triggers']) == {'user'} and not e['files']]:
+        del skills[key]
+    # A Codex skill load is a model read of its SKILL.md.
+    for entry in skills.values():
+        if entry['files'].get('SKILL.md') and not entry['triggers']:
+            entry['triggers']['model'] += 1
+    session = meta.get('id') or path.stem[-36:]
+    return session, skills, tools, errors, duplicates, totals, tokens, [t for t in stamps if t]
+
+
+def session_inventory(runtime, path):
+    parse = inventory_claude if runtime == 'claude-code' else inventory_codex
+    session, skills, tools, errors, duplicates, totals, tokens, stamps = parse(path)
+    ordered = sorted(skills.items(), key=lambda kv: kv[1]['first_event'])
+    return {
+        'runtime': runtime, 'session': session[:8], 'transcript': display_path(path),
+        'duration_s': seconds(stamps[0], stamps[-1]) if stamps else None, **totals, 'tokens': tokens,
+        'tool_calls': sum(tools.values()), 'tool_errors': sum(errors.values()),
+        'duplicate_calls': sum(duplicates.values()),
+        'tools': dict(tools.most_common()), 'errors_by_tool': dict(errors.most_common()),
+        'duplicates_by_tool': dict(duplicates.most_common()),
+        'skills': [{'skill': key, 'invoked': bool(entry['triggers']), 'triggers': dict(entry['triggers']),
+                    'files': dict(entry['files'].most_common()), 'first_event': entry['first_event']}
+                   for key, entry in ordered if key],
+        'limitations': [
+            'Skills are detected from slash commands, skill tool calls, $mentions and file paths under a skills/ folder; '
+            'a skill loaded another way is missed.',
+            'invoked is false when a skill only appears in file paths, such as one being read or edited as source.',
+            'first_event is the transcript line index; files counts mentions in tool arguments, not confirmed reads.',
+            'An open session is measured up to its last written line.',
+        ],
+    }
+
+
+# ------------------------------------------------------------ machine inventory
+
+# Bytes that any Claude Code skill use leaves in a transcript; files without one are skipped unparsed.
+CLAUDE_SKILL_MARKERS = (b'<command-name>/', b'"name":"Skill"', b'"name": "Skill"', b'skills/', b'skills\\\\')
+
+
+def inventory_or_none(item):
+    """Inventory one transcript for the machine-wide scan; None when it shows no skill or cannot be read."""
+    runtime, path = item
+    if runtime == 'claude-code' and not contains_any(path, CLAUDE_SKILL_MARKERS):
+        return None
+    try:
+        inventory = session_inventory(runtime, path)
+    except (OSError, ValueError):
+        return None
+    return inventory if any(s['invoked'] for s in inventory['skills']) else None
+
+
+def lead_score(inventory):
+    return inventory['tool_errors'] + inventory['duplicate_calls'] + 3 * inventory['interruptions']
+
+
+def machine_inventory(roots, since, excluded, top, jobs):
+    """Every invoked skill across all local transcripts, with session-level trouble counts and the
+    sessions most worth reading first."""
+    items = list(transcripts(roots, since))
+    if jobs > 1 and len(items) > 1:
+        from concurrent.futures import ProcessPoolExecutor
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            inventories = list(pool.map(inventory_or_none, items, chunksize=8))
+    else:
+        inventories = [inventory_or_none(item) for item in items]
+    skills = defaultdict(lambda: {'sessions': 0, 'triggers': Counter(), 'files': Counter(), 'runtimes': Counter(),
+                                  'sessions_with_errors': 0, 'tool_errors': 0, 'errors_by_tool': Counter(),
+                                  'duplicate_calls': 0, 'interrupted_sessions': 0, 'compacted_sessions': 0, 'leads': []})
+    used = 0
+    for inventory in inventories:
+        if not inventory or any(inventory['session'].startswith(e) or e.startswith(inventory['session']) for e in excluded):
+            continue
+        used += 1
+        lead = {'session': inventory['session'], 'runtime': inventory['runtime'], 'transcript': inventory['transcript'],
+                'tool_errors': inventory['tool_errors'], 'duplicate_calls': inventory['duplicate_calls'],
+                'interruptions': inventory['interruptions'], 'errors_by_tool': dict(Counter(inventory['errors_by_tool']).most_common(3)),
+                'score': lead_score(inventory)}
+        for skill in inventory['skills']:
+            if not skill['invoked']:
+                continue
+            entry = skills[skill['skill']]
+            entry['sessions'] += 1
+            entry['triggers'].update(skill['triggers'])
+            entry['files'].update(skill['files'].keys())
+            entry['runtimes'][inventory['runtime']] += 1
+            entry['sessions_with_errors'] += bool(inventory['tool_errors'])
+            entry['tool_errors'] += inventory['tool_errors']
+            entry['errors_by_tool'].update(inventory['errors_by_tool'])
+            entry['duplicate_calls'] += inventory['duplicate_calls']
+            entry['interrupted_sessions'] += bool(inventory['interruptions'])
+            entry['compacted_sessions'] += bool(inventory['compactions'])
+            if lead['score']:
+                entry['leads'].append(lead)
+    ranked = []
+    for name, entry in skills.items():
+        entry['leads'] = sorted(entry['leads'], key=lambda lead: -lead['score'])[:top]
+        for key in ('triggers', 'files', 'runtimes'):
+            entry[key] = dict(entry[key].most_common())
+        entry['errors_by_tool'] = dict(entry['errors_by_tool'].most_common(5))
+        ranked.append({'skill': name, **entry})
+    ranked.sort(key=lambda s: (-s['sessions'], s['skill']))
+    return {
+        'scope': 'all', 'roots': {k: [display_path(p) for p in v] for k, v in roots.items()},
+        'transcripts_scanned': len(items), 'sessions_with_skills': used, 'skills': ranked,
+        'limitations': [
+            'Errors, duplicates, interruptions and compactions are counted per session, not per skill: a session that used '
+            'several skills counts toward each; confirm the owner by reading the lead session.',
+            'leads are the sessions with the highest score (tool errors + duplicate calls + 3 x interruptions), at most --top per skill.',
+            'Claude Code transcripts without a skill marker are skipped unparsed; detection limits of --session apply.',
+        ],
+    }
+
+
 def main(argv=None):
     configure_utf8_console()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('skill', help='skill name (ak:skill-creator, ak-skill-creator) or skill directory')
+    parser.add_argument('skill', nargs='?', help='skill name (ak:skill-creator, ak-skill-creator) or skill directory')
+    parser.add_argument('--session', metavar='ID|latest|PATH',
+                        help='inventory one session instead: every skill it used, with files and tool error counts')
+    parser.add_argument('--all', action='store_true',
+                        help='inventory every local session instead: each used skill with session counts and lead sessions')
+    parser.add_argument('--top', type=int, default=5, help='with --all: lead sessions kept per skill (default 5)')
+    parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 1), help='with --all: parallel parse workers')
     parser.add_argument('--runtime', choices=('all', 'claude-code', 'codex'), default='all')
     parser.add_argument('--root', action='append', default=[], metavar='RUNTIME=DIR',
                         help='transcript root override, e.g. claude-code=/tmp/projects (repeatable)')
@@ -576,8 +878,9 @@ def main(argv=None):
                         help='keep only these entrypoints/originators, e.g. cli or codex_exec (repeatable)')
     parser.add_argument('--summary-only', action='store_true', help='omit per-invocation records')
     args = parser.parse_args(argv)
+    if sum(map(bool, (args.skill, args.session, args.all))) != 1:
+        parser.error('give exactly one of a skill, --session or --all')
 
-    sid = SkillId(args.skill)
     roots = default_roots()
     if args.root:
         roots = defaultdict(list)
@@ -588,7 +891,23 @@ def main(argv=None):
             roots[runtime].append(Path(folder))
     if args.runtime != 'all':
         roots = {args.runtime: roots.get(args.runtime, [])}
+    if args.session:
+        found = find_session(roots, args.session, Path.cwd())
+        if not found:
+            print(f'no transcript matches --session {args.session}', file=sys.stderr)
+            return 1
+        json.dump(session_inventory(*found), sys.stdout, indent=2, default=str)
+        sys.stdout.write('\n')
+        return 0
+
     excluded = [e[:8] for e in args.exclude_session]
+    if args.all:
+        result = machine_inventory(roots, args.since, excluded, max(args.top, 0), max(args.jobs, 1))
+        json.dump(result, sys.stdout, indent=2, default=str)
+        sys.stdout.write('\n')
+        return 0 if result['skills'] else 1
+
+    sid = SkillId(args.skill)
 
     records, scanned, matched = [], 0, 0
     for runtime, path in transcripts(roots, args.since):

@@ -1,19 +1,17 @@
 ---
-name: ak:security
-description: "Scan codebase for security vulnerabilities, hardcoded secrets, dependency issues, and OWASP patterns, with optional STRIDE threat modeling, red-team persona discovery, and auto-fix. Use when asked to 'security scan', 'check for secrets', 'audit security', or before major releases."
-user-invocable: true
-when_to_use: "Invoke for security scan, secret detection, dependency audit, STRIDE/OWASP threat audit, or auto-fix loops."
+name: ak-security
+description: "Audit code and dependencies for vulnerabilities, OWASP issues, leaked secrets and vulnerable packages, with optional STRIDE and auto-fix."
+when_to_use: "Invoke for a security review, CVE dependency check or leaked-credential removal."
 category: workflow
 keywords: [security, secrets, vulnerabilities, dependencies, STRIDE, OWASP, audit, red-team, penetration-testing, vulnerability-discovery]
 argument-hint: "[scope] [--secrets-only] [--deps-only] [--fix] [--red-team] [--iterations N]"
 metadata:
   author: agentkit
   attribution: "Security audit pattern adapted from autoresearch by Udit Goenka (MIT)"
-  license: MIT
   version: "2.0.2"
 ---
 
-# ak:security — Security Scan & Threat Audit
+# ak-security — Security Scan & Threat Audit
 
 Comprehensive security scanner and threat audit framework. Combines fast targeted checks (secrets, dependencies, `.env` exposure, code vulnerability patterns) with structured STRIDE + OWASP threat modeling, multi-persona red-team discovery (`--red-team`), and optional iterative auto-remediation (`--fix`).
 
@@ -35,14 +33,14 @@ Comprehensive security scanner and threat audit framework. Combines fast targete
 
 | Mode | Invocation | Behavior |
 |------|-----------|----------|
-| Fast secret scan | `/ak:security [scope] --secrets-only` | Scan secrets and credentials; skip deps/code/STRIDE |
-| Fast dependency audit | `/ak:security [scope] --deps-only` | Audit package dependencies for CVEs; skip code/STRIDE |
-| Comprehensive audit (default) | `/ak:security [scope]` | Stack detection → `.env` check → secrets → deps → code patterns → STRIDE + OWASP |
-| Red-team discovery | `/ak:security [scope] --red-team` | Iterate 4 attacker personas (Adversary, Supply Chain, Insider, Infra) → STRIDE/OWASP sweep |
-| Bounded red-team | `/ak:security [scope] --red-team --iterations N` | Cap red-team persona discovery to N iterations total |
-| Audit + Fix | `/ak:security [scope] --fix` | Comprehensive audit → fix confirmed findings iteratively |
-| Red-team + Fix | `/ak:security [scope] --red-team --fix` | Full persona discovery → fix confirmed Critical/High |
-| Fast scan + Fix | `/ak:security [scope] --secrets-only --fix` | Scan secrets → remediate confirmed leaks via env vars |
+| Fast secret scan | `/ak-security [scope] --secrets-only` | Scan secrets and credentials; skip deps/code/STRIDE |
+| Fast dependency audit | `/ak-security [scope] --deps-only` | Audit package dependencies for CVEs; skip code/STRIDE |
+| Comprehensive audit (default) | `/ak-security [scope]` | Stack detection → `.env` check → secrets → deps → code patterns → STRIDE + OWASP |
+| Red-team discovery | `/ak-security [scope] --red-team` | Iterate 4 attacker personas (Adversary, Supply Chain, Insider, Infra) → STRIDE/OWASP sweep |
+| Bounded red-team | `/ak-security [scope] --red-team --iterations N` | Cap red-team persona discovery to N iterations total |
+| Audit + Fix | `/ak-security [scope] --fix` | Comprehensive audit → fix confirmed findings iteratively |
+| Red-team + Fix | `/ak-security [scope] --red-team --fix` | Full persona discovery → fix confirmed Critical/High |
+| Fast scan + Fix | `/ak-security [scope] --secrets-only --fix` | Scan secrets → remediate confirmed leaks via env vars |
 
 ### Flag Precedence & Scope Defaults
 - **Scope default:** when `[scope]` is omitted, scans the entire project root (`.`). Exclude `.git/`, `node_modules/`, `dist/`, `vendor/`, `__pycache__/`. For large repos in default mode, fast layers run across all files, while deep STRIDE/OWASP focuses on high-risk surfaces (`auth/`, `api/`, `config/`, database layers).
@@ -52,10 +50,10 @@ Comprehensive security scanner and threat audit framework. Combines fast targete
 ### Legacy Compatibility
 
 ```text
-ak:security-scan                → /ak:security
-ak:security-scan --secrets-only → /ak:security --secrets-only
-ak:security-scan --deps-only    → /ak:security --deps-only
-ak:security-scan <dir>          → /ak:security <dir>
+ak-security-scan                → /ak-security
+ak-security-scan --secrets-only → /ak-security --secrets-only
+ak-security-scan --deps-only    → /ak-security --deps-only
+ak-security-scan <dir>          → /ak-security <dir>
 ```
 
 ---
@@ -170,7 +168,7 @@ When `--fix` is provided, apply fixes iteratively after the audit:
    - For hardcoded secrets: replace secret with an environment variable reference, add rotation instruction, and never rewrite git history automatically.
    - Commit: `security(fix-N): <short description>`.
 3. Stop early if guard fails — report the failure instead of proceeding.
-4. Uses `ak:autoresearch` guard pattern for regression prevention. Use `--iterations N` to cap fix iterations.
+4. Uses `ak-autoresearch` guard pattern for regression prevention. Use `--iterations N` to cap fix iterations.
 
 ---
 
@@ -203,10 +201,10 @@ This skill does NOT handle: Live active network penetration testing, DDoS simula
 
 ## Integration with Other Skills
 
-- Run after `ak:predict` when the security persona flags concerns
+- Run after `ak-predict` when the security persona flags concerns
 - Use this skill’s explicit `--fix` mode for guarded remediation of confirmed findings
-- Use `ak:scenario` with `--focus authorization` for deeper auth flow testing
-- Pair with `ak:plan` to schedule Medium/Low findings as sprint tasks
+- Use `ak-scenario` with `--focus authorization` for deeper auth flow testing
+- Pair with `ak-plan` to schedule Medium/Low findings as sprint tasks
 
 ---
 
@@ -214,28 +212,28 @@ This skill does NOT handle: Live active network penetration testing, DDoS simula
 
 ```bash
 # Fast secret scan — project-wide
-/ak:security --secrets-only
+/ak-security --secrets-only
 
 # Fast dependency audit — project-wide
-/ak:security --deps-only
+/ak-security --deps-only
 
 # Comprehensive audit — project root (default)
-/ak:security
+/ak-security
 
 # One-shot audit — API layer only
-/ak:security src/api/**/*.ts
+/ak-security src/api/**/*.ts
 
 # Red-team discovery — full codebase, all 4 personas
-/ak:security full --red-team
+/ak-security full --red-team
 
 # Red-team discovery — bounded to 20 iterations total
-/ak:security src/ --red-team --iterations 20
+/ak-security src/ --red-team --iterations 20
 
 # Red-team discovery + auto-fix confirmed Critical/High
-/ak:security full --red-team --fix
+/ak-security full --red-team --fix
 
 # One-shot audit + auto-fix, max 15 iterations
-/ak:security src/ --fix --iterations 15
+/ak-security src/ --fix --iterations 15
 ```
 
 ---
@@ -251,7 +249,7 @@ See `references/red-team-personas.md` for the full persona catalog and TSV schem
 
 Faithful absorption of upstream `/autoresearch:security` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT) merged with AgentKit fast secret/dependency/vulnerability scanning.
 
-See `/ak:autoresearch` for the full family map.
+See `/ak-autoresearch` for the full family map.
 
 ## Optional finding-triage experiment
 

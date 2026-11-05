@@ -112,7 +112,7 @@ Use `expectedCall` sequences, allowing order-independent steps where valid.
 ## 6. Automated browser runs
 
 For scripted end-to-end runs against a real Chrome with the flag/OT enabled, hand
-off to `ak:agent-browser` (or `ak:chrome-profile` for the user's real profile)
+off to `ak-agent-browser` (or `ak-chrome-profile` for the user's real profile)
 rather than adding a browser dependency to this skill. Keep evals reproducible:
 fixed prompts, seeded state, recorded expected calls.
 

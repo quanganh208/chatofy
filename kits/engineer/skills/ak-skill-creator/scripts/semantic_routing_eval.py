@@ -4,8 +4,9 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from semantic_routing_contract import (PROTOCOL, encoded, fingerprint, load,
+from semantic_routing_contract import (PROTOCOL, catalog_from_snapshot, decode, encoded, fingerprint, load,
     validate_catalog)
+from semantic_routing_identity import compare_restructure, remap_cases
 from semantic_routing_metrics import compare
 from semantic_routing_providers import DecisionCLIProvider, ReplayProvider, replay_records
 from semantic_routing_runner import common_schedule, evaluate, select_cases
@@ -18,12 +19,23 @@ def write_new(path, value):
         stream.write("\n")
 
 
+def load_jsonl(path, limit=64 << 20):
+    with open(path, "rb") as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise ValueError("input exceeds byte limit")
+    return [decode(line) for line in raw.decode().splitlines() if line.strip()]
+
+
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     commands = p.add_subparsers(dest="command", required=True)
     snapshot = commands.add_parser("snapshot", help="freeze an actual runtime-visible export; never infer filesystem completeness")
     snapshot.add_argument("--export", required=True)
     snapshot.add_argument("--output", required=True)
+    source = commands.add_parser("catalog-from-snapshot", help="build a non-authoritative catalog from a frozen source-derived kit snapshot")
+    source.add_argument("--snapshot", required=True)
+    source.add_argument("--output", required=True)
     freeze = commands.add_parser("freeze", help="freeze selected candidate before accessing holdout")
     schedule = commands.add_parser("schedule", help="find common full-catalog batch size using offline Go validation")
     for sub in (freeze, schedule):
@@ -49,6 +61,12 @@ def parser():
     diff.add_argument("--baseline", required=True)
     diff.add_argument("--candidate", required=True)
     diff.add_argument("--output", required=True)
+    remap = commands.add_parser("remap", help="translate case labels to a restructured roster with an identity map")
+    for name in ("cases", "identity-map", "catalog", "candidate-catalog", "output"):
+        remap.add_argument("--" + name, required=True)
+    restructure = commands.add_parser("compare-restructure", help="owner-level comparison across renamed, merged, split or removed skills")
+    for name in ("baseline", "candidate", "baseline-records", "candidate-records", "cases", "identity-map", "output"):
+        restructure.add_argument("--" + name, required=True)
     runtime = commands.add_parser("summarize")
     runtime.add_argument("--records", nargs="+", required=True)
     runtime.add_argument("--catalog", required=True)
@@ -62,8 +80,15 @@ def main(argv=None):
         if args.command == "snapshot":
             result = load(args.export)
             validate_catalog(result)
+        elif args.command == "catalog-from-snapshot":
+            result = catalog_from_snapshot(load(args.snapshot))
         elif args.command == "compare":
             result = compare(load(args.baseline), load(args.candidate))
+        elif args.command == "remap":
+            result = remap_cases(load(args.cases), load(args.identity_map), load(args.catalog), load(args.candidate_catalog))
+        elif args.command == "compare-restructure":
+            result = compare_restructure(load(args.baseline), load(args.candidate), load_jsonl(args.baseline_records),
+                                         load_jsonl(args.candidate_records), load(args.cases), load(args.identity_map))
         elif args.command == "summarize":
             result = summarize_runtime([load(path) for path in args.records], load(args.catalog))
         else:

@@ -1,4 +1,4 @@
-# `ak:handoff` Redaction Patterns
+# `ak-handoff` Redaction Patterns
 
 Every artifact and every appended `--include-diff` / `--include-status`
 block passes through redaction before write. Redaction is a hard gate:
@@ -64,7 +64,7 @@ Do **not** substitute:
 - inferences from unrelated files.
 
 The successor agent uses `Not captured in this session` as a signal to
-gather that evidence itself before acting, and `ak:handoff --dispatch` treats an
+gather that evidence itself before acting, and `ak-handoff --dispatch` treats an
 empty required section as a validation failure.
 
 ## Verification recipe (for the `--advice` reviewer)

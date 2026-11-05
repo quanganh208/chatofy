@@ -1,14 +1,13 @@
 ---
-name: ak:agentkit
-description: "Task router for AgentKit installs. Classifies the task, activates the right installed skills, chains them into the shortest workflow that fits, and spawns installed subagents at defined trigger points to raise output quality. Use at the start of multi-step, multi-domain, or ambiguous work, or when unsure which skill or agent applies."
-user-invocable: true
-when_to_use: "Invoke at the start of multi-step or multi-domain work, when the right skill is unclear, when skills need sequencing into a workflow, or when deciding whether and when to spawn subagents."
+name: ak-agentkit
+description: "Route AgentKit work by classifying the task, chaining installed skills and spawning subagents at trigger points; also operate the ak CLI."
+when_to_use: "Invoke at the start of multi-step work, when the right skill is unclear, or when the next action is an ak subcommand."
 category: meta
-keywords: [routing, dispatch, skills, chaining, subagents, delegation, workflow, quality]
-argument-hint: "[task to route]"
+keywords: [routing, dispatch, skills, chaining, subagents, workflow, ak, cli, lifecycle, install, doctor, recover]
+argument-hint: "[task to route | ak goal or subcommand]"
 metadata:
   author: agentkit
-  version: "1.0.2"
+  version: "1.1.0"
 ---
 
 # AgentKit router
@@ -37,3 +36,11 @@ Headless cross-runtime work belongs to an installed orchestration capability. Mi
 fall back to native capabilities; report the gap instead of inventing an invocation. On a
 failed route, change approach from evidence and resume useful work. Ask only for a material
 missing decision or authorization beyond the current scope. Report outcome and verification.
+
+## Operating the ak CLI
+
+When the next action is an `ak` subcommand, or reading its `--json` output, follow
+`references/ak-cli-operation.md`: classify the effect (read-only, mutating, diagnostic),
+confirm project versus global scope before any mutation, and prefer `--json --no-interactive`
+for scripted reads. `references/command-reference.md` is a generated starting index;
+`ak <cmd> --help` and the `--json` envelope stay authoritative.

@@ -1,38 +1,38 @@
 ---
-name: ak:explain
-description: Explain concepts, code, systems, errors, and documents with grounded evidence. Use --eli5 for plain-language analogies or --html for a visual explanation.
-user-invocable: true
-when_to_use: "Invoke when the user wants an explanation, walkthrough, mental model, ELI5 simplification, or visual HTML explanation of a concept, codebase, or system."
+name: ak-explain
+description: "Explain concepts, code, systems, errors and documents with grounded evidence; --eli5 adds analogies and --html visuals."
+when_to_use: "Invoke when the user wants an explanation, walkthrough or mental model."
 category: reasoning
 keywords: [explain, walkthrough, mental-model, eli5, visual, html, code, concept, architecture]
-argument-hint: "[subject|path|URL] [--html] [--eli5]"
-license: MIT
+argument-hint: "[subject|path|URL] [--html] [--ak-render] [--eli5]"
+license: Proprietary
 metadata:
   author: agentkit
   version: "1.0.1"
 ---
 
-# Explain (`ak:explain`)
+# Explain (`ak-explain`)
 
 Build a grounded mental model and clear explanation of any technical subject, code path, system architecture, error, or document.
 
 ## Routing Boundaries
 
-- **`ak:bro`**: use ONLY when the user asks to simplify or restate the assistant's *immediately preceding response*.
-- **`ak:preview`**: use for generic file/artifact viewing, slide presentations, or visual diff comparisons.
-- **`ak:explain`**: use for explaining new topics, files, concepts, systems, code paths, errors, and `--eli5` / `--html` explanations.
+- **`ak-bro`**: use ONLY when the user asks to simplify or restate the assistant's *immediately preceding response*.
+- **`ak-preview`**: use for generic file/artifact viewing, slide presentations, or visual diff comparisons.
+- **`ak-explain`**: use for explaining new topics, files, concepts, systems, code paths, errors, and `--eli5` / `--html` explanations.
 
 Explaining an error is read-only. If the user requests a repair, route implementation to the installed repair capability and carry over the evidence.
 
 ## Argument Resolution & Modes
 
 ```text
-/ak:explain <subject> [--html] [--eli5]
+/ak-explain <subject> [--html] [--eli5]
 ```
 
 - **Default (Markdown)**: Concise, grounded explanation separating observed facts from inference.
 - **`--eli5`**: "Explain like I'm 5" — translates complex mechanics into intuitive everyday analogies, defines technical terms on first use, and strictly preserves every material warning, uncertainty, and safety boundary. Load `references/eli5-contract.md`.
-- **`--html`**: Generates one self-contained, responsive, accessible, offline HTML visual explanation. Activates `ak:frontend-design` and `ak:diagram` (when available). Load `references/html-contract.md`.
+- **`--html`**: Generates one self-contained, responsive, accessible, offline HTML visual explanation. Activates `ak-frontend-design` and `ak-diagram` (when available). Load `references/html-contract.md`.
+- **`--ak-render`**: Opt-in (implies `--html`): compile the page from a Page Spec with the pinned AK Render CLI (also selected by a project `.ak-render/` directory). See the AK Render section of `references/html-contract.md`.
 - **`--html --eli5`**: Composes both flags: the visual HTML artifact uses plain ELI5 copy, intuitive diagram labels, and prominent warning panels.
 
 Both flags compose in any order. Unknown flags return concise usage help.
