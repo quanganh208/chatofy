@@ -34,6 +34,8 @@ export function TurnList({ rows, emptyText }: TurnListProps) {
       data={rows}
       keyExtractor={(row) => row.key}
       onContentSizeChange={() => {
+        // An emptied list is a new conversation, whatever was read back in the last one.
+        if (rows.length === 0) pinnedRef.current = true;
         if (pinnedRef.current) listRef.current?.scrollToEnd({ animated: true });
       }}
       onScrollBeginDrag={() => {
