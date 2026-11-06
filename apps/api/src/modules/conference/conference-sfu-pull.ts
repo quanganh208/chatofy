@@ -9,9 +9,10 @@ import type {
 } from './conference-room-registry.service';
 
 /** Per-track errors worth one more try: the publisher's track is not ready yet. */
+const TRACK_NOT_FOUND = 'not_found_track_error';
 const RETRYABLE_TRACK_ERRORS = new Set([
   'retryable_transient_error',
-  'not_found_track_error',
+  TRACK_NOT_FOUND,
 ]);
 const PULL_RETRY_DELAY_MS = 500;
 
@@ -30,6 +31,8 @@ export interface PullOutcome {
   pulled: { mid: string; from: WantedTrack }[];
   /** A track was skipped with a retryable error and is worth asking for again. */
   retryable: boolean;
+  /** Published tracks the SFU said it does not have, as of this pull. */
+  notFound: WantedTrack[];
 }
 
 /** Every track published in the room that `peer` does not receive yet. */
@@ -80,6 +83,7 @@ export async function pullWithRetry(
       offerSdp: first.offerSdp,
       pulled: first.pulled,
       retryable: first.retry.length > 0,
+      notFound: notFoundIn(first.retry),
     };
   }
   report(first.failed, onSkipped);
@@ -94,6 +98,7 @@ export async function pullWithRetry(
     offerSdp: second.offerSdp,
     pulled: [...first.pulled, ...second.pulled],
     retryable: second.retry.length > 0,
+    notFound: notFoundIn(second.retry),
   };
 }
 
@@ -132,6 +137,12 @@ async function pullOnce(
     else failed.push({ from, code: code ?? 'missing_mid' });
   });
   return { offerSdp: result.offerSdp, pulled, retry, failed };
+}
+
+function notFoundIn(rejected: Rejected[]): WantedTrack[] {
+  return rejected
+    .filter(({ code }) => code === TRACK_NOT_FOUND)
+    .map(({ from }) => from);
 }
 
 function report(

@@ -13,6 +13,8 @@ export interface ConferenceRoom {
    * seated in a room nobody can reach.
    */
   joining: number;
+  /** Times each user was sent to republish here, by user id. Dies with the room. */
+  publisherRestarts?: Map<string, number>;
 }
 
 /** Per-peer rate limits, created lazily by the handler that owns each one. */
@@ -54,6 +56,8 @@ export interface ParticipantSession {
   /** The SFU session this peer receives on, created by its first subscribe. */
   subSessionId?: string;
   publishedTracks: PublishedTrack[];
+  /** When a receiver first got "not found" for this peer's tracks; cleared by a pull that works. */
+  notFoundSince?: number;
   /** `mid` on the receiving session → the peer and kind it carries. */
   pulled: Map<string, PulledFrom>;
   /**
