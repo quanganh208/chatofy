@@ -16,7 +16,11 @@ import type {
 import { ConferenceSocketRegistry } from './conference-socket-registry.service';
 import type { ConferenceErrorReply } from './conference-socket';
 import { SfuSessionQueue, type SfuSessionHold } from './sfu-session-queue';
-import { missingTracks, pullWithRetry } from './conference-sfu-pull';
+import {
+  missingTracks,
+  pullWithRetry,
+  type PullOutcome,
+} from './conference-sfu-pull';
 import { iceServersFrom } from './conference-sfu-ice-servers';
 import { TokenBucket } from './conference-token-bucket';
 
@@ -40,9 +44,9 @@ const MEDIA_REFILL_WINDOW_MS = 10_000;
 /**
  * Close code for a client whose receiving session can no longer take a pull:
  * stuck on an unanswered SFU offer (no answer in time, the answer was
- * refused, or a pull whose outcome is unknown) or closed by the SFU. Not
- * 4000/4001, so the client reconnects and rebuilds both connections from
- * scratch.
+ * refused, or a pull whose outcome is unknown) or closed by the SFU; or whose
+ * published tracks the SFU has lost. Not 4000/4001, so the client reconnects
+ * and rebuilds both connections from scratch.
  */
 const CLOSE_MEDIA_RESTART = 1011;
 /**
@@ -51,6 +55,16 @@ const CLOSE_MEDIA_RESTART = 1011;
  * it, 406 means one is there, and 410 means the SFU closed the session.
  */
 const BROKEN_SESSION_STATUSES = new Set([0, 406, 410]);
+/**
+ * How long a published track may stay "not found" before its publisher is sent
+ * to publish again. A track that is merely late clears within one client retry,
+ * about 2 s; over 18 prod rooms the two that outlasted that never recovered,
+ * one of them still missing 3 min on, while the publisher sent media normally.
+ * The client stops retrying after about 11 s, so this has to fire before that.
+ */
+const NOT_FOUND_RESTART_AFTER_MS = 6000;
+/** A publisher the SFU keeps losing stays in the call unseen rather than cycling. */
+const MAX_PUBLISHER_RESTARTS = 2;
 
 /** The caller's seat, as the gateway resolved it from the socket. */
 export interface SfuSeat {
@@ -219,6 +233,7 @@ export class ConferenceSfuSignaling {
         for (const { mid, from } of result.pulled) {
           peer.pulled.set(mid, { socketId: from.socketId, kind: from.kind });
         }
+        this.restartLostPublishers(room, result);
         // A peer that left meanwhile gets no hold: its cleanup is queued on
         // this key and would otherwise wait out the answer timeout.
         if (!isSeated(seat)) return { error: 'not_in_room' };
@@ -255,6 +270,41 @@ export class ConferenceSfuSignaling {
         return { sdp: null, mids: [], retryAfterMs: SUBSCRIBE_RETRY_AFTER_MS };
       }
     });
+  }
+
+  /**
+   * Track how long each publisher's tracks have been unfindable, and send the
+   * ones past {@link NOT_FOUND_RESTART_AFTER_MS} back to publish on a new
+   * session. Nothing a receiver does can bring such a track back. A pull that
+   * works proves the publisher is on the SFU, so it starts the wait over.
+   */
+  private restartLostPublishers(
+    room: ConferenceRoom,
+    { pulled, notFound }: Pick<PullOutcome, 'pulled' | 'notFound'>,
+  ): void {
+    const lost = new Set(notFound.map(({ socketId }) => socketId));
+    for (const { from } of pulled) {
+      const publisher = room.peers.get(from.socketId);
+      if (publisher && !lost.has(from.socketId)) {
+        publisher.notFoundSince = undefined;
+      }
+    }
+    const now = Date.now();
+    for (const socketId of lost) {
+      const publisher = room.peers.get(socketId);
+      if (!publisher) continue;
+      publisher.notFoundSince ??= now;
+      if (now - publisher.notFoundSince < NOT_FOUND_RESTART_AFTER_MS) continue;
+      publisher.notFoundSince = undefined;
+      const restarts = (room.publisherRestarts ??= new Map<string, number>());
+      const count = restarts.get(publisher.userId) ?? 0;
+      if (count >= MAX_PUBLISHER_RESTARTS) continue;
+      restarts.set(publisher.userId, count + 1);
+      this.logger.warn(`restarting ${socketId}: its tracks are not on the SFU`);
+      this.sockets
+        .get(socketId)
+        ?.close(CLOSE_MEDIA_RESTART, 'published tracks not found');
+    }
   }
 
   /** Submit the client's answer to its last subscribe offer, then unlock the session. */

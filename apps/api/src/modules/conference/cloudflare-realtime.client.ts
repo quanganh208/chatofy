@@ -7,6 +7,14 @@ import type { Env } from '../../config/env.schema';
 const API_BASE = 'https://rtc.live.cloudflare.com/v1';
 /** Every SFU call is a short control request; a stuck one must not hold a session queue. */
 const REQUEST_TIMEOUT_MS = 8000;
+/**
+ * A pull waits on the SFU for the publisher's first packet: on a track that
+ * sends none, Cloudflare answers `empty_track_error` for that track only after
+ * 6.4–8.6 s (measured 2026-11-06), with the request's other tracks pulled. Cut
+ * off sooner, the whole pull reads as a lost request and the receiver is sent
+ * to reconnect over someone else's silent track.
+ */
+const PULL_TIMEOUT_MS = 20_000;
 /** Cloudflare's `retryable_transient_error` is retried once, after this pause. */
 const TRANSIENT_RETRY_DELAY_MS = 300;
 const TRANSIENT_ERROR = 'retryable_transient_error';
@@ -157,6 +165,8 @@ export class CloudflareRealtimeClient {
       {
         tracks: remotes.map((r) => ({ location: 'remote', ...r })),
       },
+      this.appSecret,
+      PULL_TIMEOUT_MS,
     );
     const parsed = parse(tracksResponseSchema, body);
     return {
@@ -219,9 +229,10 @@ export class CloudflareRealtimeClient {
     url: string,
     payload: unknown,
     token = this.appSecret,
+    timeoutMs = REQUEST_TIMEOUT_MS,
   ): Promise<unknown> {
     try {
-      return await this.send(method, url, payload, token);
+      return await this.send(method, url, payload, token, timeoutMs);
     } catch (err) {
       const retryable =
         err instanceof CloudflareRealtimeError &&
@@ -231,7 +242,7 @@ export class CloudflareRealtimeClient {
       await new Promise((resolve) =>
         setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS),
       );
-      return this.send(method, url, payload, token);
+      return this.send(method, url, payload, token, timeoutMs);
     }
   }
 
@@ -240,6 +251,7 @@ export class CloudflareRealtimeClient {
     url: string,
     payload: unknown,
     token: string,
+    timeoutMs: number,
   ): Promise<unknown> {
     let res: Response;
     try {
@@ -250,7 +262,7 @@ export class CloudflareRealtimeClient {
           'Content-Type': 'application/json',
         },
         body: payload === undefined ? undefined : JSON.stringify(payload),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       // A network failure or the timeout. The underlying error is dropped: it

@@ -121,6 +121,7 @@ function deferred<T>() {
 }
 
 type ForceClose = [string, string[]];
+type Seat = ReturnType<ReturnType<typeof harness>['seat']>;
 
 describe('ConferenceSfuSignaling', () => {
   afterEach(() => {
@@ -665,6 +666,126 @@ describe('ConferenceSfuSignaling', () => {
     expect(h.cloudflare.pullTracks).toHaveBeenLastCalledWith('sess-2', [
       { sessionId: 'sess-1', trackName: 'video' },
     ]);
+  });
+
+  describe('a published track the SFU cannot find', () => {
+    const notFound = {
+      offerSdp: null,
+      requiresImmediateRenegotiation: false,
+      tracks: [
+        // Unnamed, so it matches by position whichever session published.
+        {
+          sessionId: '',
+          trackName: '',
+          mid: '',
+          errorCode: 'not_found_track_error',
+        },
+      ],
+    } as never;
+
+    /** One subscribe round whose two pulls both come back not found. */
+    async function failedRound(h: ReturnType<typeof harness>, seat: Seat) {
+      h.cloudflare.pullTracks
+        .mockResolvedValueOnce(notFound)
+        .mockResolvedValueOnce(notFound);
+      const pending = h.sfu.subscribe(seat);
+      await vi.advanceTimersByTimeAsync(500);
+      await pending;
+    }
+
+    async function publishedRoom() {
+      vi.useFakeTimers();
+      const h = harness();
+      const alice = h.seat('alice');
+      const bob = h.seat('bob');
+      await h.sfu.publish(alice, {
+        sdp: 'v=0 offer',
+        tracks: [{ mid: '0', kind: 'video' }],
+      });
+      return { h, alice, bob };
+    }
+
+    it('leaves a publisher alone while its track is only late', async () => {
+      const { h, bob } = await publishedRoom();
+      await failedRound(h, bob);
+      await vi.advanceTimersByTimeAsync(2000);
+      await h.sfu.subscribe(bob);
+
+      expect(h.socket('alice')?.closeMock).not.toHaveBeenCalled();
+    });
+
+    it('restarts a publisher whose track stays missing', async () => {
+      const { h, bob } = await publishedRoom();
+      await failedRound(h, bob);
+      await vi.advanceTimersByTimeAsync(6000);
+      await failedRound(h, bob);
+
+      expect(h.socket('alice')?.closeMock).toHaveBeenCalledWith(
+        1011,
+        expect.any(String),
+      );
+      expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
+    });
+
+    it('starts the wait over once any receiver gets the track', async () => {
+      const { h, bob } = await publishedRoom();
+      const carol = h.seat('carol');
+      await failedRound(h, bob);
+      await vi.advanceTimersByTimeAsync(6000);
+      await h.sfu.subscribe(carol);
+      await failedRound(h, bob);
+
+      expect(h.socket('alice')?.closeMock).not.toHaveBeenCalled();
+    });
+
+    it('stops restarting the same person after two tries in a room', async () => {
+      const { h, bob } = await publishedRoom();
+      const closes = [];
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const id = `alice-${attempt}`;
+        h.room.peers.delete(attempt === 0 ? 'alice' : `alice-${attempt - 1}`);
+        const again = h.seat(id);
+        again.peer.userId = 'user-alice';
+        await h.sfu.publish(again, {
+          sdp: 'v=0 offer',
+          tracks: [{ mid: '0', kind: 'video' }],
+        });
+        await failedRound(h, bob);
+        await vi.advanceTimersByTimeAsync(6000);
+        await failedRound(h, bob);
+        closes.push(h.socket(id)?.closeMock.mock.calls.length);
+        await vi.advanceTimersByTimeAsync(0);
+      }
+
+      expect(closes).toStrictEqual([1, 1, 0]);
+    });
+  });
+
+  it('keeps everyone connected when a publisher sends no packets on one track', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    h.cloudflare.pullTracks.mockResolvedValueOnce({
+      offerSdp: 'v=0 sfu offer',
+      requiresImmediateRenegotiation: true,
+      tracks: [
+        {
+          sessionId: 'sess-1',
+          trackName: 'audio',
+          mid: '',
+          errorCode: 'empty_track_error',
+        },
+        { sessionId: 'sess-1', trackName: 'video', mid: 'm1' },
+      ],
+    } as never);
+
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({
+      sdp: 'v=0 sfu offer',
+      mids: [{ mid: 'm1', socketId: 'alice', kind: 'video' }],
+    });
+    expect(h.socket('alice')?.closeMock).not.toHaveBeenCalled();
+    expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
   });
 
   it('undoes a partial publish and reuses its session on the retry', async () => {
