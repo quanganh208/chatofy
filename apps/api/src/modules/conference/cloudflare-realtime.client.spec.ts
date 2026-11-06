@@ -121,6 +121,19 @@ describe('CloudflareRealtimeClient', () => {
     });
   });
 
+  it('waits longer for a pull than for any other call', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(json(200, { sessionId: 's', tracks: [] })),
+    );
+    const client = makeClient();
+
+    await client.newSession();
+    await client.pullTracks('s', [{ sessionId: 'p', trackName: 'audio' }]);
+
+    expect(timeout.mock.calls).toStrictEqual([[8000], [20_000]]);
+  });
+
   it('throws a 406 after one call, and retries a transient error once', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       json(406, {
