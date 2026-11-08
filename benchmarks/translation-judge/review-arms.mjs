@@ -2,6 +2,7 @@
 // judged corpus, one "arm" per variant, so each can be judged like the baseline.
 //
 //   node review-arms.mjs --arm 2 [--model deepseek-v4-pro] [--limit 5] [--budget-usd 0.5]
+//   node review-arms.mjs --arm 2 --host commandcode [--max-calls 170]
 //
 // Arms:
 //   1  the polisher on the app's hearing with no context: what prod does today,
@@ -14,8 +15,11 @@
 // so the arm tests the shipped pass and not a copy of it. A `null` from the
 // polisher means the draft stands, exactly as live.
 //
-// The reviewer bills the same DeepSeek key prod translates with, so the run
+// On DeepSeek the reviewer bills the same key prod translates with, so the run
 // refuses to start when the balance is under a floor and stops at its own cap.
+// On Command Code (`--host commandcode`, prod's polisher: gpt-5.6-sol) the plan
+// is a call quota shared with prod, not a balance, so the run stops at
+// `--max-calls` instead.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +28,15 @@ import { DATA, HERE, readJsonl, turnId } from './rows.mjs';
 
 export const ARMS = [1, 2];
 const BASE_URL = 'https://api.deepseek.com';
+/** Reviewer hosts; `commandcode` is the prod `commandcode-polish` row (same URL, model, no extra body). */
+export const HOSTS = {
+  deepseek: { baseUrl: BASE_URL, keyVar: 'OPENAI_COMPATIBLE_API_KEY', model: 'deepseek-v4-pro' },
+  commandcode: {
+    baseUrl: 'https://api.commandcode.ai/provider/v1',
+    keyVar: 'COMMAND_CODE_API_KEY',
+    model: 'gpt-5.6-sol',
+  },
+};
 /**
  * USD per million tokens, the HIGHEST first-party rate seen for
  * deepseek-v4-pro (web sources disagreed, 2026-11-02): an estimate that errs
@@ -58,20 +71,17 @@ export function armRow(row, arm, outcome) {
 export const costOf = (inputTokens = 0, outputTokens = 0) =>
   (inputTokens * PRICE.input + outputTokens * PRICE.output) / 1e6;
 
-export function loadKey() {
-  if (process.env.OPENAI_COMPATIBLE_API_KEY) return process.env.OPENAI_COMPATIBLE_API_KEY;
+export function loadKey(name = 'OPENAI_COMPATIBLE_API_KEY') {
+  if (process.env[name]) return process.env[name];
   const env = resolve(HERE, '..', '..', '.env');
   const line =
     existsSync(env) &&
     readFileSync(env, 'utf8')
       .split('\n')
-      .find((l) => l.startsWith('OPENAI_COMPATIBLE_API_KEY='));
-  if (!line)
-    throw new Error(
-      'OPENAI_COMPATIBLE_API_KEY is not set in the environment or the repo-root .env',
-    );
+      .find((l) => l.startsWith(`${name}=`));
+  if (!line) throw new Error(`${name} is not set in the environment or the repo-root .env`);
   return line
-    .slice('OPENAI_COMPATIBLE_API_KEY='.length)
+    .slice(name.length + 1)
     .trim()
     .replace(/^["']|["']$/g, '');
 }
@@ -87,8 +97,9 @@ export async function balance(key) {
 
 function parseArgs(argv) {
   const args = {
-    model: 'deepseek-v4-pro',
+    host: 'deepseek',
     budgetUsd: 0.5,
+    maxCalls: 170,
     concurrency: 4,
     limit: Infinity,
     resume: false,
@@ -98,6 +109,8 @@ function parseArgs(argv) {
     const value = argv[i + 1];
     if (name === '--arm') args.arm = Number(value);
     else if (name === '--model') args.model = value;
+    else if (name === '--host') args.host = value;
+    else if (name === '--max-calls') args.maxCalls = Number(value);
     else if (name === '--in') args.in = value;
     else if (name === '--out') args.out = value;
     else if (name === '--budget-usd') args.budgetUsd = Number(value);
@@ -110,6 +123,8 @@ function parseArgs(argv) {
     i += 1;
   }
   if (!ARMS.includes(args.arm)) throw new Error(`--arm must be one of ${ARMS.join(', ')}`);
+  if (!HOSTS[args.host]) throw new Error(`--host must be one of ${Object.keys(HOSTS).join(', ')}`);
+  args.model ??= HOSTS[args.host].model;
   args.in ??= join(DATA, 'turns.scribed.jsonl');
   args.out ??= join(DATA, 'arms', `arm-${args.arm}-${args.model}.jsonl`);
   return args;
@@ -121,12 +136,16 @@ if (isMain) {
   const args = parseArgs(process.argv.slice(2));
   const { OpenAiCompatibleTranslationPolisher } =
     await import('../../packages/ai-providers/dist/index.js');
-  const key = loadKey();
-  const before = await balance(key);
-  console.error(`DeepSeek balance: $${before.toFixed(2)} (floor $${BALANCE_FLOOR_USD})`);
-  if (!(before >= BALANCE_FLOOR_USD)) {
-    console.error('balance under the floor: the same key serves prod translation; top up first');
-    process.exit(3);
+  const host = HOSTS[args.host];
+  const onDeepSeek = args.host === 'deepseek';
+  const key = loadKey(host.keyVar);
+  const before = onDeepSeek ? await balance(key) : NaN;
+  if (onDeepSeek) {
+    console.error(`DeepSeek balance: $${before.toFixed(2)} (floor $${BALANCE_FLOOR_USD})`);
+    if (!(before >= BALANCE_FLOOR_USD)) {
+      console.error('balance under the floor: the same key serves prod translation; top up first');
+      process.exit(3);
+    }
   }
 
   const rows = readJsonl(args.in).filter((row) => row.translation);
@@ -152,12 +171,13 @@ if (isMain) {
     const hook = { last: null };
     const polisher = new OpenAiCompatibleTranslationPolisher({
       apiKey: key,
-      baseUrl: BASE_URL,
+      baseUrl: host.baseUrl,
       model: args.model,
-      name: 'deepseek-review-arm',
+      name: `${args.host}-review-arm`,
       // Same as the prod `deepseek` row: thinking is on by default and would
-      // spend the 8 s window on a reasoning pass.
-      extraBody: { thinking: { type: 'disabled' } },
+      // spend the 8 s window on a reasoning pass. The prod Command Code row
+      // sends no extra body.
+      extraBody: onDeepSeek ? { thinking: { type: 'disabled' } } : undefined,
       onCall: (event) => {
         hook.last = event;
       },
@@ -166,16 +186,18 @@ if (isMain) {
   };
 
   let spent = 0;
+  let calls = 0;
   let next = 0;
   let stopped = false;
   const worker = async () => {
     const { polisher, hook } = makePolisher();
     while (next < todo.length && !stopped) {
       const row = todo[next++];
-      if (spent >= args.budgetUsd) {
+      if (onDeepSeek ? spent >= args.budgetUsd : calls >= args.maxCalls) {
         stopped = true;
         break;
       }
+      calls += 1;
       const started = Date.now();
       let outcome;
       try {
@@ -188,19 +210,21 @@ if (isMain) {
       const call = hook.last;
       hook.last = null;
       outcome.ms = Date.now() - started;
-      outcome.costUsd = costOf(call?.inputTokens, call?.outputTokens);
+      // A plan quota, not a bill: no per-token price to estimate.
+      outcome.costUsd = onDeepSeek ? costOf(call?.inputTokens, call?.outputTokens) : 0;
       spent += outcome.costUsd;
       appendFileSync(args.out, JSON.stringify(armRow(row, args.arm, outcome)) + '\n');
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, args.concurrency) }, worker));
 
-  const after = await balance(key);
   const out = readJsonl(args.out);
+  const spend = onDeepSeek
+    ? `estimated $${spent.toFixed(3)}, balance $${before.toFixed(2)} → $${(await balance(key)).toFixed(2)}`
+    : `${calls} calls on ${args.host}`;
   console.error(
     `arm ${args.arm}: ${out.length}/${rows.length} rows, ${out.filter((r) => r.rewritten).length} rewritten, ` +
-      `${out.filter((r) => r.failed).length} failed; estimated $${spent.toFixed(3)}, ` +
-      `balance $${before.toFixed(2)} → $${after.toFixed(2)}${stopped ? ' (stopped at budget)' : ''}`,
+      `${out.filter((r) => r.failed).length} failed; ${spend}${stopped ? ' (stopped at cap)' : ''}`,
   );
   if (stopped) process.exit(3);
 }
