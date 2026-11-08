@@ -102,12 +102,14 @@ node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewe
 ```
 
 - **Billing:** the reviewer bills `OPENAI_COMPATIBLE_API_KEY`, which is the DeepSeek key prod translates with. The rig refuses to start under a $1.00 balance and stops at `--budget-usd` (default $0.50).
+- **Prod's polisher:** `--host commandcode` replays the shipped `commandcode-polish` row (`gpt-5.6-sol`, `COMMAND_CODE_API_KEY`). That plan is a call quota shared with prod, not a balance, so the run stops at `--max-calls` (default 170, one call per turn).
 - **Result (2026-11-02, reviewer `deepseek-v4-pro`):**
   - vi→en turns with a serious `mt` error: 23.7% stored, 9.2% with the polisher and no context, **1.3% with context** (−22.4 points, interval [−40.4, −11.6]);
   - en→vi: not hurt;
   - CometKiwi: 0.753 → 0.768.
 - **Record:** `docs/development-journey.md`, "The polisher was running blind".
 - **Fallback model (2026-11-03, arm 2, reviewer `deepseek-flash`):** vi→en serious mt 23.7% → 6.6% (15 fixed, 2 broken); en→vi the same as `deepseek-v4-pro`. The reviewer cost $0.01 for 162 turns, against about $0.15 for v4-pro. v4-pro was chosen as the polish fallback while Command Code is out; judge spend reached $21.56.
+- **Prod polisher (2026-11-08, arm 2, reviewer `gpt-5.6-sol` via `--host commandcode`):** vi→en serious mt 23.7% → 1.3% (17 fixed, 0 broken), the same as `deepseek-v4-pro`; en→vi 1.3% → 0.0%; all turns 12.3% → 1.2% (19 fixed, 1 broken, the broken one in vi→zh). 134 of 162 turns rewritten, p95 4.7 s. The judge cost $4.81; spend under `results/` reached $41.03.
 
 ## Recordings and consent
 
