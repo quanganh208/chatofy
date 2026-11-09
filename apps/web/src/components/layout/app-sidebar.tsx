@@ -94,7 +94,7 @@ export function AppSidebar({ resize }: { resize: SidebarResize }) {
                         <span
                           aria-hidden
                           data-slot="sidebar-active-bar"
-                          className="absolute inset-y-1.5 -left-2 z-10 w-1 rounded-full"
+                          className="absolute inset-y-1.5 -left-1 z-10 w-1 rounded-full"
                           style={{
                             backgroundImage: `linear-gradient(180deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
                           }}
