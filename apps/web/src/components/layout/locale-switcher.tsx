@@ -92,7 +92,7 @@ export function LocaleSwitcher({
           <Button
             variant="ghost"
             size="icon"
-            className={className ?? 'size-8'}
+            className={className ?? 'pointer-coarse:size-11 size-8'}
             aria-label={t('common.language.label')}
           >
             <Languages aria-hidden />

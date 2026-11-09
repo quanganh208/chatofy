@@ -180,6 +180,24 @@ describe('the product frame', () => {
     ]);
   });
 
+  it('gives the topbar controls a 44px hit area on touch screens', () => {
+    // Pointer-coarse only: on a desktop the compact header stays as designed. The
+    // controls measured 26px (theme), 28px (sidebar) and 32px (language) at 375px.
+    render();
+    const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
+    const controls = [
+      bar?.querySelector('[data-sidebar="trigger"]'),
+      bar?.querySelector('[aria-label="Language"]'),
+      ...(bar?.querySelectorAll('[data-slot="theme-toggle"] button') ?? []),
+    ];
+    expect(controls.length).toBe(5);
+    for (const control of controls) {
+      expect(control?.className, control?.getAttribute('aria-label') ?? 'sidebar').toContain(
+        'pointer-coarse:size-11',
+      );
+    }
+  });
+
   it('holds the footer shape while the session resolves', () => {
     render();
     // Not `null` while loading: an identity that appears after a beat moves the

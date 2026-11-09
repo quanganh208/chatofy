@@ -110,7 +110,7 @@ export function ThemeToggle({
           // Sized against the icon rather than taking the primitive's default
           // 36px box: this sits inside the page header beside the brand, where a
           // full-height control would outweigh it.
-          className="size-auto min-w-0 rounded-full p-1.5"
+          className="pointer-coarse:size-11 size-auto min-w-0 rounded-full p-1.5 pointer-coarse:p-0"
         >
           <Icon aria-hidden className="size-3.5" />
         </ToggleGroupItem>
