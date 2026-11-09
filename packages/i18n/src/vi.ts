@@ -237,7 +237,8 @@ export const vi: Messages = {
   'web.translate.elapsedLabel': 'Thời gian từ khi bắt đầu hội thoại',
   'web.translate.transcriptEmpty':
     'Chưa có gì — bắt đầu một cuộc hội thoại và cả hai bên sẽ hiện ở đây.',
-  'web.translate.panelSourceEmpty': 'Câu bạn nói sẽ hiện ở đây.',
+  'web.translate.panelSourceEmpty':
+    'Bấm Bắt đầu hội thoại và cho phép dùng micrô. Câu bạn nói sẽ hiện ở đây.',
   'web.translate.panelTargetEmpty': 'Bản dịch hiện ở đây.',
   'web.translate.speakTranslation': 'Đọc bản dịch',
   'web.translate.speakTranslationAria': 'Đọc bản dịch thành tiếng',

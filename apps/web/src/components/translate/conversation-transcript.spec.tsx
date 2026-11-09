@@ -273,6 +273,15 @@ describe('ConversationTranscript as one side of a split', () => {
     expect(dimmed, 'the live translation line is dimmed').toEqual([]);
   });
 
+  it('tells a first-time user the first step on the source pane', () => {
+    // The empty pane is the first thing a new user meets after sign-in. It names the
+    // one control to press and the permission they will be asked for, instead of
+    // leaving them to guess what the two blank panels are waiting for.
+    render({ turns: [], liveTurns: [], side: 'source', running: false });
+    expect(container.textContent).toContain('Start conversation');
+    expect(container.textContent).toContain('microphone');
+  });
+
   it('says what its own pane is for, not what the other one is for', () => {
     // A pane cannot borrow the other's explanation: in `column` they are half a
     // screen apart, and the empty state is the one frame with no content to work

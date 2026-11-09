@@ -274,7 +274,8 @@ export const en = {
   // One per panel, because with the two panels side by side a single sentence
   // spanning both says nothing about which column is which. `transcriptEmpty`
   // above is still the wording where there is only one column to explain.
-  'web.translate.panelSourceEmpty': 'What you say appears here.',
+  'web.translate.panelSourceEmpty':
+    'Press Start conversation and allow the microphone. What you say appears here.',
   'web.translate.panelTargetEmpty': 'The translation appears here.',
   'web.translate.speakTranslation': 'Speak translation',
   'web.translate.speakTranslationAria': 'Speak the translation aloud',
