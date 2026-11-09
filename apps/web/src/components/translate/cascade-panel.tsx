@@ -483,6 +483,7 @@ export function CascadePanel({
             // -swap must not flip which language a finished turn's translation
             // line reads from.
             conversationLanguagePair={conversation.languagePair ?? languagePair}
+            onStart={awaitingContext ? undefined : startConversation}
             onSwap={() => {
               // The swap is disabled for an auto-detected source; this keeps the
               // handler honest about the one pair it cannot reverse.

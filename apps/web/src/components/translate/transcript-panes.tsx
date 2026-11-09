@@ -45,6 +45,8 @@ interface TranscriptPanesProps {
   stage?: boolean;
   /** Not offered on the stage — see `stage`. */
   onSwap?: () => void;
+  /** The empty state's mic button; see `ConversationTranscript`. Not offered on the stage. */
+  onStart?: () => void;
   /** A language picked in a header, as the whole new pair. Not offered on the stage. */
   onLanguagePair?: (pair: SessionLanguagePair) => void;
   /** Which page this is — `/translate/one-way` or `/translate/two-way`. Picks the pair the headers show. */
@@ -139,6 +141,7 @@ export function TranscriptPanes({
   running,
   stage = false,
   onSwap,
+  onStart,
   onLanguagePair,
   conversationMode,
   voiceControl,
@@ -181,6 +184,7 @@ export function TranscriptPanes({
       <ConversationTranscript
         {...shared}
         side={side}
+        onStart={stage ? undefined : onStart}
         interactive={primary && !stage}
         languagePair={turnPair}
       />
@@ -203,7 +207,14 @@ export function TranscriptPanes({
           }
           end={
             onSwap ? (
-              <LanguagePairSwap languagePair={languagePair} running={running} onSwap={onSwap} />
+              <LanguagePairSwap
+                languagePair={languagePair}
+                running={running}
+                onSwap={onSwap}
+                // Side by side the swap sits on the seam between the two languages (below);
+                // stacked, it has no seam and stays in this header.
+                className={column ? undefined : 'sm:hidden'}
+              />
             ) : null
           }
         />
@@ -250,6 +261,13 @@ export function TranscriptPanes({
             aria-hidden
             className="bg-hairline absolute inset-y-0 left-1/2 hidden w-px sm:block"
           />
+        )}
+        {/* The swap between the two languages, on the seam: the pair reads
+            Source ⇄ Target left to right. */}
+        {column || !onSwap ? null : (
+          <div className="absolute top-[38px] left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 sm:block">
+            <LanguagePairSwap languagePair={languagePair} running={running} onSwap={onSwap} />
+          </div>
         )}
         {source}
         {target}

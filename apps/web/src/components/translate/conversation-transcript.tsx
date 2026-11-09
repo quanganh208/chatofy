@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { VolumeX } from 'lucide-react';
+import { Mic, VolumeX } from 'lucide-react';
 import type {
   CapturesBySession,
   LiveTurn,
@@ -106,6 +106,12 @@ interface ConversationTranscriptProps {
   audioOffsetMs: number | null;
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
+  /**
+   * Begins a conversation from the empty state's mic button. A pointer shortcut to the
+   * dock's Start, which stays the one named control: this one is out of the tab order and
+   * hidden from assistive tech, so nothing is announced or reachable twice.
+   */
+  onStart?: () => void;
   /** Which halves this stream draws. Defaults to both, which is `list`. */
   side?: TranscriptSide;
   /** Whether a turn says who spoke it at all. */
@@ -210,6 +216,7 @@ export function ConversationTranscript({
   pauses = [],
   audioOffsetMs,
   running,
+  onStart,
   side = 'both',
   speakerLabels = true,
   showTime = true,
@@ -286,6 +293,20 @@ export function ConversationTranscript({
                   ? t('web.translate.panelTargetEmpty')
                   : `${running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')} ${t('web.translate.transcriptAttribution')}`}
             </p>
+            {/* The first step, where the eye already is. Outline, not filled: the dock's Start is
+                the screen's one accent control. */}
+            {onStart && !running && side !== 'target' ? (
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden
+                data-slot="empty-start"
+                onClick={onStart}
+                className="border-border text-foreground hover:bg-muted focus-visible:ring-ring inline-flex size-16 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none"
+              >
+                <Mic className="size-6" aria-hidden />
+              </button>
+            ) : null}
             {/* That turns can be marked with who said them used to be said by the
               roster sitting under this panel. The roster is now a face of the
               chip, and a chip only exists once a turn does — so with nothing on
