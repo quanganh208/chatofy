@@ -14,7 +14,7 @@
     "route": "/history",
     "overflow": false,
     "scrollWidth": 1440,
-    "rows": 30,
+    "rows": 12,
     "clipped": [
       "a \"Skip to content\" 119>1",
       "span \"Toggle Sidebar\" 105>1",
@@ -47,7 +47,7 @@
     "route": "/history",
     "overflow": false,
     "scrollWidth": 375,
-    "rows": 30,
+    "rows": 12,
     "clipped": [
       "a \"Skip to content\" 119>1",
       "span \"Toggle Sidebar\" 105>1",
@@ -68,27 +68,27 @@
   {
     "who": "long",
     "note": "history list links",
-    "count": 30
+    "count": 12
   },
   {
     "who": "long",
     "vp": "1440",
-    "route": "detail /history/0c93f1f8-11",
-    "loadMs": 2856,
+    "route": "detail /history/34a9bccd-86",
+    "loadMs": 1774,
     "overflow": false,
-    "turns": 300,
-    "dom": 2669,
-    "pageHeight": 61212
+    "turns": 40,
+    "dom": 592,
+    "pageHeight": 8668
   },
   {
     "who": "long",
     "vp": "375",
-    "route": "detail /history/0c93f1f8-11",
-    "loadMs": 1833,
+    "route": "detail /history/34a9bccd-86",
+    "loadMs": 1550,
     "overflow": false,
-    "turns": 300,
-    "dom": 2582,
-    "pageHeight": 99475
+    "turns": 40,
+    "dom": 502,
+    "pageHeight": 13894
   },
   {
     "who": "short",

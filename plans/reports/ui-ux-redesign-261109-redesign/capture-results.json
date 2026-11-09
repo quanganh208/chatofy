@@ -452,7 +452,7 @@
       "overflow": false,
       "scrollWidth": 1440,
       "h1": 1,
-      "smallTargets": 15,
+      "smallTargets": 16,
       "smallSample": [
         "a:Skip to content:1x1",
         "a:Chatofy:239x36",
@@ -471,7 +471,7 @@
       "overflow": false,
       "scrollWidth": 768,
       "h1": 1,
-      "smallTargets": 15,
+      "smallTargets": 16,
       "smallSample": [
         "a:Skip to content:1x1",
         "a:Chatofy:239x36",
@@ -489,7 +489,7 @@
       "overflow": false,
       "scrollWidth": 375,
       "h1": 1,
-      "smallTargets": 7,
+      "smallTargets": 8,
       "smallSample": [
         "a:Skip to content:1x1",
         "button:Toggle the sidebar:28x28",
@@ -508,7 +508,7 @@
       "overflow": false,
       "scrollWidth": 320,
       "h1": 1,
-      "smallTargets": 7,
+      "smallTargets": 8,
       "smallSample": [
         "a:Skip to content:1x1",
         "button:Toggle the sidebar:28x28",
