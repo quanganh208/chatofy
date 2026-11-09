@@ -78,19 +78,19 @@ before Gate A. Details: `phase-01-baseline-audit.md`, `phase-02-direction-and-ia
 
 ## Progress
 
-Last updated: 2026-11-09. Overall: 0 of 6 phases done; planning complete, waiting on
-owner for phase 1 start and Gate A answers. Update this section at the end of every
+Last updated: 2026-11-09. Overall: 0 of 6 phases done; phase 1 in progress (4 of 10
+steps), Gate A answers still open. Update this section at the end of every
 work session (tick the box, add date + evidence link).
 
-| #   | Phase                     | Status          | Done / total | Blocked by                     |
-| --- | ------------------------- | --------------- | ------------ | ------------------------------ |
-| 0   | Planning                  | done 2026-11-09 | 5 / 5        | -                              |
-| 1   | Baseline audit            | todo            | 0 / 10       | owner OK for third-party tools |
-| 2   | Direction and IA (Gate A) | todo            | 0 / 6        | phase 1 report                 |
-| 3   | Foundations               | blocked         | 0 / 5        | Gate A                         |
-| 4   | Core flows                | blocked         | 0 / 8        | Gate A, phase 3                |
-| 5   | Feedback and navigation   | blocked         | 0 / 4        | Gate A                         |
-| 6   | Verify and document       | blocked         | 0 / 7        | phases 3-5                     |
+| #   | Phase                     | Status          | Done / total | Blocked by                   |
+| --- | ------------------------- | --------------- | ------------ | ---------------------------- |
+| 0   | Planning                  | done 2026-11-09 | 5 / 5        | -                            |
+| 1   | Baseline audit            | in progress     | 4 / 10       | owner OK to install hallmark |
+| 2   | Direction and IA (Gate A) | todo            | 0 / 6        | phase 1 report               |
+| 3   | Foundations               | blocked         | 0 / 5        | Gate A                       |
+| 4   | Core flows                | blocked         | 0 / 8        | Gate A, phase 3              |
+| 5   | Feedback and navigation   | blocked         | 0 / 4        | Gate A                       |
+| 6   | Verify and document       | blocked         | 0 / 7        | phases 3-5                   |
 
 Status values: todo, in progress, blocked, done. Evidence column is a path under
 `plans/reports/` or a commit hash.
@@ -106,10 +106,10 @@ Status values: todo, in progress, blocked, done. Evidence column is a path under
 
 ### Phase 1: Baseline audit
 
-- [ ] 1.1 Start stack (postgres, redis, `pnpm dev`) on a fixed port
-- [ ] 1.2 Register local test account, sign in in one browser context
-- [ ] 1.3 Screenshots: 11 routes x 3 viewports (33 shots) + 320px reflow
-- [ ] 1.4 axe scan per route (record serious/critical counts)
+- [x] 1.1 Start stack (postgres, redis, api :3000, web :3001) (2026-11-09; env workarounds in `plans/reports/ui-ux-redesign-261109-baseline/report.md`)
+- [x] 1.2 Register local test account, sign in in one browser context (2026-11-09)
+- [x] 1.3 Screenshots: 10 routes x 4 viewports (40 shots; `/history/[id]` pending, needs a seeded conversation) (commit 9d62763b)
+- [x] 1.4 axe scan per route at 1440: 0 violations on all 10 routes; 375px scan still to do (commit 9d62763b)
 - [ ] 1.5 Keyboard-only walk: translate, join conference, open history item, change language
 - [ ] 1.6 Worst-case data pass (long text, empty, offline, error)
 - [ ] 1.7 Rubric scoring 0-3 per route (incl. beauty)
@@ -180,10 +180,11 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 
 ### Log
 
-| Date       | Entry                                                                                                                            |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-09 | Plan created, supersedes the earlier uplift plan; beauty criterion added                                                         |
-| 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes |
+| Date       | Entry                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-09 | Plan created, supersedes the earlier uplift plan; beauty criterion added                                                                                                  |
+| 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes                                          |
+| 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b) |
 
 ## Constraints that stay
 
