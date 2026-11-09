@@ -1,9 +1,11 @@
 import {
+  DEFAULT_MIC_PROCESSING,
   DEFAULT_VOICE_GENDER,
   languagePairFromStoredDirection,
   languagePairSchema,
   languagePairOf,
   type LanguagePair,
+  type MicProcessing,
 } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
 
@@ -56,6 +58,7 @@ const DEFAULT_SETTINGS: CaptureSettings = {
   // Off. This leg opens the user's microphone and translates what they say
   // into the meeting; it is not something to discover after the fact.
   outbound: false,
+  micProcessing: DEFAULT_MIC_PROCESSING,
   // No context until the popup's picker writes one. Absent here rather than
   // whitelisted below: unlike `apiBaseUrl`, a stale id from an older
   // build is harmless — it resolves to nothing at the point of use and reads as
@@ -78,6 +81,30 @@ function storedLanguagePair(value: Record<string, unknown> | undefined): Languag
   return languagePairFromStoredDirection(value?.direction) ?? DEFAULT_CAPTURE_PAIR;
 }
 
+/**
+ * The stored mic processing switches, each one validated on its own.
+ *
+ * Field by field rather than all or nothing: a profile that saved one switch
+ * keeps it even when another is missing or malformed, and a value that is not
+ * an object at all reads as the defaults.
+ */
+function storedMicProcessing(value: Record<string, unknown> | undefined): MicProcessing {
+  const candidate = value?.micProcessing;
+  const raw = (typeof candidate === 'object' && candidate !== null ? candidate : {}) as Record<
+    string,
+    unknown
+  >;
+  const pick = (k: keyof MicProcessing): boolean => {
+    const stored = raw[k];
+    return typeof stored === 'boolean' ? stored : DEFAULT_MIC_PROCESSING[k];
+  };
+  return {
+    echoCancellation: pick('echoCancellation'),
+    noiseSuppression: pick('noiseSuppression'),
+    autoGainControl: pick('autoGainControl'),
+  };
+}
+
 export async function loadSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(KEY);
   const value = stored[KEY] as
@@ -92,6 +119,7 @@ export async function loadSettings(): Promise<CaptureSettings> {
   return {
     ...merged,
     languagePair: storedLanguagePair(value),
+    micProcessing: storedMicProcessing(value),
     // Never restored from storage. The build decides this now, and a value saved
     // by an older version points at whatever host that machine was developing
     // against.

@@ -562,6 +562,9 @@ export default defineBackground(() => {
             languagePair: languagePair.success ? languagePair.data : current.languagePair,
             voiceGender: forWorker.voiceGender,
             outbound: forWorker.outbound,
+            // Kept when absent: the overlay sends this message too, and it has no
+            // control for the mic processing switches.
+            micProcessing: forWorker.micProcessing ?? current.micProcessing,
           });
           await refreshSettingsHint();
 

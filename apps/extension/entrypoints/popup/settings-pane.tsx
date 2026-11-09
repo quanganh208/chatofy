@@ -15,7 +15,7 @@ import {
   SelectValue,
   ThemeToggle,
 } from '@chatofy/ui/react';
-import type { VoiceGender } from '@chatofy/types';
+import { DEFAULT_MIC_PROCESSING, type MicProcessing, type VoiceGender } from '@chatofy/types';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 
 /**
@@ -33,6 +33,33 @@ const NO_CONTEXT_VALUE = 'none';
 const VOICE_OPTIONS: ReadonlyArray<SegmentedOption<VoiceGender>> = [
   { value: 'female', label: 'Female' },
   { value: 'male', label: 'Male' },
+];
+
+/** The three browser mic processing switches, in the order they are listed. */
+const MIC_PROCESSING_OPTIONS: ReadonlyArray<{
+  key: keyof MicProcessing;
+  id: string;
+  label: string;
+  detail: string;
+}> = [
+  {
+    key: 'echoCancellation',
+    id: 'mic-echo-cancellation',
+    label: 'Echo cancellation',
+    detail: 'Removes the meeting audio your microphone picks up.',
+  },
+  {
+    key: 'noiseSuppression',
+    id: 'mic-noise-suppression',
+    label: 'Noise suppression',
+    detail: 'Filters steady background noise from your microphone.',
+  },
+  {
+    key: 'autoGainControl',
+    id: 'mic-auto-gain-control',
+    label: 'Automatic gain control',
+    detail: 'Evens out your microphone volume as you speak.',
+  },
 ];
 import { runsOn } from '../../src/site-enablement';
 import { SUPPORTED_MEETINGS } from '../../src/supported-meeting-url';
@@ -173,6 +200,38 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             </AlertDescription>
           </Alert>
         ) : null}
+      </Group>
+
+      {/* Both microphones a capture opens use these: the one that translates
+          what the user says and the one that measures echo. A change reopens a
+          running capture, like the other settings sent to the worker. */}
+      <Group label="Audio processing">
+        {MIC_PROCESSING_OPTIONS.map((option) => {
+          const current = settings?.micProcessing ?? DEFAULT_MIC_PROCESSING;
+          return (
+            <Row key={option.key}>
+              <Checkbox
+                id={option.id}
+                checked={current[option.key]}
+                disabled={!settings}
+                onCheckedChange={(checked) =>
+                  actions.change({
+                    micProcessing: { ...current, [option.key]: checked === true },
+                  })
+                }
+              />
+              <div className="flex min-w-0 flex-col">
+                <Label htmlFor={option.id} className="text-prose font-normal">
+                  {option.label}
+                </Label>
+                <span className="text-muted-foreground text-hint">{option.detail}</span>
+              </div>
+            </Row>
+          );
+        })}
+        <p className="text-muted-foreground text-hint">
+          Recommended: off with headphones; may be on with external speakers.
+        </p>
       </Group>
 
       {/* Above "Runs on", and that order is the point.

@@ -1,3 +1,4 @@
+import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadSettings, saveSettings } from './settings';
 
@@ -109,6 +110,23 @@ describe('loadSettings', () => {
     store.set(KEY, { contextId: 'some-old-context-id' });
     expect((await loadSettings()).contextId).toBe('some-old-context-id');
   });
+
+  const ALL_ON = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
+  it('turns every mic processing switch on when nothing has been stored', async () => {
+    expect((await loadSettings()).micProcessing).toEqual(ALL_ON);
+  });
+
+  // One stored switch must not cost the others their defaults.
+  it('keeps a stored mic processing switch and defaults the missing ones', async () => {
+    store.set(KEY, { micProcessing: { noiseSuppression: false } });
+    expect((await loadSettings()).micProcessing).toEqual({ ...ALL_ON, noiseSuppression: false });
+  });
+
+  it('falls back to the mic processing defaults for a malformed value', async () => {
+    store.set(KEY, { micProcessing: 'x' });
+    expect((await loadSettings()).micProcessing).toEqual(ALL_ON);
+  });
 });
 
 describe('saveSettings', () => {
@@ -137,6 +155,7 @@ describe('saveSettings', () => {
       voiceGender: 'male',
       reportMetrics: true,
       outbound: true,
+      micProcessing: DEFAULT_MIC_PROCESSING,
     });
     const settings = await loadSettings();
     expect(settings.languagePair).toEqual(VI_TO_EN);
@@ -151,6 +170,7 @@ describe('saveSettings', () => {
       voiceGender: 'female',
       reportMetrics: false,
       outbound: false,
+      micProcessing: DEFAULT_MIC_PROCESSING,
       contextId: 'ctx-123',
     });
     expect((await loadSettings()).contextId).toBe('ctx-123');

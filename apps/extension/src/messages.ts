@@ -1,4 +1,4 @@
-import type { LanguagePair, VoiceGender } from '@chatofy/types';
+import type { LanguagePair, MicProcessing, VoiceGender } from '@chatofy/types';
 import type { OutboundCommand } from './outbound-channel';
 
 /**
@@ -37,6 +37,12 @@ export interface CaptureSettings {
    * has to be a choice someone made.
    */
   outbound: boolean;
+  /**
+   * Browser mic processing for both microphones this capture opens. Echo
+   * cancellation off is safe here because `applyMicrophoneGate` silences the mic
+   * at the source while our audio plays.
+   */
+  micProcessing: MicProcessing;
   /**
    * Which saved AI Context this meeting runs under, by its id, or absent for
    * none.
@@ -87,6 +93,11 @@ export type ExtensionMessage =
       languagePair: LanguagePair;
       voiceGender: VoiceGender;
       outbound: boolean;
+      /**
+       * Absent from the overlay, which offers no control for it: the worker keeps
+       * the stored value then, so a change made in the page cannot reset it.
+       */
+      micProcessing?: MicProcessing;
     }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }

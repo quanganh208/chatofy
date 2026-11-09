@@ -1,6 +1,7 @@
 import {
   reversePair,
   type LanguagePair,
+  type MicProcessing,
   type TranslationHints,
   type VoiceGender,
 } from '@chatofy/types';
@@ -69,7 +70,7 @@ export interface EchoRunner {
 export interface MeetingCaptureDeps {
   createContext: () => AudioContext;
   openTab: (context: AudioContext, streamId: string) => Promise<TabAudioSource>;
-  openMicrophone: (context: AudioContext) => Promise<GatedMicrophone>;
+  openMicrophone: (context: AudioContext, audio: MicProcessing) => Promise<GatedMicrophone>;
   createEcho: (deps: EchoMonitorDeps) => EchoRunner;
   createSession: (deps: LanguagePairSessionDeps) => LegRunner;
   /**
@@ -335,7 +336,7 @@ export class MeetingCapture {
       // per-turn field, and the monitor needs `isPlaying` at construction.
       const inboundRef: { current: LegRunner | undefined } = { current: undefined };
 
-      const echo = this.buildEchoMonitor(context, inboundRef);
+      const echo = this.buildEchoMonitor(context, inboundRef, settings.micProcessing);
 
       this.shared = { context, duck, echo, tabStream: tab.stream };
 
@@ -383,9 +384,11 @@ export class MeetingCapture {
   private buildEchoMonitor(
     context: AudioContext,
     inboundRef: { current: LegRunner | undefined },
+    micProcessing: MicProcessing,
   ): EchoRunner {
     return this.deps.createEcho({
       context,
+      micProcessing,
       workletUrl: this.deps.workletUrl,
       // Audible playback, and inbound only. Echo is our own translation coming
       // back, which can only happen while it is actually sounding — `isBusy`
@@ -440,7 +443,7 @@ export class MeetingCapture {
   ): Promise<void> {
     let microphone: GatedMicrophone | null = null;
     try {
-      microphone = await this.deps.openMicrophone(context);
+      microphone = await this.deps.openMicrophone(context, settings.micProcessing);
       if (stale() || !this.shared) {
         microphone.stop();
         return;

@@ -272,6 +272,26 @@ describe('the popup', () => {
   });
 
   /**
+   * The mic processing switches travel with the other worker-owned settings, so a
+   * running capture reopens with them.
+   */
+  it('sends a mic processing change to the worker rather than writing it', async () => {
+    await mount();
+    const echo = document.getElementById('mic-echo-cancellation');
+    expect(echo).not.toBeNull();
+    await settle(() => echo?.click());
+
+    const settings = sent.filter((m) => (m as { type: string }).type === 'settings');
+    expect(settings).toHaveLength(1);
+    expect(settings[0]).toMatchObject({
+      to: 'worker',
+      type: 'settings',
+      micProcessing: { echoCancellation: false, noiseSuppression: true, autoGainControl: true },
+    });
+    expect(written['chatofy.settings']).toBeUndefined();
+  });
+
+  /**
    * `reportMetrics` has no control any more and must survive a save anyway — the
    * worker and the realtime client still read it. `apiBaseUrl` must not be written
    * back at all: the compile decides it.
