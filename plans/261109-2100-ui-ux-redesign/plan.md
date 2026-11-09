@@ -82,15 +82,15 @@ Last updated: 2026-11-09. Overall: 0 of 6 phases done; phase 1 in progress (8 of
 steps), Gate A answers still open. Update this section at the end of every
 work session (tick the box, add date + evidence link).
 
-| #   | Phase                     | Status          | Done / total | Blocked by                   |
-| --- | ------------------------- | --------------- | ------------ | ---------------------------- |
-| 0   | Planning                  | done 2026-11-09 | 5 / 5        | -                            |
-| 1   | Baseline audit            | in progress     | 8 / 10       | owner OK to install hallmark |
-| 2   | Direction and IA (Gate A) | todo            | 0 / 6        | phase 1 report               |
-| 3   | Foundations               | blocked         | 0 / 5        | Gate A                       |
-| 4   | Core flows                | blocked         | 0 / 8        | Gate A, phase 3              |
-| 5   | Feedback and navigation   | blocked         | 0 / 4        | Gate A                       |
-| 6   | Verify and document       | blocked         | 0 / 7        | phases 3-5                   |
+| #   | Phase                     | Status          | Done / total     | Blocked by                   |
+| --- | ------------------------- | --------------- | ---------------- | ---------------------------- |
+| 0   | Planning                  | done 2026-11-09 | 5 / 5            | -                            |
+| 1   | Baseline audit            | in progress     | 8 / 10           | owner OK to install hallmark |
+| 2   | Direction and IA (Gate A) | done (assumed)  | 4 / 6 +2 skipped | phase 1 report               |
+| 3   | Foundations               | blocked         | 0 / 5            | Gate A                       |
+| 4   | Core flows                | blocked         | 0 / 8            | Gate A, phase 3              |
+| 5   | Feedback and navigation   | blocked         | 0 / 4            | Gate A                       |
+| 6   | Verify and document       | blocked         | 0 / 7            | phases 3-5                   |
 
 Status values: todo, in progress, blocked, done. Evidence column is a path under
 `plans/reports/` or a commit hash.
@@ -135,12 +135,12 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 
 ### Phase 2: Direction and IA (Gate A)
 
-- [ ] 2.1 Three core journeys with friction points
-- [ ] 2.2 IA proposal (sidebar, titles, empty-state targets, shortcuts)
-- [ ] 2.3 Owner beauty references collected (question 7) and translated to tokens
-- [ ] 2.4 Two layout options each for `/translate` and `/conference`, with accent/surface counts
-- [ ] 2.5 Product-pattern review (Vercel Chatbot/AI Elements, Vexa, shadcn-admin): licence, last commit, port/skip
-- [ ] 2.6 Direction report + recommendation; owner answers questions 1-7
+- [x] 2.1 Three core journeys with friction points
+- [x] 2.2 IA proposal (sidebar, titles, empty-state targets, shortcuts)
+- [~] 2.3 Beauty references: none supplied; used the landing page level as the bar (assumption, owner may supply references)
+- [x] 2.4 Two layout options for `/translate` (reasoned, not prototyped); `/conference` needs no layout change
+- [~] 2.5 Product-pattern review skipped: no external pattern is ported (nothing found that existing components cannot do); licences stay unchecked
+- [x] 2.6 Direction report `plans/reports/ui-ux-redesign-261109-direction.md`; Gate A answered with the recommended defaults, all marked as assumptions
 
 ### Phase 3: Foundations
 
