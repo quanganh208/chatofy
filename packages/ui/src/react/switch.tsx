@@ -55,7 +55,8 @@ function Switch({
       data-slot="switch"
       data-size={size}
       className={cn(
-        'peer group/switch inline-flex shrink-0 items-center rounded-full border border-transparent',
+        'peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent',
+        "after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']",
         'shadow-elev-sm',
         'transition-[background-color,border-color,box-shadow] duration-fast ease-standard',
         'motion-reduce:transition-none',

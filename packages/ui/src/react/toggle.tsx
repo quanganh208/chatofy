@@ -52,9 +52,9 @@ const toggleVariants = cva(
         outline: 'bg-secondary shadow-elev-sm inset-ring-1 inset-ring-hairline hover:bg-border',
       },
       size: {
-        default: 'h-9 min-w-9 px-2',
-        sm: 'h-8 min-w-8 px-1.5',
-        lg: 'h-10 min-w-10 px-2.5',
+        default: 'h-9 min-w-9 pointer-coarse:min-h-11 pointer-coarse:min-w-11 px-2',
+        sm: 'h-8 min-w-8 pointer-coarse:min-h-11 pointer-coarse:min-w-11 px-1.5',
+        lg: 'h-10 min-w-10 pointer-coarse:min-h-11 pointer-coarse:min-w-11 px-2.5',
       },
     },
     defaultVariants: {
