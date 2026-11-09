@@ -78,13 +78,18 @@ export class CallAttempt {
   /** The reader's mic processing, read once per attempt: a change applies to the next call. */
   private readonly micProcessing: MicProcessing = loadTranslateSettings().micProcessing;
   /**
-   * Other peers' received audio, watched only with echo cancellation off. Their
+   * Other peers' received voices, watched only with echo cancellation off. Their
    * voice then reaches our microphone from the loudspeaker, and this keeps it
-   * from opening a turn translated as ours.
+   * from opening a turn translated as ours. Their TRANSLATIONS played here are
+   * the other half of that sound, and `receivedSounding` checks both.
    */
   private readonly remoteActivity: RemoteAudioActivity | null = this.micProcessing.echoCancellation
     ? null
-    : createRemoteAudioActivity();
+    : createRemoteAudioActivity({
+        onStateChange: () => {
+          if (!this.disposed) this.options.sink.audioBlocked(this.isAudioSuspended());
+        },
+      });
   private readonly onMessage = (evt: MessageEvent) => {
     const signal = parseSignal(evt.data);
     const event = signal && parseRoomEvent(signal);
@@ -163,7 +168,7 @@ export class CallAttempt {
     this.assertLive();
 
     void this.audio.resumeAll().catch(() => undefined);
-    sink.audioBlocked(this.audio.isAnySuspended());
+    sink.audioBlocked(this.isAudioSuspended());
     return { audioOnly };
   }
 
@@ -186,8 +191,13 @@ export class CallAttempt {
   }
 
   async resumeAudio(): Promise<void> {
-    await this.audio.resumeAll();
-    this.options.sink.audioBlocked(this.audio.isAnySuspended());
+    await Promise.all([this.audio.resumeAll(), this.remoteActivity?.resume()]);
+    this.options.sink.audioBlocked(this.isAudioSuspended());
+  }
+
+  /** Either playback or the echo gate's listener waits on a tap: a suspended gate reads silence. */
+  private isAudioSuspended(): boolean {
+    return this.audio.isAnySuspended() || (this.remoteActivity?.isSuspended() ?? false);
   }
 
   /**
@@ -252,7 +262,10 @@ export class CallAttempt {
         },
         onLog: conferenceDebug,
         ...(this.remoteActivity
-          ? { receivedSounding: () => this.remoteActivity!.isSounding() }
+          ? {
+              receivedSounding: () =>
+                this.audio.isAnySounding() || this.remoteActivity!.isSounding(),
+            }
           : {}),
       });
       this.leg = leg;
@@ -320,7 +333,7 @@ export class CallAttempt {
           event.audio.sampleRate,
           event.audio.payload,
         );
-        sink.audioBlocked(this.audio.isAnySuspended());
+        sink.audioBlocked(this.isAudioSuspended());
         return;
       case 'chat':
         sink.chat(event.message);

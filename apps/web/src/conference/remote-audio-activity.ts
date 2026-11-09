@@ -22,12 +22,18 @@ const FFT_SIZE = 1024;
 export interface RemoteAudioActivityDeps {
   createContext: () => AudioContext;
   now: () => number;
+  /** Told when the context is suspended or resumed, so the page can offer or drop its sound tap. */
+  onStateChange?: () => void;
 }
 
 export interface RemoteAudioActivity {
   add(socketId: string, track: MediaStreamTrack): void;
   remove(socketId: string): void;
   isSounding(): boolean;
+  /** True while the context is suspended, which reads silence: the page should offer its sound tap. */
+  isSuspended(): boolean;
+  /** Resume a suspended context. Call from a user-gesture handler. */
+  resume(): Promise<void>;
   dispose(): void;
 }
 
@@ -37,11 +43,13 @@ interface PeerTap {
 }
 
 export function createRemoteAudioActivity(
-  deps: RemoteAudioActivityDeps = {
+  overrides: Partial<RemoteAudioActivityDeps> = {},
+): RemoteAudioActivity {
+  const deps: RemoteAudioActivityDeps = {
     createContext: () => new AudioContext(),
     now: () => performance.now(),
-  },
-): RemoteAudioActivity {
+    ...overrides,
+  };
   let context: AudioContext | null = null;
   const taps = new Map<string, PeerTap>();
   const samples = new Float32Array(FFT_SIZE);
@@ -57,8 +65,11 @@ export function createRemoteAudioActivity(
       // Created outside a user gesture, so it may start suspended — and a
       // suspended analyser reads silence, which would leave the gate open
       // without a sound. Resumed on every add, which is cheap once running.
-      context ??= deps.createContext();
-      void context.resume();
+      if (!context) {
+        context = deps.createContext();
+        if (deps.onStateChange) context.onstatechange = deps.onStateChange;
+      }
+      void context.resume().catch(() => undefined);
       const existing = taps.get(socketId);
       if (existing) disconnect(existing);
       const source = context.createMediaStreamSource(new MediaStream([track]));
@@ -86,6 +97,12 @@ export function createRemoteAudioActivity(
         }
       }
       return deps.now() - lastLoudAt < REMOTE_SPEECH_HOLD_MS;
+    },
+    isSuspended() {
+      return context?.state === 'suspended';
+    },
+    async resume() {
+      if (context?.state === 'suspended') await context.resume();
     },
     dispose() {
       for (const tap of taps.values()) disconnect(tap);

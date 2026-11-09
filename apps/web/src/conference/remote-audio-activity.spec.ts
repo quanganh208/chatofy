@@ -16,6 +16,8 @@ function fakeAnalyser() {
 
 let analysers: ReturnType<typeof fakeAnalyser>[];
 let context: {
+  state: AudioContextState;
+  onstatechange: (() => void) | null;
   resume: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
   createAnalyser: () => ReturnType<typeof fakeAnalyser>;
@@ -29,6 +31,8 @@ beforeEach(() => {
   analysers = [];
   clock = 0;
   context = {
+    state: 'suspended',
+    onstatechange: null,
     resume: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     createAnalyser: () => {
@@ -104,5 +108,17 @@ describe('createRemoteAudioActivity', () => {
     activity.add('a', track);
     activity.add('b', track);
     expect(context.resume).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a suspended context, which reads silence, and resumes it on request', async () => {
+    const changes = vi.fn();
+    const activity = createRemoteAudioActivity({ ...deps, onStateChange: changes });
+    expect(activity.isSuspended()).toBe(false);
+    activity.add('a', track);
+    expect(activity.isSuspended()).toBe(true);
+    await activity.resume();
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    context.onstatechange?.();
+    expect(changes).toHaveBeenCalled();
   });
 });

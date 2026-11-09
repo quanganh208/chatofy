@@ -91,6 +91,18 @@ export class TranslationAudioSink {
     return false;
   }
 
+  /**
+   * True while a translation is audibly playing on this device. A suspended
+   * context plays nothing, and counting its queue would hold the meeting's onset
+   * gate shut on the user's own speech, so only running contexts count.
+   */
+  isAnySounding(): boolean {
+    for (const sink of this.speakers.values()) {
+      if (sink.ctx.state === 'running' && sink.queue.isPlaying) return true;
+    }
+    return false;
+  }
+
   /** Resume every suspended context. Call from a user-gesture handler. */
   async resumeAll(): Promise<void> {
     const pending: Promise<void>[] = [];
