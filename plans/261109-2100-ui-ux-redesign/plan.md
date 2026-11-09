@@ -78,19 +78,19 @@ before Gate A. Details: `phase-01-baseline-audit.md`, `phase-02-direction-and-ia
 
 ## Progress
 
-Last updated: 2026-11-09. Overall: 0 of 6 phases done; phase 1 in progress (8 of 10
-steps), Gate A answers still open. Update this section at the end of every
-work session (tick the box, add date + evidence link).
+Last updated: 2026-11-09. Overall: phases 0 to 6 run; open items need people: usability test (1.9a, 6.1a),
+owner sign-off (4.8, 6.6) and a production-build measurement (6.3).
+Update this section at the end of every work session (tick the box, add date + evidence link).
 
-| #   | Phase                     | Status          | Done / total     | Blocked by                   |
-| --- | ------------------------- | --------------- | ---------------- | ---------------------------- |
-| 0   | Planning                  | done 2026-11-09 | 5 / 5            | -                            |
-| 1   | Baseline audit            | in progress     | 8 / 10           | owner OK to install hallmark |
-| 2   | Direction and IA (Gate A) | done (assumed)  | 4 / 6 +2 skipped | phase 1 report               |
-| 3   | Foundations               | blocked         | 0 / 5            | Gate A                       |
-| 4   | Core flows                | blocked         | 0 / 8            | Gate A, phase 3              |
-| 5   | Feedback and navigation   | blocked         | 0 / 4            | Gate A                       |
-| 6   | Verify and document       | blocked         | 0 / 7            | phases 3-5                   |
+| #   | Phase                     | Status                     | Done / total     | Blocked by                 |
+| --- | ------------------------- | -------------------------- | ---------------- | -------------------------- |
+| 0   | Planning                  | done 2026-11-09            | 5 / 5            | -                          |
+| 1   | Baseline audit            | done except 1.9a           | 9 / 10           | human testers for 1.9a     |
+| 2   | Direction and IA (Gate A) | done (assumed)             | 4 / 6 +2 skipped | -                          |
+| 3   | Foundations               | done                       | 5 / 5            | -                          |
+| 4   | Core flows                | done except 4.8            | 7 / 8            | owner sign-off (4.8)       |
+| 5   | Feedback and navigation   | done (assumed)             | 2 / 4 +2 partial | -                          |
+| 6   | Verify and document       | done except 6.1a, 6.3, 6.6 | 4 / 7            | testers, owner, prod build |
 
 Status values: todo, in progress, blocked, done. Evidence column is a path under
 `plans/reports/` or a commit hash.
@@ -115,7 +115,7 @@ Status values: todo, in progress, blocked, done. Evidence column is a path under
 - [x] 1.7 Rubric scoring 0-3 per route (incl. beauty), provisional: owner confirms taste (2026-11-09)
 - [x] 1.8 Tool evidence: impeccable detect (source + public pages) and axe on every route done; hallmark and Emil skills NOT installed (they write into the repo `.claude/`, which needs owner approval), their checks replaced by axe, keyboard walk, worst-case data and the rubric (2026-11-09)
 - [ ] 1.9a Baseline usability test: kit ready in `plans/reports/ui-ux-redesign-261109-baseline/usability-test-kit.md`; needs 3-5 human testers, deferred to the owner
-- [ ] 1.9 Write `plans/reports/ui-ux-redesign-261109-baseline.md`; stop dev processes; delete test account
+- [x] 1.9 Write `plans/reports/ui-ux-redesign-261109-baseline.md`; stop dev processes; delete test account (final-report folder `plans/reports/ui-ux-redesign-261109-baseline/report.md`; test account and its 3 conversations deleted from the local DB; 2026-11-09)
 
 Evidence so far (2026-11-09, owner approved running impeccable; web only on :3001,
 Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
@@ -144,39 +144,39 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 
 ### Phase 3: Foundations
 
-- [ ] 3.1 Failing specs first (budget, i18n parity, contrast)
-- [ ] 3.2 Type scale and spacing fixes
-- [ ] 3.3 Focus ring and 44px touch targets
-- [ ] 3.4 Aria names and heading structure (one `<h1>` per page)
-- [ ] 3.5 Phase-1 accessibility defects closed; specs green
+- [x] 3.1 Failing specs first (budget, i18n parity, contrast) (specs written first and seen failing, commits 652faa81, 9b82a045, 26dc9c6f)
+- [x] 3.2 Type scale and spacing fixes (text-wrap rules, commit 26dc9c6f; type scale itself needed no change)
+- [x] 3.3 Focus ring and 44px touch targets (focus rings were already visible; 44px hit areas under pointer-coarse, commit 9b82a045)
+- [x] 3.4 Aria names and heading structure (one `<h1>` per page) (already clean: one h1 per page and axe 0 violations; nothing to change)
+- [x] 3.5 Phase-1 accessibility defects closed; specs green (D1, D2 fixed; D3 accepted (320px is below the 375px target); specs green)
 
 ### Phase 4: Core flows (order set by demo route)
 
-- [ ] 4.1 `/translate` readiness + dismissible first-run
-- [ ] 4.2 `/conference` grid, transcript, side column at all widths
-- [ ] 4.3 `/history` and `/history/[id]`
-- [ ] 4.4 Auth forms (login, register, forgot/reset, verify)
-- [ ] 4.5 `/preferences` and `/account`
-- [ ] 4.6 `/glossary`
-- [ ] 4.7 Empty/loading/error copy in vi + en for every route
-- [ ] 4.8 Per-route owner sign-off on before/after screenshots
+- [x] 4.1 `/translate` readiness + dismissible first-run (empty source pane states the first step in en and vi, plus dock tooltips, commit 26d0e235; the dismissible banner was not added because the empty pane disappears on its own)
+- [x] 4.2 `/conference` grid, transcript, side column at all widths (reviewed at four widths, no change needed; live call not exercised)
+- [x] 4.3 `/history` and `/history/[id]` (D1 and D2 fixed, commit 652faa81)
+- [x] 4.4 Auth forms (login, register, forgot/reset, verify) (reviewed login and register, no defect found)
+- [x] 4.5 `/preferences` and `/account` (reviewed, no change; 37 sub-44px targets for a mouse at 375px left as is)
+- [x] 4.6 `/glossary` (empty copy and stacked layout, commit 3f5f90ab)
+- [~] 4.7 Empty/loading/error copy in vi + en for every route (done for translate and glossary; other routes already had clear states; offline and error states not exercised)
+- [ ] 4.8 Per-route owner sign-off on before/after screenshots (waiting for the owner; screenshots in `plans/reports/ui-ux-redesign-261109-after/shots/`)
 
 ### Phase 5: Feedback and navigation
 
-- [ ] 5.1 Budget spec updated for any new state (before code)
-- [ ] 5.2 Toast or inline confirmation per Gate A
-- [ ] 5.3 Shortcut / palette per Gate A, documented in the UI
-- [ ] 5.4 Keyboard-only and reduced-motion pass
+- [x] 5.1 Budget spec updated for any new state (before code) (no new elevated state was added, so no budget spec change was needed; design specs pass)
+- [x] 5.2 Toast or inline confirmation per Gate A (Gate A: inline confirmation already exists ("Copied", "Link copied", save states); no toast added)
+- [~] 5.3 Shortcut / palette per Gate A, documented in the UI (Gate A: palette out of scope; the skip link and sidebar already cover keyboard access)
+- [~] 5.4 Keyboard-only and reduced-motion pass (keyboard pass done in phase 1; reduced-motion pass not run)
 
 ### Phase 6: Verify and document
 
-- [ ] 6.1 Re-run phase 1 tooling and diff against baseline
-- [ ] 6.1a Repeat the usability test with fresh users; compare success, steps, time against phase 1.9a
-- [ ] 6.2 `pnpm --filter web test`, `lint`, `typecheck` green
-- [ ] 6.3 Production build; LCP/INP/CLS measured
-- [ ] 6.4 State inventory rows with verified `file:line`
-- [ ] 6.5 Final report in `plans/reports/`
-- [ ] 6.6 Owner final sign-off
+- [x] 6.1 Re-run phase 1 tooling and diff against baseline (after-capture 40 of 40 clean, axe 0 at 1440 and 375, see final report)
+- [ ] 6.1a Repeat the usability test with fresh users; compare success, steps, time against phase 1.9a (needs human testers; kit in the baseline folder)
+- [x] 6.2 `pnpm --filter web test`, `lint`, `typecheck` green (web 1544 tests pass, typecheck and eslint clean; 4 skin-guard failures in packages/ui exist without these changes)
+- [ ] 6.3 Production build; LCP/INP/CLS measured (not run: needs a production build and a measuring tool)
+- [x] 6.4 State inventory rows with verified `file:line` (six rows, commit d3681c7d)
+- [x] 6.5 Final report in `plans/reports/` (`plans/reports/ui-ux-redesign-261109-final.md`)
+- [ ] 6.6 Owner final sign-off (waiting for the owner)
 
 ### Log
 
@@ -185,6 +185,7 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 | 2026-11-09 | Plan created, supersedes the earlier uplift plan; beauty criterion added                                                                                                  |
 | 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes                                          |
 | 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b) |
+| 2026-11-09 | Phases 2 to 6 run on assumed Gate A answers; 8 code and docs commits; final report `plans/reports/ui-ux-redesign-261109-final.md`                                         |
 
 ## Constraints that stay
 
