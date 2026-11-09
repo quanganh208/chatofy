@@ -19,6 +19,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { Link as LinkIcon, Users } from 'lucide-react';
 import { Button, ResizeHandle } from '@chatofy/ui/react';
 import { useStoredWidth } from '@/hooks/use-stored-width';
+import { useCallPreferences } from '@/hooks/use-call-preferences';
+import { ListeningMenu } from './components/listening-menu';
 import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
@@ -47,6 +49,7 @@ export default function ConferenceRoomPage() {
   const t = useTranslate();
   const router = useRouter();
   const roster = useStoredWidth('chatofy.chat-width', 256, ROSTER_MIN, rosterMax);
+  const callPrefs = useCallPreferences();
   const params = useParams<{ roomId: string }>();
 
   const roomId = decodeRoomId(params.roomId);
@@ -357,6 +360,9 @@ export default function ConferenceRoomPage() {
             waitingLabel={t('common.conference.waiting')}
             localTranslating={localTranslating}
             translatingLabel={t('common.conference.translating')}
+            captions={callPrefs.prefs.captions}
+            captionSize={callPrefs.prefs.captionSize}
+            originalVolume={callPrefs.prefs.originalVolume}
           />
         </div>
 
@@ -432,6 +438,7 @@ export default function ConferenceRoomPage() {
         disableCameraLabel={t('common.conference.disableCamera')}
         enableCameraLabel={t('common.conference.enableCamera')}
         leaveLabel={t('common.conference.leave')}
+        extra={<ListeningMenu prefs={callPrefs.prefs} onChange={callPrefs.update} />}
       />
     </div>
   );

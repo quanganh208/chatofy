@@ -80,3 +80,49 @@ describe('VideoGrid proportions on a wide stage', () => {
     expect(tile.className).toContain('@2xl:aspect-video');
   });
 });
+
+describe('VideoGrid listening preferences', () => {
+  const peers = (subtitle?: string) =>
+    new Map([
+      [
+        'p1',
+        { displayName: 'Bình', stream: withVideo, muted: false, videoEnabled: true, subtitle },
+      ],
+    ]) as unknown as React.ComponentProps<typeof VideoGrid>['peers'];
+
+  function renderWith(extra: Partial<React.ComponentProps<typeof VideoGrid>>) {
+    act(() => {
+      root.render(
+        <VideoGrid
+          localStream={withVideo}
+          localLabel="Lan"
+          localMuted={false}
+          localVideoEnabled
+          peers={peers('Hello there')}
+          waitingLabel="Waiting"
+          {...extra}
+        />,
+      );
+    });
+  }
+
+  it('hides the subtitle when captions are off', () => {
+    renderWith({ captions: true });
+    expect(container.querySelector('[aria-live="polite"]')).not.toBeNull();
+    renderWith({ captions: false });
+    expect(container.querySelector('[aria-live="polite"]')).toBeNull();
+  });
+
+  it('passes the caption size to the subtitle', () => {
+    renderWith({ captions: true, captionSize: 'xl' });
+    expect(container.querySelector('[aria-live="polite"] p')?.className).toContain('text-heading');
+  });
+
+  it('sets the volume of the other people original voices and never unmutes the local tile', () => {
+    renderWith({ originalVolume: 0.3 });
+    const videos = [...container.querySelectorAll('video')] as HTMLVideoElement[];
+    expect(videos.length).toBe(2);
+    expect(videos[0]?.muted).toBe(true);
+    expect(videos[1]?.volume).toBeCloseTo(0.3, 2);
+  });
+});

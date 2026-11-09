@@ -33,6 +33,11 @@ interface VideoTileProps {
   translatingLabel?: string;
   /** Extra classes from the grid layout (col-span, col-start, etc.). */
   tileClassName?: string;
+  /** Whether this reader wants captions at all. */
+  captions?: boolean;
+  captionSize?: 'sm' | 'md' | 'lg' | 'xl';
+  /** How loud this tile's own audio is, 0 to 1. Never raises the local tile, which stays muted. */
+  volume?: number;
 }
 
 function VideoTile({
@@ -45,8 +50,15 @@ function VideoTile({
   translating = false,
   translatingLabel = '',
   tileClassName = '',
+  captions = true,
+  captionSize = 'md',
+  volume = 1,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && !audioMuted) videoRef.current.volume = Math.min(1, Math.max(0, volume));
+  }, [volume, audioMuted, stream]);
 
   useEffect(() => {
     if (!videoRef.current || !stream) return;
@@ -128,7 +140,7 @@ function VideoTile({
       )}
 
       {/* Subtitle overlay — bottom-center, above name */}
-      <SubtitleOverlay subtitle={subtitle} />
+      {captions ? <SubtitleOverlay subtitle={subtitle} size={captionSize} /> : null}
     </div>
   );
 }
@@ -147,6 +159,10 @@ interface VideoGridProps {
   localTranslating?: boolean;
   /** i18n badge text shown on the local tile while localTranslating is true. */
   translatingLabel?: string;
+  captions?: boolean;
+  captionSize?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Volume of the other people's own voices, 0 to 1. */
+  originalVolume?: number;
 }
 
 export function VideoGrid({
@@ -158,6 +174,9 @@ export function VideoGrid({
   waitingLabel,
   localTranslating = false,
   translatingLabel = '',
+  captions = true,
+  captionSize = 'md',
+  originalVolume = 1,
 }: VideoGridProps) {
   const peerEntries = [...peers.entries()];
   const showWaiting = peerEntries.length === 0;
@@ -198,6 +217,9 @@ export function VideoGrid({
           videoEnabled={peer.videoEnabled}
           subtitle={peer.subtitle}
           audioMuted={false}
+          captions={captions}
+          captionSize={captionSize}
+          volume={originalVolume}
           tileClassName={layout.tiles[tileIndex++]?.className}
         />
       ))}

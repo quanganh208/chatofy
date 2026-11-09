@@ -9,6 +9,7 @@
  * - Leave calls leave() then navigates back to /conference.
  */
 
+import type { ReactNode } from 'react';
 import { Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 
@@ -23,6 +24,8 @@ interface ControlBarProps {
   disableCameraLabel: string;
   enableCameraLabel: string;
   leaveLabel: string;
+  /** Personal controls beside the camera (captions and sound). Never the accent. */
+  extra?: ReactNode;
 }
 
 export function ControlBar({
@@ -36,6 +39,7 @@ export function ControlBar({
   disableCameraLabel,
   enableCameraLabel,
   leaveLabel,
+  extra,
 }: ControlBarProps) {
   return (
     <div className="border-border flex items-center justify-center gap-3 border-t px-4 py-3">
@@ -68,6 +72,8 @@ export function ControlBar({
           <VideoOff className="size-4" aria-hidden />
         )}
       </Button>
+
+      {extra}
 
       {/* Leave — THE ONE accent-filled control on this screen */}
       <Button variant="default" onClick={onLeave}>

@@ -13,13 +13,22 @@
  * Phase 3 can pass an `isFinal` prop without a breaking change.
  */
 
+const SIZE_CLASS = {
+  sm: 'text-hint',
+  md: 'text-body',
+  lg: 'text-translation',
+  xl: 'text-heading',
+} as const;
+
 interface SubtitleOverlayProps {
   subtitle: string | undefined;
+  /** The reader's caption size; the product's own type roles, not arbitrary pixels. */
+  size?: keyof typeof SIZE_CLASS;
   /** When false the text is dimmed to signal an in-progress partial. */
   isFinal?: boolean;
 }
 
-export function SubtitleOverlay({ subtitle, isFinal = true }: SubtitleOverlayProps) {
+export function SubtitleOverlay({ subtitle, isFinal = true, size = 'md' }: SubtitleOverlayProps) {
   if (!subtitle) return null;
 
   return (
@@ -35,8 +44,8 @@ export function SubtitleOverlay({ subtitle, isFinal = true }: SubtitleOverlayPro
           // floor. Opacity is on the ELEMENT (readout), not on the foreground text,
           // so the white/scrim pair is evaluated at full values.
           'bg-black/80 text-white',
-          // text-body (14px) is legible across the room; text-label (11px) is not.
-          'text-body leading-snug',
+          // 14px by default; the reader can step it up. 11px is never offered.
+          `${SIZE_CLASS[size]} leading-snug`,
           // Final subtitles are solid; partials are dimmed to signal in-progress.
           isFinal ? 'opacity-100' : 'opacity-60',
         ].join(' ')}
