@@ -1,3 +1,4 @@
+import { dawn } from '@chatofy/ui';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
 
@@ -34,12 +35,19 @@ export async function HowItWorks() {
       title={t('web.landing.howTitle')}
       description={t('web.landing.howBody')}
     >
-      <ol className="border-hairline grid border-t md:grid-cols-3">
+      <ol className="grid gap-4 md:grid-cols-3">
         {steps.map((step, index) => (
           <li
             key={step.title}
-            className="border-hairline flex flex-col gap-3 py-6 md:px-6 md:first:pl-0 md:[&+&]:border-l max-md:[&+&]:border-t"
+            className="border-hairline flex flex-col gap-3 rounded-xl border p-6"
           >
+            <span
+              aria-hidden
+              className="h-1 w-12 rounded-full"
+              style={{
+                backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+              }}
+            />
             {/* Ordinal, not a count of anything — the sequence is the content. */}
             <span
               aria-hidden
