@@ -24,7 +24,7 @@ import { ListeningMenu } from './components/listening-menu';
 import { InviteQr } from './components/invite-qr';
 import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
 import { useConference } from '@/hooks/use-conference';
 import { VideoGrid } from './components/video-grid';
@@ -38,18 +38,19 @@ import { ACTIVE_CALL_KEY, decodeRoomId, endedPath } from './utils/room-route';
 const ROSTER_BESIDE_QUERY = '(min-width: 768px)';
 
 /**
- * The roster and chat column. Its default width is a responsive class (16rem, 18rem from
+ * The roster and chat column. Its default width is a responsive class (18rem, 20rem from
  * `xl`); once the reader drags it, their width is held in a CSS variable that overrides
  * both. It is also capped at half the window so the video grid is never squeezed out.
  */
 const ROSTER_MIN = 240;
 const rosterMax = () => Math.min(480, Math.floor(window.innerWidth / 2));
-const rosterDefault = () => (window.innerWidth >= 1280 ? 288 : 256);
+const rosterDefault = () => (window.innerWidth >= 1280 ? 320 : 288);
 
 export default function ConferenceRoomPage() {
   const t = useTranslate();
+  const locale = useLocale();
   const router = useRouter();
-  const roster = useStoredWidth('chatofy.chat-width', 256, ROSTER_MIN, rosterMax);
+  const roster = useStoredWidth('chatofy.chat-width', 288, ROSTER_MIN, rosterMax);
   const callPrefs = useCallPreferences();
   const params = useParams<{ roomId: string }>();
 
@@ -375,7 +376,7 @@ export default function ConferenceRoomPage() {
           <aside
             // Beside the grid from `md` up; below it, over the grid at full
             // width rather than squeezing the video into strips.
-            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:relative md:w-[var(--chat-width,16rem)] md:shrink-0 md:border-l xl:w-[var(--chat-width,18rem)]"
+            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:relative md:w-[var(--chat-width,18rem)] md:shrink-0 md:border-l xl:w-[var(--chat-width,20rem)]"
             style={
               roster.isCustom
                 ? ({ '--chat-width': `${roster.width}px` } as React.CSSProperties)
@@ -397,7 +398,9 @@ export default function ConferenceRoomPage() {
                 className="left-0 hidden justify-start md:flex"
               />
             ) : null}
-            <div className="shrink-0 overflow-y-auto">
+            {/* Bounded, so a long roster scrolls inside its own region instead of squeezing the
+                chat to nothing. */}
+            <div className="max-h-[45%] shrink-0 overflow-y-auto">
               <ParticipantList
                 selfName={joinedAs?.name ?? t('common.conference.you')}
                 selfMuted={localMuted}
@@ -406,6 +409,12 @@ export default function ConferenceRoomPage() {
                 selfLabel={t('common.conference.you')}
                 peers={peers}
                 rosterTitle={t('common.conference.rosterTitle')}
+                stateLabels={{
+                  micOn: t('web.conference.micOn'),
+                  micOff: t('web.conference.micOff'),
+                  camOn: t('web.conference.camOn'),
+                  camOff: t('web.conference.camOff'),
+                }}
               />
             </div>
             <div className="border-border mt-1 flex min-h-0 flex-1 flex-col border-t">
@@ -417,6 +426,8 @@ export default function ConferenceRoomPage() {
                 inputPlaceholder={t('common.conference.chatPlaceholder')}
                 sendLabel={t('common.conference.chatSend')}
                 emptyLabel={t('common.conference.chatEmpty')}
+                emptyHint={t('web.conference.chatEmptyHint')}
+                locale={locale}
                 refusalLabel={
                   chatRefusal === 'rate-limited'
                     ? t('common.conference.chatRateLimited')
