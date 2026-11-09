@@ -103,6 +103,54 @@ Done in the shared components under `pointer-coarse:` (Button, Input, Select, To
 Web: 132 files, 1554 tests pass. `@chatofy/ui`: 188 of 189 pass (the one failure, `skin-guard` on `textarea.tsx`, is a CRLF artefact of this Windows checkout: three sibling failures disappeared when their files were rewritten with LF). i18n: 28 pass. Typecheck clean. ESLint reports only CRLF line-ending noise on files not touched here.
 After-capture (10 routes x 4 viewports, signed in): no redirect, no overflow, axe 0 violations at 1440 and 375.
 
+## Round 3: the review repos, actually run
+
+Run from isolated clones (nothing written to `~/.claude` or the repo's `.claude/`; the skills are instruction
+files, so their rules were applied directly). Evidence: `ui-ux-redesign-261109-after/audit-tools/`.
+
+| Tool                                                                                                     | What was run                                                                                                         | Result                                                                                  |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| nutlope/hallmark                                                                                         | `sloplint` static over `apps/web/src` and `apps/web/app` (211 files), then `--render` on the landing page (8 widths) | 93 static findings, 1 render FAIL; triaged below                                        |
+| emilkowalski/skills                                                                                      | `review-animations` rules applied to the code; `break-ui` method applied with plausible data through the API         | 3 motion fixes, 1 layout fix; details below                                             |
+| ui-ux-pro-max                                                                                            | Its pre-delivery checklist, item by item                                                                             | Two items had never been run (dark-mode contrast, reduced motion); both now pass        |
+| pbakaus/impeccable                                                                                       | Earlier `detect` runs (source and landing)                                                                           | 0 anti-patterns, advisories 5 to 2                                                      |
+| google design.md, awesome-design-md, open-design, taste-skill, react-bits, gsap, scroll-world, canvas-ui | Cloned or read only                                                                                                  | Not run: they generate or restyle rather than audit, and the plan rules out re-skinning |
+
+### hallmark triage (93 static findings)
+
+| Gate                               | Count | Verdict                                                                                                                                                                                                                                                                                       |
+| ---------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 48 colour literal outside tokens   | 72    | False positive: every one is in `globals.css`, the token block itself                                                                                                                                                                                                                         |
+| 67 uppercase at 11px               | 8     | **Real, 3 fixed.** Our own guideline says 11px uppercase is for section headings only (Vietnamese capitals with diacritics are hard to read). Speaker names in History, the Source / Translation label and the conference Meeting code had drifted. The other 5 are section headings and stay |
+| 10a transition on layout property  | 3     | 1 fixed (lobby level bar). The translate mic meter stays: its bars sit in a fixed 22px box and its spec is built around the height being data. The slider thumb is Radix positioning                                                                                                          |
+| 19 dash in copy                    | 1     | False positive: a code comment                                                                                                                                                                                                                                                                |
+| 20, 34 stamp, `overflow-x: clip`   | 2     | Declined: a house stamp is hallmark's convention, and `overflow-x: clip` would hide the horizontal-overflow bugs the review is measuring                                                                                                                                                      |
+| 38i emphasis in h1                 | 1     | Dev-only social-card page                                                                                                                                                                                                                                                                     |
+| 26b no :active styling             | 1     | False positive: `Button` has `active:translate-y-px`                                                                                                                                                                                                                                          |
+| 28b video without poster           | 2     | Declined: live camera streams have no poster                                                                                                                                                                                                                                                  |
+| F1 straight quote                  | 3     | Code comments                                                                                                                                                                                                                                                                                 |
+| Render 58: 218 words on one screen | 1     | The privacy section ("How your recordings are handled"). Left as is: it has to be complete and its wording is locked by the copy spec                                                                                                                                                         |
+
+### Emil rules
+
+| Finding                                                                     | Fix                                          |
+| --------------------------------------------------------------------------- | -------------------------------------------- |
+| Sheet (mobile sidebar, landing menu) opened in 500ms on ease-in-out         | 300ms open, 200ms close, ease-out            |
+| Accordion trigger used `transition-all`                                     | Named properties                             |
+| Lobby level bar animated width every frame                                  | `transform: scaleX`                          |
+| (break-ui) A roster of many long names made history rows several lines tall | Clamped to two lines, full list as a tooltip |
+
+break-ui used plausible, schema-backed data (name at the 80-character limit in Vietnamese, a long company email, 6 long Vietnamese speaker names, 30 conversations, a 300-turn meeting, a two-letter name). Held up: no horizontal overflow on account, history, preferences or the 300-turn detail at 1440 and 375; long names ellipsise in the sidebar and wrap on the account page. The 300-turn transcript loads in 1.8 to 2.9s on the dev server (2.6k DOM nodes, a 61k to 99k px page): fine for now; a longer meeting would want windowing.
+
+### ui-ux-pro-max checklist, the two unrun items
+
+Dark mode: axe (including colour contrast) reports 0 violations on all signed-in routes at 1440. The public auth pages in dark were not scanned (signed-in sessions redirect away from them).
+Reduced motion: with `prefers-reduced-motion: reduce`, no animation is running on any route.
+
+### Checks after round 3
+
+Web, ui and i18n tests pass except the one CRLF-artefact `skin-guard` failure in `packages/ui` noted above. New specs: `uppercase-labels`, `motion-craft`, `mic-level-meter`, history roster clamp.
+
 ## Not done, and why
 
 | Item                                                      | Why                                                                                                      |

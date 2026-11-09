@@ -1,0 +1,155 @@
+[
+  {
+    "who": "long",
+    "vp": "1440",
+    "route": "/account",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "long",
+    "vp": "1440",
+    "route": "/history",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 30,
+    "clipped": [
+      "a \"Skip to content\" 119>1",
+      "span \"Toggle Sidebar\" 105>1",
+      "label \"Search your conversations\" 183>1",
+      "span \"and\" 23>1",
+      "span \"and\" 23>1"
+    ]
+  },
+  {
+    "who": "long",
+    "vp": "1440",
+    "route": "/preferences",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "long",
+    "vp": "375",
+    "route": "/account",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "long",
+    "vp": "375",
+    "route": "/history",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 30,
+    "clipped": [
+      "a \"Skip to content\" 119>1",
+      "span \"Toggle Sidebar\" 105>1",
+      "label \"Search your conversations\" 183>1",
+      "span \"and\" 23>1",
+      "span \"and\" 23>1"
+    ]
+  },
+  {
+    "who": "long",
+    "vp": "375",
+    "route": "/preferences",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "long",
+    "note": "history list links",
+    "count": 30
+  },
+  {
+    "who": "long",
+    "vp": "1440",
+    "route": "detail /history/0c93f1f8-11",
+    "loadMs": 2856,
+    "overflow": false,
+    "turns": 300,
+    "dom": 2669,
+    "pageHeight": 61212
+  },
+  {
+    "who": "long",
+    "vp": "375",
+    "route": "detail /history/0c93f1f8-11",
+    "loadMs": 1833,
+    "overflow": false,
+    "turns": 300,
+    "dom": 2582,
+    "pageHeight": 99475
+  },
+  {
+    "who": "short",
+    "vp": "1440",
+    "route": "/account",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "short",
+    "vp": "1440",
+    "route": "/history",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 0,
+    "clipped": [
+      "a \"Skip to content\" 119>1",
+      "span \"Toggle Sidebar\" 105>1",
+      "label \"Search your conversations\" 183>1"
+    ]
+  },
+  {
+    "who": "short",
+    "vp": "1440",
+    "route": "/preferences",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "short",
+    "vp": "375",
+    "route": "/account",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  },
+  {
+    "who": "short",
+    "vp": "375",
+    "route": "/history",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 0,
+    "clipped": [
+      "a \"Skip to content\" 119>1",
+      "span \"Toggle Sidebar\" 105>1",
+      "label \"Search your conversations\" 183>1"
+    ]
+  },
+  {
+    "who": "short",
+    "vp": "375",
+    "route": "/preferences",
+    "overflow": false,
+    "scrollWidth": 375,
+    "rows": 0,
+    "clipped": ["a \"Skip to content\" 119>1", "span \"Toggle Sidebar\" 105>1"]
+  }
+]

@@ -166,7 +166,7 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 - [x] 5.1 Budget spec updated for any new state (before code) (no new elevated state was added, so no budget spec change was needed; design specs pass)
 - [x] 5.2 Toast or inline confirmation per Gate A (Gate A: inline confirmation already exists ("Copied", "Link copied", save states); no toast added)
 - [~] 5.3 Shortcut / palette per Gate A, documented in the UI (Gate A: palette out of scope; the skip link and sidebar already cover keyboard access)
-- [~] 5.4 Keyboard-only and reduced-motion pass (keyboard pass done in phase 1; reduced-motion pass not run)
+- [x] 5.4 Keyboard-only and reduced-motion pass (keyboard in phase 1; reduced motion run on all routes in round 3: no running animation)
 
 ### Phase 6: Verify and document
 
@@ -187,6 +187,7 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 | 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b) |
 | 2026-11-09 | Phases 2 to 6 run on assumed Gate A answers; 8 code and docs commits; final report `plans/reports/ui-ux-redesign-261109-final.md`                                         |
 | 2026-11-09 | Round 2: conference live test, touch targets in shared components, failure-state sweep, glossary retry and empty state; final report updated                              |
+| 2026-11-09 | Round 3: hallmark, Emil and ui-ux-pro-max run from isolated clones; sentence-case labels, motion fixes, roster clamp; dark and reduced-motion checks                      |
 
 ## Constraints that stay
 

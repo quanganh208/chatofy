@@ -1,0 +1,853 @@
+{
+  "summary": {
+    "fails": 87,
+    "reflex": 3,
+    "warns": 3,
+    "waived": 0,
+    "rejected": 0,
+    "answered": 0,
+    "dismissed": 0,
+    "notes": 0,
+    "files": 211,
+    "render": "off"
+  },
+  "findings": [
+    {
+      "gate": "10a",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\mic-level-meter.tsx",
+      "line": 18,
+      "evidence": "transition-[width] on <div class=\"bg-speaking h-full transition-[…\">",
+      "fix": "Name the properties: transition-colors, transition-opacity or transition-transform"
+    },
+    {
+      "gate": "10a",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 477,
+      "evidence": "transitioning left on [data-slot='slider'][data-stepped] > span:last-child",
+      "fix": "Animate transform or opacity instead"
+    },
+    {
+      "gate": "10a",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\translate\\mic-meter.tsx",
+      "line": 55,
+      "evidence": "transition-[height] on <span class=\"bg-muted-foreground w-[3px] rou…\">",
+      "fix": "Name the properties: transition-colors, transition-opacity or transition-transform"
+    },
+    {
+      "gate": "19",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\conference-voice-chip.tsx",
+      "line": 65,
+      "evidence": "dash \"—\" in copy",
+      "fix": "A comma, a colon, a full stop or parentheses; never a dash"
+    },
+    {
+      "gate": "20",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 1,
+      "evidence": "no Hallmark stamp on the first non-empty line of any CSS",
+      "fix": "The stamp comment is line 1 of the CSS; only @charset may precede it"
+    },
+    {
+      "gate": "34",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 1,
+      "evidence": "no overflow-x: clip on html and body",
+      "fix": "overflow-x: clip on both html and body"
+    },
+    {
+      "gate": "38i",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(dev)\\social-card\\page.tsx",
+      "line": 78,
+      "evidence": "<em>/<i> inside <h1>",
+      "fix": "Roman headers; emphasis via weight or accent"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 235,
+      "evidence": "colour literal #f5f5f4 outside tokens (--background on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 235,
+      "evidence": "colour literal #0c0a09 outside tokens (--background on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 236,
+      "evidence": "colour literal #1c1917 outside tokens (--foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 236,
+      "evidence": "colour literal #f5f5f4 outside tokens (--foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 237,
+      "evidence": "colour literal #ffffff outside tokens (--card on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 237,
+      "evidence": "colour literal #1c1917 outside tokens (--card on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 238,
+      "evidence": "colour literal #1c1917 outside tokens (--card-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 238,
+      "evidence": "colour literal #f5f5f4 outside tokens (--card-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 239,
+      "evidence": "colour literal #edebe9 outside tokens (--muted on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 239,
+      "evidence": "colour literal #252220 outside tokens (--muted on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 240,
+      "evidence": "colour literal #6b6560 outside tokens (--muted-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 240,
+      "evidence": "colour literal #a8a29e outside tokens (--muted-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 241,
+      "evidence": "colour literal #edebe9 outside tokens (--secondary on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 241,
+      "evidence": "colour literal #252220 outside tokens (--secondary on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 242,
+      "evidence": "colour literal #1c1917 outside tokens (--secondary-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 242,
+      "evidence": "colour literal #f5f5f4 outside tokens (--secondary-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 243,
+      "evidence": "colour literal #57534e outside tokens (--prose on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 243,
+      "evidence": "colour literal #c4bfba outside tokens (--prose on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 246,
+      "evidence": "colour literal #1c1917 outside tokens (--primary on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 246,
+      "evidence": "colour literal #f5f5f4 outside tokens (--primary on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 247,
+      "evidence": "colour literal #ffffff outside tokens (--primary-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 247,
+      "evidence": "colour literal #0c0a09 outside tokens (--primary-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 248,
+      "evidence": "colour literal #44403c outside tokens (--accent-hover on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 248,
+      "evidence": "colour literal #ffffff outside tokens (--accent-hover on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 249,
+      "evidence": "colour literal #1c1917 outside tokens (--accent-text on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 249,
+      "evidence": "colour literal #f5f5f4 outside tokens (--accent-text on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 250,
+      "evidence": "colour literal #e6e1db outside tokens (--accent-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 250,
+      "evidence": "colour literal #35302c outside tokens (--accent-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 253,
+      "evidence": "colour literal #b3291d outside tokens (--destructive on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 253,
+      "evidence": "colour literal #e9635a outside tokens (--destructive on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 254,
+      "evidence": "colour literal #ffffff outside tokens (--destructive-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 254,
+      "evidence": "colour literal #0c0a09 outside tokens (--destructive-foreground on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 255,
+      "evidence": "colour literal #b3291d outside tokens (--live on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 255,
+      "evidence": "colour literal #e9635a outside tokens (--live on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 256,
+      "evidence": "colour literal #b32e23 outside tokens (--live-fill on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 256,
+      "evidence": "colour literal #c9433a outside tokens (--live-fill on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 257,
+      "evidence": "colour literal #ffffff outside tokens (--on-live-fill on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 258,
+      "evidence": "colour literal #fbeae8 outside tokens (--live-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 258,
+      "evidence": "colour literal #3a1b18 outside tokens (--live-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 259,
+      "evidence": "colour literal #0f6b3e outside tokens (--speaking on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 259,
+      "evidence": "colour literal #45b97c outside tokens (--speaking on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 260,
+      "evidence": "colour literal #7a4e00 outside tokens (--warning on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 260,
+      "evidence": "colour literal #e9a23b outside tokens (--warning on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 261,
+      "evidence": "colour literal #fbf0d8 outside tokens (--warning-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 261,
+      "evidence": "colour literal #3a2a0c outside tokens (--warning-subtle on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 265,
+      "evidence": "colour literal #dddad7 outside tokens (--border on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 265,
+      "evidence": "colour literal #2e2a27 outside tokens (--border on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 266,
+      "evidence": "colour literal #a8a29e outside tokens (--border-strong on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 266,
+      "evidence": "colour literal #57534e outside tokens (--border-strong on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 267,
+      "evidence": "colour literal #8a837e outside tokens (--border-control on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 267,
+      "evidence": "colour literal #7c756f outside tokens (--border-control on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 268,
+      "evidence": "colour literal #8a837e outside tokens (--input on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 268,
+      "evidence": "colour literal #7c756f outside tokens (--input on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 269,
+      "evidence": "colour literal #1c1917 outside tokens (--ring on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 269,
+      "evidence": "colour literal #f5f5f4 outside tokens (--ring on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 289,
+      "evidence": "colour literal rgba(19, 19, 19, 0.055) outside tokens (--elevation-sm on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 289,
+      "evidence": "colour literal rgba(19, 19, 19, 0.04) outside tokens (--elevation-sm on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 289,
+      "evidence": "colour literal rgba(0, 0, 0, 0.35) outside tokens (--elevation-sm on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 293,
+      "evidence": "colour literal rgba(19, 19, 19, 0.05) outside tokens (--elevation-md on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 293,
+      "evidence": "colour literal rgba(19, 19, 19, 0.075) outside tokens (--elevation-md on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 293,
+      "evidence": "colour literal rgba(0, 0, 0, 0.42) outside tokens (--elevation-md on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 293,
+      "evidence": "colour literal rgba(255, 255, 255, 0.045) outside tokens (--elevation-md on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 298,
+      "evidence": "colour literal rgba(19, 19, 19, 0.05) outside tokens (--elevation-lg on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 298,
+      "evidence": "colour literal rgba(19, 19, 19, 0.1) outside tokens (--elevation-lg on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 298,
+      "evidence": "colour literal rgba(0, 0, 0, 0.5) outside tokens (--elevation-lg on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 298,
+      "evidence": "colour literal rgba(255, 255, 255, 0.045) outside tokens (--elevation-lg on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 317,
+      "evidence": "colour literal rgba(19, 19, 19, 0.07) outside tokens (--inset-field on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 317,
+      "evidence": "colour literal rgba(0, 0, 0, 0.38) outside tokens (--inset-field on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 317,
+      "evidence": "colour literal rgba(19, 19, 19, 0.045) outside tokens (--inset-field on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 317,
+      "evidence": "colour literal rgba(255, 255, 255, 0.045) outside tokens (--inset-field on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 330,
+      "evidence": "colour literal rgba(19, 19, 19, 0.06) outside tokens (--surface-hairline on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "48",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\globals.css",
+      "line": 330,
+      "evidence": "colour literal rgba(255, 255, 255, 0.055) outside tokens (--surface-hairline on :root, .reading-scheme-light,…)",
+      "fix": "Lift the value into the token block"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\chat-panel.tsx",
+      "line": 52,
+      "evidence": "uppercase at 11px on <h2 class=\"text-label text-muted-foregroun…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\participant-list.tsx",
+      "line": 36,
+      "evidence": "uppercase at 11px on <h2 class=\"text-label text-muted-foregroun…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\page.tsx",
+      "line": 265,
+      "evidence": "uppercase at 11px on <span class=\"text-label mr-2 font-semibold u…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\history\\history-list.tsx",
+      "line": 122,
+      "evidence": "uppercase at 11px on <h2 class=\"text-label text-muted-foregroun…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\history\\history-transcript.tsx",
+      "line": 110,
+      "evidence": "uppercase at 11px on <p class=\"text-label text-muted-foregroun…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\layout\\settings-section.tsx",
+      "line": 37,
+      "evidence": "uppercase at 11px on <h2 class=\"text-muted-foreground text-labe…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\translate\\minutes-panel.tsx",
+      "line": 187,
+      "evidence": "uppercase at 11px on <p class=\"text-label text-muted-foregroun…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "67",
+      "grade": "FAIL",
+      "tier": "floor",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\translate\\panel-headers.tsx",
+      "line": 413,
+      "evidence": "uppercase at 11px on <span class=\"text-muted-foreground text-labe…\">",
+      "fix": "Sentence case in the body face, a step smaller, untracked: drop uppercase and the tracking-* class"
+    },
+    {
+      "gate": "26b",
+      "grade": "REFLEX",
+      "tier": "reflex",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\account\\account-identity.spec.tsx",
+      "line": 1,
+      "evidence": "no :active styling anywhere",
+      "fix": "All eight states; guard: not a form control, no aria-disabled anywhere"
+    },
+    {
+      "gate": "28b",
+      "grade": "REFLEX",
+      "tier": "reflex",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\pre-join-panel.tsx",
+      "line": 81,
+      "evidence": "video without poster",
+      "fix": "Add a poster frame; guard: below the fold and not the LCP"
+    },
+    {
+      "gate": "28b",
+      "grade": "REFLEX",
+      "tier": "reflex",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\video-grid.tsx",
+      "line": 82,
+      "evidence": "video without poster",
+      "fix": "Add a poster frame; guard: below the fold and not the LCP"
+    },
+    {
+      "gate": "F1",
+      "grade": "WARN",
+      "tier": "finish",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\conference-voice-chip.tsx",
+      "line": 64,
+      "evidence": "straight quote in prose x1 (first: // gender's default is w)",
+      "fix": "Use typographic quotes: “ ” ’"
+    },
+    {
+      "gate": "F1",
+      "grade": "WARN",
+      "tier": "finish",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\app\\(app)\\conference\\[roomId]\\components\\pre-join-panel.tsx",
+      "line": 227,
+      "evidence": "straight quote in prose x2 (first: className=\"self-stretch\")",
+      "fix": "Use typographic quotes: “ ” ’"
+    },
+    {
+      "gate": "F1",
+      "grade": "WARN",
+      "tier": "finish",
+      "file": "E:\\PTIT\\DATN\\chatofy\\apps\\web\\src\\components\\translate\\reading-color-field.spec.tsx",
+      "line": 31,
+      "evidence": "straight quote in prose x4 (first: label=\"Translation col)",
+      "fix": "Use typographic quotes: “ ” ’"
+    }
+  ]
+}
