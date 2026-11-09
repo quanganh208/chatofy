@@ -17,15 +17,20 @@ const ALL_SUPPORTED: Record<keyof MicProcessing, boolean> = {
 
 let browserSupport: Record<keyof MicProcessing, boolean> | null = null;
 
-/** What this browser says it can honour. Asked once: the answer cannot change. */
+/**
+ * What this browser says it can honour. Asked once: the answer cannot change.
+ *
+ * A browser lists only the constraints it supports, each as `true`, and leaves the
+ * rest out rather than reporting `false` — so only `true` counts as supported.
+ */
 function readBrowserSupport(): Record<keyof MicProcessing, boolean> {
   if (browserSupport) return browserSupport;
   const constraints = navigator.mediaDevices?.getSupportedConstraints?.();
   browserSupport = constraints
     ? {
-        echoCancellation: constraints.echoCancellation !== false,
-        noiseSuppression: constraints.noiseSuppression !== false,
-        autoGainControl: constraints.autoGainControl !== false,
+        echoCancellation: constraints.echoCancellation === true,
+        noiseSuppression: constraints.noiseSuppression === true,
+        autoGainControl: constraints.autoGainControl === true,
       }
     : ALL_SUPPORTED;
   return browserSupport;

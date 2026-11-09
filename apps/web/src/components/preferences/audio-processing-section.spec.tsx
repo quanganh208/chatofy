@@ -70,7 +70,8 @@ describe('AudioProcessingSection', () => {
   });
 
   it('disables a processor the browser says it cannot honour, and says why', async () => {
-    supportConstraints({ echoCancellation: true, noiseSuppression: true, autoGainControl: false });
+    // Left out, as a browser does: an unsupported constraint is absent, never `false`.
+    supportConstraints({ echoCancellation: true, noiseSuppression: true });
     await mount();
     expect(switchFor(en['common.audio.autoGainControl']).disabled).toBe(true);
     expect(switchFor(en['common.audio.echoCancellation']).disabled).toBe(false);
