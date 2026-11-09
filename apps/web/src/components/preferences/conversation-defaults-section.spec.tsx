@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TranslationContext } from '@chatofy/types';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
+import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { ConversationDefaultsSection } from './conversation-defaults-section';
+
+/** The page's settings owner, reduced to what this section reads. */
+function WithSettings() {
+  const { settings, ready, set } = useTranslateSettings();
+  return <ConversationDefaultsSection settings={settings} ready={ready} set={set} />;
+}
 
 /**
  * The AI Context row inside the defaults panel: absent, not empty, and never
@@ -47,7 +54,7 @@ async function mount(): Promise<void> {
   await act(async () => {
     root.render(
       <LocaleProvider>
-        <ConversationDefaultsSection />
+        <WithSettings />
       </LocaleProvider>,
     );
     await Promise.resolve();

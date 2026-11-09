@@ -44,6 +44,12 @@ export const vi: Messages = {
   'common.theme.dark': 'Tối',
   'common.theme.system': 'Theo hệ thống',
   'common.theme.label': 'Giao diện màu',
+  'common.audio.title': 'Cài đặt âm thanh',
+  'common.audio.echoCancellation': 'Khử vọng',
+  'common.audio.noiseSuppression': 'Khử tiếng ồn',
+  'common.audio.autoGainControl': 'Tự điều chỉnh mức micro',
+  'common.audio.recommendation':
+    'Khuyến nghị: tắt khi đeo tai nghe; có thể bật khi dùng loa ngoài.',
 
   'common.language.vietnamese': 'Tiếng Việt',
   'common.language.english': 'English',
@@ -382,6 +388,7 @@ export const vi: Messages = {
   'web.translate.serviceUnreachable':
     'Không kết nối được tới dịch vụ dịch. Bây giờ chưa bắt đầu hội thoại được đâu.',
   'web.translate.micFailed': 'Chưa khởi động được micro.',
+  'web.translate.micPausedDuringPlayback': 'Micro tạm dừng khi đang phát bản dịch',
 
   'web.translate.saveFailedRetryable':
     'Cuộc hội thoại này chưa được lưu. Nó sẽ không xuất hiện trong lịch sử cho đến khi lưu xong.',
@@ -470,6 +477,12 @@ export const vi: Messages = {
   'web.preferences.conversation': 'Mặc định cho hội thoại mới',
   'web.preferences.conversationHint':
     'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — ngôn ngữ và giọng thì cố định cho tới khi cuộc đó kết thúc.',
+  'web.preferences.audioHint': 'Áp dụng từ lần bắt đầu tiếp theo.',
+  'web.preferences.audio.echoCancellationHint':
+    'Giảm âm thanh loa bị micro thu lại khi phát bản dịch. Khi tắt, micro tạm dừng lúc bản dịch đang phát.',
+  'web.preferences.audio.noiseSuppressionHint': 'Lọc âm thanh từ micro không phải giọng nói.',
+  'web.preferences.audio.autoGainControlHint': 'Tự động điều chỉnh mức âm lượng đầu vào từ micro.',
+  'web.preferences.audio.unsupported': 'Trình duyệt này không hỗ trợ.',
   // AI Context — thư viện ngữ cảnh đã đặt tên.
   'web.preferences.aiContext': 'Ngữ cảnh AI',
   'web.preferences.aiContextHint':

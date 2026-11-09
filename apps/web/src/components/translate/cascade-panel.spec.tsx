@@ -109,6 +109,7 @@ const conversation: UseStreamingTranslate = {
   attributeTurn: vi.fn(),
   unattributeTurn: vi.fn(),
   echoHeard: 0,
+  micPaused: false,
   error: null,
   level: 0,
   conversationId: 'c-1',
@@ -395,14 +396,17 @@ describe('the recording upload alert', () => {
  * would file the conversation as finished halfway through it.
  */
 describe('the dock, pausing and resuming', () => {
-  async function renderAt(status: UseStreamingTranslate['status']) {
+  async function renderAt(
+    status: UseStreamingTranslate['status'],
+    overrides: Partial<UseStreamingTranslate> = {},
+  ) {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
       addEventListener() {},
       removeEventListener() {},
     });
-    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    useStreamingTranslate.mockReturnValue({ ...conversation, status, ...overrides });
     useConversationSave.mockReturnValue({
       saved: false,
       failure: null,
@@ -428,6 +432,16 @@ describe('the dock, pausing and resuming', () => {
     Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === text,
     );
+
+  it('says the microphone is paused while half duplex ignores it', async () => {
+    await renderAt('listening', { micPaused: true });
+    expect(container.textContent).toContain(en['web.translate.micPausedDuringPlayback']);
+  });
+
+  it('says nothing about the microphone while it is being listened to', async () => {
+    await renderAt('listening', { micPaused: false });
+    expect(container.textContent).not.toContain(en['web.translate.micPausedDuringPlayback']);
+  });
 
   it('offers Pause beside End while listening', async () => {
     await renderAt('listening');

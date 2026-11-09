@@ -31,6 +31,13 @@ export const en = {
   'common.theme.dark': 'Dark',
   'common.theme.system': 'Match system',
   'common.theme.label': 'Colour theme',
+  // Mic processing: named as Saydi names them, because that is what people compare.
+  'common.audio.title': 'Audio settings',
+  'common.audio.echoCancellation': 'Echo cancellation',
+  'common.audio.noiseSuppression': 'Noise suppression',
+  'common.audio.autoGainControl': 'Automatic gain control',
+  'common.audio.recommendation':
+    'Recommended: off with headphones; may be on with external speakers.',
   'common.language.vietnamese': 'Tiếng Việt',
   'common.language.english': 'English',
   'common.language.label': 'Language',
@@ -485,6 +492,7 @@ export const en = {
   'web.translate.serviceUnreachable':
     'The translation service is unreachable. Starting a conversation will not work yet.',
   'web.translate.micFailed': 'The microphone could not be started.',
+  'web.translate.micPausedDuringPlayback': 'Microphone paused while the translation plays',
 
   // A failed save, split by whether resending the SAME conversation could ever
   // work. Retryable offers a button; terminal does not, because it never could.
@@ -610,6 +618,12 @@ export const en = {
   'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
     'A new conversation starts from these. While one is running you change what you can on the Translate page — languages and voice stay fixed until it ends.',
+  'web.preferences.audioHint': 'Applies from the next start.',
+  'web.preferences.audio.echoCancellationHint':
+    'Reduces speaker sound picked up by the microphone while a translation plays. When off, the microphone pauses while a translation plays.',
+  'web.preferences.audio.noiseSuppressionHint': 'Filters microphone sound that is not speech.',
+  'web.preferences.audio.autoGainControlHint': 'Automatically adjusts the microphone input level.',
+  'web.preferences.audio.unsupported': 'Not supported by this browser.',
   // AI Context — the named library the translator is told about a KIND of
   // conversation from. Authored here; picked on Translate and in the extension.
   //

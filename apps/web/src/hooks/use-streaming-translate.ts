@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import type {
+  MicProcessing,
   SessionLanguageMode,
   SessionLanguagePair,
   SessionOptions,
   TranscriptSegment,
 } from '@chatofy/types';
 import {
-  CASCADE_RUNTIME_OPTIONS,
   CASCADE_STREAM_COMMITTED,
+  cascadeRuntimeFor,
   ConversationSession,
   PcmPlaybackQueue,
   TranslateSocket,
@@ -89,6 +91,24 @@ const NO_PAUSES: readonly PauseInterval[] = [];
  */
 const clampVolume = (volume: number): number => Math.min(1, Math.max(0, volume));
 
+const MIC_PROCESSORS = ['echoCancellation', 'noiseSuppression', 'autoGainControl'] as const;
+
+/**
+ * Logs each processor the browser applied differently from what was asked.
+ *
+ * Only a boolean the browser reports counts: one that reports nothing has not
+ * said it disagrees, and a warning for it would be noise on every start.
+ */
+function warnIfNotApplied(stream: MediaStream, asked: MicProcessing): void {
+  const applied = stream.getAudioTracks()[0]?.getSettings();
+  for (const key of MIC_PROCESSORS) {
+    const value = applied?.[key];
+    if (typeof value === 'boolean' && value !== asked[key]) {
+      console.warn(`[chatofy] mic: browser applied ${key}=${value}, asked ${asked[key]}`);
+    }
+  }
+}
+
 export interface UseStreamingTranslate {
   status: ConversationStatus;
   /** Finished turns, newest last. */
@@ -157,6 +177,12 @@ export interface UseStreamingTranslate {
    * `@chatofy/realtime-client` before quoting this number in a measurement.
    */
   echoHeard: number;
+  /**
+   * The pump is ignoring the microphone because our translation is audible. Only
+   * ever true in half duplex, which is to say with echo cancellation off — see
+   * `cascadeRuntimeFor`.
+   */
+  micPaused: boolean;
   error: string | null;
   /** Live microphone level (0..1) for a meter. */
   level: number;
@@ -289,8 +315,14 @@ export interface UseStreamingTranslate {
  * out of storage. A volume captured by value there would be the first-render
  * default for the lifetime of the page, and the volume someone actually saved
  * would silently never apply.
+ *
+ * `getMicProcessing` is a reader for the same reason, and is read when the
+ * microphone opens and when the session reads its runtime — both at start.
  */
-export function useStreamingTranslate(getVolume: () => number = () => 1): UseStreamingTranslate {
+export function useStreamingTranslate(
+  getVolume: () => number = () => 1,
+  getMicProcessing: () => MicProcessing = () => DEFAULT_MIC_PROCESSING,
+): UseStreamingTranslate {
   // A READER, not a value. The socket cannot open without a token —
   // /ws/translate refuses an unauthenticated upgrade before any socket exists —
   // and the session resolves asynchronously, after this hook's first render.
@@ -308,6 +340,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const [echoHeard, setEchoHeard] = useState(0);
+  const [micPaused, setMicPaused] = useState(false);
   // The session's own record of when this conversation was paused; see
   // `onPauses` below.
   const [pauses, setPauses] = useState<readonly PauseInterval[]>(NO_PAUSES);
@@ -334,6 +367,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   useEffect(() => {
     getVolumeRef.current = getVolume;
   }, [getVolume]);
+  const getMicProcessingRef = useRef(getMicProcessing);
+  useEffect(() => {
+    getMicProcessingRef.current = getMicProcessing;
+  }, [getMicProcessing]);
 
   // Same treatment, and for the same reason: the session below is built once, so a
   // captured translator would be the one from the first render forever.
@@ -380,7 +417,16 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // session receives exactly what it would have received and learns nothing
       // about recording. That is what keeps `@chatofy/realtime-client` — shared
       // with the extension — out of this feature entirely.
-      openMicrophone: async () => attachRecording(await openMicrophone(tRef.current)),
+      //
+      // Opened with the processing the reader chose. A browser may decline a
+      // constraint without failing (Safari is reported to), so what it actually
+      // applied is compared and a disagreement is logged rather than trusted.
+      openMicrophone: async () => {
+        const audio = getMicProcessingRef.current();
+        const stream = await openMicrophone(tRef.current, audio);
+        warnIfNotApplied(stream, audio);
+        return attachRecording(stream);
+      },
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
@@ -416,11 +462,11 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     {
       onStatus: setStatus,
       onLevel: setLevel,
-      // Nothing left to report. The microphone is honoured throughout playback
-      // now, and the pump raises this only when it is ignoring input, so on this
-      // page the edge cannot fire — see `fullDuplex` in `CASCADE_RUNTIME_OPTIONS`. Required by the
-      // session because the extension and the single-turn path both use it.
-      onMuted: () => {},
+      // Fires only in half duplex, i.e. when echo cancellation is off
+      // (`cascadeRuntimeFor`): the pump then ignores the microphone while our
+      // translation is audible, and the page says so. Under full duplex the pump
+      // never ignores input and this stays false.
+      onMuted: setMicPaused,
       // Every connection failure asks whether the session is still valid before
       // it is reported as a fault. Without this an expired token reads as the
       // API being down and the user retries into a refusal forever. Renewal is
@@ -439,6 +485,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // node of a closed context would be held until the next run replaced it.
       onStopped: () => {
         gainRef.current = null;
+        setMicPaused(false);
         // The conversation is over, so this is the last moment the acoustic
         // layer can keep its promise: every turn it heard but could not place
         // gets an ordinal here. Dispatched from the teardown signal rather than
@@ -498,10 +545,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // recogniser fault.
       onLog: (message) => console.warn(`[chatofy] ${message}`),
     },
-    // Full duplex, continuous capture, the shared in-flight and length ceilings,
-    // and per-turn metrics: the tuning every cascade client shares, with the
-    // reasons beside each value where it is defined.
-    () => CASCADE_RUNTIME_OPTIONS,
+    // Full duplex unless echo cancellation is off — see `cascadeRuntimeFor`.
+    // Otherwise continuous capture, the shared in-flight and length ceilings, and
+    // per-turn metrics: the tuning every cascade client shares.
+    () => cascadeRuntimeFor(getMicProcessingRef.current()),
   );
   const session = sessionRef.current;
 
@@ -540,6 +587,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // The previous conversation's answer is not this one's: until a turn of
       // this one opens, nothing has said how it runs.
       setLanguageMode(null);
+      setMicPaused(false);
       // The previous conversation's recording must not survive into this one:
       // the upload keys off `conversationId`, and a stale blob here would be
       // attached to the wrong conversation. Its ORIGIN must not survive either —
@@ -726,6 +774,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     attributeTurn,
     unattributeTurn,
     echoHeard,
+    micPaused,
     error,
     level,
     conversationId: identity?.id ?? null,

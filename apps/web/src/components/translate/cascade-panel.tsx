@@ -157,7 +157,10 @@ export function CascadePanel({
   const captionWindow = useCaptionWindow(t('web.translate.captionWindowTitle'));
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
-  const conversation = useStreamingTranslate(readVolume);
+  // Read at start through the hook's ref, so the latest saved choice applies to
+  // the next conversation and never to the one running.
+  const readMicProcessing = useCallback(() => settings.micProcessing, [settings.micProcessing]);
+  const conversation = useStreamingTranslate(readVolume, readMicProcessing);
 
   // Paused is a RUNNING state. Everything gated on `running` — the save that
   // fires on its falling edge above all — must not fire when the microphone goes
@@ -526,6 +529,15 @@ export function CascadePanel({
             from: nameLanguage(declinedPair.source),
             to: nameLanguage(declinedPair.target),
           })}
+        </p>
+      ) : null}
+
+      {/* Half duplex, which echo cancellation off asks for: the microphone is
+          ignored while our translation plays, so speech then is not heard. Said
+          as a readout, because nothing here would change it mid-conversation. */}
+      {conversation.micPaused ? (
+        <p role="status" className="text-muted-foreground text-hint">
+          {t('web.translate.micPausedDuringPlayback')}
         </p>
       ) : null}
 
