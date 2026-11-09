@@ -9,18 +9,18 @@ Script: `capture.mjs` (needs `npm i axe-core` beside it; Chrome path set inside;
 
 ## Status of steps
 
-| Step                                           | State                                                                                                       |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 1.1 stack up                                   | done                                                                                                        |
-| 1.2 test account                               | done (registered, verified by token, signed in via real `/login` form)                                      |
-| 1.3 screenshots                                | done for 10 of 11 routes x 4 viewports (40 shots); `/history/[id]` not captured: no conversation exists yet |
-| 1.4 axe                                        | done at 1440 for 10 routes                                                                                  |
-| 1.5 keyboard walk                              | done at page level (see Keyboard walk); task walks that need mic or data are deferred to 1.6                |
-| 1.6 worst-case data                            | todo                                                                                                        |
-| 1.7 rubric scoring                             | todo                                                                                                        |
-| 1.8 impeccable URL scan, hallmark, Emil skills | todo                                                                                                        |
-| 1.9a usability test                            | todo (needs real testers)                                                                                   |
-| 1.9 finish report, cleanup                     | todo                                                                                                        |
+| Step                                           | State                                                                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 1.1 stack up                                   | done                                                                                                                  |
+| 1.2 test account                               | done (registered, verified by token, signed in via real `/login` form)                                                |
+| 1.3 screenshots                                | done for 10 of 11 routes x 4 viewports (40 shots); `/history/[id]` not captured: no conversation exists yet           |
+| 1.4 axe                                        | done at 1440 for 10 routes                                                                                            |
+| 1.5 keyboard walk                              | done at page level (see Keyboard walk); task walks that need mic or data are deferred to 1.6                          |
+| 1.6 worst-case data                            | done for history (seeded 3 conversations through the real API); empty, offline and error states still to check in 1.7 |
+| 1.7 rubric scoring                             | todo                                                                                                                  |
+| 1.8 impeccable URL scan, hallmark, Emil skills | todo                                                                                                                  |
+| 1.9a usability test                            | todo (needs real testers)                                                                                             |
+| 1.9 finish report, cleanup                     | todo                                                                                                                  |
 
 ## Environment findings (not UI defects, but they block anyone running the app)
 
@@ -102,6 +102,33 @@ Findings:
 - No focus trap: Tab wraps back to the start on every page.
 - Not walked yet: change language end to end, join a conference with a code, open a
   history item (needs a seeded conversation), start a translation (needs a microphone).
+
+## Worst-case data: /history and /history/[id] (step 1.6)
+
+Seeded through `PUT /conversations/:id` (`seed.mjs`): a 24-turn two-way conversation with long
+Vietnamese and English turns and a 63-character speaker label; an edge case with a 100-character
+speaker label, a 180-character unbroken token and a long URL; a one-word conversation.
+Measured by `history.mjs` (data: `history-results.json`, shots: `shots/history-seeded-*`, `shots/history-detail-*`).
+
+| Page                      | 1440                         | 768              | 375              | 320              |
+| ------------------------- | ---------------------------- | ---------------- | ---------------- | ---------------- |
+| /history list             | overflows (scrollWidth 1492) | overflows (1236) | overflows (916)  | overflows (916)  |
+| Detail: long conversation | ok, text column 574          | ok, 414          | ok, 277          | ok, 222          |
+| Detail: edge case         | overflows (2605)             | overflows (2349) | overflows (2086) | overflows (2086) |
+| Detail: one word          | ok                           | ok               | ok               | ok               |
+
+axe at 1440 and 375 on these pages: 0 violations.
+
+### Defects
+
+| #   | Severity | Where                                 | What                                                                                                                                                                                         | Likely fix                                                           |
+| --- | -------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| D1  | Medium   | /history list, "N speakers: ..." line | A speaker name with no spaces is not wrapped or truncated, so the whole page scrolls sideways at every width. The title above it truncates correctly, so only this line is missing the rule. | Same truncation or `break-words` plus `min-w-0` on the speakers line |
+| D2  | Medium   | /history/[id] transcript              | An unbroken token or long URL in a turn overflows the page at every width (scrollWidth 2086 to 2605). URLs in transcripts are plausible, not only a test artefact.                           | `overflow-wrap: anywhere` on turn text                               |
+| D3  | Low      | /history/[id] at 320px                | Text column is 208 to 222px; the checklist target (260px) is for 375px, where it passes (263 to 277).                                                                                        | Reduce side padding below 375px, or accept at 320                    |
+
+The normal long conversation reads well at every width: the layout holds up, and the two
+failures need unbroken strings, so they are edge cases rather than the common path.
 
 ## Next
 
