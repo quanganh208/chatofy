@@ -128,7 +128,7 @@ describe('TranscriptPanes arrangements', () => {
       // that reason; the narrow case is the same fault at a different width, so
       // both orientations are exempt.
       render({ displayMode: 'split', paneLayout });
-      const roles = Array.from(container.querySelectorAll('.border-b .text-label')).map(
+      const roles = Array.from(container.querySelectorAll('.border-b [data-slot="pane-role"]')).map(
         (node) => node.textContent,
       );
       expect(roles).toEqual(['Source', 'Translation']);
@@ -140,7 +140,7 @@ describe('TranscriptPanes arrangements', () => {
     // nothing on its own — the broken arrangement had exactly that.
     render({ displayMode: 'split', paneLayout: 'row' });
     for (const pane of container.querySelectorAll('[role="region"]')) {
-      expect(pane.previousElementSibling?.querySelector('.text-label')).not.toBeNull();
+      expect(pane.previousElementSibling?.querySelector('[data-slot="pane-role"]')).not.toBeNull();
     }
   });
 

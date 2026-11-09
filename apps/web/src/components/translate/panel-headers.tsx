@@ -412,7 +412,8 @@ function Side({
         <span className="flex flex-wrap items-baseline gap-x-2">
           <span
             aria-hidden
-            className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+            data-slot="pane-role"
+            className="text-muted-foreground text-hint font-medium"
           >
             {role}
           </span>

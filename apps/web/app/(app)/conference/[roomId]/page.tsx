@@ -262,9 +262,7 @@ export default function ConferenceRoomPage() {
       {/* Room header */}
       <div className="border-border flex items-center justify-between border-b px-4 py-2">
         <p className="text-hint text-muted-foreground min-w-0 truncate">
-          <span className="text-label mr-2 font-semibold uppercase tracking-wide">
-            {t('web.conference.meetingCode')}
-          </span>
+          <span className="text-hint mr-2 font-medium">{t('web.conference.meetingCode')}</span>
           {roomId}
         </p>
         <div className="flex shrink-0 items-center gap-1">

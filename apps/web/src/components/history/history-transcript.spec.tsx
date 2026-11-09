@@ -117,7 +117,7 @@ describe('HistoryTranscript', () => {
       turn({ position: 0, sourceText: 'first half second half', translations: { en: 'one two' } }),
     ]);
     expect(container.textContent).toContain('first half second half');
-    expect(container.querySelectorAll('p.uppercase').length).toBe(1);
+    expect(container.querySelectorAll('[data-slot="speaker-label"]').length).toBe(1);
   });
 
   describe('the timestamp gutter', () => {
