@@ -153,6 +153,12 @@ export const vi: Messages = {
   'web.chrome.navAccount': 'Tài khoản',
   'web.chrome.toggleSidebar': 'Đóng mở thanh bên',
   'web.chrome.sidebarWidth': 'Độ rộng thanh bên',
+  'web.chrome.descHistory':
+    'Mọi cuộc hội thoại bạn đã kết thúc, sẵn sàng để đọc lại, tìm kiếm và tóm tắt.',
+  'web.chrome.descGlossary': 'Tên riêng và thuật ngữ bạn muốn dịch đúng ý, gom về một chỗ.',
+  'web.chrome.descPreferences':
+    'Micrô, trình dịch và màn hình sẽ hoạt động thế nào ở lần bắt đầu tiếp theo.',
+  'web.chrome.descAccount': 'Tài khoản bạn đang đăng nhập và các thiết lập giữ nó an toàn.',
   'web.chrome.accountMenu': 'Tài khoản của bạn',
   'web.chrome.signedInAs': 'Đang đăng nhập bằng',
   'web.chrome.getStarted': 'Bắt đầu',
@@ -545,6 +551,8 @@ export const vi: Messages = {
   'web.account.avatarUnavailable':
     'Chưa lưu được ảnh — không có gì bị thay đổi. Hãy thử lại; nếu vẫn lỗi, hãy báo cho người quản trị máy chủ.',
   'web.account.security': 'Bảo mật',
+  'web.account.session': 'Phiên đăng nhập',
+  'web.account.thisBrowser': 'Trình duyệt này',
   'web.account.changePassword': 'Đổi mật khẩu',
   'web.account.changePasswordHint':
     'Đăng xuất các thiết bị khác của bạn và đóng cuộc dịch hoặc cuộc họp nào còn đang mở. Trình duyệt này vẫn giữ đăng nhập.',

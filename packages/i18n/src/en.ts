@@ -175,6 +175,12 @@ export const en = {
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.sidebarWidth': 'Sidebar width',
+  'web.chrome.descHistory':
+    'Every conversation you finish, ready to read again, search and summarize.',
+  'web.chrome.descGlossary': 'Names and terms you want translated your way, kept in one place.',
+  'web.chrome.descPreferences':
+    'How the microphone, the translator and the screen behave the next time you start.',
+  'web.chrome.descAccount': 'Who you are signed in as, and the settings that keep it safe.',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
@@ -708,6 +714,8 @@ export const en = {
   'web.account.avatarUnavailable':
     "Couldn't save that photo — nothing was changed. Try again; if it keeps failing, tell whoever runs this server.",
   'web.account.security': 'Security',
+  'web.account.session': 'Session',
+  'web.account.thisBrowser': 'This browser',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':
     'Signs out your other devices and closes any translation or meeting still open. This browser stays signed in.',

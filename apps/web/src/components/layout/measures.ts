@@ -40,6 +40,12 @@ export const MEASURE = {
    * fluid.
    */
   workspace: 'max-w-[110rem]',
+  /**
+   * Content pages with a header (history, glossary, preferences, account): wide enough
+   * for two columns of their content at a laptop width instead of one column and two
+   * margins of nothing.
+   */
+  page: 'max-w-6xl',
   /** Prose-led pages — an auth card, a short explanation. */
   reading: 'max-w-xl',
   /** The landing page's sections. */

@@ -33,6 +33,11 @@ export interface NavItem {
   href: Route;
   labelKey: MessageKey;
   icon: LucideIcon;
+  /**
+   * Set on a page that opens with a `PageHeader`: the line under its title. Its presence is
+   * what makes the page "headed", so the topbar stops being the page's `<h1>` there.
+   */
+  descriptionKey?: MessageKey;
 }
 
 /**
@@ -56,12 +61,32 @@ const GROUPS: readonly (readonly NavItem[])[] = [
     { href: '/translate/one-way', labelKey: 'web.chrome.navTranslate', icon: Mic },
     { href: '/translate/two-way', labelKey: 'web.chrome.navTranslateTwoWay', icon: ArrowLeftRight },
     { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
-    { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
-    { href: '/glossary', labelKey: 'web.chrome.navGlossary', icon: BookOpen },
+    {
+      href: '/history',
+      labelKey: 'web.chrome.navHistory',
+      icon: History,
+      descriptionKey: 'web.chrome.descHistory',
+    },
+    {
+      href: '/glossary',
+      labelKey: 'web.chrome.navGlossary',
+      icon: BookOpen,
+      descriptionKey: 'web.chrome.descGlossary',
+    },
   ],
   [
-    { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },
-    { href: '/account', labelKey: 'web.chrome.navAccount', icon: User },
+    {
+      href: '/preferences',
+      labelKey: 'web.chrome.navPreferences',
+      icon: SlidersHorizontal,
+      descriptionKey: 'web.chrome.descPreferences',
+    },
+    {
+      href: '/account',
+      labelKey: 'web.chrome.navAccount',
+      icon: User,
+      descriptionKey: 'web.chrome.descAccount',
+    },
   ],
 ];
 
@@ -97,4 +122,13 @@ export function navItemFor(
   items: readonly NavItem[] = navItems(),
 ): NavItem | undefined {
   return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+}
+
+/**
+ * The item whose page opens with a `PageHeader`, for exactly this path. Exact, so a
+ * nested route (a stored conversation under History) keeps its own heading and the
+ * topbar's, rather than inheriting a header it was never designed with.
+ */
+export function headedItemFor(pathname: string): NavItem | undefined {
+  return navItems().find((item) => item.descriptionKey !== undefined && item.href === pathname);
 }

@@ -245,3 +245,48 @@ describe('the resizable sidebar', () => {
     expect(handle()).toBeNull();
   });
 });
+
+describe('the page header', () => {
+  const h1s = () => [...container.querySelectorAll('h1')];
+
+  beforeEach(() => localStorage.clear());
+
+  it.each([
+    ['/history', 'History'],
+    ['/glossary', 'Glossary'],
+    ['/preferences', 'Preferences'],
+    ['/account', 'Account'],
+  ])('puts the one h1 for %s in the page, with a line saying what it is for', (route, title) => {
+    pathname.mockReturnValue(route);
+    render();
+    const headings = h1s();
+    expect(headings.length).toBe(1);
+    expect(headings[0]?.textContent).toBe(title);
+    // In the page's own column, not in the topbar.
+    expect(headings[0]?.closest('main')).not.toBeNull();
+    const header = headings[0]?.closest('header');
+    expect(header?.querySelector('p')?.textContent?.length).toBeGreaterThan(20);
+  });
+
+  it('leaves the topbar title as plain text there, so the page has no second heading', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    const topbar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
+    expect(topbar?.querySelector('h1')).toBeNull();
+    expect(topbar?.textContent).toContain('History');
+  });
+
+  it('keeps the topbar h1 on screens that own their layout', () => {
+    pathname.mockReturnValue('/translate/one-way');
+    render();
+    expect(h1s().length).toBe(1);
+    expect(h1s()[0]?.closest('header')).toBeNull();
+  });
+
+  it('opens a nested route (a stored conversation) without a second header', () => {
+    pathname.mockReturnValue('/history/abc');
+    render();
+    expect(h1s().length).toBe(1);
+    expect(container.querySelector('main header')).toBeNull();
+  });
+});

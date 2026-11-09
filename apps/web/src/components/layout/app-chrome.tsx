@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils';
 import { useStoredWidth } from '@/hooks/use-stored-width';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
+import { PageHeader } from './page-header';
+import { headedItemFor } from './nav-items';
+import { useTranslate } from '@/i18n/provider';
 import { MEASURE } from './measures';
 
 /**
@@ -71,8 +74,18 @@ const opensExpanded = (pathname: string) =>
  */
 const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
 
+/**
+ * Routes that are not headed but are laid out for the full page measure: the conference
+ * landing is a two-column hero, and a 672px column would squeeze it back to a form.
+ */
+const FULL_PAGE_ROUTES: readonly Route[] = ['/conference'];
+
 const measureFor = (pathname: string) =>
-  WORKSPACE_ROUTES.some((route) => route === pathname) ? MEASURE.workspace : MEASURE.wide;
+  WORKSPACE_ROUTES.some((route) => route === pathname)
+    ? MEASURE.workspace
+    : headedItemFor(pathname) || FULL_PAGE_ROUTES.some((route) => route === pathname)
+      ? MEASURE.page
+      : MEASURE.wide;
 
 /**
  * Routes that render edge-to-edge with no padding or max-width constraint.
@@ -89,6 +102,8 @@ const SIDEBAR_WIDTH_DEFAULT = 256; // 16rem, the primitive's own default
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslate();
+  const headed = headedItemFor(pathname);
 
   /*
     A toggle belongs to the route it was made on, which is the rule stated as data
@@ -146,6 +161,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               measureFor(pathname),
             )}
           >
+            {headed?.descriptionKey ? (
+              <PageHeader title={t(headed.labelKey)} description={t(headed.descriptionKey)} />
+            ) : null}
             {children}
           </div>
         )}

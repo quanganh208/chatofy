@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { SidebarTrigger } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
-import { navItemFor } from './nav-items';
+import { headedItemFor, navItemFor } from './nav-items';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
 import { LocaleSwitcher } from './locale-switcher';
 
@@ -25,7 +25,11 @@ import { LocaleSwitcher } from './locale-switcher';
  */
 export function AppTopbar() {
   const t = useTranslate();
-  const current = navItemFor(usePathname());
+  const pathname = usePathname();
+  const current = navItemFor(pathname);
+  // A page that opens with its own header owns the `<h1>`; the topbar keeps the name as
+  // plain text for orientation so the page never has two headings saying the same thing.
+  const headed = headedItemFor(pathname) !== undefined;
 
   return (
     <div className="border-hairline bg-background flex h-14 items-center gap-3 border-b px-4">
@@ -34,7 +38,11 @@ export function AppTopbar() {
           keeps the generated component unforked and still leaves nothing untranslated. */}
       <SidebarTrigger aria-label={t('web.chrome.toggleSidebar')} />
       {current ? (
-        <h1 className="text-body font-semibold tracking-tight">{t(current.labelKey)}</h1>
+        headed ? (
+          <p className="text-body font-semibold tracking-tight">{t(current.labelKey)}</p>
+        ) : (
+          <h1 className="text-body font-semibold tracking-tight">{t(current.labelKey)}</h1>
+        )
       ) : null}
       <div className="ml-auto flex items-center gap-2">
         <LocaleSwitcher />
