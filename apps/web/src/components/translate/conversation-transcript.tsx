@@ -30,6 +30,7 @@ import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
 import { TurnLanguage } from '@/components/translate/turn-language-tag';
 import { MorphingText } from '@/components/translate/morphing-text';
+import { LotusIllustration } from '@/components/marketing/lotus-illustration';
 import { flipFromLiveLine } from '@/components/translate/flip-from-live-line';
 import {
   LiveLineHandoffContext,
@@ -273,6 +274,15 @@ export function ConversationTranscript({
           // explanation, and in `split` the two are separated by a gap or by half
           // the screen.
           <div className="flex flex-col gap-4 px-8 py-7">
+            {/* The brand's one moment inside the app: the landing's lotus, opening once, above
+                the first step. Above and never behind the sentence — a dawn value is 1.3-1.7:1
+                on stone, so it is never what text is read against. Source pane only: the
+                target pane says its own sentence and stays plain. */}
+            {side !== 'target' ? (
+              <LotusIllustration
+                className={cn('w-36 max-sm:hidden', side === 'both' && 'mx-auto')}
+              />
+            ) : null}
             <p className={cn('text-prose text-body', side === 'both' && 'text-center')}>
               {side === 'source'
                 ? t('web.translate.panelSourceEmpty')

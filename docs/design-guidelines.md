@@ -108,7 +108,9 @@ Two consequences follow from an accent that is the colour of text:
 | `mint`     | `#A7E5D3` |
 
 `dawn` in `tokens.ts`. **Decorative only**: the lotus mark's centre petal, the landing
-illustration, the surfaces tiles' band. They measure 1.44, 1.69 and 1.30:1 on stone, so
+illustration, the surfaces tiles' band, and the same illustration above the first step in
+the translate screen's empty source pane (above the sentence, never behind it; hidden below
+`sm`, where the stacked panes are too short to hold it). They measure 1.44, 1.69 and 1.30:1 on stone, so
 a dawn value is **never behind text, never on a control, and never carries a state**.
 It is not a palette key, and the contrast table never sees it. The illustration's two
 extra stops, sky `#A8C8E8` and rose `#E8B8C4`, are local to the lotus mark data and the
@@ -878,6 +880,7 @@ dictionary, which is the argument for keeping that number at zero.
 | conference lobby on a phone                            | `app/(app)/conference/[roomId]/components/pre-join-panel.tsx:76` — tighter padding and gap below `lg` so Join now is on the first screen                                                                      |
 | `/glossary` list failed to load                        | `glossary/glossary-list-panel.tsx:68` — `role="alert"` plus Try again, wired to `use-glossaries.ts:88` `retry`                                                                                                |
 | `/glossary` list empty                                 | `glossary/glossary-list-panel.tsx:79` — icon, bold title, one sentence, the same shape as History                                                                                                             |
+| `/translate` empty source pane, brand moment           | `translate/conversation-transcript.tsx:282` — the landing lotus above the first-step sentence, `max-sm:hidden`; source pane only, gone once a turn exists; guarded by `conversation-transcript.spec.tsx`      |
 | any route, error boundary                              | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                                                                                                    |
 | any address that is not a route                        | `app/not-found.tsx`                                                                                                                                                                                           |
 
