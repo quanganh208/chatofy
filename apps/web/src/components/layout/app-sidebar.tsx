@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  ResizeHandle,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -13,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { Brand } from './brand';
@@ -39,9 +41,20 @@ import { SessionMenu } from './session-menu';
  * The label is on the link itself, so the name is the same whether the sidebar is open,
  * collapsed, or being read aloud.
  */
-export function AppSidebar() {
+interface SidebarResize {
+  width: number;
+  ready: boolean;
+  setWidth: (width: number) => void;
+  reset: () => void;
+}
+
+export function AppSidebar({ resize }: { resize: SidebarResize }) {
   const active = navItemFor(usePathname());
   const t = useTranslate();
+  const { state, isMobile } = useSidebar();
+  // Only an open sidebar on a desktop can be resized: the rail is a fixed icon column and
+  // on a phone the sidebar is a sheet.
+  const resizable = resize.ready && state === 'expanded' && !isMobile;
 
   return (
     <Sidebar collapsible="icon">
@@ -92,6 +105,23 @@ export function AppSidebar() {
       <SidebarFooter>
         <SessionMenu />
       </SidebarFooter>
+
+      {resizable ? (
+        <ResizeHandle
+          label={t('web.chrome.sidebarWidth')}
+          value={resize.width}
+          min={200}
+          max={360}
+          grow="right"
+          onChange={resize.setWidth}
+          onReset={resize.reset}
+          // The primitive eases its width over 200ms for the collapse animation; while a
+          // pointer is down that would make the panel trail it.
+          onDragStart={() => document.documentElement.classList.add('sidebar-resizing')}
+          onDragEnd={() => document.documentElement.classList.remove('sidebar-resizing')}
+          className="-right-1.5"
+        />
+      ) : null}
     </Sidebar>
   );
 }

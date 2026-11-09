@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import { SidebarInset, SidebarProvider } from '@chatofy/ui/react';
 import { cn } from '@/lib/utils';
+import { useStoredWidth } from '@/hooks/use-stored-width';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { MEASURE } from './measures';
@@ -83,6 +84,9 @@ const FLUSH_PREFIXES: readonly string[] = ['/conference/'];
 
 const isFlush = (pathname: string) => FLUSH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
+const SIDEBAR_WIDTH_KEY = 'chatofy.sidebar-width';
+const SIDEBAR_WIDTH_DEFAULT = 256; // 16rem, the primitive's own default
+
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -101,9 +105,17 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     [pathname],
   );
 
+  // The width the reader dragged the sidebar to. It rides on the primitive's own CSS
+  // variable, so the sidebar, its gap and the page beside it all follow one number.
+  const sidebarWidth = useStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT, 200, 360);
+
   return (
-    <SidebarProvider open={open} onOpenChange={setOpen}>
-      <AppSidebar />
+    <SidebarProvider
+      open={open}
+      onOpenChange={setOpen}
+      style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
+    >
+      <AppSidebar resize={sidebarWidth} />
       {/*
         `SidebarInset` renders the `<main>`, so this is the skip link's target.
         `tabIndex={-1}` is what lets focus actually land here — without it the fragment

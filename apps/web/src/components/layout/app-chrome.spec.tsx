@@ -206,3 +206,42 @@ describe('the product frame', () => {
     expect(container.querySelector('#sign-out')).toBeNull();
   });
 });
+
+describe('the resizable sidebar', () => {
+  const handle = () =>
+    container.querySelector<HTMLElement>('[role="separator"][aria-label="Sidebar width"]');
+  const wrapper = () => container.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]');
+
+  beforeEach(() => localStorage.clear());
+
+  it('offers a width handle where the sidebar is open', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    expect(handle()?.getAttribute('aria-valuenow')).toBe('256');
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('256px');
+  });
+
+  it('widens from the keyboard and remembers the width', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    act(() => {
+      handle()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+    expect(handle()?.getAttribute('aria-valuenow')).toBe('272');
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('272px');
+    expect(localStorage.getItem('chatofy.sidebar-width')).toBe('272');
+  });
+
+  it('starts from a remembered width', () => {
+    localStorage.setItem('chatofy.sidebar-width', '320');
+    pathname.mockReturnValue('/history');
+    render();
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('320px');
+  });
+
+  it('has no handle on the icon rail', () => {
+    pathname.mockReturnValue('/translate/one-way');
+    render();
+    expect(handle()).toBeNull();
+  });
+});

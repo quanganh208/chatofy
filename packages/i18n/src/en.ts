@@ -174,6 +174,7 @@ export const en = {
   // locale may well want two different words.
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
+  'web.chrome.sidebarWidth': 'Sidebar width',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
@@ -878,6 +879,7 @@ export const en = {
   'web.conference.copyInviteLink': 'Copy invite link',
   'web.conference.inviteLinkCopied': 'Link copied',
   'web.conference.meetingCode': 'Meeting code',
+  'web.conference.rosterWidth': 'Chat panel width',
   'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',

@@ -17,7 +17,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Link as LinkIcon, Users } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
+import { Button, ResizeHandle } from '@chatofy/ui/react';
+import { useStoredWidth } from '@/hooks/use-stored-width';
 import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
@@ -33,9 +34,19 @@ import { ACTIVE_CALL_KEY, decodeRoomId, endedPath } from './utils/room-route';
 /** The roster sits beside the grid from Tailwind's `md` up; below it, it covers the grid. */
 const ROSTER_BESIDE_QUERY = '(min-width: 768px)';
 
+/**
+ * The roster and chat column. Its default width is a responsive class (16rem, 18rem from
+ * `xl`); once the reader drags it, their width is held in a CSS variable that overrides
+ * both. It is also capped at half the window so the video grid is never squeezed out.
+ */
+const ROSTER_MIN = 240;
+const rosterMax = () => Math.min(480, Math.floor(window.innerWidth / 2));
+const rosterDefault = () => (window.innerWidth >= 1280 ? 288 : 256);
+
 export default function ConferenceRoomPage() {
   const t = useTranslate();
   const router = useRouter();
+  const roster = useStoredWidth('chatofy.chat-width', 256, ROSTER_MIN, rosterMax);
   const params = useParams<{ roomId: string }>();
 
   const roomId = decodeRoomId(params.roomId);
@@ -354,9 +365,28 @@ export default function ConferenceRoomPage() {
           <aside
             // Beside the grid from `md` up; below it, over the grid at full
             // width rather than squeezing the video into strips.
-            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:static md:w-64 md:shrink-0 md:border-l xl:w-72"
+            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:relative md:w-[var(--chat-width,16rem)] md:shrink-0 md:border-l xl:w-[var(--chat-width,18rem)]"
+            style={
+              roster.isCustom
+                ? ({ '--chat-width': `${roster.width}px` } as React.CSSProperties)
+                : undefined
+            }
             aria-label={t('common.conference.rosterTitle')}
           >
+            {/* Beside the grid only (from `md`): below it the column covers the video and has
+                no edge to drag. */}
+            {roster.ready ? (
+              <ResizeHandle
+                label={t('web.conference.rosterWidth')}
+                value={roster.isCustom ? roster.width : rosterDefault()}
+                min={ROSTER_MIN}
+                max={rosterMax}
+                grow="left"
+                onChange={roster.setWidth}
+                onReset={roster.reset}
+                className="left-0 hidden justify-start md:flex"
+              />
+            ) : null}
             <div className="shrink-0 overflow-y-auto">
               <ParticipantList
                 selfName={joinedAs?.name ?? t('common.conference.you')}

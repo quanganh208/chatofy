@@ -545,6 +545,13 @@
   }
 }
 
+/* While the sidebar's width handle is held, the width follows the pointer exactly: the
+   primitive's 200ms width ease (there for collapse and expand) would make it trail. */
+.sidebar-resizing [data-slot='sidebar-gap'],
+.sidebar-resizing [data-slot='sidebar-container'] {
+  transition: none !important;
+}
+
 /* See `--animate-lotus-bloom`. A closed bud: every petal upright, slightly small,
    not yet visible. */
 @keyframes lotus-bloom {
