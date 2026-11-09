@@ -96,7 +96,7 @@ Done in the shared components under `pointer-coarse:` (Button, Input, Select, To
 
 - Glossary empty list now matches History's empty list (icon, bold title, one sentence) in both locales.
 - Conference visuals above (muted hierarchy restored, avatar tiles, landscape tiles).
-- Not done: a signature detail on the translate screen. It is a taste decision, so it waits for the owner.
+- Signature detail on the translate screen: the landing lotus opens above the first-step sentence in the empty source pane (commit 1219f5a0), in light and dark, hidden below 640px. The owner can still ask for a different detail; this one is a taste call.
 
 ### Checks after round 2
 
