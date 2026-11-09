@@ -17,7 +17,7 @@ Script: `capture.mjs` (needs `npm i axe-core` beside it; Chrome path set inside;
 | 1.4 axe                                        | done at 1440 for 10 routes                                                                                            |
 | 1.5 keyboard walk                              | done at page level (see Keyboard walk); task walks that need mic or data are deferred to 1.6                          |
 | 1.6 worst-case data                            | done for history (seeded 3 conversations through the real API); empty, offline and error states still to check in 1.7 |
-| 1.7 rubric scoring                             | todo                                                                                                                  |
+| 1.7 rubric scoring                             | done (provisional, see Rubric scores)                                                                                 |
 | 1.8 impeccable URL scan, hallmark, Emil skills | todo                                                                                                                  |
 | 1.9a usability test                            | todo (needs real testers)                                                                                             |
 | 1.9 finish report, cleanup                     | todo                                                                                                                  |
@@ -130,7 +130,38 @@ axe at 1440 and 375 on these pages: 0 violations.
 The normal long conversation reads well at every width: the layout holds up, and the two
 failures need unbroken strings, so they are edge cases rather than the common path.
 
+## Rubric scores (step 1.7, 0 to 3, provisional)
+
+Scored from the screenshots and measurements above using the rubric in
+`docs/ux-ax-review-checklist.md`. Beauty and first impression are the auditor's judgement and
+the owner has the final say (plan: Beautiful criterion). Motion and performance feel are not
+scored: this is a dev server, and motion needs a live pass in phase 4.
+FI = first impression, CH = clarity and hierarchy, BR = brand recall, BE = beauty,
+RE = responsive (measured: overflow, targets), AX = accessibility (axe 0 violations, focus, h1),
+FR = friendly (guidance, empty states, plain words).
+
+| Route              | FI  | CH  | BR  | BE  | RE  | AX  | FR  | Evidence                                                                                                                                                |
+| ------------------ | --- | --- | --- | --- | --- | --- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| /                  | 3   | 3   | 3   | 3   | 3   | 3   | 3   | Serif headline, lotus, live-captions card; single ink CTA. impeccable: 5 cosmetic advisories (orphan last lines)                                        |
+| /login, /register  | 3   | 3   | 2   | 2   | 3   | 3   | 3   | Clear card, plain words; brand present only as the small logo. Inputs 40px tall                                                                         |
+| /translate/one-way | 2   | 2   | 1   | 2   | 2   | 3   | 1   | Two large empty panels; three icon-only buttons bottom right and a row of dots with no explanation; no first-run help; sidebar collapsed to a rail here |
+| /translate/two-way | 2   | 2   | 1   | 2   | 2   | 3   | 1   | Same layout and controls as one-way (not eyeballed separately, provisional)                                                                             |
+| /conference        | 2   | 3   | 2   | 2   | 3   | 3   | 2   | One obvious action and one field; very sparse, "Join" reads as a disabled grey button                                                                   |
+| /history           | 2   | 2   | 1   | 2   | 1   | 3   | 2   | List is scannable, but D1 overflows at every width                                                                                                      |
+| /history/[id]      | 2   | 3   | 1   | 3   | 1   | 3   | 2   | Calm, readable transcript; D2 overflow on unbroken text; empty minutes state explains itself                                                            |
+| /glossary          | 2   | 2   | 1   | 2   | 3   | 3   | 1   | "No glossaries yet." says nothing about what a glossary is for; big empty right pane                                                                    |
+| /preferences       | 2   | 2   | 1   | 2   | 2   | 3   | 2   | Long explanatory copy on mobile; 37 targets under 44px at 375; voice list 500 when TTS is off                                                           |
+| /account           | 3   | 3   | 1   | 3   | 3   | 3   | 3   | Tidy, each action explains its effect                                                                                                                   |
+
+Reading: the public pages and account are strong. The app core (translate, conference, glossary)
+is clean but cold: it works for someone who already knows what to do and gives a new user
+little guidance. Against the plan target (>= 2 everywhere, 3 on the demo route) the gaps are
+brand recall (1 on most signed-in routes), the translate screens, and the history overflow.
+
+Not yet exercised: offline and server-error states, the empty history list, and a live
+conference with two accounts. They stay open for phase 2 (journeys) and phase 4.7.
+
 ## Next
 
-Steps 1.6 to 1.9 per `plan.md`. Hallmark needs puppeteer + writes files, so it will be
+Steps 1.8 to 1.9 per `plan.md`. Hallmark needs puppeteer + writes files, so it will be
 run only after the owner approves the install.
