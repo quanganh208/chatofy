@@ -1,0 +1,18 @@
+diff --git a/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp b/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
+index 3056831eea0a8f0b5c99281c03204ec0b3b18b98..966431dc5f96dab409d10f60da8c7a6efd923d18 100644
+--- a/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
++++ b/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
+@@ -106,6 +106,13 @@ Result<NoneType, std::string> AndroidAudioRecorder::openAudioStream() {
+ 
+   if (auto preset = toOboeInputPreset(inputPreset_)) {
+     builder.setInputPreset(*preset);
++    // Chatofy: the VoiceCommunication preset alone lets AAudio open its MMAP
++    // path, which runs no effects, so the echo canceller never attached. An
++    // allocated session id keeps the stream on the legacy path where the
++    // platform AEC/NS chain runs. Other presets keep the raw MMAP path.
++    if (*preset == oboe::InputPreset::VoiceCommunication) {
++      builder.setSessionId(oboe::SessionId::Allocate);
++    }
+   }
+ 
+   if (preferredDeviceId != NativeInputRouting::kSystemDefaultDeviceId) {
