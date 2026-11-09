@@ -130,10 +130,13 @@ export function HistoryList({
             // That spec checks tokens and cannot see a composited alpha, so this
             // would have passed every gate while breaking the rule they exist for.
             // `aria-busy` carries the same fact at no cost.
-            className="border-hairline divide-hairline divide-y border-y"
+            className="grid gap-3 lg:grid-cols-2"
           >
             {group.conversations.map((conversation) => (
-              <li key={conversation.conversationId}>
+              <li
+                key={conversation.conversationId}
+                className="border-hairline overflow-hidden rounded-xl border px-3"
+              >
                 <Row conversation={conversation} />
               </li>
             ))}
@@ -248,7 +251,7 @@ function LoadingRows({ label }: { label: string }) {
       {[0, 1].map((group) => (
         <section key={group} className="mt-5 first:mt-0">
           <Skeleton className="mb-1.5 h-[11px] w-18" />
-          <ul aria-busy className="border-hairline divide-hairline divide-y border-y">
+          <ul aria-busy className="grid gap-3 lg:grid-cols-2">
             {[0, 1, 2].map((row) => (
               <li key={row} className="flex items-start gap-3 px-0 py-2.5">
                 <Skeleton className="mt-px h-3 w-9 shrink-0" />

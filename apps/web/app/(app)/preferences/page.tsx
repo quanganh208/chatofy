@@ -44,13 +44,13 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default function PreferencesPage() {
   return (
-    <>
+    <div className="flex flex-col gap-8 xl:block xl:columns-2 xl:gap-x-12 xl:[&>*]:mb-8 xl:[&>*]:break-inside-avoid">
       <InterfacePreferencesSection />
       <TranslationContextsProvider>
         <TranslateSettingsSections>
           <AiContextSection />
         </TranslateSettingsSections>
       </TranslationContextsProvider>
-    </>
+    </div>
   );
 }

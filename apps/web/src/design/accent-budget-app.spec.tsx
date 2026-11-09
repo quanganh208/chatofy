@@ -1059,7 +1059,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/account',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -1076,7 +1076,7 @@ const SCREENS: ScreenState[] = [
     // open, and the form adds no surface because it sits in the existing panel.
     name: '/account — changing password',
     filled: 1,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -1095,7 +1095,7 @@ const SCREENS: ScreenState[] = [
     // surface and sign-out is still ghost — a failure does not promote anything.
     name: '/account — the profile request failed',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockRejectedValue(new Error('unauthorized'));
     },
