@@ -1,0 +1,752 @@
+{
+  "results": [
+    {
+      "route": "/",
+      "vp": "1440",
+      "finalPath": "/",
+      "shot": "shots/home-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 14,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:105x32",
+        "a:Meetings:54x17",
+        "a:How it works:76x17",
+        "a:Privacy:45x17",
+        "a:Where it runs:77x17"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/",
+      "vp": "768",
+      "finalPath": "/",
+      "shot": "shots/home-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:105x32",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/",
+      "vp": "375",
+      "finalPath": "/",
+      "shot": "shots/home-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:105x32",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/",
+      "vp": "320",
+      "finalPath": "/",
+      "shot": "shots/home-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:105x32",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/login",
+      "vp": "1440",
+      "finalPath": "/login",
+      "shot": "shots/login-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:478x40",
+        "input::478x40"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/login",
+      "vp": "768",
+      "finalPath": "/login",
+      "shot": "shots/login-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:478x40",
+        "input::478x40"
+      ]
+    },
+    {
+      "route": "/login",
+      "vp": "375",
+      "finalPath": "/login",
+      "shot": "shots/login-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:277x40",
+        "input::277x40"
+      ]
+    },
+    {
+      "route": "/login",
+      "vp": "320",
+      "finalPath": "/login",
+      "shot": "shots/login-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:222x40",
+        "input::222x40"
+      ]
+    },
+    {
+      "route": "/register",
+      "vp": "1440",
+      "finalPath": "/register",
+      "shot": "shots/register-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:478x40",
+        "input::478x40"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/register",
+      "vp": "768",
+      "finalPath": "/register",
+      "shot": "shots/register-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:478x40",
+        "input::478x40"
+      ]
+    },
+    {
+      "route": "/register",
+      "vp": "375",
+      "finalPath": "/register",
+      "shot": "shots/register-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:277x40",
+        "input::277x40"
+      ]
+    },
+    {
+      "route": "/register",
+      "vp": "320",
+      "finalPath": "/register",
+      "shot": "shots/register-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 10,
+      "smallSample": [
+        "a:Chatofy:83x24",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26",
+        "button:Continue with Google:222x40",
+        "input::222x40"
+      ]
+    },
+    {
+      "route": "/translate/one-way",
+      "vp": "1440",
+      "finalPath": "/translate/one-way",
+      "shot": "shots/translate-one-way-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 22,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:31x36",
+        "a:One-way translation:32x32",
+        "a:Two-way translation:32x32",
+        "a:Conference:32x32",
+        "a:History:32x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/translate/one-way",
+      "vp": "768",
+      "finalPath": "/translate/one-way",
+      "shot": "shots/translate-one-way-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 22,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:31x36",
+        "a:One-way translation:32x32",
+        "a:Two-way translation:32x32",
+        "a:Conference:32x32",
+        "a:History:32x32"
+      ]
+    },
+    {
+      "route": "/translate/one-way",
+      "vp": "375",
+      "finalPath": "/translate/one-way",
+      "shot": "shots/translate-one-way-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 13,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/translate/one-way",
+      "vp": "320",
+      "finalPath": "/translate/one-way",
+      "shot": "shots/translate-one-way-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 13,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/translate/two-way",
+      "vp": "1440",
+      "finalPath": "/translate/two-way",
+      "shot": "shots/translate-two-way-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 22,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:31x36",
+        "a:One-way translation:32x32",
+        "a:Two-way translation:32x32",
+        "a:Conference:32x32",
+        "a:History:32x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/translate/two-way",
+      "vp": "768",
+      "finalPath": "/translate/two-way",
+      "shot": "shots/translate-two-way-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 22,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:31x36",
+        "a:One-way translation:32x32",
+        "a:Two-way translation:32x32",
+        "a:Conference:32x32",
+        "a:History:32x32"
+      ]
+    },
+    {
+      "route": "/translate/two-way",
+      "vp": "375",
+      "finalPath": "/translate/two-way",
+      "shot": "shots/translate-two-way-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 13,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/translate/two-way",
+      "vp": "320",
+      "finalPath": "/translate/two-way",
+      "shot": "shots/translate-two-way-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 13,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/conference",
+      "vp": "1440",
+      "finalPath": "/conference",
+      "shot": "shots/conference-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 17,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/conference",
+      "vp": "768",
+      "finalPath": "/conference",
+      "shot": "shots/conference-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 17,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ]
+    },
+    {
+      "route": "/conference",
+      "vp": "375",
+      "finalPath": "/conference",
+      "shot": "shots/conference-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/conference",
+      "vp": "320",
+      "finalPath": "/conference",
+      "shot": "shots/conference-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/history",
+      "vp": "1440",
+      "finalPath": "/history",
+      "shot": "shots/history-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 15,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/history",
+      "vp": "768",
+      "finalPath": "/history",
+      "shot": "shots/history-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 15,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ]
+    },
+    {
+      "route": "/history",
+      "vp": "375",
+      "finalPath": "/history",
+      "shot": "shots/history-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 7,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/history",
+      "vp": "320",
+      "finalPath": "/history",
+      "shot": "shots/history-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 7,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/glossary",
+      "vp": "1440",
+      "finalPath": "/glossary",
+      "shot": "shots/glossary-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 15,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/glossary",
+      "vp": "768",
+      "finalPath": "/glossary",
+      "shot": "shots/glossary-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 15,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ]
+    },
+    {
+      "route": "/glossary",
+      "vp": "375",
+      "finalPath": "/glossary",
+      "shot": "shots/glossary-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 7,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/glossary",
+      "vp": "320",
+      "finalPath": "/glossary",
+      "shot": "shots/glossary-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 7,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/preferences",
+      "vp": "1440",
+      "finalPath": "/preferences",
+      "shot": "shots/preferences-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 45,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/preferences",
+      "vp": "768",
+      "finalPath": "/preferences",
+      "shot": "shots/preferences-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 45,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ]
+    },
+    {
+      "route": "/preferences",
+      "vp": "375",
+      "finalPath": "/preferences",
+      "shot": "shots/preferences-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 37,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/preferences",
+      "vp": "320",
+      "finalPath": "/preferences",
+      "shot": "shots/preferences-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 37,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/account",
+      "vp": "1440",
+      "finalPath": "/account",
+      "shot": "shots/account-1440.png",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "smallTargets": 17,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ],
+      "axe": []
+    },
+    {
+      "route": "/account",
+      "vp": "768",
+      "finalPath": "/account",
+      "shot": "shots/account-768.png",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "smallTargets": 17,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "a:Chatofy:239x36",
+        "a:One-way translation:239x32",
+        "a:Two-way translation:239x32",
+        "a:Conference:239x32",
+        "a:History:239x32"
+      ]
+    },
+    {
+      "route": "/account",
+      "vp": "375",
+      "finalPath": "/account",
+      "shot": "shots/account-375.png",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    },
+    {
+      "route": "/account",
+      "vp": "320",
+      "finalPath": "/account",
+      "shot": "shots/account-320.png",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "smallTargets": 9,
+      "smallSample": [
+        "a:Skip to content:1x1",
+        "button:Toggle the sidebar:28x28",
+        "button:Language:32x32",
+        "button:Light:26x26",
+        "button:Dark:26x26",
+        "button:Match system:26x26"
+      ]
+    }
+  ],
+  "consoleErrors": {
+    "/preferences@1440": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "/preferences@768": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "/preferences@375": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "/preferences@320": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ]
+  }
+}
