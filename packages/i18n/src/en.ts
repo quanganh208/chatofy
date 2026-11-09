@@ -885,6 +885,10 @@ export const en = {
   'web.conference.translatedVoiceHint':
     'Others hear your translated speech in this voice. It is the same setting as on Translate.',
   'web.conference.copyInviteLink': 'Copy invite link',
+  'web.conference.showQr': 'Show QR code',
+  'web.conference.qrTitle': 'Join from a phone',
+  'web.conference.qrLabel': 'QR code to join the meeting',
+  'web.conference.qrHint': 'Scan this with a phone camera to open the meeting.',
   'web.conference.inviteLinkCopied': 'Link copied',
   'web.conference.meetingCode': 'Meeting code',
   'web.conference.rosterWidth': 'Chat panel width',

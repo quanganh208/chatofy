@@ -21,6 +21,7 @@ import { Button, ResizeHandle } from '@chatofy/ui/react';
 import { useStoredWidth } from '@/hooks/use-stored-width';
 import { useCallPreferences } from '@/hooks/use-call-preferences';
 import { ListeningMenu } from './components/listening-menu';
+import { InviteQr } from './components/invite-qr';
 import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
@@ -287,6 +288,9 @@ export default function ConferenceRoomPage() {
           )}
           {/* Words from `sm` up, so the way to invite is found without hovering
               an icon; the phone keeps the icon and its accessible name. */}
+          <InviteQr
+            url={() => `${window.location.origin}/conference/${encodeURIComponent(roomId)}`}
+          />
           <Button
             variant="ghost"
             size="sm"

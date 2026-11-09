@@ -670,6 +670,10 @@ export const vi: Messages = {
   'web.conference.translatedVoiceChip': 'Giọng: {gender} · {speed}×',
   'web.conference.translatedVoiceHint':
     'Người khác nghe bản dịch lời bạn bằng giọng này. Đây cũng là cài đặt ở trang Dịch.',
+  'web.conference.showQr': 'Hiện mã QR',
+  'web.conference.qrTitle': 'Tham gia từ điện thoại',
+  'web.conference.qrLabel': 'Mã QR để tham gia cuộc họp',
+  'web.conference.qrHint': 'Quét mã này bằng camera điện thoại để mở cuộc họp.',
   'web.conference.copyInviteLink': 'Sao chép link mời',
   'web.conference.inviteLinkCopied': 'Đã sao chép link',
   'web.conference.meetingCode': 'Mã cuộc họp',
