@@ -1,3 +1,4 @@
+import type { MicProcessing } from '@chatofy/types';
 import type { ConversationRuntimeOptions } from './conversation-session.js';
 
 /**
@@ -64,3 +65,22 @@ export const CASCADE_RUNTIME_OPTIONS: Readonly<ConversationRuntimeOptions> = Obj
  * it, and every cascade client here is that client.
  */
 export const CASCADE_STREAM_COMMITTED = true;
+
+/**
+ * The cascade tuning for a microphone opened with `mic`.
+ *
+ * Full duplex is only safe while echo cancellation keeps our own playback out
+ * of the microphone (see `fullDuplex` above). With it off, the pump must ignore
+ * the microphone while our translation is audible, or the app translates its own
+ * voice in a loop.
+ *
+ * Only meaningful where the session wires `sounding` to local playback, i.e.
+ * NOT with `ownsEchoMeasurement: true` (conference legs, the extension). There
+ * `fullDuplex: false` is inert and `ConversationSession` logs a warning on every
+ * start, so those callers guard the loop their own way and must not call this.
+ */
+export function cascadeRuntimeFor(mic: MicProcessing): Readonly<ConversationRuntimeOptions> {
+  return mic.echoCancellation
+    ? CASCADE_RUNTIME_OPTIONS
+    : Object.freeze({ ...CASCADE_RUNTIME_OPTIONS, fullDuplex: false });
+}

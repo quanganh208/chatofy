@@ -55,6 +55,9 @@ export { joinAtSeams } from './seam-join.js';
 export { transcriptSegmentSchema, voiceGenderSchema, DEFAULT_VOICE_GENDER } from './transcript.js';
 export type { TranscriptSegment, VoiceGender } from './transcript.js';
 
+export { micProcessingSchema, DEFAULT_MIC_PROCESSING } from './mic-processing.js';
+export type { MicProcessing } from './mic-processing.js';
+
 export {
   minutesStatusSchema,
   actionItemSchema,

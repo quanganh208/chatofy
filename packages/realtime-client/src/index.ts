@@ -54,6 +54,7 @@ export {
   CASCADE_MAX_UTTERANCE_MS,
   CASCADE_RUNTIME_OPTIONS,
   CASCADE_STREAM_COMMITTED,
+  cascadeRuntimeFor,
 } from './conversation/cascade-runtime-options.js';
 
 // A meeting speaker's translation: the /translate cascade, relayed into the
