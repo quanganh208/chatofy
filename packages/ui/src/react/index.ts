@@ -122,6 +122,7 @@ export {
 export { Skeleton } from './skeleton.js';
 export { Slider } from './slider.js';
 export { Switch } from './switch.js';
+export { ResizeHandle } from './resize-handle.js';
 export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from './tabs.js';
 export { Textarea } from './textarea.js';
 export { Toggle, toggleVariants } from './toggle.js';
