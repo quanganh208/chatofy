@@ -50,6 +50,18 @@ function text(conversation: ConversationSummary, showTimeRange = false): string 
 }
 
 describe('ConversationMetaLine', () => {
+  it('clamps a long roster to two lines and keeps the full list as a tooltip', () => {
+    // A 12-person meeting with realistic Vietnamese names made each row several lines tall.
+    // Secondary metadata is clamped so row heights stay predictable; the title says it all.
+    const names = Array.from({ length: 12 }, (_, i) => `Nguyễn Thị Hồng Ngọc Phương Thảo ${i + 1}`);
+    text(summary({ speakerCount: 12, speakers: names }));
+    const named = [...container.querySelectorAll('p span')]
+      .reverse()
+      .find((el) => el.textContent?.includes(names[0]!));
+    expect(named?.className).toContain('line-clamp-2');
+    expect(named?.getAttribute('title')).toContain(names[11]!);
+  });
+
   it('lets a speaker name with no spaces wrap instead of widening the page (D1)', () => {
     text(summary({ speakerCount: 1, speakers: ['A'.repeat(100)] }));
     const facts = [...container.querySelectorAll('p span')];

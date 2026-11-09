@@ -51,7 +51,11 @@ export function ConversationMetaLine({
     </span>,
     <span key="turns">{turnCountLabel(t, conversation.turnCount)}</span>,
     conversation.speakerCount > 0 ? (
-      <span key="speakers" className="wrap-anywhere min-w-0">
+      <span
+        key="speakers"
+        className="wrap-anywhere line-clamp-2 min-w-0"
+        title={speakersLabel(t, conversation)}
+      >
         {speakersLabel(t, conversation)}
       </span>
     ) : null,
