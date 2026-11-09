@@ -180,14 +180,15 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 
 ### Log
 
-| Date       | Entry                                                                                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-09 | Plan created, supersedes the earlier uplift plan; beauty criterion added                                                                                                  |
-| 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes                                          |
-| 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b) |
-| 2026-11-09 | Phases 2 to 6 run on assumed Gate A answers; 8 code and docs commits; final report `plans/reports/ui-ux-redesign-261109-final.md`                                         |
-| 2026-11-09 | Round 2: conference live test, touch targets in shared components, failure-state sweep, glossary retry and empty state; final report updated                              |
-| 2026-11-09 | Round 3: hallmark, Emil and ui-ux-pro-max run from isolated clones; sentence-case labels, motion fixes, roster clamp; dark and reduced-motion checks                      |
+| Date       | Entry                                                                                                                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-09 | Plan created, supersedes the earlier uplift plan; beauty criterion added                                                                                                                                         |
+| 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes                                                                                 |
+| 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b)                                        |
+| 2026-11-09 | Phases 2 to 6 run on assumed Gate A answers; 8 code and docs commits; final report `plans/reports/ui-ux-redesign-261109-final.md`                                                                                |
+| 2026-11-09 | Round 2: conference live test, touch targets in shared components, failure-state sweep, glossary retry and empty state; final report updated                                                                     |
+| 2026-11-09 | Round 3: hallmark, Emil and ui-ux-pro-max run from isolated clones; sentence-case labels, motion fixes, roster clamp; dark and reduced-motion checks                                                             |
+| 2026-11-10 | Round 4: resizable sidebar and chat panel, page headers, two-column layouts, conference hero; owner asked for a more striking redesign, so the "keep Direction A" assumption was relaxed for layout and identity |
 
 ## Constraints that stay
 

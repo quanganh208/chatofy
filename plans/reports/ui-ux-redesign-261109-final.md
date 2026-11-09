@@ -151,6 +151,25 @@ Reduced motion: with `prefers-reduced-motion: reduce`, no animation is running o
 
 Web, ui and i18n tests pass except the one CRLF-artefact `skin-guard` failure in `packages/ui` noted above. New specs: `uppercase-labels`, `motion-craft`, `mic-level-meter`, history roster clamp.
 
+## Round 4: resizable panels, filling the window, a stronger page identity
+
+Asked for by the owner: drag-to-resize panels, less empty space, a more comprehensive and more striking UI.
+Evidence: `ui-ux-redesign-261109-redesign/before` and `after`, `ui-ux-redesign-261109-after/resize`.
+This round overrides the earlier "keep Direction A and polish" assumption: the palette and tokens stay,
+but layout and identity changed substantially.
+
+| Change               | Detail                                                                                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resizable sidebar    | New `ResizeHandle` (WAI-ARIA splitter): drag, arrow keys (16px, Shift 64px), Home and End, double click resets. 200 to 360px, remembered per browser. Absent on the icon rail and on phones. Verified in a real browser: drag 256 to 346px, keyboard steps, limits, survives a reload, reset        |
+| Resizable chat panel | Same handle on the call's chat column: 240px up to half the window (480px cap), remembered, hidden where the panel covers the video                                                                                                                                                                 |
+| Page header          | History, Glossary, Preferences and Account open with their one h1 in the display face (44px from `lg`), a dawn bar and a line saying what the page is for. The topbar keeps the name as plain text, so there is still exactly one h1                                                                |
+| Space                | The 672px content column became `max-w-6xl` for headed pages. History is a two-column card grid, Account has Security and Session cards side by side, Preferences flows into two columns, the glossary panel aligns with the header, and the conference landing is a two-column hero with the lotus |
+
+At 1440px these pages used about 55% of the workspace; each now spans it. Phone layouts keep a single column.
+After this round: 40 of 40 signed-in and public captures with exactly one h1, no horizontal overflow, axe 0 violations at 1440 and 375, dark mode axe 0, no running animation under reduced motion. Web suite 136 files, 1588 tests pass.
+
+The surface budget changed in one place: `/account` now draws 2 elevated surfaces (Security and Session) instead of 1. That is within the ceiling of 2 and the spec table was updated to say so.
+
 ## Not done, and why
 
 | Item                                                      | Why                                                                                                      |
