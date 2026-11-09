@@ -16,6 +16,11 @@ describe('empty-state guidance', () => {
     expect(vi['web.glossary.emptyList']).toContain(vi['web.glossary.new']);
   });
 
+  it('gives the glossary empty state a title of its own, like History', () => {
+    expect(en['web.glossary.emptyTitle']).toBe('No glossaries yet');
+    expect(vi['web.glossary.emptyTitle']).toBe('Chưa có bảng thuật ngữ nào');
+  });
+
   it('says what a glossary is for rather than only that there are none', () => {
     expect(en['web.glossary.emptyList'].length).toBeGreaterThan(40);
     expect(vi['web.glossary.emptyList'].length).toBeGreaterThan(40);

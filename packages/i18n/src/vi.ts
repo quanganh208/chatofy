@@ -718,8 +718,9 @@ export const vi: Messages = {
   'web.glossary.title': 'Bảng thuật ngữ',
   'web.glossary.new': 'Tạo mới',
   'web.glossary.loadFailed': 'Không thể tải danh sách bảng thuật ngữ.',
+  'web.glossary.emptyTitle': 'Chưa có bảng thuật ngữ nào',
   'web.glossary.emptyList':
-    'Chưa có bảng thuật ngữ nào. Bảng thuật ngữ giúp tên riêng và thuật ngữ của bạn luôn được dịch đúng ý. Bấm Tạo mới để thêm.',
+    'Bảng thuật ngữ giúp tên riêng và thuật ngữ của bạn luôn được dịch đúng ý. Bấm Tạo mới để thêm.',
   'web.glossary.termCount': '{count} thuật ngữ',
   'web.glossary.badgeActive': 'Đang dùng',
   'web.glossary.badgeInactive': 'Tắt',

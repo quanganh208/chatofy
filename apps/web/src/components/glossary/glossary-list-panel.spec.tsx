@@ -45,6 +45,31 @@ function render(onRetry = vi.fn()) {
   return onRetry;
 }
 
+describe('GlossaryListPanel empty list', () => {
+  it('matches History: an icon, a bold title, then one sentence on what it is for', () => {
+    act(() => {
+      root.render(
+        <LocaleProvider locale="en">
+          <GlossaryListPanel
+            glossaries={[]}
+            status="ready"
+            selectedId={null}
+            onSelect={vi.fn()}
+            onSave={vi.fn()}
+            onToggleActive={vi.fn()}
+            onDelete={vi.fn()}
+            onRetry={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+    });
+    const block = container.querySelector('[data-slot="glossary-empty"]');
+    expect(block?.querySelector('svg')).not.toBeNull();
+    expect(block?.querySelector('p.font-semibold')?.textContent).toBe('No glossaries yet');
+    expect(block?.textContent).toContain('Press New to make one.');
+  });
+});
+
 describe('GlossaryListPanel when loading failed', () => {
   it('announces the failure to assistive technology', () => {
     render();

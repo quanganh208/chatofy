@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { Button, Skeleton } from '@chatofy/ui/react';
 import { GLOSSARY_LIMITS } from '@chatofy/types';
 import type { Glossary, SaveGlossaryRequest } from '@chatofy/types';
@@ -73,7 +74,15 @@ export function GlossaryListPanel({
         )}
 
         {status === 'ready' && glossaries.length === 0 && !creating && (
-          <p className="text-body text-muted-foreground px-1">{t('web.glossary.emptyList')}</p>
+          // The same shape as History's empty list: an icon, a bold title, one sentence.
+          <div
+            data-slot="glossary-empty"
+            className="flex flex-col items-center gap-3 px-2 pt-6 pb-4 text-center"
+          >
+            <BookOpen aria-hidden className="text-border-strong size-12" strokeWidth={1.25} />
+            <p className="text-body font-semibold">{t('web.glossary.emptyTitle')}</p>
+            <p className="text-muted-foreground text-body">{t('web.glossary.emptyList')}</p>
+          </div>
         )}
 
         {status === 'ready' &&
