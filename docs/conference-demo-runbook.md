@@ -190,8 +190,8 @@ are fixed during the call.
 **Translation on the phone.** The speaker leg runs the shared cascade leg from
 `@chatofy/realtime-client`; Hermes lacks `crypto.randomUUID`, so a polyfill is imported
 first in `apps/mobile/app/_layout.tsx` (`apps/mobile/src/polyfills/`). The translation
-recorder needs the native patch `patches/react-native-audio-api@0.13.6.patch` (an
-echo-cancelling input preset), so **rebuild the dev client** (`./gradlew installDebug`)
+recorder needs the native patch `patches/react-native-audio-api@1.0.0.patch` (the
+session id the echo canceller needs), so **rebuild the dev client** (`./gradlew installDebug`)
 after pulling it: a JS reload alone keeps the unpatched recorder. On the loudspeaker the
 phone still hears loud received translations; it holds back a new turn while one plays,
 so speak after it, and keep the volume moderate or use headphones. Why:

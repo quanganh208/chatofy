@@ -21,7 +21,7 @@ import {
   conferenceRoomIdSchema,
 } from '@chatofy/types/events';
 import type { ConferenceChatMessage, ConferenceIceServer } from '@chatofy/types/events';
-import type { LanguageCode, VoiceGender } from '@chatofy/types/domain';
+import type { LanguageCode, MicProcessing, VoiceGender } from '@chatofy/types/domain';
 import { NativeTranslationAudioSink } from './native-audio-playback';
 import type { ConferenceCascadeLeg } from '@chatofy/realtime-client';
 import {
@@ -152,9 +152,14 @@ export function useConferenceNative(
     /** The translated voice others hear this speaker in; chosen in the lobby. */
     voiceGender: VoiceGender;
     getToken: () => Promise<string>;
+    /**
+     * The processing chain the translation recorder opens with, read at each
+     * open. The call's own audio track is not affected: the platform processes it.
+     */
+    micProcessing: () => MicProcessing;
   },
 ): UseConferenceReturn {
-  const { displayName, sourceLanguage, voiceGender, getToken } = options;
+  const { displayName, sourceLanguage, voiceGender, getToken, micProcessing } = options;
 
   const [status, setStatus] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
@@ -412,7 +417,7 @@ export function useConferenceNative(
           if (!micLock.acquire('conference')) {
             throw new Error('the microphone is in use by the translate screen');
           }
-          captureRef.current ??= new NativeAudioCapture();
+          captureRef.current ??= new NativeAudioCapture(micProcessing);
           const leg = createNativeConferenceLeg({
             confWs: ws,
             capture: captureRef.current,
@@ -447,6 +452,7 @@ export function useConferenceNative(
       sourceLanguage,
       voiceGender,
       getToken,
+      micProcessing,
       onTrack,
       endCall,
       scheduleReconnect,

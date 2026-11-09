@@ -191,6 +191,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     attributeTurn: vi.fn(),
     unattributeTurn: vi.fn(),
     echoHeard: 0,
+    micPaused: false,
     error: null,
     level: 0,
     conversationId: 'c-1',

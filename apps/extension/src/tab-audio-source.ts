@@ -1,3 +1,5 @@
+import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
+
 /**
  * Turns a `tabCapture` stream id into a live MediaStream, and hands back the tab's
  * own audio so it can be heard again.
@@ -49,18 +51,11 @@ export async function openTabAudio(
 /**
  * A microphone stream for measuring echo, not for translating.
  *
- * Opened with the browser's own cleanup ON. That looks wrong for a measurement, and
- * is not: the question being answered is how much of our own playback comes back
- * through the microphone IN THE CONFIGURATION SOMEONE WOULD ACTUALLY USE, and a
- * meeting client always has these enabled. Measuring with them off would produce a
- * larger, truer-looking number that describes a setup nobody runs.
+ * Opened with the user's processing choice (default on, the configuration a
+ * meeting client uses). The meter measures the setup the user actually runs.
  */
-export function openEchoMicrophone(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
+export function openEchoMicrophone(
+  audio: MicProcessing = DEFAULT_MIC_PROCESSING,
+): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ audio });
 }

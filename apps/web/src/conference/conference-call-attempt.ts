@@ -7,9 +7,10 @@
  * attempt into the next, and nothing keeps capturing after the call is over.
  */
 import { z } from 'zod';
-import type { LanguageCode } from '@chatofy/types';
+import type { LanguageCode, MicProcessing } from '@chatofy/types';
 import { ConferenceIceServerSchema } from '@chatofy/types/events';
 import { TranslationAudioSink } from '@/hooks/use-translation-audio-sink';
+import { loadTranslateSettings } from '@/lib/translate-settings';
 import { acquireLocalMedia, type PreferredDevices } from './acquire-local-media';
 import { conferenceDebug } from './conference-debug-log';
 import { createWebConferenceLeg, type WebConferenceLeg } from './conference-cascade-leg-web';
@@ -18,6 +19,7 @@ import { ConferenceSfuMedia } from './conference-sfu-media';
 import { parseSignal, request, send } from './conference-signaling';
 import type { ConferenceSink, PeerMap } from './conference-types';
 import { PeerSubtitleTracker } from './peer-subtitle-tracker';
+import { createRemoteAudioActivity, type RemoteAudioActivity } from './remote-audio-activity';
 
 const joinReplySchema = z.object({
   socketId: z.string().min(1),
@@ -73,6 +75,21 @@ export class CallAttempt {
   /** socketId → the language that peer speaks, for peers that said. Feeds the leg's targets. */
   private readonly peerLanguages = new Map<string, LanguageCode>();
   private readonly departed = new Set<string>();
+  /** The reader's mic processing, read once per attempt: a change applies to the next call. */
+  private readonly micProcessing: MicProcessing = loadTranslateSettings().micProcessing;
+  /**
+   * Other peers' received voices, watched only with echo cancellation off. Their
+   * voice then reaches our microphone from the loudspeaker, and this keeps it
+   * from opening a turn translated as ours. Their TRANSLATIONS played here are
+   * the other half of that sound, and `receivedSounding` checks both.
+   */
+  private readonly remoteActivity: RemoteAudioActivity | null = this.micProcessing.echoCancellation
+    ? null
+    : createRemoteAudioActivity({
+        onStateChange: () => {
+          if (!this.disposed) this.options.sink.audioBlocked(this.isAudioSuspended());
+        },
+      });
   private readonly onMessage = (evt: MessageEvent) => {
     const signal = parseSignal(evt.data);
     const event = signal && parseRoomEvent(signal);
@@ -128,7 +145,7 @@ export class CallAttempt {
     }
     if (reply.peers.some((peer) => peer.published)) media.subscribe();
 
-    const { stream, audioOnly } = await acquireLocalMedia(this.options.devices);
+    const { stream, audioOnly } = await acquireLocalMedia(this.options.devices, this.micProcessing);
     if (this.disposed) {
       stream.getTracks().forEach((track) => track.stop());
       throw new AttemptDisposedError();
@@ -151,7 +168,7 @@ export class CallAttempt {
     this.assertLive();
 
     void this.audio.resumeAll().catch(() => undefined);
-    sink.audioBlocked(this.audio.isAnySuspended());
+    sink.audioBlocked(this.isAudioSuspended());
     return { audioOnly };
   }
 
@@ -174,8 +191,13 @@ export class CallAttempt {
   }
 
   async resumeAudio(): Promise<void> {
-    await this.audio.resumeAll();
-    this.options.sink.audioBlocked(this.audio.isAnySuspended());
+    await Promise.all([this.audio.resumeAll(), this.remoteActivity?.resume()]);
+    this.options.sink.audioBlocked(this.isAudioSuspended());
+  }
+
+  /** Either playback or the echo gate's listener waits on a tap: a suspended gate reads silence. */
+  private isAudioSuspended(): boolean {
+    return this.audio.isAnySuspended() || (this.remoteActivity?.isSuspended() ?? false);
   }
 
   /**
@@ -200,6 +222,7 @@ export class CallAttempt {
     this.options.ws.removeEventListener('message', this.onMessage);
     this.subtitles.dispose();
     this.audio.close();
+    this.remoteActivity?.dispose();
     this.media?.close();
     this.media = null;
 
@@ -238,6 +261,12 @@ export class CallAttempt {
           if (!this.disposed) options.sink.translationEnded(true);
         },
         onLog: conferenceDebug,
+        ...(this.remoteActivity
+          ? {
+              receivedSounding: () =>
+                this.audio.isAnySounding() || this.remoteActivity!.isSounding(),
+            }
+          : {}),
       });
       this.leg = leg;
       leg.start().catch((err: unknown) => conferenceDebug(`translate leg failed: ${String(err)}`));
@@ -304,7 +333,7 @@ export class CallAttempt {
           event.audio.sampleRate,
           event.audio.payload,
         );
-        sink.audioBlocked(this.audio.isAnySuspended());
+        sink.audioBlocked(this.isAudioSuspended());
         return;
       case 'chat':
         sink.chat(event.message);
@@ -325,6 +354,7 @@ export class CallAttempt {
     this.peerNames.delete(socketId);
     if (this.peerLanguages.delete(socketId)) this.roomLanguagesChanged();
     this.departed.add(socketId);
+    this.remoteActivity?.remove(socketId);
     this.media?.forgetPeer(socketId);
     this.audio.forget(socketId);
     this.subtitles.forget(socketId);
@@ -339,6 +369,7 @@ export class CallAttempt {
   private addRemoteTrack(socketId: string, track: MediaStreamTrack): void {
     // A subscribe answered after the peer left can still deliver its tracks.
     if (this.disposed || this.departed.has(socketId)) return;
+    if (track.kind === 'audio') this.remoteActivity?.add(socketId, track);
     const displayName = this.peerNames.get(socketId) ?? socketId;
     this.options.sink.peers((prev) => addTrack(prev, socketId, displayName, track));
   }

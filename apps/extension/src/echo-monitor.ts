@@ -1,3 +1,4 @@
+import type { MicProcessing } from '@chatofy/types';
 import { openEchoMicrophone } from './tab-audio-source';
 
 /**
@@ -34,6 +35,8 @@ export interface EchoMonitorDeps {
   /** Whether translated audio is being spoken right now. */
   isPlaying: () => boolean;
   onEchoHeard: () => void;
+  /** The user's processing choice, so the meter measures the setup they run. */
+  micProcessing: MicProcessing;
 }
 
 /**
@@ -69,7 +72,7 @@ export class EchoMonitor {
    */
   async start(): Promise<void> {
     try {
-      this.stream = await openEchoMicrophone();
+      this.stream = await openEchoMicrophone(this.deps.micProcessing);
       await this.deps.context.audioWorklet.addModule(this.deps.workletUrl);
 
       const node = new AudioWorkletNode(this.deps.context, 'mic-capture-processor');

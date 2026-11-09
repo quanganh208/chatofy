@@ -13,10 +13,10 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import type { MessageKey } from '@chatofy/i18n';
 import {
-  CASCADE_RUNTIME_OPTIONS,
   CASCADE_STREAM_COMMITTED,
   ConversationSession,
   TranslateSocket,
+  cascadeRuntimeFor,
   initialTurnKeyedTranscript,
   liveTurnsInOrder,
   pushedCaptureDeps,
@@ -26,7 +26,13 @@ import {
   type PauseInterval,
   type TurnKeyedTranscript,
 } from '@chatofy/realtime-client';
-import type { SessionLanguageMode, SessionLanguagePair, SessionOptions } from '@chatofy/types';
+import {
+  DEFAULT_MIC_PROCESSING,
+  type MicProcessing,
+  type SessionLanguageMode,
+  type SessionLanguagePair,
+  type SessionOptions,
+} from '@chatofy/types';
 import { authClient } from '@/clients/auth-client';
 import { NativeAudioCapture } from '@/conference/native-audio-capture';
 import { TRANSLATE_WS_URL } from '@/conference/conference-config';
@@ -59,6 +65,8 @@ const NO_PAUSES: readonly PauseInterval[] = [];
 class SessionEnv {
   token = '';
   sink: NativeTranslateAudioSink | null = null;
+  /** The processing chain of the run being started: the recorder and the duplex both read it. */
+  mic: MicProcessing = DEFAULT_MIC_PROCESSING;
   /** Bumped by every stop, so a start still waiting for its token can tell it was left. */
   stops = 0;
 
@@ -68,6 +76,10 @@ class SessionEnv {
 
   setSink(sink: NativeTranslateAudioSink | null): void {
     this.sink = sink;
+  }
+
+  setMic(mic: MicProcessing): void {
+    this.mic = mic;
   }
 
   noteStop(): void {
@@ -115,7 +127,7 @@ export function useTranslateConversation(): UseTranslateConversation {
 
   // One recorder and one session for the life of the screen; both are rebuilt
   // never, because the session starts and tears down its own resources per run.
-  const [capture] = useState(() => new NativeAudioCapture());
+  const [capture] = useState(() => new NativeAudioCapture(() => live.mic));
   const [session] = useState(
     () =>
       new ConversationSession(
@@ -183,8 +195,10 @@ export function useTranslateConversation(): UseTranslateConversation {
         },
         // The phone's loudspeaker is next to its microphone: while a translation is
         // sounding it must not open a turn of its own, whatever the echo canceller lets by.
+        // With echo cancellation off nothing removes that voice from the microphone,
+        // so the run is half-duplex: the microphone pauses while a translation plays.
         () => ({
-          ...CASCADE_RUNTIME_OPTIONS,
+          ...cascadeRuntimeFor(live.mic),
           receivedSounding: () => live.sink?.isPlaying ?? false,
         }),
       ),
@@ -197,6 +211,9 @@ export function useTranslateConversation(): UseTranslateConversation {
         setError({ key: 'mobile.translate.micInUse' });
         return;
       }
+      // Before the session opens the recorder, which reads it: a change in Settings
+      // applies from the next start, never to a running conversation.
+      live.setMic(settings.micProcessing);
       const stopsBefore = live.stops;
       try {
         live.setToken(await authClient.getAccessToken());

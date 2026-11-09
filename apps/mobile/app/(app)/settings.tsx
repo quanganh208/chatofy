@@ -1,16 +1,21 @@
 /**
- * Settings: for now, the account this phone is signed in as and the way out of
- * it. Sign out ends the refresh family server-side, so the stored token cannot
- * be replayed after it.
+ * Settings: the account this phone is signed in as and the way out of it, then
+ * the microphone's processing. Sign out ends the refresh family server-side, so
+ * the stored token cannot be replayed after it.
+ *
+ * Audio: the phone runs echo cancellation, noise suppression and gain control as
+ * one chain, so there is one live switch; the other two rows show its value,
+ * locked, rather than offering a choice the phone cannot apply.
  */
 
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { useTranslateSettings } from '@/translate/use-translate-settings';
 
 // English for now, matching the conference screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
@@ -19,6 +24,15 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { session, signOut } = useAuth();
+  const { settings, loaded, update } = useTranslateSettings();
+  const processing = settings.micProcessing.echoCancellation;
+  const setProcessing = (on: boolean) =>
+    update((current) => ({
+      ...current,
+      micProcessing: { echoCancellation: on, noiseSuppression: on, autoGainControl: on },
+    }));
+  // The native switch's on-track is the only accent on this screen.
+  const trackColor = { true: colors.primary, false: colors.border };
 
   return (
     <SafeAreaView
@@ -55,6 +69,49 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
       )}
+
+      <View style={styles.audio}>
+        <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>
+          {t('common.audio.title')}
+        </Text>
+
+        <View style={styles.row}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            {t('common.audio.echoCancellation')}
+          </Text>
+          {/* Disabled until the stored value is read, so a tap cannot save over it. */}
+          <Switch
+            value={processing}
+            onValueChange={setProcessing}
+            disabled={!loaded}
+            trackColor={trackColor}
+            accessibilityLabel={t('common.audio.echoCancellation')}
+          />
+        </View>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          {t('mobile.settings.audio.voiceProcessingHint')}
+        </Text>
+
+        {(['common.audio.noiseSuppression', 'common.audio.autoGainControl'] as const).map((key) => (
+          <View key={key} style={styles.row}>
+            <Text style={[styles.label, { color: colors.muted }]}>{t(key)}</Text>
+            <Switch
+              value={processing}
+              disabled
+              trackColor={trackColor}
+              accessibilityLabel={t(key)}
+              accessibilityHint={t('mobile.settings.audio.lockedHint')}
+            />
+          </View>
+        ))}
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          {t('mobile.settings.audio.lockedHint')}
+        </Text>
+
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          {t('common.audio.recommendation')}
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -79,5 +136,27 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
+  },
+  audio: {
+    alignSelf: 'stretch',
+    gap: space.sm,
+    marginTop: space.lg,
+  },
+  heading: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+  },
+  label: {
+    flex: 1,
+    fontSize: fontSize.base,
+  },
+  hint: {
+    fontSize: fontSize.sm,
   },
 });

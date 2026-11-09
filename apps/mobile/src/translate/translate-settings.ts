@@ -10,11 +10,13 @@
 
 import {
   DEFAULT_LANGUAGE_PAIR,
+  DEFAULT_MIC_PROCESSING,
   DEFAULT_VOICE_GENDER,
   LANGUAGE_CODES,
   sessionLanguagePairSchema,
   voiceGenderSchema,
   type LanguageCode,
+  type MicProcessing,
   type SessionLanguagePair,
   type VoiceGender,
 } from '@chatofy/types';
@@ -27,6 +29,8 @@ export interface TranslateSettings {
   voiceGender: VoiceGender;
   /** An opaque voice token per OUTPUT language; absent means the language's default. */
   voices: Partial<Record<LanguageCode, string>>;
+  /** The platform voice-processing chain the microphone opens with; read at each start. */
+  micProcessing: MicProcessing;
 }
 
 export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = {
@@ -34,6 +38,7 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = {
   speak: true,
   voiceGender: DEFAULT_VOICE_GENDER,
   voices: {},
+  micProcessing: { ...DEFAULT_MIC_PROCESSING },
 };
 
 /** A token is only ever echoed back to the server, which bounds it at 64 characters. */
@@ -58,12 +63,28 @@ export function parseTranslateSettings(raw: unknown): TranslateSettings {
   }
 
   return {
+    micProcessing: parseMicProcessing(stored['micProcessing']),
     pair: pair.success ? normalizePair(pair.data) : DEFAULT_TRANSLATE_SETTINGS.pair,
     speak:
       typeof stored['speak'] === 'boolean' ? stored['speak'] : DEFAULT_TRANSLATE_SETTINGS.speak,
     voiceGender: gender.success ? gender.data : DEFAULT_TRANSLATE_SETTINGS.voiceGender,
     voices,
   };
+}
+
+/**
+ * Only `echoCancellation` is read. The phone turns its echo canceller, noise
+ * suppressor and gain control on and off as one chain (the input preset on
+ * Android, voice processing on iOS), so the other two are forced equal to it: a
+ * stored value claiming otherwise would describe a microphone the phone cannot open.
+ */
+function parseMicProcessing(raw: unknown): MicProcessing {
+  const stored = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const on =
+    typeof stored['echoCancellation'] === 'boolean'
+      ? stored['echoCancellation']
+      : DEFAULT_MIC_PROCESSING.echoCancellation;
+  return { echoCancellation: on, noiseSuppression: on, autoGainControl: on };
 }
 
 /**

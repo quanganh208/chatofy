@@ -1,4 +1,4 @@
-import { languagePairSchema } from '@chatofy/types';
+import { languagePairSchema, micProcessingSchema } from '@chatofy/types';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
@@ -557,11 +557,15 @@ export default defineBackground(() => {
           // message `sendMessage` types as `any`. A pair that fails the registry
           // keeps the stored one rather than writing a start the server refuses.
           const languagePair = languagePairSchema.safeParse(forWorker.languagePair);
+          const micProcessing = micProcessingSchema.safeParse(forWorker.micProcessing);
           await saveSettings({
             ...current,
             languagePair: languagePair.success ? languagePair.data : current.languagePair,
             voiceGender: forWorker.voiceGender,
             outbound: forWorker.outbound,
+            // Kept when absent or unreadable: the overlay sends this message too,
+            // and it has no control for the mic processing switches.
+            micProcessing: micProcessing.success ? micProcessing.data : current.micProcessing,
           });
           await refreshSettingsHint();
 

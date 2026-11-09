@@ -3,7 +3,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent } from '@chatofy/types';
+import type { MicProcessing, ServerEvent } from '@chatofy/types';
 import type { ConversationSessionListeners } from '@chatofy/realtime-client';
 import {
   useStreamingTranslate,
@@ -29,9 +29,18 @@ const FakeConversationSession = vi.hoisted(() => {
   class Fake {
     static last: Fake | null = null;
     readonly listeners: ConversationSessionListeners;
+    /** What the hook supplied, so a case can open the microphone and read the runtime. */
+    readonly deps: { openMicrophone: () => Promise<MediaStream> };
+    readonly runtime: () => { fullDuplex?: boolean };
 
-    constructor(_deps: unknown, listeners: ConversationSessionListeners) {
+    constructor(
+      deps: { openMicrophone: () => Promise<MediaStream> },
+      listeners: ConversationSessionListeners,
+      runtime: () => { fullDuplex?: boolean },
+    ) {
+      this.deps = deps;
       this.listeners = listeners;
+      this.runtime = runtime;
       Fake.last = this;
     }
 
@@ -409,5 +418,82 @@ describe('useStreamingTranslate languages', () => {
     // Anything else keeps the server's own words.
     act(() => listeners.onError('Something else', { code: 'internal' }));
     expect(latest.error).toBe('Something else');
+  });
+});
+
+describe('useStreamingTranslate microphone processing', () => {
+  function stubMicrophone(applied: Partial<MicProcessing>) {
+    const stream = { getAudioTracks: () => [{ getSettings: () => applied }] };
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    return getUserMedia;
+  }
+
+  async function renderWith(mic: MicProcessing) {
+    function MicProbe() {
+      const value = useStreamingTranslate(undefined, () => mic);
+      React.useEffect(() => {
+        latest = value;
+      });
+      return null;
+    }
+    await act(async () => {
+      root.render(<MicProbe />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.start(options);
+    });
+    return FakeConversationSession.last!;
+  }
+
+  it('opens the microphone with echo cancellation off and runs half duplex', async () => {
+    const mic = { echoCancellation: false, noiseSuppression: true, autoGainControl: true };
+    const getUserMedia = stubMicrophone(mic);
+    const session = await renderWith(mic);
+    await session.deps.openMicrophone();
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: mic });
+    expect(session.runtime().fullDuplex).toBe(false);
+  });
+
+  it('opens the microphone with every processor on by default and runs full duplex', async () => {
+    const mic = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    const getUserMedia = stubMicrophone(mic);
+    const session = await renderWith(mic);
+    await session.deps.openMicrophone();
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: mic });
+    expect(session.runtime().fullDuplex).toBe(true);
+  });
+
+  it('warns when the browser applied a processor other than the one asked for', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stubMicrophone({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+    const session = await renderWith({
+      echoCancellation: false,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+    await session.deps.openMicrophone();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('echoCancellation'));
+  });
+
+  it('reports the paused microphone while half duplex ignores it, and clears it on stop', async () => {
+    const session = await renderWith({
+      echoCancellation: false,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+    act(() => {
+      session.listeners.onMuted(true);
+    });
+    expect(latest.micPaused).toBe(true);
+    await act(async () => {
+      latest.stop();
+      await Promise.resolve();
+    });
+    expect(latest.micPaused).toBe(false);
   });
 });

@@ -15,6 +15,7 @@
  */
 
 import type { PushedPcmSource } from '@chatofy/realtime-client';
+import type { MicProcessing } from '@chatofy/types';
 
 /**
  * The rate the shared session's block arithmetic assumes (the pushed-PCM shim
@@ -50,13 +51,18 @@ export interface NativeRecorderHandle {
 
 /** The platform calls a recorder needs. */
 export interface NativeRecorderApi {
-  /** iOS: a session category that lets capture coexist with the call. Android ignores it. */
-  configureSession(): void;
+  /**
+   * iOS: a session category that lets capture coexist with the call, in the mode
+   * `mic` asks for (the session mode decides whether voice processing runs).
+   * Android ignores it.
+   */
+  configureSession(mic: MicProcessing): void;
   /** iOS: give the audio session back. Only {@link NativePcmRecorder.releaseSession} calls it. */
   deactivateSession(): Promise<void>;
   /** `'Granted'` when the app may record. */
   requestPermission(): Promise<string>;
-  createRecorder(): NativeRecorderHandle;
+  /** A recorder whose platform processing chain is the one `mic` asks for. */
+  createRecorder(mic: MicProcessing): NativeRecorderHandle;
   log?: (message: string) => void;
 }
 
@@ -79,9 +85,12 @@ export class NativePcmRecorder implements PushedPcmSource {
   // A plain field, not a parameter property: node runs this file's tests with
   // type stripping only, which cannot transform one.
   private readonly api: NativeRecorderApi;
+  /** Read at every open, so a choice made between sessions applies at the next start. */
+  private readonly mic: () => MicProcessing;
 
-  constructor(api: NativeRecorderApi) {
+  constructor(api: NativeRecorderApi, mic: () => MicProcessing) {
     this.api = api;
+    this.mic = mic;
   }
 
   /**
@@ -109,13 +118,15 @@ export class NativePcmRecorder implements PushedPcmSource {
   private async open(onBuffer: (samples: Float32Array, sampleRate: number) => void): Promise<void> {
     if (this.recording) return;
 
-    this.api.configureSession();
+    // One read per open: the session mode and the recorder must agree.
+    const mic = this.mic();
+    this.api.configureSession(mic);
     const permission = await this.api.requestPermission();
     if (permission !== 'Granted') {
       throw new Error(`microphone permission not granted (${permission})`);
     }
 
-    const recorder = this.api.createRecorder();
+    const recorder = this.api.createRecorder(mic);
     this.recorder = recorder;
     let rateLogged = false;
 

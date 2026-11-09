@@ -27,6 +27,7 @@ import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
 import { parseVoiceGenderParam } from '@/conference/conference-voice-param';
+import { useTranslateSettings } from '@/translate/use-translate-settings';
 import {
   startMeetingForegroundService,
   stopMeetingForegroundService,
@@ -118,11 +119,21 @@ export default function ConferenceCallScreen() {
   // Monotonic counter for stable transcript entry ids.
   const seqRef = useRef({ n: 0 });
 
+  // The translation recorder opens with the processing chosen in Settings, read
+  // when it opens rather than at render, so a reconnect opens it the same way.
+  const { settings: translateSettings } = useTranslateSettings();
+  const micProcessingRef = useRef(translateSettings.micProcessing);
+  useEffect(() => {
+    micProcessingRef.current = translateSettings.micProcessing;
+  }, [translateSettings.micProcessing]);
+  const readMicProcessing = useCallback(() => micProcessingRef.current, []);
+
   const conference = useConferenceNative(roomId, {
     displayName,
     sourceLanguage,
     voiceGender,
     getToken: getConferenceToken,
+    micProcessing: readMicProcessing,
   });
 
   const {

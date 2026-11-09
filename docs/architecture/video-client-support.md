@@ -212,8 +212,8 @@ background, its decoded video frames stop, and they resume on return.
 
 `react-native-audio-api` (the translation recorder) adds its own iOS microphone prompt
 through its plugin entry. On Android it is patched
-(`patches/react-native-audio-api@0.13.6.patch`) to capture with the `VoiceCommunication`
-preset and an echo canceller, so a dev client must be rebuilt after the patch changes; why
+(`patches/react-native-audio-api@1.0.0.patch`) so its `VoiceCommunication` preset gets the
+session id an echo canceller needs, so a dev client must be rebuilt after the patch changes; why
 it is needed and why it is not enough alone:
 [video-translation-audio-path.md § 5](./video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays).
 

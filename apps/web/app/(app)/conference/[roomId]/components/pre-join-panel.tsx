@@ -174,6 +174,13 @@ export function PreJoinPanel({
                     ))}
                 </SelectContent>
               </Select>
+              {/* Said here, before joining, because it is the other people who pay
+                  for it: with echo cancellation off they hear their own voice back. */}
+              {voice.ready && !voice.settings.micProcessing.echoCancellation ? (
+                <p className="text-muted-foreground text-hint">
+                  {t('web.preferences.audio.conferenceNote')}
+                </p>
+              ) : null}
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
               <Label id={camLabelId}>{t('web.conference.camera')}</Label>

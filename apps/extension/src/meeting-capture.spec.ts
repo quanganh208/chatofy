@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
+import { describe, expect, it, vi } from 'vitest';
 import { harness } from './fake-meeting-audio';
 import { MeetingCapture } from './meeting-capture';
 import type { CaptureSettings } from './messages';
@@ -20,6 +21,7 @@ const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => 
   apiBaseUrl: 'http://localhost:3000',
   reportMetrics: false,
   outbound: false,
+  micProcessing: DEFAULT_MIC_PROCESSING,
   ...overrides,
 });
 
@@ -50,6 +52,32 @@ describe('MeetingCapture', () => {
       expect(h.microphones).toHaveLength(0);
       expect(h.sessions.outbound).toBeUndefined();
       expect(h.events).not.toContain('microphone');
+    });
+  });
+
+  describe('mic processing', () => {
+    // Both microphones a capture opens follow the stored choice: the one that
+    // feeds the translator and the one that measures echo.
+    it('opens both microphones with the stored processing choice', async () => {
+      const h = harness();
+      const openMicrophone = vi.fn(h.deps.openMicrophone);
+      const createEcho = vi.fn(h.deps.createEcho);
+      h.deps.openMicrophone = openMicrophone;
+      h.deps.createEcho = createEcho;
+      const micProcessing = { ...DEFAULT_MIC_PROCESSING, echoCancellation: false };
+
+      await new MeetingCapture(h.deps).begin(
+        'stream-1',
+        settings({ outbound: true, micProcessing }),
+      );
+
+      expect(openMicrophone).toHaveBeenCalledWith(expect.anything(), {
+        echoCancellation: false,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+      expect(createEcho).toHaveBeenCalledTimes(1);
+      expect(createEcho.mock.calls[0]![0].micProcessing.echoCancellation).toBe(false);
     });
   });
 
