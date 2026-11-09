@@ -15,7 +15,7 @@ Script: `capture.mjs` (needs `npm i axe-core` beside it; Chrome path set inside;
 | 1.2 test account                               | done (registered, verified by token, signed in via real `/login` form)                                      |
 | 1.3 screenshots                                | done for 10 of 11 routes x 4 viewports (40 shots); `/history/[id]` not captured: no conversation exists yet |
 | 1.4 axe                                        | done at 1440 for 10 routes                                                                                  |
-| 1.5 keyboard walk                              | todo                                                                                                        |
+| 1.5 keyboard walk                              | done at page level (see Keyboard walk); task walks that need mic or data are deferred to 1.6                |
 | 1.6 worst-case data                            | todo                                                                                                        |
 | 1.7 rubric scoring                             | todo                                                                                                        |
 | 1.8 impeccable URL scan, hallmark, Emil skills | todo                                                                                                        |
@@ -79,7 +79,31 @@ Leads to confirm in phase 1.7 and phase 2:
   space; "Join" is a low-contrast disabled button until a code is typed.
 - The Next dev indicator badge overlaps the sidebar profile row (dev only, ignore).
 
+## Keyboard walk (step 1.5, signed in, 1440px, Tab only)
+
+Script: `keyboard.mjs`, data: `keyboard-results.json`. Same credentials env vars as the capture script.
+
+| Route                         | Focus stops in one cycle | Tabs to the primary action              |
+| ----------------------------- | ------------------------ | --------------------------------------- |
+| /                             | 15                       | 10                                      |
+| /translate/one-way            | 48                       | 20 (Start conversation)                 |
+| /translate/two-way            | 48                       | 20                                      |
+| /conference                   | 32                       | 14 (New meeting)                        |
+| /history, /glossary, /account | 28 to 34                 | not measured (no single primary action) |
+| /preferences                  | 48                       | not measured                            |
+
+Findings:
+
+- Every real control shows a visible focus indicator. The only stops without one are
+  the Next.js dev overlay (`nextjs-portal`, dev only, ignore).
+- "Skip to content" is the first stop on every signed-in page, so a keyboard user can
+  jump past the sidebar. Without it, Start conversation is 20 Tabs away because the
+  sidebar, theme, language and account controls come first.
+- No focus trap: Tab wraps back to the start on every page.
+- Not walked yet: change language end to end, join a conference with a code, open a
+  history item (needs a seeded conversation), start a translation (needs a microphone).
+
 ## Next
 
-Steps 1.5 to 1.9 per `plan.md`. Hallmark needs puppeteer + writes files, so it will be
+Steps 1.6 to 1.9 per `plan.md`. Hallmark needs puppeteer + writes files, so it will be
 run only after the owner approves the install.

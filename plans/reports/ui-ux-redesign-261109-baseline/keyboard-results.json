@@ -1,0 +1,155 @@
+[
+  {
+    "route": "/",
+    "focusStops": 15,
+    "tabsToPrimary": 10,
+    "stopsWithoutRing": 1,
+    "stopsOffscreen": 1,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:Meetings",
+      "4:a:How it works",
+      "5:a:Privacy",
+      "6:a:Where it runs"
+    ],
+    "noRingSample": ["nextjs-portal:"]
+  },
+  {
+    "route": "/login",
+    "focusStops": 48,
+    "tabsToPrimary": null,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/translate/one-way",
+    "focusStops": 48,
+    "tabsToPrimary": 20,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/translate/two-way",
+    "focusStops": 48,
+    "tabsToPrimary": 20,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/conference",
+    "focusStops": 32,
+    "tabsToPrimary": 14,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/history",
+    "focusStops": 28,
+    "tabsToPrimary": 1,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/glossary",
+    "focusStops": 30,
+    "tabsToPrimary": 1,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  },
+  {
+    "route": "/preferences",
+    "focusStops": 48,
+    "tabsToPrimary": 1,
+    "stopsWithoutRing": 1,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:"]
+  },
+  {
+    "route": "/account",
+    "focusStops": 34,
+    "tabsToPrimary": 1,
+    "stopsWithoutRing": 2,
+    "stopsOffscreen": 2,
+    "loopedBack": true,
+    "firstStops": [
+      "1:a:Skip to content",
+      "2:a:Chatofy",
+      "3:a:One-way translation",
+      "4:a:Two-way translation",
+      "5:a:Conference",
+      "6:a:History"
+    ],
+    "noRingSample": ["nextjs-portal:", "nextjs-portal:"]
+  }
+]
