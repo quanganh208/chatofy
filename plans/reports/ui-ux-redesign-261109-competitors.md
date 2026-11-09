@@ -44,6 +44,13 @@ It is personal and local, remembered per browser, outline like the buttons besid
 the one filled control. Verified in a real browser with two people: the slider moves the other person's
 actual audio volume (100% to 70% to 0%), the size choice disables with captions off, and the choice survives a reload.
 
+### QR join
+
+A QR button beside "Copy invite link" opens a popover with the code and the address. It adds one dependency,
+`qrcode-generator` 2.0.4 (MIT, no dependencies of its own, published 2025-08), approved by the owner. The symbol is a
+React SVG, black on white with a four-module quiet zone in every theme. Checked on the live page with an independent
+decoder (jsQR): the screenshot of the code decodes to the exact room address in light, in dark and at 375px.
+
 ## Not built, and why
 
 | Item                          | Why                                                                                    |

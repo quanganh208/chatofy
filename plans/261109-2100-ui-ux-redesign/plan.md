@@ -190,6 +190,7 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 | 2026-11-09 | Round 3: hallmark, Emil and ui-ux-pro-max run from isolated clones; sentence-case labels, motion fixes, roster clamp; dark and reduced-motion checks                                                             |
 | 2026-11-10 | Round 4: resizable sidebar and chat panel, page headers, two-column layouts, conference hero; owner asked for a more striking redesign, so the "keep Direction A" assumption was relaxed for layout and identity |
 | 2026-11-10 | Round 5: looked at eight similar products (Meet, Zoom, DeepL Voice, Wordly, Maestra, JotMe and others); added a Captions and sound menu in calls; report `plans/reports/ui-ux-redesign-261109-competitors.md`    |
+| 2026-11-10 | QR join added with qrcode-generator (owner approved the dependency); decoded back to the room address with an independent reader                                                                                 |
 
 ## Constraints that stay
 
