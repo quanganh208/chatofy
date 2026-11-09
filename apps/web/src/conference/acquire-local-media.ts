@@ -1,3 +1,5 @@
+import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
+
 /**
  * Open the camera and microphone for a call, degrading to audio only.
  *
@@ -32,10 +34,17 @@ function constraint(deviceId: string | undefined): MediaTrackConstraints | true 
   return deviceId ? { deviceId } : true;
 }
 
+/**
+ * `mic` is the reader's processing choice, applied to the published track itself:
+ * the leg clones this track, so the peers and the translation hear the same audio.
+ */
 export async function acquireLocalMedia(
   devices: PreferredDevices = {},
+  mic: MicProcessing = DEFAULT_MIC_PROCESSING,
 ): Promise<{ stream: MediaStream; audioOnly: boolean }> {
-  const audio = constraint(devices.audioDeviceId);
+  const audio: MediaTrackConstraints = devices.audioDeviceId
+    ? { ...mic, deviceId: devices.audioDeviceId }
+    : { ...mic };
   try {
     return {
       stream: await navigator.mediaDevices.getUserMedia({

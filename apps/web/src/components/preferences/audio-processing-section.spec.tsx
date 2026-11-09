@@ -54,6 +54,11 @@ describe('AudioProcessingSection', () => {
     expect(container.textContent).toContain(en['common.audio.recommendation']);
   });
 
+  it('says on the echo cancellation row that meeting peers hear the echo', async () => {
+    await mount();
+    expect(container.textContent).toContain(en['web.preferences.audio.conferenceNote']);
+  });
+
   it('turns echo cancellation off without touching the other two', async () => {
     const set = await mount();
     act(() => {

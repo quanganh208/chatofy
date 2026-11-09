@@ -18,14 +18,22 @@ describe('acquireLocalMedia', () => {
   it('asks for the default devices when none were picked', async () => {
     getUserMedia.mockResolvedValue(stream);
     await acquireLocalMedia();
-    expect(getUserMedia).toHaveBeenCalledWith({ audio: true, video: true });
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: true,
+    });
   });
 
   it('prefers the devices picked before joining', async () => {
     getUserMedia.mockResolvedValue(stream);
     await acquireLocalMedia({ audioDeviceId: 'mic-1', videoDeviceId: 'cam-1' });
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: { deviceId: 'mic-1' },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        deviceId: 'mic-1',
+      },
       video: { deviceId: 'cam-1' },
     });
   });
@@ -33,8 +41,27 @@ describe('acquireLocalMedia', () => {
   it('keeps the picked microphone when the camera is refused', async () => {
     getUserMedia.mockRejectedValueOnce(named('NotAllowedError')).mockResolvedValueOnce(stream);
     const result = await acquireLocalMedia({ audioDeviceId: 'mic-1', videoDeviceId: 'cam-1' });
-    expect(getUserMedia).toHaveBeenLastCalledWith({ audio: { deviceId: 'mic-1' }, video: false });
+    expect(getUserMedia).toHaveBeenLastCalledWith({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        deviceId: 'mic-1',
+      },
+      video: false,
+    });
     expect(result.audioOnly).toBe(true);
+  });
+
+  it('publishes the microphone with echo cancellation off when the reader chose it', async () => {
+    getUserMedia.mockResolvedValue(stream);
+    await acquireLocalMedia(
+      { audioDeviceId: 'mic-1' },
+      { echoCancellation: false, noiseSuppression: true, autoGainControl: true },
+    );
+    const audio = getUserMedia.mock.calls[0]![0].audio as MediaTrackConstraints;
+    expect(audio.echoCancellation).toBe(false);
+    expect(audio.deviceId).toBe('mic-1');
   });
 
   it('fails when the microphone cannot be opened either', async () => {

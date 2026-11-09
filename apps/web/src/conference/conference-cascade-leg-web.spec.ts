@@ -30,6 +30,7 @@ const { sockets, legs } = vi.hoisted(() => ({
   }[],
   legs: [] as {
     leg: ConferenceCascadeLeg;
+    options: Parameters<typeof import('@chatofy/realtime-client').createConferenceCascadeLeg>[0];
     pause: ReturnType<typeof vi.fn>;
     resume: ReturnType<typeof vi.fn>;
   }[],
@@ -77,7 +78,12 @@ vi.mock('@chatofy/realtime-client', async (importOriginal) => {
       ...args: Parameters<typeof original.createConferenceCascadeLeg>
     ) => {
       const leg = original.createConferenceCascadeLeg(...args);
-      legs.push({ leg, pause: vi.spyOn(leg, 'pause'), resume: vi.spyOn(leg, 'resume') });
+      legs.push({
+        leg,
+        options: args[0],
+        pause: vi.spyOn(leg, 'pause'),
+        resume: vi.spyOn(leg, 'resume'),
+      });
       return leg;
     },
   };
@@ -164,7 +170,10 @@ const settle = async () => {
   for (let i = 0; i < 20; i += 1) await Promise.resolve();
 };
 
-function setup({ muted = false } = {}) {
+function setup({
+  muted = false,
+  receivedSounding,
+}: { muted?: boolean; receivedSounding?: () => boolean } = {}) {
   const original = new FakeTrack();
   original.enabled = !muted;
   const conference = { readyState: WebSocket.OPEN, send: vi.fn() };
@@ -180,6 +189,7 @@ function setup({ muted = false } = {}) {
     muted,
     onTranslatingChange: (active) => translating.push(active),
     onEnded: (reason) => ended.push(reason),
+    ...(receivedSounding ? { receivedSounding } : {}),
   });
   return { leg, original, conference, translating, ended, shared: legs.at(-1)! };
 }
@@ -198,6 +208,17 @@ afterEach(() => {
 });
 
 describe('createWebConferenceLeg', () => {
+  it('runs without the received-audio gate when none is given, as with echo cancellation on', () => {
+    const { shared } = setup();
+    expect(shared.options.receivedSounding).toBeUndefined();
+  });
+
+  it('hands the received-audio gate to the shared leg, as with echo cancellation off', () => {
+    const receivedSounding = () => true;
+    const { shared } = setup({ receivedSounding });
+    expect(shared.options.receivedSounding).toBe(receivedSounding);
+  });
+
   it('captures a clone of the published track, over the translate URL it was given', async () => {
     const { leg, original } = setup();
     await leg.start();

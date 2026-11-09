@@ -43,6 +43,11 @@ export interface WebConferenceLegOptions {
   /** Translation ended for good (not on a leave or stop asked for); the call goes on without it. */
   onEnded?: (reason: ConferenceLegEndReason) => void;
   onLog?: (message: string) => void;
+  /**
+   * True while another peer is audibly talking. Given only when echo cancellation
+   * is off, so their voice from this loudspeaker cannot open a turn as ours.
+   */
+  receivedSounding?: () => boolean;
 }
 
 export interface WebConferenceLeg {
@@ -95,6 +100,7 @@ export function createWebConferenceLeg(options: WebConferenceLegOptions): WebCon
     onTranslatingChange: options.onTranslatingChange,
     ...(options.onEnded ? { onEnded: options.onEnded } : {}),
     ...(options.onLog ? { onLog: options.onLog } : {}),
+    ...(options.receivedSounding ? { receivedSounding: options.receivedSounding } : {}),
   });
 
   const setMuted = (muted: boolean): void => {

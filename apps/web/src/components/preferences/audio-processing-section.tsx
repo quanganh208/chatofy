@@ -57,7 +57,12 @@ export function AudioProcessingSection({ settings, ready, set }: AudioProcessing
   return (
     <SettingsSection title={t('common.audio.title')} note={t('web.preferences.audioHint')}>
       {PROCESSORS.map((key) => {
-        const hint = t(`web.preferences.audio.${key}Hint`);
+        // Echo cancellation also says what it costs in a meeting, where the
+        // people who hear the echo are the other participants.
+        const hint =
+          key === 'echoCancellation'
+            ? `${t('web.preferences.audio.echoCancellationHint')} ${t('web.preferences.audio.conferenceNote')}`
+            : t(`web.preferences.audio.${key}Hint`);
         return (
           <SettingsSectionRow
             key={key}
