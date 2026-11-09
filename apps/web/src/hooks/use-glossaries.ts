@@ -21,6 +21,8 @@ export interface GlossariesValue {
   save: (glossaryId: string, body: SaveGlossaryRequest) => Promise<void>;
   patch: (glossaryId: string, body: PatchGlossaryRequest) => Promise<void>;
   remove: (glossaryId: string) => Promise<void>;
+  /** Load again after a failure, showing the loading state while it runs. */
+  retry: () => Promise<void>;
 }
 
 const SharedGlossaries = createContext<GlossariesValue | null>(null);
@@ -83,7 +85,12 @@ function useOwnGlossaries(enabled: boolean): GlossariesValue {
     [reload],
   );
 
-  return { glossaries, status, save, patch, remove };
+  const retry = useCallback(async () => {
+    setStatus('loading');
+    await reload();
+  }, [reload]);
+
+  return { glossaries, status, save, patch, remove, retry };
 }
 
 export function GlossariesProvider({ children }: { children: ReactNode }): ReactElement {

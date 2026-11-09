@@ -16,6 +16,8 @@ interface Props {
   onSave: (glossaryId: string, body: SaveGlossaryRequest) => Promise<void>;
   onToggleActive: (glossaryId: string) => Promise<void>;
   onDelete: (glossaryId: string) => Promise<void>;
+  /** Try loading again; shown beside the failure message. */
+  onRetry: () => void;
 }
 
 export function GlossaryListPanel({
@@ -26,6 +28,7 @@ export function GlossaryListPanel({
   onSave,
   onToggleActive,
   onDelete,
+  onRetry,
 }: Props) {
   const t = useTranslate();
   const [creating, setCreating] = useState(false);
@@ -61,7 +64,12 @@ export function GlossaryListPanel({
         )}
 
         {status === 'failed' && (
-          <p className="text-body text-destructive px-1">{t('web.glossary.loadFailed')}</p>
+          <div role="alert" className="flex flex-col items-start gap-2 px-1">
+            <p className="text-body text-destructive">{t('web.glossary.loadFailed')}</p>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              {t('web.error.retry')}
+            </Button>
+          </div>
         )}
 
         {status === 'ready' && glossaries.length === 0 && !creating && (
