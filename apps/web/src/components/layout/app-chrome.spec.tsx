@@ -104,6 +104,16 @@ describe('the product sidebar', () => {
     expect(item?.getAttribute('aria-label')).toBe('One-way translation');
   });
 
+  it('marks the current page with aria-current and one dawn bar, and no other link', () => {
+    const sidebar = render();
+    const current = [...sidebar.querySelectorAll('a[aria-current="page"]')];
+    expect(current.map((a) => a.getAttribute('href'))).toEqual(['/translate/one-way']);
+    // Decoration only: hidden from assistive tech, and there is exactly one.
+    const bars = sidebar.querySelectorAll('[data-slot="sidebar-active-bar"]');
+    expect(bars.length).toBe(1);
+    expect(bars[0]?.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('marks the current route active', () => {
     expect(
       render().querySelector('a[href="/translate/one-way"]')?.getAttribute('data-active'),

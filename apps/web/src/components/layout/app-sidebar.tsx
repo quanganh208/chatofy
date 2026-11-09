@@ -1,5 +1,6 @@
 'use client';
 
+import { dawn } from '@chatofy/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -87,8 +88,24 @@ export function AppSidebar({ resize }: { resize: SidebarResize }) {
                   const label = t(item.labelKey);
                   return (
                     <SidebarMenuItem key={item.href}>
+                      {/* The page you are on, in the brand's dawn. Decoration only: the
+                          the link itself carries `aria-current`. */}
+                      {active === item ? (
+                        <span
+                          aria-hidden
+                          data-slot="sidebar-active-bar"
+                          className="absolute inset-y-1.5 -left-2 z-10 w-1 rounded-full"
+                          style={{
+                            backgroundImage: `linear-gradient(180deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+                          }}
+                        />
+                      ) : null}
                       <SidebarMenuButton asChild isActive={active === item} tooltip={label}>
-                        <Link href={item.href} aria-label={label}>
+                        <Link
+                          href={item.href}
+                          aria-label={label}
+                          aria-current={active === item ? 'page' : undefined}
+                        >
                           <item.icon aria-hidden />
                           <span>{label}</span>
                         </Link>
