@@ -624,6 +624,8 @@ export const en = {
   'web.preferences.audio.noiseSuppressionHint': 'Filters microphone sound that is not speech.',
   'web.preferences.audio.autoGainControlHint': 'Automatically adjusts the microphone input level.',
   'web.preferences.audio.unsupported': 'Not supported by this browser.',
+  'web.preferences.audio.conferenceNote':
+    'In meetings, turning echo cancellation off makes other people hear their own echo.',
   // AI Context — the named library the translator is told about a KIND of
   // conversation from. Authored here; picked on Translate and in the extension.
   //
@@ -930,6 +932,10 @@ export const en = {
   'mobile.auth.signInFailed': 'Could not sign in. Check your connection and try again.',
   'mobile.settings.signedInAs': 'Signed in as {email}',
   'mobile.settings.signedOut': 'You are not signed in.',
+  'mobile.settings.audio.voiceProcessingHint':
+    "Turns the phone's voice processing on or off. When off, the microphone pauses while a translation plays. Call audio is unchanged.",
+  'mobile.settings.audio.lockedHint':
+    'The phone turns this on and off together with echo cancellation.',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Glossaries',

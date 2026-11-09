@@ -483,6 +483,8 @@ export const vi: Messages = {
   'web.preferences.audio.noiseSuppressionHint': 'Lọc âm thanh từ micro không phải giọng nói.',
   'web.preferences.audio.autoGainControlHint': 'Tự động điều chỉnh mức âm lượng đầu vào từ micro.',
   'web.preferences.audio.unsupported': 'Trình duyệt này không hỗ trợ.',
+  'web.preferences.audio.conferenceNote':
+    'Trong cuộc họp, tắt khử vọng khiến người khác nghe lại tiếng vọng của chính họ.',
   // AI Context — thư viện ngữ cảnh đã đặt tên.
   'web.preferences.aiContext': 'Ngữ cảnh AI',
   'web.preferences.aiContextHint':
@@ -707,6 +709,9 @@ export const vi: Messages = {
   'mobile.auth.signInFailed': 'Không đăng nhập được. Kiểm tra kết nối rồi thử lại.',
   'mobile.settings.signedInAs': 'Đang đăng nhập: {email}',
   'mobile.settings.signedOut': 'Bạn chưa đăng nhập.',
+  'mobile.settings.audio.voiceProcessingHint':
+    'Bật/tắt chuỗi xử lý giọng nói của điện thoại. Khi tắt, micro tạm dừng lúc bản dịch đang phát. Âm thanh cuộc gọi không đổi.',
+  'mobile.settings.audio.lockedHint': 'Điện thoại bật/tắt mục này cùng với khử vọng.',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Bảng thuật ngữ',
