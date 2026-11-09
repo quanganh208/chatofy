@@ -19,12 +19,14 @@ describe('parseTranslateSettings', () => {
       speak: false,
       voiceGender: 'male',
       voices: { en: 'voice-1', vi: 'voice-2' },
+      micProcessing: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
     assert.deepEqual(settings, {
       pair: { source: 'detect', target: 'en' },
       speak: false,
       voiceGender: 'male',
       voices: { en: 'voice-1', vi: 'voice-2' },
+      micProcessing: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
   });
 
@@ -39,6 +41,32 @@ describe('parseTranslateSettings', () => {
     assert.equal(settings.speak, true);
     assert.equal(settings.voiceGender, DEFAULT_TRANSLATE_SETTINGS.voiceGender);
     assert.deepEqual(settings.voices, { zh: 'ok' });
+  });
+
+  it('opens the microphone with all processing on when nothing usable was stored', () => {
+    const all = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    assert.deepEqual(parseTranslateSettings({}).micProcessing, all);
+    assert.deepEqual(parseTranslateSettings({ micProcessing: 'off' }).micProcessing, all);
+    assert.deepEqual(
+      parseTranslateSettings({ micProcessing: { echoCancellation: 'no' } }).micProcessing,
+      all,
+    );
+  });
+
+  it('turns the whole processing chain off with echo cancellation', () => {
+    assert.deepEqual(
+      parseTranslateSettings({ micProcessing: { echoCancellation: false } }).micProcessing,
+      { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    );
+  });
+
+  it('ignores a noise or gain value the phone cannot apply on its own', () => {
+    assert.deepEqual(
+      parseTranslateSettings({
+        micProcessing: { echoCancellation: true, noiseSuppression: false },
+      }).micProcessing,
+      { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    );
   });
 
   it('repairs a pair the picker cannot hold', () => {
