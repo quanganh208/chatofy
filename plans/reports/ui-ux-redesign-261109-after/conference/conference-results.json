@@ -1,0 +1,54 @@
+{
+  "log": [
+    "A room url: http://localhost:3001/conference/cmw9eigfc000fm07kovvob2ti",
+    "lobby 375: Join now bottom=794 viewport=812",
+    "B url after join: http://localhost:3001/conference/cmw9eigfc000fm07kovvob2ti",
+    "A buttons: [\"Account\",\"Toggle the sidebar\",\"Language\",\"Light\",\"Dark\",\"Match system\",\"Copy invite link\",\"Hide participants\",\"Send\",\"Mute microphone\",\"Turn off camera\",\"Leave\",\"Open Next.js Dev Tools\"]",
+    "[{\"vp\":\"1440\",\"overflow\":false,\"scrollWidth\":1440,\"h1\":1,\"videos\":2,\"small\":22},{\"vp\":\"768\",\"overflow\":false,\"scrollWidth\":768,\"h1\":1,\"videos\":2,\"small\":22},{\"vp\":\"375\",\"overflow\":false,\"scrollWidth\":375,\"h1\":1,\"videos\":2,\"small\":11},{\"vp\":\"320\",\"overflow\":false,\"scrollWidth\":320,\"h1\":1,\"videos\":2,\"small\":11},{\"vp\":\"1440b\",\"overflow\":false,\"scrollWidth\":1440,\"h1\":1,\"videos\":2,\"small\":22}]",
+    "A url after leave: http://localhost:3001/conference/cmw9eigfc000fm07kovvob2ti/ended",
+    "A console errors: []",
+    "B console errors: []"
+  ],
+  "rows": [
+    {
+      "vp": "1440",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "videos": 2,
+      "small": 22
+    },
+    {
+      "vp": "768",
+      "overflow": false,
+      "scrollWidth": 768,
+      "h1": 1,
+      "videos": 2,
+      "small": 22
+    },
+    {
+      "vp": "375",
+      "overflow": false,
+      "scrollWidth": 375,
+      "h1": 1,
+      "videos": 2,
+      "small": 11
+    },
+    {
+      "vp": "320",
+      "overflow": false,
+      "scrollWidth": 320,
+      "h1": 1,
+      "videos": 2,
+      "small": 11
+    },
+    {
+      "vp": "1440b",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "h1": 1,
+      "videos": 2,
+      "small": 22
+    }
+  ]
+}

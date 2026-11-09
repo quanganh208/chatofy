@@ -61,19 +61,60 @@ still at 2 for beauty and first impression: it is clear and calm but not yet mem
 that gap needs a design decision (a signature detail on the translate screen) rather than a fix,
 so it is left for the owner.
 
+## Round 2: conference, touch targets, failure states, visual polish
+
+Scope added by the owner: finish conference, preferences controls and failure states, and improve
+the visual design and layout of the web. Evidence: `ui-ux-redesign-261109-after/conference/`,
+`ui-ux-redesign-261109-after/failures/`.
+
+### Conference, run live with two accounts (fake camera and microphone, resized in place)
+
+| Finding                                                                                                                                                                                                              | Fix                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 25 uses of two retired class names (`text-textMuted`, `bg-surfaceRaised`) in the conference screens. Tailwind generated nothing, so muted text rendered at full weight and tiles had no ground. Nothing reported it. | Renamed to `text-muted-foreground` and `bg-muted`; `legacy-token-classes.spec.ts` now forbids the old names across `apps/web` |
+| A tile with no picture (audio only) was an empty rectangle with a name chip                                                                                                                                          | Dawn-ringed initials avatar, shared with the lobby (`utils/initials.ts`)                                                      |
+| Lobby "Join now" ended at y=832 on a 812px phone                                                                                                                                                                     | Tighter spacing below `lg`; now ends at y=794                                                                                 |
+| Two people side by side were two 540x700 strips, cropping a 16:9 webcam                                                                                                                                              | From a 42rem stage tiles keep 16:9 and the rows centre                                                                        |
+
+No horizontal overflow at 1440, 768, 375, 320 and back to 1440 while resizing the live call. The ended page was reviewed and needed no change.
+
+### Touch targets (measured with touch emulation at 375px)
+
+`/preferences` went from 30 controls under 44px to 2 (the slider thumbs; the track is the tap target). Every other route reached 0.
+Done in the shared components under `pointer-coarse:` (Button, Input, Select, Toggle, segmented control) and a pseudo-element hit area for Switch, so desktop sizing and the drawn switch are unchanged. Guarded by `touch-targets.spec.ts`.
+
+### Failure states (API down, API 500, network dropped)
+
+| State                                                                                    | Result                                                                                                                                             |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API unreachable or 500 on translate, history, glossary, preferences, account, conference | Each screen stays usable and says what failed in plain words                                                                                       |
+| History list                                                                             | Already had an alert and Try again                                                                                                                 |
+| Glossary list                                                                            | Printed a red sentence only. Now announced (`role="alert"`) with a Try again button                                                                |
+| Network dropped (offline)                                                                | The browser's own "no internet" page. The app has no offline page or service worker; building one is a feature, not a polish fix, and is left open |
+
+### Visual polish
+
+- Glossary empty list now matches History's empty list (icon, bold title, one sentence) in both locales.
+- Conference visuals above (muted hierarchy restored, avatar tiles, landscape tiles).
+- Not done: a signature detail on the translate screen. It is a taste decision, so it waits for the owner.
+
+### Checks after round 2
+
+Web: 132 files, 1554 tests pass. `@chatofy/ui`: 188 of 189 pass (the one failure, `skin-guard` on `textarea.tsx`, is a CRLF artefact of this Windows checkout: three sibling failures disappeared when their files were rewritten with LF). i18n: 28 pass. Typecheck clean. ESLint reports only CRLF line-ending noise on files not touched here.
+After-capture (10 routes x 4 viewports, signed in): no redirect, no overflow, axe 0 violations at 1440 and 375.
+
 ## Not done, and why
 
-| Item                                                           | Why                                                                                                      |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Usability test with real users (1.9a, 6.1a)                    | Needs 3 to 5 human testers; the kit is ready                                                             |
-| Owner sign-off on before and after screenshots (4.8, 6.6)      | The owner decides taste                                                                                  |
-| Production build and LCP / INP / CLS (6.3)                     | Not run: dev server figures would be misleading, and the build was out of scope for this pass            |
-| hallmark and Emil skills (1.8)                                 | They write into `.claude/`; replaced by axe, keyboard, worst-case data and the rubric                    |
-| Toast, command palette (5.2, 5.3)                              | Gate A assumption: inline confirmation already exists ("Copied", "Link copied", save states); no palette |
-| `/conference` live call, offline and server-error states       | Needs two accounts and a way to force failures; not exercised                                            |
-| Reduced-motion pass (5.4)                                      | Not run; the app already honours it in 34 files per the earlier code audit                               |
-| `/preferences` has 37 controls under 44px for a mouse at 375px | Touch screens get 44px only on the topbar; the rows were not changed                                     |
-| Mobile and extension apps                                      | Out of scope (web only)                                                                                  |
+| Item                                                      | Why                                                                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Usability test with real users (1.9a, 6.1a)               | Needs 3 to 5 human testers; the kit is ready                                                             |
+| Owner sign-off on before and after screenshots (4.8, 6.6) | The owner decides taste                                                                                  |
+| Production build and LCP / INP / CLS (6.3)                | Not run: dev server figures would be misleading, and the build was out of scope for this pass            |
+| hallmark and Emil skills (1.8)                            | They write into `.claude/`; replaced by axe, keyboard, worst-case data and the rubric                    |
+| Toast, command palette (5.2, 5.3)                         | Gate A assumption: inline confirmation already exists ("Copied", "Link copied", save states); no palette |
+| `/conference` live call, offline and server-error states  | Needs two accounts and a way to force failures; not exercised                                            |
+| Reduced-motion pass (5.4)                                 | Not run; the app already honours it in 34 files per the earlier code audit                               |
+| Mobile and extension apps                                 | Out of scope (web only)                                                                                  |
 
 ## Pre-existing problems found, not caused by this work
 

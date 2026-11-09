@@ -153,12 +153,12 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 ### Phase 4: Core flows (order set by demo route)
 
 - [x] 4.1 `/translate` readiness + dismissible first-run (empty source pane states the first step in en and vi, plus dock tooltips, commit 26d0e235; the dismissible banner was not added because the empty pane disappears on its own)
-- [x] 4.2 `/conference` grid, transcript, side column at all widths (reviewed at four widths, no change needed; live call not exercised)
+- [x] 4.2 `/conference` grid, transcript, side column at all widths (live call with two accounts: legacy tokens, avatar tiles, lobby fit, 16:9 tiles; commit 19d1e4a1)
 - [x] 4.3 `/history` and `/history/[id]` (D1 and D2 fixed, commit 652faa81)
 - [x] 4.4 Auth forms (login, register, forgot/reset, verify) (reviewed login and register, no defect found)
-- [x] 4.5 `/preferences` and `/account` (reviewed, no change; 37 sub-44px targets for a mouse at 375px left as is)
+- [x] 4.5 `/preferences` and `/account` (touch targets 30 to 2 via shared components; commit 248c9746)
 - [x] 4.6 `/glossary` (empty copy and stacked layout, commit 3f5f90ab)
-- [~] 4.7 Empty/loading/error copy in vi + en for every route (done for translate and glossary; other routes already had clear states; offline and error states not exercised)
+- [x] 4.7 Empty/loading/error copy in vi + en for every route (translate, glossary empty and failed; API down and 500 swept on six routes; offline falls to the browser page, noted)
 - [ ] 4.8 Per-route owner sign-off on before/after screenshots (waiting for the owner; screenshots in `plans/reports/ui-ux-redesign-261109-after/shots/`)
 
 ### Phase 5: Feedback and navigation
@@ -186,6 +186,7 @@ Node 26.13, Docker engine unresponsive so no api and no signed-in routes):
 | 2026-11-09 | impeccable URL scan of `/` and `/login` (public only); 1.8 partial, see Phase 1 evidence. Blocked on Docker for signed-in routes                                          |
 | 2026-11-09 | Docker back; stack up, test account made, 1.1-1.4 done: 40 shots, no overflow, 1 h1 per route, axe 0 violations at 1440; touch targets below 44px noted (commit 9d62763b) |
 | 2026-11-09 | Phases 2 to 6 run on assumed Gate A answers; 8 code and docs commits; final report `plans/reports/ui-ux-redesign-261109-final.md`                                         |
+| 2026-11-09 | Round 2: conference live test, touch targets in shared components, failure-state sweep, glossary retry and empty state; final report updated                              |
 
 ## Constraints that stay
 
