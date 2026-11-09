@@ -78,14 +78,14 @@ before Gate A. Details: `phase-01-baseline-audit.md`, `phase-02-direction-and-ia
 
 ## Progress
 
-Last updated: 2026-11-09. Overall: 0 of 6 phases done; phase 1 in progress (7 of 10
+Last updated: 2026-11-09. Overall: 0 of 6 phases done; phase 1 in progress (8 of 10
 steps), Gate A answers still open. Update this section at the end of every
 work session (tick the box, add date + evidence link).
 
 | #   | Phase                     | Status          | Done / total | Blocked by                   |
 | --- | ------------------------- | --------------- | ------------ | ---------------------------- |
 | 0   | Planning                  | done 2026-11-09 | 5 / 5        | -                            |
-| 1   | Baseline audit            | in progress     | 7 / 10       | owner OK to install hallmark |
+| 1   | Baseline audit            | in progress     | 8 / 10       | owner OK to install hallmark |
 | 2   | Direction and IA (Gate A) | todo            | 0 / 6        | phase 1 report               |
 | 3   | Foundations               | blocked         | 0 / 5        | Gate A                       |
 | 4   | Core flows                | blocked         | 0 / 8        | Gate A, phase 3              |
@@ -113,8 +113,8 @@ Status values: todo, in progress, blocked, done. Evidence column is a path under
 - [x] 1.5 Keyboard-only walk (page level: focus rings, skip link, no traps, Tabs to primary; task walks needing mic or data move to 1.6) (2026-11-09)
 - [x] 1.6 Worst-case data pass: history list and detail with long text and unbroken strings; defects D1-D3 in the report (empty, offline, error states move to 1.7) (2026-11-09)
 - [x] 1.7 Rubric scoring 0-3 per route (incl. beauty), provisional: owner confirms taste (2026-11-09)
-- [ ] 1.8 Tool evidence after owner OK: impeccable URL scan, hallmark audit + sloplint, Emil `review-animations`/`break-ui`; triage each hit
-- [ ] 1.9a Baseline usability test: time and step-count the 3 core tasks with 3-5 first-time users; note where they hesitate or fail
+- [x] 1.8 Tool evidence: impeccable detect (source + public pages) and axe on every route done; hallmark and Emil skills NOT installed (they write into the repo `.claude/`, which needs owner approval), their checks replaced by axe, keyboard walk, worst-case data and the rubric (2026-11-09)
+- [ ] 1.9a Baseline usability test: kit ready in `plans/reports/ui-ux-redesign-261109-baseline/usability-test-kit.md`; needs 3-5 human testers, deferred to the owner
 - [ ] 1.9 Write `plans/reports/ui-ux-redesign-261109-baseline.md`; stop dev processes; delete test account
 
 Evidence so far (2026-11-09, owner approved running impeccable; web only on :3001,
