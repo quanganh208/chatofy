@@ -107,7 +107,7 @@ export function HistoryTranscript({
                       from running under it. A 64px gutter plus the rule left a 180px
                       column at 375px — two or three words a line on a long turn. One
                       element in both layouts, so it is focused and announced once. */}
-                  <p className="text-label text-muted-foreground uppercase max-sm:pr-14">
+                  <p className="text-label text-muted-foreground wrap-anywhere uppercase max-sm:pr-14">
                     {/* The label the reader confirmed, or a fallback composed HERE from
                         the role and the dictionary. Storing the fallback would have put
                         an English name permanently into a Vietnamese reader's rows. */}
@@ -118,8 +118,10 @@ export function HistoryTranscript({
                           : 'web.history.speakerB',
                       )}
                   </p>
-                  <p className="text-prose text-body">{turn.displayText ?? turn.sourceText}</p>
-                  <p className="text-translation font-medium">
+                  <p className="text-prose text-body wrap-anywhere">
+                    {turn.displayText ?? turn.sourceText}
+                  </p>
+                  <p className="text-translation font-medium wrap-anywhere">
                     {primaryTranslation(turn, languages)}
                   </p>
                 </div>

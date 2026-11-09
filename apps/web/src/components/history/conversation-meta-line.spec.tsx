@@ -50,6 +50,15 @@ function text(conversation: ConversationSummary, showTimeRange = false): string 
 }
 
 describe('ConversationMetaLine', () => {
+  it('lets a speaker name with no spaces wrap instead of widening the page (D1)', () => {
+    text(summary({ speakerCount: 1, speakers: ['A'.repeat(100)] }));
+    const facts = [...container.querySelectorAll('p span')];
+    const named = [...facts].reverse().find((el) => el.textContent?.includes('A'.repeat(100)));
+    expect(named?.className).toContain('wrap-anywhere');
+    expect(named?.className).toContain('min-w-0');
+    expect(named?.parentElement?.className).toContain('min-w-0');
+  });
+
   /** The kind fact as a screen reader hears it: the icon and the dot skipped. */
   const spoken = () => {
     const kind = container.querySelector('p > span')?.cloneNode(true) as Element | undefined;

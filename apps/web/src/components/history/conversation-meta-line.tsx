@@ -51,7 +51,9 @@ export function ConversationMetaLine({
     </span>,
     <span key="turns">{turnCountLabel(t, conversation.turnCount)}</span>,
     conversation.speakerCount > 0 ? (
-      <span key="speakers">{speakersLabel(t, conversation)}</span>
+      <span key="speakers" className="wrap-anywhere min-w-0">
+        {speakersLabel(t, conversation)}
+      </span>
     ) : null,
     conversation.hasRecording ? (
       <span key="recording" className="inline-flex items-center gap-1">
@@ -69,7 +71,7 @@ export function ConversationMetaLine({
         index === 0 ? (
           part
         ) : (
-          <span key={part.key} className="inline-flex items-center gap-x-1.5">
+          <span key={part.key} className="inline-flex max-w-full min-w-0 items-center gap-x-1.5">
             <Dot />
             {part}
           </span>
