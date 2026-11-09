@@ -14,6 +14,8 @@ import { Loader2, MicOff, VideoOff } from 'lucide-react';
 import type { PeerState } from '@/hooks/use-conference';
 import { SubtitleOverlay } from './subtitle-overlay';
 import { computeGridLayout } from '../utils/video-layout';
+import { initials } from '../utils/initials';
+import { DAWN_GRADIENT } from '../../components/dawn-glow';
 
 // ─── Video tile ───────────────────────────────────────────────────────────────
 
@@ -60,10 +62,15 @@ function VideoTile({
   // translating. Uses the `speaking` state token — a readout ring, not accent fill.
   const isActiveSpeaker = Boolean(subtitle) || translating;
 
+  // "Enabled" is what the person asked for; a track is what is actually arriving. A
+  // person who joined audio only is "enabled" with nothing to show, and that tile
+  // used to be an empty rectangle.
+  const hasPicture = videoEnabled && (stream?.getVideoTracks().length ?? 0) > 0;
+
   return (
     <div
       className={[
-        'bg-surfaceRaised relative overflow-hidden rounded-lg',
+        'bg-muted relative overflow-hidden rounded-lg @2xl:aspect-video',
         isActiveSpeaker ? 'ring-2 ring-speaking' : '',
         tileClassName,
       ]
@@ -77,14 +84,24 @@ function VideoTile({
           autoPlay
           playsInline
           muted={audioMuted}
-          className={['h-full w-full object-cover', videoEnabled ? 'block' : 'hidden'].join(' ')}
+          className={['h-full w-full object-cover', hasPicture ? 'block' : 'hidden'].join(' ')}
         />
       )}
 
       {/* Camera-off placeholder */}
-      {!videoEnabled && (
-        <div className="text-textMuted flex h-full w-full flex-col items-center justify-center gap-2">
-          <VideoOff className="size-8 opacity-60" aria-hidden />
+      {!hasPicture && (
+        <div className="text-muted-foreground flex h-full w-full flex-col items-center justify-center gap-2">
+          {/* The lobby's camera-off look: a dawn ring around a neutral disc, so a
+              person looks the same before and after they join. */}
+          <div aria-hidden className="rounded-full p-1" style={{ backgroundImage: DAWN_GRADIENT }}>
+            <div
+              data-slot="tile-avatar"
+              className="bg-card text-foreground text-title flex size-20 items-center justify-center rounded-full font-semibold"
+            >
+              {initials(label) || '?'}
+            </div>
+          </div>
+          {!videoEnabled && <VideoOff className="size-4 opacity-60" aria-hidden />}
         </div>
       )}
 
@@ -105,8 +122,8 @@ function VideoTile({
           role="status"
           aria-live="polite"
         >
-          <Loader2 className="text-textMuted size-3 animate-spin" aria-hidden />
-          <span className="text-label text-textMuted">{translatingLabel}</span>
+          <Loader2 className="text-muted-foreground size-3 animate-spin" aria-hidden />
+          <span className="text-label text-muted-foreground">{translatingLabel}</span>
         </div>
       )}
 
@@ -151,7 +168,12 @@ export function VideoGrid({
   let tileIndex = 0;
 
   return (
-    <div className={`${layout.containerClass} h-full auto-rows-fr gap-2`}>
+    // Rows fill the stage on a narrow one. From 42rem the tiles keep the camera's 16:9
+    // shape and the rows sit in the middle, so two people side by side are two
+    // landscape tiles rather than two tall strips that crop a webcam on both sides.
+    <div
+      className={`${layout.containerClass} h-full auto-rows-fr gap-2 @2xl:auto-rows-auto @2xl:content-center`}
+    >
       {/* Local tile — audio always muted to prevent echo */}
       {localStream && (
         <VideoTile
@@ -184,7 +206,7 @@ export function VideoGrid({
       {showWaiting && (
         <div
           className={[
-            'text-textMuted flex items-center justify-center rounded-lg border border-dashed border-border text-body',
+            'text-muted-foreground flex items-center justify-center rounded-lg border border-dashed border-border text-body',
             layout.tiles[tileIndex]?.className ?? '',
           ]
             .filter(Boolean)

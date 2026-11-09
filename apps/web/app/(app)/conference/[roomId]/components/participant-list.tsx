@@ -33,7 +33,7 @@ export function ParticipantList({
 
   return (
     <section aria-label={rosterTitle} className="flex flex-col gap-1">
-      <h2 className="text-label text-textMuted px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
+      <h2 className="text-label text-muted-foreground px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
         {rosterTitle}
       </h2>
 
@@ -73,13 +73,13 @@ function ParticipantRow({ name, muted, videoEnabled, language }: ParticipantRowP
     <div className="flex items-center gap-2 rounded px-2 py-1.5">
       <span className="text-body text-text min-w-0 flex-1 truncate">{name}</span>
 
-      {language && <span className="text-hint text-textMuted shrink-0">{language}</span>}
+      {language && <span className="text-hint text-muted-foreground shrink-0">{language}</span>}
 
-      <span className="text-textMuted shrink-0" aria-hidden>
+      <span className="text-muted-foreground shrink-0" aria-hidden>
         {muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
       </span>
 
-      <span className="text-textMuted shrink-0" aria-hidden>
+      <span className="text-muted-foreground shrink-0" aria-hidden>
         {videoEnabled ? <Video className="size-3.5" /> : <VideoOff className="size-3.5" />}
       </span>
     </div>

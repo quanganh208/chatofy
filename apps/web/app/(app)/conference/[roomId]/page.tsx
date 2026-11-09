@@ -167,7 +167,7 @@ export default function ConferenceRoomPage() {
             ? t('common.conference.roomEnded')
             : t('common.conference.roomNotFound')}
         </p>
-        <p className="text-hint text-textMuted">{t('web.conference.roomGoneHint')}</p>
+        <p className="text-hint text-muted-foreground">{t('web.conference.roomGoneHint')}</p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -189,7 +189,7 @@ export default function ConferenceRoomPage() {
   if (status === 'connecting') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body text-textMuted">{t('common.conference.connecting')}</p>
+        <p className="text-body text-muted-foreground">{t('common.conference.connecting')}</p>
         {/* Leave is still the one accent-filled control even in the loading state */}
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.leave')}
@@ -202,7 +202,7 @@ export default function ConferenceRoomPage() {
   if (status === 'reconnecting') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-body text-textMuted">
+        <p className="text-body text-muted-foreground">
           {t('common.conference.reconnecting', {
             attempt: String(reconnectAttempt),
             cap: String(reconnectCap),
@@ -221,7 +221,9 @@ export default function ConferenceRoomPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body font-medium">{t('common.conference.permissionDenied')}</p>
-        <p className="text-hint text-textMuted">{t('web.conference.permissionDeniedHint')}</p>
+        <p className="text-hint text-muted-foreground">
+          {t('web.conference.permissionDeniedHint')}
+        </p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -234,7 +236,7 @@ export default function ConferenceRoomPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body font-medium">{t('common.conference.disconnected')}</p>
-        <p className="text-hint text-textMuted">{t('common.conference.disconnectedHint')}</p>
+        <p className="text-hint text-muted-foreground">{t('common.conference.disconnectedHint')}</p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -259,7 +261,7 @@ export default function ConferenceRoomPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Room header */}
       <div className="border-border flex items-center justify-between border-b px-4 py-2">
-        <p className="text-hint text-textMuted min-w-0 truncate">
+        <p className="text-hint text-muted-foreground min-w-0 truncate">
           <span className="text-label mr-2 font-semibold uppercase tracking-wide">
             {t('web.conference.meetingCode')}
           </span>
@@ -267,7 +269,7 @@ export default function ConferenceRoomPage() {
         </p>
         <div className="flex shrink-0 items-center gap-1">
           {copied && (
-            <span role="status" className="text-hint text-textMuted">
+            <span role="status" className="text-hint text-muted-foreground">
               {t('web.conference.inviteLinkCopied')}
             </span>
           )}
@@ -298,7 +300,7 @@ export default function ConferenceRoomPage() {
 
       {/* Audio-only soft notice — no card, no elevation, inline text */}
       {errorReason === 'audio-only' && (
-        <p className="text-hint text-textMuted border-border border-b px-4 py-1">
+        <p className="text-hint text-muted-foreground border-border border-b px-4 py-1">
           {t('common.conference.permissionDeniedAudioOnly')}
         </p>
       )}
@@ -309,7 +311,7 @@ export default function ConferenceRoomPage() {
         <p
           role="status"
           data-translation-ended
-          className="text-hint text-textMuted border-border border-b px-4 py-1"
+          className="text-hint text-muted-foreground border-border border-b px-4 py-1"
         >
           {t('common.conference.translationEnded')}
         </p>
@@ -319,7 +321,7 @@ export default function ConferenceRoomPage() {
           Ghost/readout control only; Leave is still the one accent-filled control. */}
       {audioBlocked && (
         <div className="border-border flex items-center justify-between border-b px-4 py-1">
-          <p className="text-hint text-textMuted">{t('web.conference.audioBlocked')}</p>
+          <p className="text-hint text-muted-foreground">{t('web.conference.audioBlocked')}</p>
           <Button
             variant="ghost"
             size="sm"

@@ -299,7 +299,7 @@ const ALICE: UseConferenceReturn['peers'] = new Map([
     's-peer-1',
     {
       displayName: 'Alice',
-      stream: { getTracks: () => [] } as unknown as MediaStream,
+      stream: { getTracks: () => [], getVideoTracks: () => [{}] } as unknown as MediaStream,
       subtitle: undefined,
       muted: false,
       videoEnabled: true,

@@ -49,20 +49,20 @@ export function ChatPanel({
 
   return (
     <section aria-label={title} className="flex min-h-0 flex-col gap-1">
-      <h2 className="text-label text-textMuted px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
+      <h2 className="text-label text-muted-foreground px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
         {title}
       </h2>
 
       {/* Message list */}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-1">
         {messages.length === 0 ? (
-          <p className="text-hint text-textMuted py-2">{emptyLabel}</p>
+          <p className="text-hint text-muted-foreground py-2">{emptyLabel}</p>
         ) : (
           messages.map((m) => {
             const isOwn = m.socketId === mySocketId;
             return (
               <div key={m.id} className="flex flex-col">
-                <span className="text-hint text-textMuted">
+                <span className="text-hint text-muted-foreground">
                   {isOwn ? `${m.displayName} •` : m.displayName}
                 </span>
                 <span className="text-body text-text break-words">{m.text}</span>

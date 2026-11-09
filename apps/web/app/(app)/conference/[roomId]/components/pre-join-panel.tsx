@@ -22,16 +22,10 @@ import type { PreJoinMedia } from '../hooks/use-pre-join-media';
 import { ConferenceVoiceChip } from './conference-voice-chip';
 import { MicLevelMeter } from './mic-level-meter';
 import { DAWN_GRADIENT, DawnGlow } from '../../components/dawn-glow';
+import { initials } from '../utils/initials';
 
 /** Radix reserves "" for a Select holding nothing, so the default needs a value of its own. */
 const SYSTEM_DEFAULT = 'default';
-
-/** Up to two initials for the camera-off tile. */
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const picked = words.length > 1 ? [words[0], words[words.length - 1]] : words;
-  return picked.map((word) => word!.charAt(0).toUpperCase()).join('');
-}
 
 interface PreJoinPanelProps {
   media: PreJoinMedia;
@@ -79,7 +73,7 @@ export function PreJoinPanel({
     // this screen scrolls itself, and `m-auto` centres it on both axes while it
     // fits and lets it scroll from the top when it does not.
     <div className="flex min-h-0 flex-1 overflow-y-auto">
-      <div className="m-auto grid w-full max-w-6xl items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+      <div className="m-auto grid w-full max-w-6xl items-center gap-6 px-6 py-4 lg:gap-10 lg:py-10 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <div className="relative">
             <DawnGlow />
@@ -111,7 +105,9 @@ export function PreJoinPanel({
                       </div>
                     </div>
                   )}
-                  <p className="text-body text-textMuted">{t('web.conference.noCameraPreview')}</p>
+                  <p className="text-body text-muted-foreground">
+                    {t('web.conference.noCameraPreview')}
+                  </p>
                 </div>
               )}
               <div className="absolute inset-x-0 bottom-4 flex justify-center gap-4">

@@ -100,7 +100,7 @@ function ConferenceLanding() {
           style={{ backgroundImage: DAWN_GRADIENT }}
         />
         <h2 className="text-heading font-semibold">{t('common.conference.lobbyTitle')}</h2>
-        <p className="text-body text-textMuted">{t('web.conference.landingLead')}</p>
+        <p className="text-body text-muted-foreground">{t('web.conference.landingLead')}</p>
       </div>
 
       <Button onClick={() => void create()} disabled={creating}>
@@ -132,7 +132,7 @@ function ConferenceLanding() {
       )}
 
       {accountName && (
-        <p className="text-hint text-textMuted">
+        <p className="text-hint text-muted-foreground">
           {t('web.conference.joiningAs', { name: accountName })}
         </p>
       )}
