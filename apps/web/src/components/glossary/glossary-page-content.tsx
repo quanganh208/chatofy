@@ -25,7 +25,7 @@ export function GlossaryPageContent() {
   }
 
   return (
-    <div className="flex border rounded-lg overflow-hidden h-[calc(100svh-12rem)] -mx-6">
+    <div className="flex flex-col md:flex-row border rounded-lg overflow-hidden md:h-[calc(100svh-12rem)] -mx-6">
       <GlossaryListPanel
         glossaries={glossaries}
         status={status}

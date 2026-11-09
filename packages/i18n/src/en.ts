@@ -942,7 +942,8 @@ export const en = {
   'web.glossary.title': 'Glossaries',
   'web.glossary.new': 'New',
   'web.glossary.loadFailed': 'Could not load your glossaries.',
-  'web.glossary.emptyList': 'No glossaries yet.',
+  'web.glossary.emptyList':
+    'No glossaries yet. A glossary keeps your names and terms translated the way you want. Press New to make one.',
   'web.glossary.termCount': '{count} terms',
   'web.glossary.badgeActive': 'Active',
   'web.glossary.badgeInactive': 'Inactive',
