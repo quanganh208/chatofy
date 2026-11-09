@@ -534,6 +534,15 @@
     -webkit-font-smoothing: antialiased;
     font-family: var(--font-sans);
   }
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
 }
 
 /* See `--animate-lotus-bloom`. A closed bud: every petal upright, slightly small,
