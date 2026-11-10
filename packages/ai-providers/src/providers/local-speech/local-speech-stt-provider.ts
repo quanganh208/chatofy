@@ -40,6 +40,7 @@ interface TranscribeResponse {
   pauses?: unknown;
   leadPause?: unknown;
   alternates?: unknown;
+  alternateWaitMs?: unknown;
 }
 
 const isPause = (ms: unknown): ms is number =>
@@ -211,6 +212,10 @@ export class LocalSpeechSttProvider implements SttProvider {
       ...(pauses === undefined ? {} : { pauses }),
       ...(pauses !== undefined && isPause(json.leadPause) ? { leadPause: json.leadPause } : {}),
       ...(alternates.length > 0 ? { alternates } : {}),
+      // A finite, non-negative wait or nothing: a sidecar that predates the
+      // field, or answers something else in it, leaves the stage unmeasured
+      // rather than reporting a wait that never happened.
+      ...(isPause(json.alternateWaitMs) ? { alternateWaitMs: json.alternateWaitMs } : {}),
     };
   }
 
