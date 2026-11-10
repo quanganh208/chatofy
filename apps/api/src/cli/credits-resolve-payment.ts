@@ -1,10 +1,11 @@
 // credits:resolve-payment [<orderId> grant|dismiss [--user <email>] [--plan <code>] [--note <text>]] [--prod]
 //
 // With no order id, lists the paid payments (SePay transfers, Polar orders)
-// waiting for review. `grant` writes the order plan's grant under the payment's
-// own reference, so a later webhook retry cannot grant it twice; `--plan`
-// grants another catalogue plan instead (a transfer whose amount matches no
-// plan names none). `dismiss` only closes the review.
+// waiting for review, each with the plan `grant` would give. `grant` writes
+// that plan's grant under the payment's own reference, so a later webhook retry
+// cannot grant it twice: the order's plan, or for a SePay transfer of the wrong
+// amount the plan that amount buys. `--plan` grants another catalogue plan
+// instead (an amount no plan costs grants none). `dismiss` only closes the review.
 import { normalizeEmail } from '../modules/auth/normalize-email';
 import { PrismaService } from '../prisma/prisma.service';
 import { CliRefusal } from './cli-prod-guard';
@@ -54,6 +55,7 @@ runCreditsCli(OPTIONS, USAGE, {
             o.provider,
             o.reviewReason ?? '-',
             `plan=${o.planCode ?? '-'}`,
+            `grants=${(await owner.planToGrant(o)) ?? '- (needs --plan)'}`,
             `asked=${o.amountVnd ?? o.amountMinor} ${o.currency}`,
             `paid=${o.paidAmountVnd ?? '-'}`,
             `user=${o.userId ?? '-'}`,
@@ -95,7 +97,7 @@ runCreditsCli(OPTIONS, USAGE, {
         return;
       case 'granted':
         print(
-          `Granted order ${orderId} to user ${result.userId}: grant ${result.grantId}.`,
+          `Granted plan ${result.planCode} for order ${orderId} to user ${result.userId}: grant ${result.grantId}.`,
         );
     }
   },

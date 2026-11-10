@@ -15,7 +15,7 @@ export type VoidResult =
   | { state: 'not_found' };
 
 export type ResolvePaymentResult =
-  | { state: 'granted'; grantId: string; userId: string }
+  | { state: 'granted'; grantId: string; userId: string; planCode: string }
   | { state: 'dismissed' }
   | { state: 'not_reviewable'; status: string }
   | { state: 'not_found' };
@@ -107,8 +107,9 @@ export class CreditOwnerTools {
    * pass also moves the account's pass end, as the webhook would. A SePay
    * transfer of the wrong amount grants the plan priced at what was paid, not
    * the plan the order was created for. `planCode` grants a catalogue plan
-   * other than either (an amount no plan costs), and is recorded on the
-   * order. `dismiss`
+   * other than either (an amount no plan costs). The order keeps the plan it
+   * was created for either way, so a later transfer of the right amount still
+   * buys that plan; the plan granted is named in the grant's reason. `dismiss`
    * only closes the review. Both are a compare-and-set on `needs_review`.
    */
   async resolvePayment(
@@ -148,13 +149,7 @@ export class CreditOwnerTools {
       throw new Error('This order has no user; pass --user <email>.');
     if (!order.externalRef)
       throw new Error('This order has no payment reference to grant under.');
-    const planCode =
-      options.planCode ??
-      (order.provider === 'sepay' && order.reviewReason === 'amount_mismatch'
-        ? order.paidAmountVnd === null
-          ? null
-          : await this.plans.sepayPlanCodeForAmount(order.paidAmountVnd)
-        : order.planCode);
+    const planCode = options.planCode ?? (await this.planToGrant(order));
     if (!planCode)
       throw new Error('This order names no plan; pass --plan <code>.');
     const plan = await this.plans.get(planCode);
@@ -168,13 +163,13 @@ export class CreditOwnerTools {
       externalRef: order.externalRef,
       costBasis: order.paidAmountVnd ?? order.amountMinor,
       currency: order.currency,
-      reason: note ? `resolve-payment: ${note}` : 'resolve-payment',
+      reason: `resolve-payment ${planCode}${note ? `: ${note}` : ''}`,
     });
 
     return runLedgerTransaction(this.prisma, userId, async (tx) => {
       const done = await tx.paymentOrder.updateMany({
         where: { id: orderId, status: 'needs_review' },
-        data: { ...resolved('resolved_granted'), userId, planCode },
+        data: { ...resolved('resolved_granted'), userId },
       });
       if (done.count !== 1)
         return { state: 'not_reviewable', status: 'changed' };
@@ -185,7 +180,25 @@ export class CreditOwnerTools {
         grant.expiresAt
       )
         await extendPass(tx, userId, now, grant.expiresAt);
-      return { state: 'granted', grantId: granted.grantId, userId };
+      return { state: 'granted', grantId: granted.grantId, userId, planCode };
     });
+  }
+
+  /**
+   * The plan `grant` gives an order under review when no plan is named: for a
+   * SePay transfer of the wrong amount, the plan priced at exactly what was
+   * paid (none when no plan costs that); otherwise the order's own plan.
+   */
+  async planToGrant(order: {
+    provider: string;
+    reviewReason: string | null;
+    paidAmountVnd: number | null;
+    planCode: string | null;
+  }): Promise<string | null> {
+    if (order.provider !== 'sepay' || order.reviewReason !== 'amount_mismatch')
+      return order.planCode;
+    return order.paidAmountVnd === null
+      ? null
+      : this.plans.sepayPlanCodeForAmount(order.paidAmountVnd);
   }
 }

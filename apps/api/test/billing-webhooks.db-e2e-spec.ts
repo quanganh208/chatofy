@@ -841,7 +841,7 @@ describe('billing webhooks and checkout (db-e2e)', () => {
       expect(resolved.state).toBe('granted');
       expect(
         await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }),
-      ).toMatchObject({ status: 'resolved_granted', planCode: 'topup_250' });
+      ).toMatchObject({ status: 'resolved_granted', planCode: 'topup_550' });
       expect(
         await prisma.creditGrant.findUnique({
           where: { externalRef: `sepay:tx:${odd.id}` },
@@ -909,6 +909,27 @@ describe('billing webhooks and checkout (db-e2e)', () => {
           where: { externalRef: `sepay:tx:${paid.id}` },
         }),
       ).toMatchObject({ userId: buyer2.userId, amount: credits(550) });
+    });
+
+    it('a correct transfer after an underpay was resolved by grant still buys the plan that was ordered', async () => {
+      const order = await sepayOrder(buyer, 'topup_1500');
+      const short = transfer(order.orderCode, 125000);
+      expect((await postSepay(short)).body).toBe('{"success":true}');
+      expect(await admin.resolvePayment(order.orderId, 'grant')).toMatchObject({
+        state: 'granted',
+        planCode: 'topup_250',
+      });
+      expect(
+        await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }),
+      ).toMatchObject({ status: 'resolved_granted', planCode: 'topup_1500' });
+
+      const paid = transfer(order.orderCode, 625000);
+      expect((await postSepay(paid)).body).toBe('{"success":true}');
+      expect(
+        await prisma.creditGrant.findUnique({
+          where: { externalRef: `sepay:tx:${paid.id}` },
+        }),
+      ).toMatchObject({ userId: buyer.userId, amount: credits(1500) });
     });
 
     it('an unknown code becomes a needs_review row that resolve-payment grants once', async () => {
