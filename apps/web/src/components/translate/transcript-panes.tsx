@@ -266,37 +266,43 @@ export function TranscriptPanes({
     );
 
     return (
-      <div
-        ref={frame}
-        className={cn(
-          'relative flex min-h-0 flex-1 gap-4',
-          scheme,
-          // One column below `sm` and two above it for `row`, in CSS rather than
-          // in JavaScript: a `matchMedia` fork would render one thing on the
-          // server and another on the client, which is a hydration mismatch and a
-          // visible flicker. Two prose columns do not fit a phone.
-          column ? 'flex-col' : 'flex-col sm:flex-row',
-        )}
-        style={scale}
-      >
-        {/* The swap between the two languages, at the centre of the gap between the
+      // The query container for the row: whether two sheets fit side by side is a
+      // fact about the room this column has, not about the viewport. An open
+      // sidebar at 768px leaves the column ~464px — past `sm`, but two-way
+      // headers need ~546px side by side, and the page scrolled sideways.
+      <div className="@container flex min-h-0 flex-1 flex-col">
+        <div
+          ref={frame}
+          className={cn(
+            'relative flex min-h-0 flex-1 gap-4',
+            scheme,
+            // One column below a 36rem container and two above it for `row`, in CSS
+            // rather than in JavaScript: a `ResizeObserver` fork would render one
+            // thing on the server and another on the client, which is a hydration
+            // mismatch and a visible flicker. Two prose columns do not fit a phone.
+            column ? 'flex-col' : 'flex-col @xl:flex-row',
+          )}
+          style={scale}
+        >
+          {/* The swap between the two languages, at the centre of the gap between the
             sheets in every arrangement: side by side it points across, stacked it
             points up and down. Raised on `card` with a control's depth so it reads as
             a thing to press sitting over the seam, never as part of either sheet, and
             above both sheets while they cross (`z-20` over their 11 and 12). */}
-        {onSwap ? (
-          <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-            <LanguagePairSwap
-              languagePair={languagePair}
-              running={running}
-              onSwap={shuffleThenSwap}
-              className="bg-card hover:bg-muted size-11 p-0"
-              iconClassName={cn('size-5', column ? 'rotate-90' : 'max-sm:rotate-90')}
-            />
-          </div>
-        ) : null}
-        {source}
-        {target}
+          {onSwap ? (
+            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+              <LanguagePairSwap
+                languagePair={languagePair}
+                running={running}
+                onSwap={shuffleThenSwap}
+                className="bg-card hover:bg-muted size-11 p-0"
+                iconClassName={cn('size-5', column ? 'rotate-90' : '@max-xl:rotate-90')}
+              />
+            </div>
+          ) : null}
+          {source}
+          {target}
+        </div>
       </div>
     );
   }
