@@ -2035,3 +2035,90 @@ describe('ConversationSession', () => {
     });
   });
 });
+
+describe('ConversationSession credits', () => {
+  const credit = (code: string, turnId?: string): ServerEvent => ({
+    type: 'server.error',
+    code,
+    message: `server says ${code}`,
+    remainingCreditSeconds: 0,
+    ...(turnId === undefined ? {} : { turnId }),
+  });
+
+  it.each(['credits_exhausted', 'credits_unavailable'])(
+    'reports %s with its code, then ends the conversation once',
+    async (code) => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.socket().emit(credit(code));
+      // Nothing was in flight, so the graceful stop completes at once.
+      await flushMicrotasks();
+
+      expect(h.listeners.onError).toHaveBeenCalledWith(`server says ${code}`, {
+        code,
+        remainingCreditSeconds: 0,
+      });
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.session.isRunning).toBe(false);
+    },
+  );
+
+  it('lets the turn in flight finish before it stops, rather than cutting it', async () => {
+    const h = harness();
+    await h.session.start(startOptions);
+    openTurnAndPlay(h);
+
+    h.socket().emit(credit('credits_exhausted'));
+    await flushMicrotasks();
+
+    // The microphone is off, and the run waits for the turn it already sent.
+    expect(h.statuses.at(-1)).toBe('finishing');
+    expect(h.listeners.onStopped).not.toHaveBeenCalled();
+    // A second notice does not cut the drain short.
+    h.socket().emit(credit('credits_exhausted'));
+    expect(h.listeners.onStopped).not.toHaveBeenCalled();
+    expect(h.socket().closed).toBe(0);
+  });
+
+  it('keeps running after a credits_low notice', async () => {
+    const h = harness();
+    await h.session.start(startOptions);
+
+    h.socket().emit({
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'Your credits are running low',
+      remainingCreditSeconds: 90,
+    });
+    await flushMicrotasks();
+
+    expect(h.listeners.onError).toHaveBeenCalledWith('Your credits are running low', {
+      code: 'credits_low',
+      remainingCreditSeconds: 90,
+    });
+    expect(h.session.isRunning).toBe(true);
+    expect(h.listeners.onStopped).not.toHaveBeenCalled();
+  });
+
+  it('sends the conversation id on every turn start when the caller supplies one', async () => {
+    const h = harness({ runtime: { conversationId: 'conv-1' } });
+    await h.session.start(startOptions);
+    h.talk();
+    h.hush();
+
+    const starts = h.socket().sent.filter((e) => e.type === 'client.session.start');
+    expect(starts).toHaveLength(1);
+    expect(starts[0]!.options).toMatchObject({ ...startOptions, conversationId: 'conv-1' });
+  });
+
+  it('sends no conversation id when the caller has none', async () => {
+    const h = harness();
+    await h.session.start(startOptions);
+    h.talk();
+    h.hush();
+
+    const start = h.socket().sent.find((e) => e.type === 'client.session.start');
+    expect(start!.options).not.toHaveProperty('conversationId');
+  });
+});

@@ -170,3 +170,41 @@ export type {
   GlossaryItem,
   GlossaryItemListResponse,
 } from './glossaries.js';
+
+// AI credits, plans and checkout contracts.
+export {
+  CREDIT_SECONDS_PER_CREDIT,
+  creditsFromSeconds,
+  paymentRailSchema,
+  railStatusSchema,
+  planKindSchema,
+  planSchema,
+  planListResponseSchema,
+  creditBalanceSchema,
+  creditUsageKindSchema,
+  creditUsageEntrySchema,
+  creditUsageListResponseSchema,
+  creditUsageListReadSchema,
+  createCheckoutRequestSchema,
+  checkoutResponseSchema,
+  checkoutOrderStatusSchema,
+  checkoutOrderSchema,
+  billingPortalResponseSchema,
+} from './billing.js';
+export type {
+  PaymentRail,
+  RailStatus,
+  PlanKind,
+  Plan,
+  PlanListResponse,
+  CreditBalance,
+  CreditUsageKind,
+  CreditUsageEntry,
+  CreditUsageListResponse,
+  CreditUsageListRead,
+  CreateCheckoutRequest,
+  CheckoutResponse,
+  CheckoutOrderStatus,
+  CheckoutOrder,
+  BillingPortalResponse,
+} from './billing.js';

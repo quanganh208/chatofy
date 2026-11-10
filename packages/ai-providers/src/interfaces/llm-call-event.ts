@@ -15,7 +15,16 @@
  */
 
 /** What the request was for. One value per method a provider exposes. */
-export type LlmCallKind = 'translate' | 'polish' | 'respell' | 'fusion' | 'homophones' | 'digest';
+export type LlmCallKind =
+  | 'translate'
+  | 'polish'
+  | 'respell'
+  | 'fusion'
+  | 'homophones'
+  | 'digest'
+  // A summarization provider's two methods: meeting minutes and a conversation title.
+  | 'minutes'
+  | 'title';
 
 /**
  * Which lane of a turn asked for a translation. Logged only: a provider must

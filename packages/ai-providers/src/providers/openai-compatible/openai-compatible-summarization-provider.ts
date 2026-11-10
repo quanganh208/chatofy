@@ -25,6 +25,8 @@ import { truncate } from '../http-util.js';
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
 import { buildTitleInstruction, buildTitleReminder } from '../title-prompt-builder.js';
 import { parseTitle } from '../title-parser.js';
+import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
+import { emitLlmCall, promptHash, usageFields, type OpenAiUsage } from './llm-call-reporting.js';
 
 /**
  * Ceiling on one minutes pass. Measured at a 5.9 s median on Command Code's
@@ -49,10 +51,13 @@ export interface OpenAiCompatibleSummarizationConfig {
   name?: string;
   extraBody?: Record<string, unknown>;
   timeoutMs?: number;
+  /** Told about every completion, failures included, with the host's token counts. */
+  onCall?: LlmCallListener;
 }
 
 interface CompletionBody {
   choices?: { message?: { content?: string | null } }[];
+  usage?: OpenAiUsage | null;
 }
 
 export class OpenAiCompatibleSummarizationProvider implements SummarizationProvider {
@@ -62,6 +67,7 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
   private readonly model: string;
   private readonly extraBody: Record<string, unknown>;
   private readonly timeoutMs: number;
+  private readonly onCall: LlmCallListener | undefined;
 
   constructor(config: OpenAiCompatibleSummarizationConfig) {
     const apiKey = config.apiKey?.trim();
@@ -75,6 +81,7 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
     this.name = config.name ?? 'openai-compatible';
     this.extraBody = config.extraBody ?? {};
     this.timeoutMs = config.timeoutMs ?? SUMMARIZATION_TIMEOUT_MS;
+    this.onCall = config.onCall;
   }
 
   async summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft> {
@@ -100,10 +107,10 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
   /**
    * One JSON-mode chat completion, unfenced and trimmed. Shared by minutes and
    * titles so both map a transport failure, a refusal and an empty answer the
-   * same way; `what` only names the call in the error.
+   * same way; `what` names the call in the error and is the reported kind.
    */
   private async complete(
-    what: string,
+    what: 'minutes' | 'title',
     maxTokens: number,
     system: string,
     user: string,
@@ -120,29 +127,51 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
       ],
     };
 
-    let response: Response;
+    // One event per request, emitted however it ends, so a failed pass is
+    // counted as well as a successful one.
+    const started = Date.now();
+    let ok = false;
+    let usage: OpenAiUsage | null | undefined;
+    let content: string | null | undefined;
     try {
-      response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
+      let response: Response;
+      try {
+        response = await fetch(this.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+      } catch (err) {
+        throw new ProviderConnectionError(`${this.name} ${this.model} ${what} failed`, err);
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new ProviderResponseError(
+          `${this.name} ${this.model} ${what} answered ${response.status}: ${truncate(detail)}`,
+          response.status,
+        );
+      }
+
+      const parsed = (await response.json()) as CompletionBody;
+      ok = true;
+      usage = parsed.usage;
+      content = parsed.choices?.[0]?.message?.content;
+    } finally {
+      emitLlmCall(this.onCall, {
+        kind: what,
+        host: this.name,
+        model: this.model,
+        ms: Date.now() - started,
+        ok,
+        ...usageFields(usage),
+        promptHash: promptHash(this.model, body.messages),
       });
-    } catch (err) {
-      throw new ProviderConnectionError(`${this.name} ${this.model} ${what} failed`, err);
-    }
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new ProviderResponseError(
-        `${this.name} ${this.model} ${what} answered ${response.status}: ${truncate(detail)}`,
-        response.status,
-      );
     }
 
-    const content = ((await response.json()) as CompletionBody).choices?.[0]?.message?.content;
     const text = (content ?? '').trim();
     if (!text) throw new ProviderResponseError(`${this.model} returned an empty response`);
     return text.replace(FENCED, '$1').trim();

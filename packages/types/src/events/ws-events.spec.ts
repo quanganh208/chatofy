@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CREDIT_ERROR_CODES,
   MAX_GLOSSARY_TERM_WORDS,
+  clientEventSchema,
   countTermWords,
+  creditErrorCodeSchema,
   glossaryEntrySchema,
   serverEventSchema,
   sessionOptionsSchema,
@@ -394,5 +397,67 @@ describe('server.transcript.final segment', () => {
       finalEvent({ ...bare, direction: 'vi_to_en', targetText: 'hello' }),
     );
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe('client.session.start conversationId', () => {
+  const start = (over: Record<string, unknown> = {}) =>
+    clientEventSchema.safeParse({
+      type: 'client.session.start',
+      languagePair: { source: 'vi', target: 'en' },
+      ...over,
+    });
+
+  it('a start without it still parses, as every older client sends', () => {
+    const parsed = start();
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && 'conversationId' in parsed.data).toBe(false);
+  });
+
+  it('carries the history conversation id when sent', () => {
+    const parsed = start({ conversationId: 'conv_123' });
+    expect(
+      parsed.success && parsed.data.type === 'client.session.start'
+        ? parsed.data.conversationId
+        : null,
+    ).toBe('conv_123');
+  });
+
+  it('refuses an empty or over-long id', () => {
+    expect(start({ conversationId: '' }).success).toBe(false);
+    expect(start({ conversationId: 'x'.repeat(65) }).success).toBe(false);
+  });
+});
+
+describe('server.error credit codes', () => {
+  it('names the three credit codes', () => {
+    expect([...CREDIT_ERROR_CODES]).toEqual([
+      'credits_exhausted',
+      'credits_low',
+      'credits_unavailable',
+    ]);
+    expect(creditErrorCodeSchema.safeParse('credits_low').success).toBe(true);
+  });
+
+  it('a connection-level credits_low notice parses with no turn ids', () => {
+    const parsed = serverEventSchema.safeParse({
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'About 2 credits left.',
+      remainingCreditSeconds: 120,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('refuses a negative or fractional remaining balance', () => {
+    const error = (remainingCreditSeconds: number) =>
+      serverEventSchema.safeParse({
+        type: 'server.error',
+        code: 'credits_low',
+        message: 'x',
+        remainingCreditSeconds,
+      }).success;
+    expect(error(-1)).toBe(false);
+    expect(error(1.5)).toBe(false);
   });
 });
