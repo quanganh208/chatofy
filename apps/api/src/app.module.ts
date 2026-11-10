@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CreditsModule } from './modules/credits/credits.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { GlossariesModule } from './modules/glossaries/glossaries.module';
 import { TranslationContextsModule } from './modules/translation-contexts/translation-contexts.module';
@@ -33,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TranslateModule,
     ConferenceModule,
     MinutesModule,
+    CreditsModule,
     HealthModule,
     MetaModule,
   ],

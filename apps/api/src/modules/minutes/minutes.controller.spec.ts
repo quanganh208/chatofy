@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
 import type { MeetingMinutes } from '@chatofy/types';
+import { CodedHttpException } from '../../common/exceptions/coded-http.exception';
 import { MinutesController } from './minutes.controller';
 import type { MinutesService } from './minutes.service';
 import type { ConversationIdParamDto } from '../conversations/dto/conversations.dto';
@@ -63,5 +64,17 @@ describe('MinutesController', () => {
       NotFoundException,
     );
     expect(get).toHaveBeenCalledWith('u1', 'c1');
+  });
+
+  it('passes a 402 for a run the caller cannot pay for through unchanged', async () => {
+    const refusal = new CodedHttpException(
+      'CREDITS_EXHAUSTED',
+      402,
+      'generating minutes needs 3 credits',
+    );
+    const controller = makeController({
+      generate: vi.fn().mockRejectedValue(refusal),
+    });
+    await expect(controller.generate(req, params, body)).rejects.toBe(refusal);
   });
 });

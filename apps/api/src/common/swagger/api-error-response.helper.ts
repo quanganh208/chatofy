@@ -28,6 +28,13 @@ const ERROR_RESPONSES: Record<
     description:
       'The bearer token is missing, expired, malformed, or was issued before a password reset. Sign in again.',
   },
+  // Emitted only through `CodedHttpException`, which the filter passes through
+  // by class: a bare 402 would read as VALIDATION_FAILED.
+  402: {
+    code: 'CREDITS_EXHAUSTED',
+    description:
+      'The account has too few AI credits for this request. Nothing was spent; resending will not help until the balance is topped up or resets.',
+  },
   403: {
     code: 'FORBIDDEN',
     description: 'Authenticated, but not allowed to do this.',

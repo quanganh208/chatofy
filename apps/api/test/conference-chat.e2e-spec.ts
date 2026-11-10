@@ -24,6 +24,11 @@ import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 import { InMemoryConferencePrisma } from './utils/in-memory-conference-prisma';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /**
  * The Phase-4 conference chat path, proven end to end over a real /ws/conference
@@ -84,6 +89,9 @@ describe('/ws/conference chat translation (e2e)', () => {
       // `.translation`, so that is the only member the fake has to supply.
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => ({ translation: fakeTranslation }) })
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();

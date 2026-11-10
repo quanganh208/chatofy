@@ -1,6 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import { CallHandler, ExecutionContext } from '@nestjs/common';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  CallHandler,
+  Controller,
+  ExecutionContext,
+  Get,
+  HttpCode,
+  INestApplication,
+  Post,
+} from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { Test } from '@nestjs/testing';
 import { lastValueFrom, of } from 'rxjs';
+import request from 'supertest';
+import { App } from 'supertest/types';
 import { TransformInterceptor } from './transform.interceptor';
 
 function httpContext(path: string, requestId?: string): ExecutionContext {
@@ -82,5 +94,101 @@ describe('TransformInterceptor', () => {
     // Still wrapped: payload becomes data, envelope.success is always true.
     expect(result.success).toBe(true);
     expect(result.data).toEqual(payload);
+  });
+});
+
+describe('TransformInterceptor: payment webhooks', () => {
+  const interceptor = new TransformInterceptor();
+
+  it('skips /billing/webhooks/* (raw, not enveloped)', async () => {
+    const raw = { success: true };
+    for (const path of [
+      '/billing/webhooks/sepay',
+      '/billing/webhooks/polar',
+      '/Billing/Webhooks/SePay',
+    ]) {
+      const result = await lastValueFrom(
+        interceptor.intercept(
+          httpContext(path, 'req_x'),
+          handlerReturning(raw),
+        ),
+      );
+      expect(result).toBe(raw);
+    }
+  });
+
+  it('still wraps /billing/me and a path merely starting with the word', async () => {
+    for (const path of [
+      '/billing/me',
+      '/billing/webhooksx',
+      '/billing/webhooks',
+    ]) {
+      const result = (await lastValueFrom(
+        interceptor.intercept(
+          httpContext(path, 'req_x'),
+          handlerReturning({ a: 1 }),
+        ),
+      )) as Record<string, unknown>;
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ a: 1 });
+    }
+  });
+});
+
+/**
+ * The bytes on the wire, through Nest's real HTTP stack with the interceptor
+ * registered globally as `CommonModule` does: SePay compares the body text, so
+ * a parsed-object assertion would pass on an enveloped reply it rejects.
+ */
+describe('TransformInterceptor over HTTP', () => {
+  @Controller('billing')
+  class ProbeController {
+    @Post('webhooks/sepay')
+    @HttpCode(200)
+    sepay() {
+      return { success: true };
+    }
+
+    @Get('me')
+    me() {
+      return { plan: 'free' };
+    }
+  }
+
+  let app: INestApplication<App>;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ProbeController],
+      providers: [{ provide: APP_INTERCEPTOR, useClass: TransformInterceptor }],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('answers POST /billing/webhooks/sepay with exactly {"success":true} and 200', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/billing/webhooks/sepay')
+      .buffer(true)
+      .parse((response, done) => {
+        let text = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => (text += chunk));
+        response.on('end', () => done(null, text));
+      });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('{"success":true}');
+  });
+
+  it('still envelopes GET /billing/me', async () => {
+    const res = await request(app.getHttpServer()).get('/billing/me');
+    expect(res.status).toBe(200);
+    expect(res.text.startsWith('{"success":true,"data":{"plan":"free"}')).toBe(
+      true,
+    );
   });
 });

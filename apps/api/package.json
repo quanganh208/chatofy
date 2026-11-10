@@ -23,6 +23,10 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "credits:grant": "node dist/cli/credits-grant.js",
+    "credits:void": "node dist/cli/credits-void.js",
+    "credits:resolve-payment": "node dist/cli/credits-resolve-payment.js",
+    "credits:cost-report": "node dist/cli/credits-cost-report.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

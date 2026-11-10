@@ -52,7 +52,7 @@ export class MinutesController {
       "Reads the conversation's stored turns — the body carries only the language to write in. Runs one LLM pass and answers with the summary, key points, decisions, and action items. Regenerating overwrites the previous minutes. 404 for a conversation the caller does not own, answered before any LLM call is spent.",
   })
   @ApiEnvelopeResponse(MinutesResponseDto)
-  @ApiErrorResponses(400, 401, 404, 429)
+  @ApiErrorResponses(400, 401, 402, 404, 429)
   async generate(
     @Req() req: Request,
     @Param() params: ConversationIdParamDto,

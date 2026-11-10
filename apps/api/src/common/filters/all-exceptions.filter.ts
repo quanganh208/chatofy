@@ -9,6 +9,7 @@ import {
 import type { ApiError, ApiErrorResponse, ErrorCode } from '@chatofy/types';
 import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
+import { CodedHttpException } from '../exceptions/coded-http.exception';
 import { LanguageUnavailableException } from '../exceptions/language-unavailable.exception';
 
 /**
@@ -116,6 +117,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // part.
       statusCode = exception.getStatus();
       error.code = 'SERVICE_UNAVAILABLE';
+      error.message = messageFromHttpException(exception);
+    } else if (exception instanceof CodedHttpException) {
+      // Also by class: its code is the point of it, and the status-derived code
+      // the generic branch would pick (`FORBIDDEN` for a 403) says something
+      // else. Always a 4xx, so its message is client-facing as written.
+      statusCode = exception.getStatus();
+      error.code = exception.code;
       error.message = messageFromHttpException(exception);
     } else if (exception instanceof ZodValidationException) {
       statusCode = exception.getStatus();

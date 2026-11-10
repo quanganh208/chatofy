@@ -114,6 +114,10 @@ import {
   type TurnLanguagePlan,
 } from '../session/turn-language-plan';
 import { languagePairLabel } from '../language-pair-label';
+import {
+  TranslationMeter,
+  type CreditStopReason,
+} from '../../credits/translation-meter';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import {
   LIVE_TRANSLATION_COMMIT_CHARS,
@@ -139,6 +143,13 @@ import {
 
 // Re-exported because the gateway and both specs import it from here.
 export type { StreamSocket } from '../session/stream-socket';
+
+/** A turn `start()` opened: its id, and how many languages it adds beyond the first. */
+export interface StartedTurn {
+  sessionId: string;
+  /** The `alsoTranslateInto` targets the turn runs, which price it. */
+  extraTargets: number;
+}
 
 /**
  * Recognition languages whose transcript spells foreign words by sound, so a
@@ -267,6 +278,8 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly gone = new WeakSet<StreamSocket>();
   /** What a turn may spend beyond its final translation; see the type. */
   private readonly costPolicy: TranslationCostPolicy;
+  /** Turns ended because the connection ran out of credit, and why: their close says so. */
+  private readonly creditStops = new WeakMap<TurnSession, CreditStopReason>();
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -274,6 +287,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     private readonly languageSupport: SpeechLanguageSupport,
     @Inject(LANGUAGE_IDENTIFIER)
     private readonly identifier: LanguageIdentifier,
+    // Settles each turn's accepted audio when the turn leaves the registry.
+    private readonly meter: TranslationMeter,
     // Optional so a spec that builds this service by hand runs today's
     // behaviour without a config; the app always provides one.
     @Optional() @Inject(ConfigService) config?: ConfigService<Env, true>,
@@ -326,6 +341,63 @@ export class TranslationSessionService implements OnModuleDestroy {
     this.idleSweep.unref?.();
   }
 
+  /**
+   * Refuses a start that a turn ceiling would refuse — per socket, per user,
+   * process-wide, meetings — and tells the client so. Cheap and in memory, so
+   * the gateway runs it BEFORE the credit admission: a socket looping starts
+   * against a full ceiling must not reach the ledger (and hold a database
+   * connection) for each one. `start` runs it again. True when refused.
+   */
+  refuseOverCapacity(
+    socket: StreamSocket,
+    options: Pick<SessionOptions, 'meeting'>,
+    turnId?: string,
+    userId?: string,
+  ): boolean {
+    // Each ceiling answers a question the others cannot. Refused before any
+    // turn exists, so the only name these failures can carry is the one the
+    // client supplied.
+    if (this.registry.count(socket) >= MAX_CONCURRENT_TURNS_PER_SOCKET) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        `A connection may hold ${MAX_CONCURRENT_TURNS_PER_SOCKET} turns at once`,
+      );
+      return true;
+    }
+    // A start with no verified user has no account to pool under; the two
+    // ceilings around this one still bound it.
+    if (
+      userId !== undefined &&
+      this.registry.countForUser(userId) >= MAX_CONCURRENT_TURNS_PER_USER
+    ) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        `Your account may hold ${MAX_CONCURRENT_TURNS_PER_USER} turns at once`,
+      );
+      return true;
+    }
+    if (this.registry.countGlobal() >= MAX_CONCURRENT_TURNS_GLOBAL) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        'The translator is at capacity; try again in a moment',
+      );
+      return true;
+    }
+    // Meeting legs share a smaller ceiling inside the global one, so the rest
+    // stays free for /translate while a meeting talks continuously.
+    if (
+      options.meeting === true &&
+      this.registry.countMeeting() >= MAX_CONCURRENT_MEETING_TURNS
+    ) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        'Meetings are at translation capacity; try again in a moment',
+      );
+      return true;
+    }
+    return false;
+  }
+
   /** Open a turn and tell the client the id its frames must carry. */
   start(
     socket: StreamSocket,
@@ -340,7 +412,7 @@ export class TranslationSessionService implements OnModuleDestroy {
      * unattributed turn cannot spend past the ceiling either way.
      */
     userId?: string,
-  ): void {
+  ): StartedTurn | undefined {
     // The `session_busy` guard that used to stand here is gone, and only that
     // one. It refused a start while the socket's turn was mid-translation,
     // because a second turn would overwrite the first in a one-entry map and the
@@ -353,46 +425,10 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `TurnSession.acceptFrame` stops a frame landing in a buffer that `end()` is
     // already reading.
     //
-    // All three ceilings are checked here, and each answers a question the
-    // others cannot. Refused before any turn exists, so the only name these
-    // failures can carry is the one the client supplied.
-    if (this.registry.count(socket) >= MAX_CONCURRENT_TURNS_PER_SOCKET) {
-      this.channelFor(socket, { turnId }).fail(
-        'too_many_turns',
-        `A connection may hold ${MAX_CONCURRENT_TURNS_PER_SOCKET} turns at once`,
-      );
-      return;
-    }
-    // A start with no verified user has no account to pool under; the two
-    // ceilings around this one still bound it.
-    if (
-      userId !== undefined &&
-      this.registry.countForUser(userId) >= MAX_CONCURRENT_TURNS_PER_USER
-    ) {
-      this.channelFor(socket, { turnId }).fail(
-        'too_many_turns',
-        `Your account may hold ${MAX_CONCURRENT_TURNS_PER_USER} turns at once`,
-      );
-      return;
-    }
-    if (this.registry.countGlobal() >= MAX_CONCURRENT_TURNS_GLOBAL) {
-      this.channelFor(socket, { turnId }).fail(
-        'too_many_turns',
-        'The translator is at capacity; try again in a moment',
-      );
-      return;
-    }
-    // Meeting legs share a smaller ceiling inside the global one, so the rest
-    // stays free for /translate while a meeting talks continuously.
-    if (
-      options.meeting === true &&
-      this.registry.countMeeting() >= MAX_CONCURRENT_MEETING_TURNS
-    ) {
-      this.channelFor(socket, { turnId }).fail(
-        'too_many_turns',
-        'Meetings are at translation capacity; try again in a moment',
-      );
-      return;
+    // The ceilings run again here, after the gateway's credit admission
+    // awaited the ledger: other starts may have filled them meanwhile.
+    if (this.refuseOverCapacity(socket, options, turnId, userId)) {
+      return undefined;
     }
 
     // Which language mode the turn runs, decided before anything else is
@@ -407,7 +443,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     });
     if (!admission.admitted) {
       this.refuseLanguage(socket, turnId, admission.message, admission.detail);
-      return;
+      return undefined;
     }
     // Over the identification cap a two-way start runs as its declared pair,
     // like one the engine cannot identify for, and says which of the two. An
@@ -426,7 +462,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           'Too many conversations are identifying their language right now; choose the language you speak',
           LID_CAPACITY_REASON,
         );
-        return;
+        return undefined;
       }
       mode = 'declared';
       modeReason = LID_CAPACITY_REASON;
@@ -481,7 +517,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         'language_unavailable',
         languageRefusal,
       );
-      return;
+      return undefined;
     }
     // Refused on the primary only. An extra the speech engine cannot speak is
     // still translated, and only its voice is dropped: the turn serves every
@@ -531,6 +567,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       mode,
       ...(modeReason ? { modeReason } : {}),
     });
+    return { sessionId, extraTargets: extras.length };
   }
 
   /**
@@ -575,8 +612,13 @@ export class TranslationSessionService implements OnModuleDestroy {
     });
   }
 
-  /** Append one inbound audio frame to the turn its own id names. */
-  pushFrame(socket: StreamSocket, frame: AudioFrame): void {
+  /**
+   * Append one inbound audio frame to the turn its own id names.
+   *
+   * Returns the seconds of audio the turn accepted, 0 for a refused frame —
+   * the only audio a connection is billed for.
+   */
+  pushFrame(socket: StreamSocket, frame: AudioFrame): number {
     // Routed by the frame's own id, which the contract has always carried.
     const session = this.registry.get(socket, frame.sessionId);
     if (!session) {
@@ -596,13 +638,14 @@ export class TranslationSessionService implements OnModuleDestroy {
           'Frame belongs to another session',
         );
       }
-      return;
+      return 0;
     }
     // `acceptFrame` compares the id again, which now looks redundant: the lookup
     // above already found the turn by it. It is kept as a second layer and must
     // not be tidied away — it is the guard that has a test proving two turns'
     // audio cannot mix, and it is what makes `TurnSession` safe to hand a frame
     // without knowing how the caller found it.
+    const bytesBefore = session.buffered?.byteLength ?? 0;
     const rejection = session.acceptFrame(frame);
     if (rejection) {
       this.channelFor(socket, session).fail(rejection.code, rejection.message);
@@ -621,7 +664,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         );
         this.close(socket, session, rejection.code);
       }
-      return;
+      return 0;
     }
 
     this.preview.onAudio(
@@ -630,6 +673,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       () => this.registry.holds(socket, session),
       session.decision.identifying ? this.priorFor(socket, session) : undefined,
     );
+    // Measured off the buffer itself, so it is exactly what the turn holds.
+    const audio = session.buffered;
+    return audio ? (audio.byteLength - bytesBefore) / audio.bytesPerSecond : 0;
   }
 
   /**
@@ -2211,6 +2257,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.
     const sessions = this.registry.closeAll(socket);
+    for (const session of sessions) this.meter.turnEnded(session.sessionId);
     if (sessions.length === 0) return;
     this.logger.log(
       `session.disconnect ${sessions.map((s) => s.sessionId).join(' ')}`,
@@ -2531,12 +2578,51 @@ export class TranslationSessionService implements OnModuleDestroy {
     // This turn only. Closing the socket's other turns here would end
     // conversations the client is still in the middle of.
     this.registry.close(socket, session.sessionId);
+    // Every per-turn eviction comes through here, so this is where the turn's
+    // audio is billed. Idempotent: a turn already settled is a no-op.
+    this.meter.turnEnded(session.sessionId);
     // A turn that ended without a transcript answers whoever waits on it now.
     this.context.closed(socket, session.sessionId);
+    // A turn drained because credit ran out finished normally, but the client
+    // must hear why the conversation is ending; a fault keeps its own reason.
+    const creditStop = this.creditStops.get(session);
+    const told =
+      creditStop && (reason === 'completed' || reason === 'voice_off')
+        ? creditStop
+        : reason;
     // Bound to the session on purpose, and taken as an argument rather than
     // re-read from the registry: the eviction above has to happen first, so by
     // this point the registry can no longer name the turn that just ended.
-    this.channelFor(socket, session).ended(reason);
+    this.channelFor(socket, session).ended(told);
+  }
+
+  /**
+   * End every turn of this socket that is still listening, through the
+   * ordinary `end()`, because its credit ran out: what was already said is
+   * still translated, spoken and saved. Further frames for these turns are
+   * refused by the same `session_busy` path any ended turn uses.
+   *
+   * `run` wraps each end in the caller's attribution scope.
+   */
+  endAllForCredits(
+    socket: StreamSocket,
+    reason: CreditStopReason,
+    run: (sessionId: string, work: () => Promise<void>) => Promise<void> = (
+      _sessionId,
+      work,
+    ) => work(),
+  ): void {
+    for (const { socket: owner, session } of this.registry.entries()) {
+      if (owner !== socket || !session.isListening) continue;
+      this.creditStops.set(session, reason);
+      void run(session.sessionId, () =>
+        this.end(socket, session.sessionId),
+      ).catch((err: unknown) =>
+        this.logger.error(
+          `ending turn ${session.sessionId} for ${reason} failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    }
   }
 
   /**

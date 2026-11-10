@@ -51,7 +51,7 @@ export class ConferenceMinutesController {
       "Summarizes the room's stored speech turns in the requested language and replaces any earlier copy — one per room. Any participant may call it. 404 for a room the caller was not in and 400 for one with nothing said, both before any LLM call is spent.",
   })
   @ApiEnvelopeResponse(ConferenceMinutesResponseDto)
-  @ApiErrorResponses(400, 401, 404, 429)
+  @ApiErrorResponses(400, 401, 402, 404, 429)
   async generate(
     @Req() req: Request,
     @Param() params: ConferenceIdParamDto,

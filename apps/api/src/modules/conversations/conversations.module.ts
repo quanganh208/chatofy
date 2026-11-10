@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { UsageModule } from '../usage/usage.module';
 import { StorageModule } from '../storage/storage.module';
 import { SummarizationModule } from '../summarization/summarization.module';
 import { CONVERSATION_STORE } from './interfaces/conversation-store.interface';
@@ -24,7 +25,7 @@ import { ConversationsService } from './conversations.service';
   // decides whether R2 is configured, so importing it — rather than reading env
   // here — is what keeps the deployment question in one place.
   // SummarizationModule, not MinutesModule: that one imports this one.
-  imports: [AuthModule, StorageModule, SummarizationModule],
+  imports: [AuthModule, StorageModule, SummarizationModule, UsageModule],
   controllers: [ConversationsController],
   providers: [
     ConversationsService,

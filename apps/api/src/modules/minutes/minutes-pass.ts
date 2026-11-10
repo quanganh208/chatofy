@@ -12,6 +12,7 @@ import {
   type MeetingMinutesDraft,
 } from '@chatofy/ai-providers';
 import {
+  CREDIT_SECONDS_PER_CREDIT,
   MINUTES_LIMITS,
   type LanguageCode,
   type MinutesContent,
@@ -19,6 +20,12 @@ import {
   type MinutesStatus,
 } from '@chatofy/types';
 import type { MinutesSummarizer } from './minutes-summarizer.service';
+import { CodedHttpException } from '../../common/exceptions/coded-http.exception';
+import {
+  LedgerUnavailableError,
+  type CreditLedgerPort,
+} from '../credits/credit-ledger.port';
+import { MINUTES_RUN_CREDITS } from '../credits/credit-pricing';
 
 /**
  * One summarization pass, independent of what owns the minutes.
@@ -53,6 +60,74 @@ export interface MinutesPass<T> {
   saveFailedUnlessReady?: (
     content: MinutesContent,
   ) => Promise<'saved' | 'kept'>;
+  /**
+   * Pay for the run, after the ceiling refusal and before the provider call.
+   * Resolves to the refund, which runs if the pass then fails. See
+   * {@link chargeMinutesRun}.
+   */
+  charge?: () => Promise<() => Promise<void>>;
+}
+
+/**
+ * The `charge` hook for one minutes run, billed to `userId`.
+ *
+ * Debits the flat run price under `minutes:<uuid>`, all or nothing: a short
+ * balance is a 402 `CREDITS_EXHAUSTED` and nothing is written. The refund it
+ * returns gives the debit back under `refund:<same uuid>`. A refund that
+ * itself fails is logged with the user, the debit key and the amount, and
+ * swallowed, so the caller still sees the pass's own error. The debit then
+ * stands; the owner gives the credits back with `credits:grant` (a promo
+ * grant), since no tool replays a refund.
+ */
+export function chargeMinutesRun(
+  ledger: CreditLedgerPort,
+  userId: string,
+  logger: Logger,
+  conversationId?: string,
+): () => Promise<() => Promise<void>> {
+  return async () => {
+    const run = randomUUID();
+    const debitKey = `minutes:${run}`;
+    let debit;
+    try {
+      debit = await ledger.debit({
+        userId,
+        amount: MINUTES_RUN_CREDITS * CREDIT_SECONDS_PER_CREDIT,
+        idempotencyKey: debitKey,
+        reason: 'minutes',
+        conversationId: conversationId ?? null,
+      });
+    } catch (err) {
+      if (err instanceof LedgerUnavailableError) {
+        throw new ServiceUnavailableException(
+          'credits cannot be checked right now; try again shortly',
+        );
+      }
+      throw err;
+    }
+    if (debit.state === 'insufficient') {
+      throw new CodedHttpException(
+        'CREDITS_EXHAUSTED',
+        402,
+        `generating minutes needs ${MINUTES_RUN_CREDITS} credits`,
+      );
+    }
+    return async () => {
+      const refundKey = `refund:${run}`;
+      try {
+        await ledger.refund({
+          userId,
+          debitKey,
+          idempotencyKey: refundKey,
+          reason: 'minutes_failed',
+        });
+      } catch (err) {
+        logger.warn(
+          `minutes refund ${refundKey} of debit ${debitKey} (${MINUTES_RUN_CREDITS} credits) for user ${userId} failed: ${String(err)}`,
+        );
+      }
+    };
+  };
 }
 
 /**
@@ -80,6 +155,10 @@ export async function runMinutesPass<T>(pass: MinutesPass<T>): Promise<T> {
     );
   }
 
+  // Charged only once the request is known to be summarizable, so a refusal
+  // above costs nothing; a 402 here happens before any provider call.
+  const refund = pass.charge ? await pass.charge() : undefined;
+
   try {
     const draft = await pass.summarizer.get().summarize({
       transcript: buildTranscript(pass.turns),
@@ -91,6 +170,9 @@ export async function runMinutesPass<T>(pass: MinutesPass<T>): Promise<T> {
       `minutes generation failed for ${pass.label}: ${String(err)}`,
     );
     await recordFailure(pass);
+    // Never throws: a failed refund is logged inside, and the pass's own
+    // error is what the caller must see.
+    await refund?.();
     throw asHttpError(err);
   }
 }
