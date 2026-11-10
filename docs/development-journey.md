@@ -2784,3 +2784,15 @@ The feature had never been measured on production, so everything before this was
 - **Not measured.** Echo on real speakers and a call across two networks. TURN connected on Cloudflare for the first time.
 
 Ruler: `benchmarks/conference/`.
+
+## The latency baseline: speech, not the display, is the wait (10/11/2026)
+
+Each turn's log line now records how long it spent in each stage, counted from the endpoint (PR #323). The latency baseline was a replay of 5 recordings against production, 81 turns with voice on and 81 with it off, all translated by `deepseek-v4-flash-fast` with no fallback.
+
+- **The display waits are nearly free.** The plan was to stop speech waiting on display restore and corrections, on the recognizer-fusion alternate, and on the speaker embedding. Measured, they cost 0–65 ms p50. A reused speculation hides them, and the embedding finishes about a second before the line. All three phases closed on their gates.
+- **The two large terms are not ours to shorten in code.** The time from the end of STT to the first translation token is about 500 ms p50, and that is the provider's response. The rest of the translation streams in about 250 ms, under the 400 ms that clause-streaming would need to pay off.
+- **Local TTS to first audio is 730 ms p50 (p95 1.7 s), not the 231 ms on record.** That earlier figure came from dev, with 8 threads and isolated turns. Production runs 4 TTS threads, and a continuous speaker's turns queue on the shared Kokoro lock. Which of these causes it is not yet known.
+- **End of speech to first audio, vi→en:** 2.16 s p50 when the speculation missed, 1.54 s when it hit. With voice off, the line arrives at 0.48 s (hit) and 1.29 s (miss).
+- 59% of turns are speaker-split candidates. Any change that leaves the split path untouched reaches at most the other 41%.
+
+Ruler: `benchmarks/latency/`.
