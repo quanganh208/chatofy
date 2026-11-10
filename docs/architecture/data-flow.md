@@ -217,7 +217,17 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      `speculations` and `liveTranslations`. Both are
      metered requests that buy a head start, and neither was visible in the
      latency table before — the saving showed in `firstAudioAtMs` while its cost
-     sat in no column at all
+     sat in no column at all.
+     The line also carries `stages=`. Each value is the number of ms from the
+     endpoint at which a stage finished: `sttDone`, `alternateWait` (a duration,
+     reported by the STT sidecar as `alternateWaitMs`), `mtFirstToken`, `mtDone`,
+     `restoreDone`, `correctionsDone`, `translationsReady`, `lineSent`,
+     `embeddingDone` and `ttsRequested`. A stage that a reused speculation ran
+     before the endpoint comes out negative. Next to `stages=` the line carries
+     `inflight=` (the speculation had not finished when the endpoint arrived),
+     `corrLate=`, `cand=` (a speaker-split candidate existed) and `fused=`
+     (fusion corrections applied to the final line). `benchmarks/latency/` replays
+     recordings and turns these lines into per-stage tables.
 5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
    the turn actually ended for, and a metrics row flagged `completed: false`:
    - a pipeline fault (STT, translation, synthesis) closes with reason `error`,
