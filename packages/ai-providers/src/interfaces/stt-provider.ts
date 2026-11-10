@@ -48,6 +48,13 @@ export interface SttTranscriptResult {
    */
   alternates?: string[];
   /**
+   * How long the backend held this answer waiting for the second recognizer
+   * after the first had finished, in ms. Set only when `alternates` was asked
+   * for and the backend measured the wait; it is a latency reading for the
+   * turn's timeline, and never changes what the result says.
+   */
+  alternateWaitMs?: number;
+  /**
    * How sure the backend is of `language`, in [0, 1] — set only on a result
    * whose language it IDENTIFIED (`identified: true`). `null` is the backend
    * saying it identified the language but has no confidence to report, which a

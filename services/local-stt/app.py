@@ -18,6 +18,7 @@ os.environ.setdefault("OMP_NUM_THREADS", _threads)
 os.environ.setdefault("MKL_NUM_THREADS", _threads)
 
 import logging  # noqa: E402
+import time  # noqa: E402
 from concurrent.futures import Future, ThreadPoolExecutor  # noqa: E402
 from concurrent.futures import TimeoutError as FutureTimeout  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
@@ -274,6 +275,11 @@ def transcribe(
             # the two.
             result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
         if alternate is not None and alternate_language == language:
+            # How long the answer was held for the alternate once the primary was
+            # done, reported on every branch: a late, refused or failed alternate
+            # still cost the turn its wait, and the caller's latency timeline is
+            # the only place that wait is visible. Measured, never acted on.
+            waited_from = time.monotonic()
             try:
                 result["alternates"] = [alternate.result(timeout=ALTERNATE_WAIT_MS / 1000)]
             except FutureTimeout:
@@ -285,6 +291,8 @@ def transcribe(
                 log.warning("%s alternate decode refused, lanes busy", language)
             except Exception:  # noqa: BLE001 — the transcript must never fail on the alternate
                 log.warning("%s alternate decode failed; answering without it", language, exc_info=True)
+            finally:
+                result["alternateWaitMs"] = round((time.monotonic() - waited_from) * 1000)
         return result
     finally:
         abandoned.set()

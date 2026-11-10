@@ -39,6 +39,63 @@ export interface ClauseDelivery extends AudioSpan {
 }
 
 /**
+ * A named point in a turn's critical path, in the order a turn passes them.
+ *
+ * The union's order is the log line's order, so a reader can rely on where a
+ * stage sits without parsing keys. Each is milliseconds from the endpoint like
+ * every other column here, except `alternateWait`, which is a DURATION: how
+ * long the recognizer held its answer for the second reading, as the sidecar
+ * measured it, with no origin of its own on this clock.
+ *
+ * A stage a reused speculation reached before `end()` comes out negative,
+ * exactly as `translatedAtMs` does: it was done before the endpoint was.
+ */
+export const TURN_STAGES = [
+  'sttDone',
+  'alternateWait',
+  'mtFirstToken',
+  'mtDone',
+  'restoreDone',
+  'correctionsDone',
+  'translationsReady',
+  'lineSent',
+  'embeddingDone',
+  'ttsRequested',
+] as const;
+export type TurnStage = (typeof TURN_STAGES)[number];
+
+/** Stages as the timeline reports them; absent means the turn never got there. */
+export type TurnStages = Partial<Record<TurnStage, number>>;
+
+/**
+ * A stage reached before there was a timeline to mark it on — by a
+ * speculation, which runs ahead of `end()`. `at` is an absolute clock reading;
+ * `durationMs` is set for a duration stage (`alternateWait`) instead.
+ */
+export interface TimedStage {
+  stage: TurnStage;
+  at: number;
+  durationMs?: number;
+}
+
+/**
+ * An `onStage` listener that keeps what it hears for a timeline that does not
+ * exist yet; see {@link TurnTimeline.replay}.
+ */
+export function bufferStages(
+  into: TimedStage[],
+  now: () => number = Date.now,
+): (stage: TurnStage, durationMs?: number) => void {
+  return (stage, durationMs) => {
+    into.push({
+      stage,
+      at: now(),
+      ...(durationMs === undefined ? {} : { durationMs }),
+    });
+  };
+}
+
+/**
  * Stopwatch for one turn, from the endpoint the client declared.
  *
  * Every column is milliseconds from that endpoint because it is the only origin
@@ -55,6 +112,11 @@ export class TurnTimeline {
   private ttsDelivery?: TtsDelivery;
   private speculationUsed = false;
   private finalSource?: FinalSourceDiagnostics;
+  private readonly stages: TurnStages = {};
+  private speculationInFlight?: boolean;
+  private correctionsWereLate?: boolean;
+  private splitCandidate?: boolean;
+  private fused?: number;
 
   constructor(private readonly now: () => number = Date.now) {
     this.endpointAt = this.now();
@@ -79,6 +141,84 @@ export class TurnTimeline {
   /** How the final's source text was produced; see {@link FinalSourceDiagnostics}. */
   markFinalSource(diagnostics: FinalSourceDiagnostics): void {
     this.finalSource = diagnostics;
+  }
+
+  /**
+   * When a stage of the critical path finished.
+   *
+   * The FIRST stamp wins. A turn can pass a stage twice — a speculation's
+   * pipeline and then the final's, or the split path after its plain attempt —
+   * and the one the reader waited on is the earliest that was used; a later
+   * repeat would hide the head start the first one bought. `at` is an absolute
+   * clock reading, so a stage buffered by a speculation before this timeline
+   * existed is replayed with its own time and comes out negative.
+   */
+  markStage(stage: TurnStage, at: number = this.now()): void {
+    this.stages[stage] ??= at - this.endpointAt;
+  }
+
+  /**
+   * A stage that is a measured duration rather than a point in time; today
+   * only the recognizer's wait for its alternate. First value wins, as above.
+   */
+  markDuration(stage: 'alternateWait', ms: number): void {
+    this.stages[stage] ??= ms;
+  }
+
+  /**
+   * The pipeline's `onStage` listener for this turn: a stage that comes with a
+   * duration is one, every other is a moment. Bound, so it can be handed over
+   * as it is.
+   */
+  readonly onStage = (stage: TurnStage, durationMs?: number): void => {
+    if (stage === 'alternateWait' && durationMs !== undefined) {
+      this.markDuration(stage, durationMs);
+    } else {
+      this.markStage(stage);
+    }
+  };
+
+  /** Stages a speculation buffered, at the times it reached them. */
+  replay(stages: readonly TimedStage[]): void {
+    for (const { stage, at, durationMs } of stages) {
+      if (stage === 'alternateWait' && durationMs !== undefined) {
+        this.markDuration(stage, durationMs);
+      } else {
+        this.markStage(stage, at);
+      }
+    }
+  }
+
+  /**
+   * Whether the reused speculation was still running when `end()` adopted it.
+   *
+   * A hit that was still in flight saved only part of the pipeline; without
+   * this, a table split by reuse would credit it with the whole head start.
+   */
+  markSpeculationInFlight(inFlight: boolean): void {
+    this.speculationInFlight = inFlight;
+  }
+
+  /** The transcript checks missed their grace and the line went without them. */
+  markCorrectionsLate(): void {
+    this.correctionsWereLate = true;
+  }
+
+  /**
+   * Whether the turn's audio could hold a change of voice, decided before
+   * anything is spent. Such a turn takes the split path whether or not it is
+   * finally split, so a table of the plain path has to leave all of them out.
+   */
+  markSplitCandidate(candidate: boolean): void {
+    this.splitCandidate = candidate;
+  }
+
+  /**
+   * How many recognizer-fusion corrections the turn's final line carried.
+   * Marked only where the fusion ran, so absent and zero stay different.
+   */
+  markFused(applied: number): void {
+    this.fused = applied;
   }
 
   markTranslated(translation: string): void {
@@ -144,6 +284,16 @@ export class TurnTimeline {
       translatedAtMs: fallback - this.endpointAt,
       firstAudioAtMs: (this.firstAudioAt ?? fallback) - this.endpointAt,
       lastAudioAtMs: (this.lastAudioAt ?? fallback) - this.endpointAt,
+      // A copy, so a stamp arriving after the row was written cannot edit it.
+      stages: { ...this.stages },
+      ...(this.speculationInFlight === undefined
+        ? {}
+        : { speculationInFlightAtEnd: this.speculationInFlight }),
+      ...(this.correctionsWereLate ? { correctionsLate: true } : {}),
+      ...(this.splitCandidate === undefined
+        ? {}
+        : { splitCandidate: this.splitCandidate }),
+      ...(this.fused === undefined ? {} : { fusedCorrections: this.fused }),
     };
   }
 }

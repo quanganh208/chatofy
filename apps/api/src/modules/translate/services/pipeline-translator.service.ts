@@ -46,6 +46,7 @@ import type {
   TranslationMap,
 } from '../session/turn-language-plan';
 import type { HeardLanguage } from '../session/turn-language-decision';
+import type { TurnStage } from '../session/turn-timeline';
 
 /**
  * How long a fetched voice catalog is reused.
@@ -193,6 +194,19 @@ export interface TranslateTurnInput {
    * so the caller stops asking before its capability cache would have noticed.
    */
   onIdentifyUnavailable?: () => void;
+  /**
+   * Told as each stage of {@link PipelineTranslatorService.transcribeAndTranslate}
+   * finishes, for the turn's latency timeline; `durationMs` comes with a stage
+   * that is a measured wait rather than a moment (`alternateWait`).
+   *
+   * Observation only: nothing here is awaited, and leaving it out changes
+   * nothing. The one thing it adds is a chunk listener on the primary target's
+   * translation, to time its first token; every provider streams that request
+   * whether or not anyone listens, so the answer is the same either way.
+   */
+  onStage?: (stage: TurnStage, durationMs?: number) => void;
+  /** Told when the transcript checks missed their grace; see {@link settleCorrections}. */
+  onCorrectionsLate?: () => void;
 }
 
 /**
@@ -404,6 +418,14 @@ export interface TranslatedTurnText {
    */
   corrections?: TranscriptCorrection[];
   /**
+   * Which of {@link corrections} the recognizer fusion proposed, as the same
+   * objects, for the turn's metrics only: a correction kept downstream is
+   * found here by identity. Empty when the fusion ran and nothing of it
+   * reached the turn (it was late, failed or accepted nothing); absent when
+   * the fusion never ran. Never sent, never stored.
+   */
+  fusedCorrections?: readonly TranscriptCorrection[];
+  /**
    * Silence after each word of `sourceText` in ms, when the recognizer
    * measured it. Kept so a block joining this turn can restore with it.
    */
@@ -445,6 +467,8 @@ export interface TranscribedAudio {
   leadPause?: number;
   /** The same audio as a second recognizer heard it; see `SttTranscriptResult`. */
   alternates?: string[];
+  /** How long the backend held the answer for {@link alternates}; see `SttTranscriptResult`. */
+  alternateWaitMs?: number;
   /**
    * Which candidate the audio was in, when `candidates` were asked for. A
    * backend that could not identify answers the language it was asked to
@@ -680,6 +704,13 @@ export class PipelineTranslatorService {
      * fusion to run alone; see `TranslationCostPolicy.speculationHomophones`.
      */
     homophones = true,
+    /**
+     * Told, as soon as the fusion is started, what it will accept — empty when
+     * it fails or accepts nothing; never told when no fusion runs. Called
+     * before the first await, so a caller knows the fusion ran even when its
+     * grace ends first. A measurement hook; the answer is unchanged.
+     */
+    onFusion?: (accepted: Promise<readonly TranscriptCorrection[]>) => void,
   ): Promise<TranscriptCorrection[] | undefined> {
     if (!text.trim()) return undefined;
     const repairs = homophones && REPAIRS_HOMOPHONES[recognition];
@@ -707,7 +738,7 @@ export class PipelineTranslatorService {
     }
     if (!checker) return undefined;
     const before = context.slice(-CORRECTION_CONTEXT_TURNS);
-    const [fused, repaired] = await Promise.all([
+    const fusing =
       differing.length > 0
         ? this.check('fusion', checker, async () =>
             acceptRecognizerFusion(
@@ -721,7 +752,10 @@ export class PipelineTranslatorService {
               keep,
             ),
           )
-        : [],
+        : undefined;
+    if (fusing) onFusion?.(fusing);
+    const [fused, repaired] = await Promise.all([
+      fusing ?? [],
       repairs
         ? this.check('homophones', checker, async () =>
             acceptHomophoneRepairs(
@@ -890,6 +924,7 @@ export class PipelineTranslatorService {
         pauses,
         leadPause,
         alternates,
+        alternateWaitMs,
         language,
         languageConfidence,
         identified,
@@ -931,6 +966,7 @@ export class PipelineTranslatorService {
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
         ...(alternates === undefined ? {} : { alternates }),
+        ...(alternateWaitMs === undefined ? {} : { alternateWaitMs }),
         ...(identifying
           ? {
               heard:
@@ -1070,10 +1106,17 @@ export class PipelineTranslatorService {
     continuesCut?: boolean;
     scriptRetry?: ScriptRetry;
     purpose?: LlmCallPurpose;
+    /**
+     * Told once, when the PRIMARY target's first piece of text arrives. A
+     * measurement hook: the extras are not timed, and no text is passed on.
+     */
+    onFirstToken?: () => void;
   }): Promise<TranslationMap> {
     // A transcript-only turn: nothing to translate into, so no provider call.
     if (req.targets.length === 0) return {};
-    const translating = req.targets.map((target) =>
+    const onFirstToken = req.onFirstToken;
+    let firstTokenSeen = false;
+    const translating = req.targets.map((target, index) =>
       this.translate({
         text: req.text,
         source: req.source,
@@ -1084,6 +1127,15 @@ export class PipelineTranslatorService {
         continuesCut: req.continuesCut,
         scriptRetry: req.scriptRetry,
         purpose: req.purpose,
+        ...(index === 0 && onFirstToken
+          ? {
+              onChunk: () => {
+                if (firstTokenSeen) return;
+                firstTokenSeen = true;
+                onFirstToken();
+              },
+            }
+          : {}),
       }),
     );
     // All settled together, so no rejection is ever left unhandled while
@@ -1163,7 +1215,14 @@ export class PipelineTranslatorService {
         pauses,
         leadPause,
         alternates,
+        alternateWaitMs,
       } = recognition;
+      // The recognition the translation is made from is in; a re-read in the
+      // decided language above is part of it.
+      const onStage = input.onStage;
+      onStage?.('sttDone');
+      if (alternateWaitMs !== undefined)
+        onStage?.('alternateWait', alternateWaitMs);
       if (!sourceText.trim()) {
         // Logged, not merely thrown, because how often this fires is itself the
         // open question. Two production recordings each lost one utterance and
@@ -1206,6 +1265,7 @@ export class PipelineTranslatorService {
             ...(pauses === undefined ? {} : { pauses }),
           })
         : undefined;
+      let fusing: Promise<readonly TranscriptCorrection[]> | undefined;
       const correcting = input.restoreDisplay
         ? this.correctTranscript(
             sourceText,
@@ -1214,6 +1274,9 @@ export class PipelineTranslatorService {
             alternates,
             mergeHotwords(input.hints?.hotwords, input.learnedTerms),
             input.homophones ?? true,
+            (accepted) => {
+              fusing = accepted;
+            },
           )
         : undefined;
       const translations = await this.translateAll({
@@ -1226,17 +1289,30 @@ export class PipelineTranslatorService {
         continuesCut: input.continuesCut,
         scriptRetry: input.scriptRetry,
         purpose: input.purpose,
+        ...(onStage ? { onFirstToken: () => onStage('mtFirstToken') } : {}),
       });
+      onStage?.('mtDone');
       const restored = await restoring;
-      const corrections = await settleCorrections(correcting, () =>
-        this.logger.log('correction late, dropped'),
-      );
+      if (restoring) onStage?.('restoreDone');
+      const corrections = await settleCorrections(correcting, () => {
+        this.logger.log('correction late, dropped');
+        input.onCorrectionsLate?.();
+      });
+      if (correcting) onStage?.('correctionsDone');
+      onStage?.('translationsReady');
 
       return {
         sourceText,
         translations,
         ...(restored === undefined ? {} : { restored }),
         ...(corrections === undefined ? {} : { corrections }),
+        // A fusion whose corrections missed the grace reached nothing; one
+        // that made it has already settled, so the await costs nothing.
+        ...(fusing === undefined
+          ? {}
+          : {
+              fusedCorrections: corrections === undefined ? [] : await fusing,
+            }),
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
         ...(heard === undefined

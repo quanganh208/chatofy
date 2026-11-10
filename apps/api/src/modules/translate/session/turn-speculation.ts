@@ -1,4 +1,5 @@
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
+import type { TimedStage } from './turn-timeline';
 import { MAX_SPECULATIONS_PER_TURN } from './translation-model-policy';
 
 /**
@@ -9,6 +10,11 @@ interface Guess {
   /** Bytes buffered when it started; if the turn grew, the work is stale. */
   atBytes: number;
   work: Promise<TranslatedTurnText>;
+  /**
+   * The stages its pipeline has reached so far, appended to as it runs. Read
+   * by `end()` when it adopts this guess, for the turn's timeline.
+   */
+  stages: readonly TimedStage[];
 }
 
 /**
@@ -58,7 +64,11 @@ export class TurnSpeculation {
     return this.spent < this.max;
   }
 
-  start(atBytes: number, work: Promise<TranslatedTurnText>): void {
+  start(
+    atBytes: number,
+    work: Promise<TranslatedTurnText>,
+    stages: readonly TimedStage[] = [],
+  ): void {
     // A speculation the endpoint never confirms is thrown away unawaited, and
     // an unobserved rejection would take the process down. This matters more
     // now than it did: every guess but the last is discarded by design.
@@ -76,13 +86,23 @@ export class TurnSpeculation {
 
     // The superseded guess is dropped rather than cancelled — the pipeline has
     // no cancellation, so its cost is already spent either way.
-    this.current = { atBytes, work };
+    this.current = { atBytes, work, stages };
     this.spent += 1;
   }
 
   /** Bytes the most recent guess was started at, or null before any guess. */
   get currentAtBytes(): number | null {
     return this.current?.atBytes ?? null;
+  }
+
+  /** The stages the most recent guess has reached; empty before any guess. */
+  get currentStages(): readonly TimedStage[] {
+    return this.current?.stages ?? [];
+  }
+
+  /** Whether the most recent guess is still running. False before any guess. */
+  get inFlight(): boolean {
+    return !this.settled;
   }
 
   /** The guess the endpoint may still reuse, if there is one. */
