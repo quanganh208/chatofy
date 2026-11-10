@@ -283,8 +283,7 @@ export const vi: Messages = {
   'web.translate.elapsedLabel': 'Thời gian từ khi bắt đầu hội thoại',
   'web.translate.transcriptEmpty':
     'Chưa có gì — bắt đầu một cuộc hội thoại và cả hai bên sẽ hiện ở đây.',
-  'web.translate.panelSourceEmpty':
-    'Bấm Bắt đầu hội thoại và cho phép dùng micrô. Câu bạn nói sẽ hiện ở đây.',
+  'web.translate.panelSourceEmpty': 'Câu bạn nói hiện ở đây.',
   'web.translate.panelTargetEmpty': 'Bản dịch hiện ở đây.',
   'web.translate.speakTranslation': 'Đọc bản dịch',
   'web.translate.speakTranslationAria': 'Đọc bản dịch thành tiếng',
@@ -416,7 +415,6 @@ export const vi: Messages = {
   'web.translate.speakerManage': 'Đổi tên hoặc xóa',
   'web.translate.speakerManageDone': 'Xong',
   'web.translate.speakerDefault': 'Người nói {number}',
-  'web.translate.speakerRosterHint': 'Thêm những người đang nói để đánh dấu ai đã nói ở mỗi lượt.',
   'web.translate.speakerNameFor': 'Tên của {name}',
   'web.translate.speakerRemove': 'Xóa {name}',
   'web.translate.speakerRemoveBlocked': '{name} đang được gắn cho một lượt nói. Đổi lượt đó trước.',

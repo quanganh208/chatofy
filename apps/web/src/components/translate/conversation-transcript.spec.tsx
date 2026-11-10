@@ -273,35 +273,17 @@ describe('ConversationTranscript as one side of a split', () => {
     expect(dimmed, 'the live translation line is dimmed').toEqual([]);
   });
 
-  it('draws the lotus above the first step, on the source pane only', () => {
-    // The one brand moment inside the app: the landing illustration, opening once, above
-    // the sentence and never behind it (a dawn value is 1.3-1.7:1 on stone, so it can
-    // never be what text is read against). Decorative, so hidden from assistive tech.
-    render({ turns: [], liveTurns: [], side: 'source', running: false });
-    const lotus = container.querySelector('[data-slot="lotus-illustration"]');
-    expect(lotus).not.toBeNull();
-    expect(lotus?.getAttribute('aria-hidden')).toBe('true');
-    // Hidden below `sm`, where the panes stack and each is too short to hold it: the pane
-    // scrolls to its newest content and the top of the lotus was cut off at 375px.
-    expect(lotus?.getAttribute('class')).toContain('max-sm:hidden');
-    const sentence = [...container.querySelectorAll('p')].find((p) =>
-      p.textContent?.includes('Start conversation'),
-    );
-    expect(sentence?.contains(lotus as Node)).toBe(false);
-
-    act(() => root.unmount());
-    root = createRoot(container);
-    render({ turns: [], liveTurns: [], side: 'target', running: false });
+  it('labels the empty source pane and gives it nothing to press', () => {
+    // The dock's Start is the screen's one way to begin. A mic button here was a second
+    // one, hidden from assistive tech so it would not be announced twice, which left a
+    // control only a pointer could find. The lotus pushed this sentence below the
+    // target pane's, and the hint about naming speakers asked for a step with no
+    // control until a turn exists.
+    render({ turns: [], liveTurns: [], side: 'source', running: false, speakers: [] });
+    expect(container.querySelector('button')).toBeNull();
     expect(container.querySelector('[data-slot="lotus-illustration"]')).toBeNull();
-  });
-
-  it('tells a first-time user the first step on the source pane', () => {
-    // The empty pane is the first thing a new user meets after sign-in. It names the
-    // one control to press and the permission they will be asked for, instead of
-    // leaving them to guess what the two blank panels are waiting for.
-    render({ turns: [], liveTurns: [], side: 'source', running: false });
-    expect(container.textContent).toContain('Start conversation');
-    expect(container.textContent).toContain('microphone');
+    expect(container.querySelectorAll('p')).toHaveLength(1);
+    expect(container.textContent).toBe('What you say appears here.');
   });
 
   it('says what its own pane is for, not what the other one is for', () => {
@@ -396,12 +378,6 @@ describe('ConversationTranscript speaker labels', () => {
     expect(container.textContent).not.toContain('Who spoke?');
     // The turn itself survives: this hides a name, it does not hide a sentence.
     expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
-  });
-
-  it('keeps the hint about naming people off the passive stream', () => {
-    // It points at a control that stream does not have.
-    render({ turns: [], liveTurns: [], side: 'target', interactive: false, speakers: [] });
-    expect(container.textContent).not.toContain('Add the people talking');
   });
 });
 

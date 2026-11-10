@@ -45,8 +45,6 @@ interface TranscriptPanesProps {
   stage?: boolean;
   /** Not offered on the stage — see `stage`. */
   onSwap?: () => void;
-  /** The empty state's mic button; see `ConversationTranscript`. Not offered on the stage. */
-  onStart?: () => void;
   /** A language picked in a header, as the whole new pair. Not offered on the stage. */
   onLanguagePair?: (pair: SessionLanguagePair) => void;
   /** Which page this is — `/translate/one-way` or `/translate/two-way`. Picks the pair the headers show. */
@@ -141,7 +139,6 @@ export function TranscriptPanes({
   running,
   stage = false,
   onSwap,
-  onStart,
   onLanguagePair,
   conversationMode,
   voiceControl,
@@ -184,7 +181,6 @@ export function TranscriptPanes({
       <ConversationTranscript
         {...shared}
         side={side}
-        onStart={stage ? undefined : onStart}
         interactive={primary && !stage}
         languagePair={turnPair}
       />

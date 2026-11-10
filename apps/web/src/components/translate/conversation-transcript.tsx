@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Mic, VolumeX } from 'lucide-react';
+import { VolumeX } from 'lucide-react';
 import type {
   CapturesBySession,
   LiveTurn,
@@ -30,7 +30,6 @@ import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
 import { TurnLanguage } from '@/components/translate/turn-language-tag';
 import { MorphingText } from '@/components/translate/morphing-text';
-import { LotusIllustration } from '@/components/marketing/lotus-illustration';
 import { flipFromLiveLine } from '@/components/translate/flip-from-live-line';
 import {
   LiveLineHandoffContext,
@@ -106,12 +105,6 @@ interface ConversationTranscriptProps {
   audioOffsetMs: number | null;
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
-  /**
-   * Begins a conversation from the empty state's mic button. A pointer shortcut to the
-   * dock's Start, which stays the one named control: this one is out of the tab order and
-   * hidden from assistive tech, so nothing is announced or reachable twice.
-   */
-  onStart?: () => void;
   /** Which halves this stream draws. Defaults to both, which is `list`. */
   side?: TranscriptSide;
   /** Whether a turn says who spoke it at all. */
@@ -216,7 +209,6 @@ export function ConversationTranscript({
   pauses = [],
   audioOffsetMs,
   running,
-  onStart,
   side = 'both',
   speakerLabels = true,
   showTime = true,
@@ -280,44 +272,21 @@ export function ConversationTranscript({
           // Each pane says its own sentence. A pane cannot borrow the other's
           // explanation, and in `split` the two are separated by a gap or by half
           // the screen.
-          <div className="mx-auto flex max-w-sm flex-col items-center gap-4 px-8 py-10 text-center sm:py-20">
-            {/* The brand's one moment inside the app: the landing's lotus, opening once, above
-                the first step. Above and never behind the sentence — a dawn value is 1.3-1.7:1
-                on stone, so it is never what text is read against. Source pane only: the
-                target pane says its own sentence and stays plain. */}
-            {side !== 'target' ? <LotusIllustration className="w-36 max-sm:hidden" /> : null}
-            <p className={cn('text-prose text-body', side === 'target' && 'text-muted-foreground')}>
+          //
+          // A label for the pane and nothing else. A lotus, a second Start as a mic
+          // button, a hint about naming speakers and an instruction to press Start
+          // were all tried here and removed: the dock's Start is plain to see, the
+          // browser asks for the microphone itself, and the hint asked for a step
+          // with no control until the first turn's chip exists. Both panes read
+          // alike, so their sentences sit on the same line.
+          <div className="mx-auto flex max-w-sm flex-col items-center px-8 py-10 text-center sm:py-20">
+            <p className="text-prose text-body text-muted-foreground">
               {side === 'source'
                 ? t('web.translate.panelSourceEmpty')
                 : side === 'target'
                   ? t('web.translate.panelTargetEmpty')
                   : `${running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')} ${t('web.translate.transcriptAttribution')}`}
             </p>
-            {/* The first step, where the eye already is. Outline, not filled: the dock's Start is
-                the screen's one accent control. */}
-            {onStart && !running && side !== 'target' ? (
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden
-                data-slot="empty-start"
-                onClick={onStart}
-                className="border-border text-foreground hover:bg-muted focus-visible:ring-ring inline-flex size-16 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none"
-              >
-                <Mic className="size-6" aria-hidden />
-              </button>
-            ) : null}
-            {/* That turns can be marked with who said them used to be said by the
-              roster sitting under this panel. The roster is now a face of the
-              chip, and a chip only exists once a turn does — so with nothing on
-              screen yet, this is the only place left that can say it. On the
-              interactive stream only: it points at a control the other stream
-              does not have. */}
-            {interactive && speakerLabels && speakers.length === 0 ? (
-              <p className="text-muted-foreground text-hint">
-                {t('web.translate.speakerRosterHint')}
-              </p>
-            ) : null}
           </div>
         ) : groups.length === 0 ? null : (
           // Rendered only when there is something settled to list. A live-only
