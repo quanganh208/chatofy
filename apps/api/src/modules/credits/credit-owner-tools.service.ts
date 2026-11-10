@@ -104,9 +104,11 @@ export class CreditOwnerTools {
    * a payment no account could be matched to) keyed on the order's payment
    * reference (`sepay:tx:<id>`, `polar:order:<id>`) — the same key the webhook
    * grants under — so a later webhook retry cannot grant it a second time. A
-   * pass also moves the account's pass end, as the webhook would. `planCode`
-   * grants a catalogue plan other than the one the order names (a transfer
-   * whose amount matched no plan), and is recorded on the order. `dismiss`
+   * pass also moves the account's pass end, as the webhook would. A SePay
+   * transfer of the wrong amount grants the plan priced at what was paid, not
+   * the plan the order was created for. `planCode` grants a catalogue plan
+   * other than either (an amount no plan costs), and is recorded on the
+   * order. `dismiss`
    * only closes the review. Both are a compare-and-set on `needs_review`.
    */
   async resolvePayment(
@@ -146,7 +148,13 @@ export class CreditOwnerTools {
       throw new Error('This order has no user; pass --user <email>.');
     if (!order.externalRef)
       throw new Error('This order has no payment reference to grant under.');
-    const planCode = options.planCode ?? order.planCode;
+    const planCode =
+      options.planCode ??
+      (order.provider === 'sepay' && order.reviewReason === 'amount_mismatch'
+        ? order.paidAmountVnd === null
+          ? null
+          : await this.plans.sepayPlanCodeForAmount(order.paidAmountVnd)
+        : order.planCode);
     if (!planCode)
       throw new Error('This order names no plan; pass --plan <code>.');
     const plan = await this.plans.get(planCode);

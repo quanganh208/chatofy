@@ -52,6 +52,18 @@ export class PlanCatalog {
     return (await this.all()).find((plan) => plan.code === code);
   }
 
+  /**
+   * The active SePay plan priced at exactly this amount: what a transfer of
+   * the wrong amount actually buys. `null` when no plan costs that.
+   */
+  async sepayPlanCodeForAmount(amountVnd: number): Promise<string | null> {
+    return (
+      (await this.active()).find(
+        (plan) => plan.sepay && plan.priceVnd === amountVnd,
+      )?.code ?? null
+    );
+  }
+
   /** The monthly Free allowance in credit-seconds; 0 when Free is switched off. */
   async freeCreditSeconds(): Promise<number> {
     const free = await this.get('free');

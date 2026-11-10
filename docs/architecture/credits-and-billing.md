@@ -229,9 +229,10 @@ checkout link made outside the API credits no one. Both checks compare addresses
   - An order expires after 30 minutes, but a matching transfer that arrives later still
     grants, and the delay is logged.
   - A wrong amount, or a code that matches no order, grants nothing. It becomes a
-    `needs_review` row that the owner resolves with the CLI. A wrong amount is filed
-    under the plan priced at exactly what was paid, or under none, never under the plan
-    that was ordered.
+    `needs_review` row that the owner resolves with the CLI. Resolving a wrong amount
+    grants the plan priced at exactly what was paid, or nothing until `--plan` names
+    one, never the plan that was ordered. The order itself keeps its ordered plan, so a
+    later transfer of the right amount still buys that plan.
   - A correct transfer for an order already in review grants and marks the order
     `paid`. The earlier transfer moves to a review row of its own under its own
     reference, so resolving it cannot grant the ordered plan a second time.
@@ -245,12 +246,12 @@ The commands are in `apps/api/src/cli/` and are built to `dist/cli/*.js`. The
 production image has no pnpm, so production runs them with `node` inside the API
 container.
 
-| Command                                                                                           | What it does                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `credits-grant.js <email> <credits> <reason>`                                                     | A never-expiring `promo` grant, plus an audit entry carrying the reason. `credits` must be a whole number from 1 to `CLI_GRANT_MAX_CREDITS`. Prints the grant id.                                                                                                                  |
-| `credits-void.js <grantId> [--note]`                                                              | Writes off what the grant still holds. Voiding it again changes nothing.                                                                                                                                                                                                           |
-| `credits-resolve-payment.js [<orderId> grant\|dismiss [--user <email>] [--plan <code>] [--note]]` | With no arguments, lists the `needs_review` payments. `grant` writes the order plan's grant under the payment's own reference, so a later webhook retry cannot grant it again. `--plan` grants another catalogue plan instead and records it on the order.                         |
-| `credits-cost-report.js [--from YYYY-MM-DD] [--to YYYY-MM-DD]`                                    | Per user and Saigon month: credits settled, plus the tokens and list-price USD behind them, joined from `LlmCallRecord` by `sessionId` at read time. Late polish calls are therefore counted. Minutes runs carry no `sessionId` and are not in it. The price table is in the file. |
+| Command                                                                                           | What it does                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `credits-grant.js <email> <credits> <reason>`                                                     | A never-expiring `promo` grant, plus an audit entry carrying the reason. `credits` must be a whole number from 1 to `CLI_GRANT_MAX_CREDITS`. Prints the grant id.                                                                                                                                                |
+| `credits-void.js <grantId> [--note]`                                                              | Writes off what the grant still holds. Voiding it again changes nothing.                                                                                                                                                                                                                                         |
+| `credits-resolve-payment.js [<orderId> grant\|dismiss [--user <email>] [--plan <code>] [--note]]` | With no arguments, lists the `needs_review` payments. `grant` writes the order plan's grant (for a wrong SePay amount, the plan that amount buys) under the payment's own reference, so a later webhook retry cannot grant it again. `--plan` grants another catalogue plan instead and records it on the order. |
+| `credits-cost-report.js [--from YYYY-MM-DD] [--to YYYY-MM-DD]`                                    | Per user and Saigon month: credits settled, plus the tokens and list-price USD behind them, joined from `LlmCallRecord` by `sessionId` at read time. Late polish calls are therefore counted. Minutes runs carry no `sessionId` and are not in it. The price table is in the file.                               |
 
 - In development: `pnpm --filter api build` once, then
   `pnpm --filter api credits:grant <email> <credits> <reason>`. The same pattern works for

@@ -37,11 +37,12 @@ export function recordSepayReview(
 
 /**
  * Marks the order itself for review when it is still open; otherwise (it was
- * already paid or reviewed) the extra money gets a review row of its own. A
- * wrong amount is filed under the plan priced at what was actually paid (none
- * when no plan costs exactly that), on the order and on a row of its own
- * alike, so resolving it can never grant the plan that was ordered but not
- * paid for. Returns the review row's id.
+ * already paid or reviewed) the extra money gets a review row of its own.
+ *
+ * The order keeps the plan it was created for, so a later transfer of the
+ * right amount still buys that plan; resolving a wrong amount grants the plan
+ * priced at what was paid instead (see `resolvePayment`). A row of its own is
+ * filed under that paid-for plan directly. Returns the review row's id.
  */
 export async function markSepayReview(
   tx: LedgerTx,
@@ -55,16 +56,11 @@ export async function markSepayReview(
   },
 ): Promise<string> {
   const { order, transfer, ref, now, reason } = input;
-  const planCode =
-    reason === 'amount_mismatch'
-      ? await input.planCodeForAmount(transfer.transferAmount)
-      : order.planCode;
   const marked = await tx.paymentOrder.updateMany({
     where: { id: order.id, status: { in: OPEN_SEPAY_ORDER_STATUSES } },
     data: {
       status: 'needs_review',
       reviewReason: reason,
-      planCode,
       paidAmountVnd: transfer.transferAmount,
       paidAt: now,
       externalRef: ref,
@@ -73,7 +69,10 @@ export async function markSepayReview(
   if (marked.count === 1) return order.id;
   return recordSepayReview(tx, transfer, ref, now, {
     userId: order.userId,
-    planCode,
+    planCode:
+      reason === 'amount_mismatch'
+        ? await input.planCodeForAmount(transfer.transferAmount)
+        : order.planCode,
     reason,
   });
 }
@@ -99,8 +98,8 @@ export interface SepaySettledOrder {
  * or was refused) is settled as well: left in review, resolving it would grant
  * the plan a second time under the earlier transfer's reference, which the
  * grant's idempotency key cannot catch. That earlier transfer is real money,
- * so it keeps a review row of its own, under its own reference and with what
- * it was filed under, written after the order gives that reference up.
+ * so it keeps a review row of its own, under its own reference and filed under
+ * the plan its amount buys, written after the order gives that reference up.
  */
 export async function settleSepayOrder(
   tx: LedgerTx,
@@ -108,6 +107,7 @@ export async function settleSepayOrder(
   transfer: SepayTransfer,
   ref: string,
   now: Date,
+  planCodeForAmount: (amountVnd: number) => Promise<string | null>,
 ): Promise<void> {
   const settled = await tx.paymentOrder.updateMany({
     where: {
@@ -134,7 +134,10 @@ export async function settleSepayOrder(
   await recordPaymentReview(tx, {
     provider: 'sepay',
     userId: order.userId,
-    planCode: order.planCode,
+    planCode:
+      order.reviewReason === 'amount_mismatch' && order.paidAmountVnd !== null
+        ? await planCodeForAmount(order.paidAmountVnd)
+        : order.planCode,
     amountMinor: order.paidAmountVnd ?? order.amountMinor,
     currency: order.currency,
     paidAmountVnd: order.paidAmountVnd,

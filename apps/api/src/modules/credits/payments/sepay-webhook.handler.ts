@@ -106,15 +106,9 @@ export class SepayWebhookHandler {
       return `review_${decision.reason}`;
     }
 
-    // An order in review for a wrong amount was refiled under the plan that
-    // amount buys, so its own plan is no longer on it; this transfer paid the
-    // asked amount exactly, so the plan priced at that amount is the one ordered.
-    const planCode =
-      order.status === 'needs_review' &&
-      order.reviewReason === 'amount_mismatch' &&
-      order.amountVnd !== null
-        ? await this.planCodeForAmount(order.amountVnd)
-        : order.planCode;
+    // The order keeps the plan it was created for even while an earlier
+    // transfer for it is in review, and this transfer paid exactly its price.
+    const planCode = order.planCode;
     const plan = planCode ? await this.plans.get(planCode) : undefined;
     if (!plan || (plan.kind !== 'topup' && plan.kind !== 'pass')) {
       // The order was created from this plan; losing it is a deploy fault, and
@@ -137,7 +131,9 @@ export class SepayWebhookHandler {
     const granted = await this.ledger.grant(grant, tx);
     if (grant.expiresAt)
       await extendPass(tx, order.userId, now, grant.expiresAt);
-    await settleSepayOrder(tx, order, transfer, ref, now);
+    await settleSepayOrder(tx, order, transfer, ref, now, (amount) =>
+      this.planCodeForAmount(amount),
+    );
     const late =
       decision.lateBySeconds > 0
         ? ` late by ${decision.lateBySeconds}s after the order expired`
@@ -174,11 +170,7 @@ export class SepayWebhookHandler {
    * The SePay plan priced at exactly this amount, so the owner can grant an
    * unmatched transfer with `credits:resolve-payment` without naming a plan.
    */
-  private async planCodeForAmount(amountVnd: number): Promise<string | null> {
-    const plans = await this.plans.active();
-    return (
-      plans.find((plan) => plan.sepay && plan.priceVnd === amountVnd)?.code ??
-      null
-    );
+  private planCodeForAmount(amountVnd: number): Promise<string | null> {
+    return this.plans.sepayPlanCodeForAmount(amountVnd);
   }
 }

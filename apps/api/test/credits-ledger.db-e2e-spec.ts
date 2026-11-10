@@ -502,8 +502,13 @@ describe('credit ledger (db-e2e)', () => {
         },
       });
     const toGrant = await order('g', '1');
+    // 120,000đ buys no plan, so the owner names the one they are granting.
+    await expect(admin.resolvePayment(toGrant.id, 'grant')).rejects.toThrow(
+      /names no plan/,
+    );
     const granted = await admin.resolvePayment(toGrant.id, 'grant', {
       note: 'customer confirmed',
+      planCode: 'topup_250',
     });
     expect(granted).toMatchObject({ state: 'granted', userId });
     const grant = await prisma.creditGrant.findUniqueOrThrow({

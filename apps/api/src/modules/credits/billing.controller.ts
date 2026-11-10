@@ -32,6 +32,7 @@ import {
   LedgerUnavailableError,
   type CreditLedgerPort,
 } from './credit-ledger.port';
+import { isLedgerUnavailable } from './ledger-transaction';
 import { CreditUsageReader } from './credit-usage.reader';
 import { CheckoutAllowlist } from './payments/checkout-allowlist';
 import type { PaymentProvider } from './payments/payment-provider';
@@ -105,7 +106,7 @@ export class BillingController {
     const userId = req.auth!.userId;
     const [balance, checkoutAllowed] = await Promise.all([
       this.withLedger(() => this.ledger.balance(userId)),
-      this.allowlist.allowsUser(userId),
+      this.withLedger(() => this.allowlist.allowsUser(userId)),
     ]);
     return {
       totalCredits: creditsFromSeconds(
@@ -149,7 +150,9 @@ export class BillingController {
     try {
       return await fn();
     } catch (err) {
-      if (err instanceof LedgerUnavailableError) {
+      // The allowlist's account read runs on plain Prisma, so a database that
+      // cannot be reached reaches here unmapped.
+      if (err instanceof LedgerUnavailableError || isLedgerUnavailable(err)) {
         throw new ServiceUnavailableException(
           'Credits could not be read right now',
         );
