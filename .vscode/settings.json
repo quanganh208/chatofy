@@ -28,6 +28,12 @@
   // Imports
   "typescript.preferences.importModuleSpecifier": "non-relative",
 
+  // Gradle — no auto-import. The Java and Gradle extensions otherwise treat every
+  // library's android/ folder under .pnpm as a project: opening this repo ran 231
+  // builds, 213 of them failed, and the daemons held about 7 GB of RAM.
+  "gradle.autoDetect": "off",
+  "java.import.gradle.enabled": false,
+
   // Hide build/cache artifacts from the file explorer
   "files.exclude": {
     "**/.turbo": true,

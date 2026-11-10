@@ -1,0 +1,318 @@
+{
+  "run": "261108-screen-cc-ds-v4-flash-fast",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 36.26193812100257,
+        "sd": 0.0,
+        "min": 36.26193812100257,
+        "max": 36.26193812100257,
+        "per_repeat": [36.26193812100257]
+      },
+      "chrf": {
+        "mean": 30.0307418952678,
+        "sd": 0.0,
+        "min": 30.0307418952678,
+        "max": 30.0307418952678,
+        "per_repeat": [30.0307418952678]
+      },
+      "comet": {
+        "mean": 0.866206693649292,
+        "sd": 0.0,
+        "min": 0.866206693649292,
+        "max": 0.866206693649292,
+        "per_repeat": [0.866206693649292]
+      },
+      "latency_ms": {
+        "total_p50": 614.0,
+        "total_p95": 1010.2499999999999,
+        "ttft_p50": 460.0,
+        "ttft_p95": 848.6499999999997,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27661,
+        "out": 1029,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 50.051968765353436,
+        "sd": 0.0,
+        "min": 50.051968765353436,
+        "max": 50.051968765353436,
+        "per_repeat": [50.051968765353436]
+      },
+      "chrf": {
+        "mean": 50.37645563888965,
+        "sd": 0.0,
+        "min": 50.37645563888965,
+        "max": 50.37645563888965,
+        "per_repeat": [50.37645563888965]
+      },
+      "comet": {
+        "mean": 0.8756737917661667,
+        "sd": 0.0,
+        "min": 0.8756737917661667,
+        "max": 0.8756737917661667,
+        "per_repeat": [0.8756737917661667]
+      },
+      "latency_ms": {
+        "total_p50": 797.0,
+        "total_p95": 1150.75,
+        "ttft_p50": 466.5,
+        "ttft_p95": 639.8499999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25367,
+        "out": 2482,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 47.226084758161335,
+        "sd": 0.0,
+        "min": 47.226084758161335,
+        "max": 47.226084758161335,
+        "per_repeat": [47.226084758161335]
+      },
+      "chrf": {
+        "mean": 41.3053620045694,
+        "sd": 0.0,
+        "min": 41.3053620045694,
+        "max": 41.3053620045694,
+        "per_repeat": [41.3053620045694]
+      },
+      "comet": {
+        "mean": 0.8838879436254501,
+        "sd": 0.0,
+        "min": 0.8838879436254501,
+        "max": 0.8838879436254501,
+        "per_repeat": [0.8838879436254501]
+      },
+      "latency_ms": {
+        "total_p50": 633.5,
+        "total_p95": 950.1999999999999,
+        "ttft_p50": 450.0,
+        "ttft_p95": 624.6999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22203,
+        "out": 1028,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1693,
+            "repeat": 1,
+            "hyp": "但是在失去队长这个 wicket 之后，印度队只拿到了 36 分，又丢了 7 个 wicket，结束了这一局。",
+            "ref": "但在队长输掉三柱门后，印度在结束这一局的比赛时只得了 36 分，输掉 7 个三柱门。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 57.98713158554736,
+        "sd": 0.0,
+        "min": 57.98713158554736,
+        "max": 57.98713158554736,
+        "per_repeat": [57.98713158554736]
+      },
+      "chrf": {
+        "mean": 60.85221550899268,
+        "sd": 0.0,
+        "min": 60.85221550899268,
+        "max": 60.85221550899268,
+        "per_repeat": [60.85221550899268]
+      },
+      "comet": {
+        "mean": 0.8737919300794601,
+        "sd": 0.0,
+        "min": 0.8737919300794601,
+        "max": 0.8737919300794601,
+        "per_repeat": [0.8737919300794601]
+      },
+      "latency_ms": {
+        "total_p50": 588.5,
+        "total_p95": 901.6999999999978,
+        "ttft_p50": 455.5,
+        "ttft_p95": 700.9499999999988,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25367,
+        "out": 1184,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 60.479174589721275,
+        "sd": 0.0,
+        "min": 60.479174589721275,
+        "max": 60.479174589721275,
+        "per_repeat": [60.479174589721275]
+      },
+      "chrf": {
+        "mean": 62.67089270811326,
+        "sd": 0.0,
+        "min": 62.67089270811326,
+        "max": 62.67089270811326,
+        "per_repeat": [62.67089270811326]
+      },
+      "comet": {
+        "mean": 0.8790487825870514,
+        "sd": 0.0,
+        "min": 0.8790487825870514,
+        "max": 0.8790487825870514,
+        "per_repeat": [0.8790487825870514]
+      },
+      "latency_ms": {
+        "total_p50": 582.5,
+        "total_p95": 821.4,
+        "ttft_p50": 449.5,
+        "ttft_p95": 684.6999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27501,
+        "out": 1168,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.58002805641011,
+        "sd": 0.0,
+        "min": 58.58002805641011,
+        "max": 58.58002805641011,
+        "per_repeat": [58.58002805641011]
+      },
+      "chrf": {
+        "mean": 58.592280759111695,
+        "sd": 0.0,
+        "min": 58.592280759111695,
+        "max": 58.592280759111695,
+        "per_repeat": [58.592280759111695]
+      },
+      "comet": {
+        "mean": 0.8889195054769516,
+        "sd": 0.0,
+        "min": 0.8889195054769516,
+        "max": 0.8889195054769516,
+        "per_repeat": [0.8889195054769516]
+      },
+      "latency_ms": {
+        "total_p50": 760.5,
+        "total_p95": 1116.2,
+        "ttft_p50": 453.0,
+        "ttft_p95": 668.4999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22043,
+        "out": 2352,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8839841440320015,
+    "threshold": 0.8539841440320015,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 150142,
+    "out": 9243,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.056134199999999995,
+      "per_1000_requests": 0.23389249999999998
+    },
+    "offpeak": {
+      "run_total": 0.028067099999999998,
+      "per_1000_requests": 0.11694624999999999
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}
