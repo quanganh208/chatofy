@@ -415,6 +415,25 @@ is ever wrong.
 `sessionOptions.voices` carries a voice token per language; a language without
 one falls back to `voice`, then to the gender voice.
 
+`sessionOptions.voiceByLanguage` goes further: per language, `{ speak, speed,
+gender, voice }`, each field optional and caught on its own (a bad map reads as
+absent, never a refused start). The server resolves every field per language —
+map entry, then the flat field (`voiceOutput`, `speed`, `voiceGender`,
+`voices`/`voice`), then its default — in `session/language-voice.ts`, so mobile,
+the extension and meeting legs, which send only flat fields, run unchanged. A
+muted language is never synthesized and its TTS outage refuses nothing. The web
+client sends both shapes, the flat fields read off the language a declared turn
+speaks. Volume is per language too but client-only: a turn whose language is
+decided per turn now tags its `server.audio.frame`s with `lang`, and the web
+player routes each frame to that language's gain stage. The flat `voice` is
+only ever the declared target's token, never handed to a two-way reply spoken in
+the source.
+
+Deploy the API before the web: an older API reads only the flat fields, so
+muting the two-way target alone would mute both sides there. A web rollback to a
+build before this reads the stored settings (version 4) as defaults — voice on,
+volume 1 — until the reader changes them again.
+
 **Stored conversations.** A detect conversation saves
 `detectConversationLanguages(target)` (target first, then every other registry
 language) and is recognised by `isAutoDetectConversation` (more than two
@@ -423,6 +442,7 @@ declared one.
 
 **Wire fields added**, all optional so an older peer on either side still
 parses: `sessionOptions.twoWay`, `sessionOptions.voices`,
+`sessionOptions.voiceByLanguage`,
 `server.session.ready.mode`/`modeReason` (absent reads as `declared`),
 `language` on `server.transcript.partial`/`.delta` (present only once a decided
 turn has locked), and `server.error.detail`. The sidecar side (`candidates`,

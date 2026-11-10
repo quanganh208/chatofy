@@ -45,6 +45,12 @@ and voice into three costs 6.
 - **Admission is priced high and the turn is priced right.** The start check uses the
   multiplier of every requested target. The settle uses the extra targets that `start()`
   actually ran.
+- **A muted language bills captions.** Voice is per language
+  (`sessionOptions.voiceByLanguage`). Admission counts a start as voiced when ANY
+  language it may speak is unmuted, since a two-way turn's language is known only once
+  heard; at settle, a turn whose every voiced language was muted is repriced down to the
+  caption rate (`TranslationMeter.repriceTurn`, which only ever lowers). A start with
+  every language muted is priced as captions from the start.
 
 The plans are rows in the `Plan` table, seeded by
 `apps/api/prisma/migrations/20261109114047_add_credits_ledger/migration.sql`. That table
