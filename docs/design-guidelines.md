@@ -715,6 +715,14 @@ which leaves the resting angle (an inline transform) in place from the first fra
 `lotus-illustration.spec.tsx` asserts the pairing, and the Chromium check above finds
 zero animating elements on `/` under reduced motion.
 
+**One response on `/translate`: the language swap.** The two sheets — the side you
+speak into on `card`, the side you read on `muted` — trade places like cards when the
+swap is pressed: one lifts over, the other dips under, each sheet's ground eases into
+the colour of the side it lands on, and the swap icon turns half a turn. FLIP on the Web
+Animations API, `duration.slow` on `easing.standard` (`translate/language-shuffle.ts`).
+It never runs beside a translation being read, because the swap is disabled while a
+conversation runs, and it is skipped under reduced motion (`language-shuffle.spec.ts`).
+
 ## Copy register
 
 What the product may say out loud. The rule: **name the wait, the outcome, or the
@@ -882,6 +890,7 @@ dictionary, which is the argument for keeping that number at zero.
 | `/glossary` list failed to load                        | `glossary/glossary-list-panel.tsx:68` — `role="alert"` plus Try again, wired to `use-glossaries.ts:88` `retry`                                                                                                                                                       |
 | `/glossary` list empty                                 | `glossary/glossary-list-panel.tsx:79` — icon, bold title, one sentence, the same shape as History                                                                                                                                                                    |
 | `/translate` empty panes                               | `translate/conversation-transcript.tsx:268` — one sentence per pane and nothing to press; the dock's Start is the only way to begin; guarded by `conversation-transcript.spec.tsx`                                                                                   |
+| `/translate` the pair as two sheets                    | `translate/transcript-panes.tsx:210` — each side its own hairline sheet, source on `card`, translation on `muted`, `--reading-bg` overriding both; no divider; one sheet in `list`; guarded by `transcript-panes.spec.tsx`                                           |
 | content page, header                                   | `layout/app-chrome.tsx:165` `PageHeader` — display-face h1, a dawn bar and a line on what the page is for, on History, Glossary, Preferences and Account; the topbar keeps the name as plain text there (`layout/app-topbar.tsx`)                                    |
 | content page, measure                                  | `layout/measures.ts` `page` (`max-w-6xl`) for headed pages and `/conference`; a stored conversation and the workspace keep their own                                                                                                                                 |
 | `/history` list at `lg`                                | `history/history-list.tsx:133` — cards in two columns; one column below `lg`                                                                                                                                                                                         |

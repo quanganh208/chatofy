@@ -421,8 +421,8 @@ export function CascadePanel({
           it is about the attempt just made. */}
       {running || conversation.error ? null : <ReadinessBanner />}
 
-      {/* No elevation. The pair is separated from the page by a hairline and by
-          the divider down its middle; a shadow here would make the conversation
+      {/* No elevation. Each side is its own sheet with a hairline and its own
+          ground (`transcript-panes.tsx`); a shadow here would make the conversation
           an object sitting on the screen rather than the screen itself.
 
           **This is where the transcript stops growing the page.** The maximum is
@@ -455,8 +455,9 @@ export function CascadePanel({
       <section
         ref={attachFullscreen}
         className={cn(
-          'border-hairline relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border',
-          fullscreenActive && 'rounded-none border-0',
+          // No frame of its own: the panes draw their own sheets (`transcript-panes.tsx`).
+          'relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col',
+          fullscreenActive && 'bg-background',
           fullscreenEmulated && 'fixed inset-0 z-50 max-h-none',
         )}
       >

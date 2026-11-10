@@ -385,7 +385,7 @@ export function LanguagePairSwap({
         className,
       )}
     >
-      <ArrowLeftRight aria-hidden className="size-3.5" />
+      <ArrowLeftRight aria-hidden data-shuffle-icon className="size-3.5" />
     </Button>
   );
 }

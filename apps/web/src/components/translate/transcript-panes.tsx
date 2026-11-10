@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps } from 'react';
+import { useCallback, useLayoutEffect, useRef, type ComponentProps } from 'react';
 import type { SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,11 @@ import {
   SourceHeaderLanguage,
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
+import {
+  captureShuffle,
+  playShuffle,
+  type ShuffleSnapshot,
+} from '@/components/translate/language-shuffle';
 import {
   effectiveStageAppearance,
   pairFor,
@@ -155,6 +160,21 @@ export function TranscriptPanes({
   const languagePair = pairFor(settings, conversationMode);
   const turnPair = conversationLanguagePair ?? languagePair;
 
+  // The swap, animated as two cards trading places — see `language-shuffle.ts`.
+  // Measured on the click, before the pair changes, and played in the layout effect
+  // after it has, so the first painted frame already shows each card where it was.
+  const frame = useRef<HTMLDivElement>(null);
+  const shuffle = useRef<ShuffleSnapshot | null>(null);
+  const shuffleThenSwap = useCallback(() => {
+    shuffle.current = captureShuffle(frame.current);
+    onSwap?.();
+  }, [onSwap]);
+  useLayoutEffect(() => {
+    if (!shuffle.current) return;
+    playShuffle(frame.current, shuffle.current);
+    shuffle.current = null;
+  }, [languagePair.source, languagePair.target]);
+
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
 
@@ -188,8 +208,23 @@ export function TranscriptPanes({
   );
 
   if (split) {
+    // Two sheets rather than one box cut down the middle: each side is its own
+    // region, on its own ground — the side you speak into on `card`, the side you
+    // read on `muted` — so which is which reads before any word does. A reader who
+    // picked their own background keeps it on both (`--reading-bg`, set by
+    // `readingStyle` on the frame below). Hairline and no shadow: regions on the
+    // page ground, not elevated cards (`design/surface-count.ts`).
+    //
+    // `data-shuffle-card` names the language each sheet holds, so a swap can fly
+    // the two sheets into each other's places — see `language-shuffle.ts`.
+    const sheet =
+      'reading-frame border-hairline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border';
     const source = (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        data-shuffle-card={languagePair.source}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--card))' }}
+      >
         <PanelHeader
           role={t('web.translate.languagePairSource')}
           hint={<LanguageModeHint mode={languageMode} />}
@@ -206,7 +241,7 @@ export function TranscriptPanes({
               <LanguagePairSwap
                 languagePair={languagePair}
                 running={running}
-                onSwap={onSwap}
+                onSwap={shuffleThenSwap}
                 // Side by side the swap sits on the seam between the two languages (below);
                 // stacked, it has no seam and stays in this header.
                 className={column ? undefined : 'sm:hidden'}
@@ -218,7 +253,11 @@ export function TranscriptPanes({
       </div>
     );
     const target = (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        data-shuffle-card={languagePair.target}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--muted))' }}
+      >
         <PanelHeader
           role={t('web.translate.languagePairTarget')}
           language={
@@ -238,8 +277,9 @@ export function TranscriptPanes({
 
     return (
       <div
+        ref={frame}
         className={cn(
-          'reading-frame relative flex min-h-0 flex-1',
+          'relative flex min-h-0 flex-1 gap-3',
           scheme,
           // One column below `sm` and two above it for `row`, in CSS rather than
           // in JavaScript: a `matchMedia` fork would render one thing on the
@@ -249,20 +289,15 @@ export function TranscriptPanes({
         )}
         style={scale}
       >
-        {/* The divider, only where there is a seam to mark: side by side, on a
-            viewport wide enough to actually be side by side. Stacked panes are
-            separated by their own headers' rules. */}
-        {column ? null : (
-          <div
-            aria-hidden
-            className="bg-hairline absolute inset-y-0 left-1/2 hidden w-px sm:block"
-          />
-        )}
-        {/* The swap between the two languages, on the seam: the pair reads
-            Source ⇄ Target left to right. */}
+        {/* The swap between the two languages, in the gap between the sheets: the
+            pair reads Source ⇄ Target left to right. */}
         {column || !onSwap ? null : (
           <div className="absolute top-[38px] left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 sm:block">
-            <LanguagePairSwap languagePair={languagePair} running={running} onSwap={onSwap} />
+            <LanguagePairSwap
+              languagePair={languagePair}
+              running={running}
+              onSwap={shuffleThenSwap}
+            />
           </div>
         )}
         {source}
@@ -272,11 +307,18 @@ export function TranscriptPanes({
   }
 
   return (
-    <div className={cn('reading-frame flex min-h-0 flex-1 flex-col', scheme)} style={scale}>
+    <div
+      ref={frame}
+      className={cn(
+        'reading-frame border-hairline flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border',
+        scheme,
+      )}
+      style={scale}
+    >
       <PanelHeaders
         languagePair={languagePair}
         running={running}
-        onSwap={onSwap}
+        onSwap={onSwap ? shuffleThenSwap : undefined}
         onLanguagePair={onLanguagePair}
         conversationMode={conversationMode}
         mode={languageMode}
