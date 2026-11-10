@@ -64,14 +64,14 @@ describe('useTranslateSettings', () => {
   it('reports stored settings once ready', () => {
     localStorage.setItem(
       TRANSLATE_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, volume: 0.25 }),
+      JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, textSize: 3 }),
     );
     mount();
     // A non-hydrating mount has no server output to agree with, so it is ready on
     // its first render. Hydration holds the stored value back until the render
     // after, which is what keeps server and client output the same.
     expect(latest.ready).toBe(true);
-    expect(latest.settings.volume).toBe(0.25);
+    expect(latest.settings.textSize).toBe(3);
   });
 
   it('collapses a burst of changes into ONE write', () => {
@@ -80,21 +80,21 @@ describe('useTranslateSettings', () => {
 
     // Stands in for a drag: many changes well inside the debounce window.
     act(() => {
-      for (let step = 1; step <= 10; step += 1) latest.set({ volume: step / 10 });
+      for (let step = 1; step <= 10; step += 1) latest.set({ textSize: step });
     });
     expect(setItem).not.toHaveBeenCalled();
 
     act(() => void vi.advanceTimersByTime(500));
     expect(setItem).toHaveBeenCalledTimes(1);
-    expect(latest.settings.volume).toBe(1);
+    expect(latest.settings.textSize).toBe(10);
   });
 
   it('exposes each change immediately even though the write is deferred', () => {
     mount();
-    act(() => latest.set({ voiceOutput: false }));
+    act(() => latest.set({ freeScroll: true }));
     // State and the reader are both current; only persistence waits.
-    expect(latest.settings.voiceOutput).toBe(false);
-    expect(latest.current().voiceOutput).toBe(false);
+    expect(latest.settings.freeScroll).toBe(true);
+    expect(latest.current().freeScroll).toBe(true);
   });
 
   it('writes what the ref holds, not what the timer captured', () => {
@@ -103,24 +103,24 @@ describe('useTranslateSettings', () => {
     // survive a reload.
     localStorage.setItem(
       TRANSLATE_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, voiceGender: 'male', volume: 0.3 }),
+      JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, speakerLabels: false, textSize: 3 }),
     );
     mount();
 
-    act(() => latest.set({ volume: 0.9 }));
+    act(() => latest.set({ textSize: 9 }));
     act(() => void vi.advanceTimersByTime(500));
 
     const written = JSON.parse(
       localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY) ?? '{}',
     ) as Record<string, unknown>;
     // The patched field changed; the stored field it never touched survived.
-    expect(written.volume).toBe(0.9);
-    expect(written.voiceGender).toBe('male');
+    expect(written.textSize).toBe(9);
+    expect(written.speakerLabels).toBe(false);
   });
 
   it('flushes a pending write on unmount', () => {
     mount();
-    act(() => latest.set({ volume: 0.5 }));
+    act(() => latest.set({ textSize: 5 }));
 
     const setItem = vi.spyOn(localStorage, 'setItem');
     act(() => root.unmount());
@@ -134,15 +134,15 @@ describe('useTranslateSettings', () => {
     // React cleanup does not run on a tab close or reload, so the debounce window
     // would otherwise be a window in which a change is simply lost.
     mount();
-    act(() => latest.set({ volume: 0.7 }));
+    act(() => latest.set({ textSize: 7 }));
 
     const setItem = vi.spyOn(localStorage, 'setItem');
     act(() => void window.dispatchEvent(new Event('pagehide')));
     expect(setItem).toHaveBeenCalledTimes(1);
     const written = JSON.parse(localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY) ?? '{}') as {
-      volume?: number;
+      textSize?: number;
     };
-    expect(written.volume).toBe(0.7);
+    expect(written.textSize).toBe(7);
   });
 
   it('does not write when nothing is pending', () => {

@@ -168,6 +168,7 @@ const { default: ConferenceLobbyPage } = await import('../../app/(app)/conferenc
 const { default: ConferenceEndedPage } =
   await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
   await import('@/lib/translate-settings');
 
@@ -1071,14 +1072,8 @@ const SCREENS: ScreenState[] = [
     // The same screen with a backend that actually answers: the picker lists
     // voices instead of saying there are none.
     //
-    // en→zh deliberately, and it is load-bearing rather than decorative.
-    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
-    // the life of the tab — so a second row asking for English would be handed the
-    // empty answer the row above cached, and a fixture that cannot change what it
-    // renders proves nothing. It was en→vi until the default pair started asking
-    // for both ways, which lists Vietnamese voices too and cached that key empty
-    // as well. Chinese is a key nothing else in this table asks for, and a pair
-    // with it stays one way, so this panel asks for Chinese alone.
+    // Every row starts with no cached catalog (`show` forgets them), so this
+    // row's answer is what the panels list.
     name: '/preferences — voices listed',
     filled: 0,
     surfaces: 2,
@@ -1217,18 +1212,12 @@ const SCREENS: ScreenState[] = [
     // dock. One surface — the popover — because `/translate` before a conversation
     // starts draws none of its own, and one accent, which is still Start behind it.
     //
-    // en→zh for the same reason the `/preferences — voices listed` row gives:
-    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
-    // the life of the file, and English and Vietnamese were cached EMPTY by the
-    // rows above. Asking for either here handed `VoicePicker` an empty catalog,
-    // which is its render-nothing case — so this row mounted an empty popover
-    // while being named for a full one, and the counts matched either way. `shows`
-    // is what keeps it honest: the voice Select exists only when there are voices
-    // to list.
+    // `shows` keeps it honest: the voice Select exists only when the catalog
+    // answered with voices, so an empty popover cannot pass for a full one.
     name: '/translate/one-way — voice settings open',
     filled: 1,
     surfaces: 1,
-    open: 'button[aria-label^="Voice settings"]',
+    open: 'button[data-voice-language="zh"]',
     shows: '[data-slot="popover-content"] [data-slot="select-trigger"]',
     setup() {
       useStreamingTranslate.mockReturnValue(conversation());
@@ -1241,6 +1230,27 @@ const SCREENS: ScreenState[] = [
       listVoices.mockResolvedValue({ voices: VOICES });
     },
     render: translate({ languagePair: { source: 'en', target: 'zh' } }),
+  },
+  {
+    // The two-way page's SECOND voice trigger, the one on the source header: each
+    // language opens its own popover now, so the screen gains a control, and it
+    // must spend no accent and add no surface beyond the popover itself.
+    name: '/translate/two-way — source voice settings open',
+    filled: 1,
+    surfaces: 1,
+    open: 'button[data-voice-language="vi"]',
+    shows: '[data-slot="popover-content"] [data-slot="select-trigger"]',
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+      listVoices.mockResolvedValue({ voices: VOICES });
+    },
+    render: twoWay({ twoWayPair: { source: 'vi', target: 'en' } }),
   },
   {
     // A context selected, with the picker CLOSED. An open `Select` renders its
@@ -1622,6 +1632,9 @@ async function mount(element: React.ReactElement): Promise<void> {
  * apart.
  */
 async function show(screen: ScreenState): Promise<void> {
+  // Each row is its own backend: a catalog an earlier row cached must not
+  // answer for this one — `/preferences` asks for every language at once.
+  forgetVoiceCatalogs();
   screen.setup();
   await mount(screen.render());
 

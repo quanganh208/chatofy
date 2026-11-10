@@ -8,6 +8,7 @@ import { CascadePanel } from './cascade-panel';
 import { LocaleProvider } from '@/i18n/provider';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
+  languageVoicePatch,
   type ConversationMode,
   type TranslateSettings,
 } from '@/lib/translate-settings';
@@ -902,37 +903,55 @@ describe('CascadePanel two-way and auto-detect', () => {
       .calls[0]?.[0];
   }
 
-  const VOICE_PER_LANGUAGE = { vi: 'vi-voice', en: 'en-voice' };
+  /** The defaults with a voice token and a speak flag per language. */
+  const voices = (
+    tokens: Partial<Record<'vi' | 'en' | 'zh', string>>,
+    muted: ReadonlyArray<'vi' | 'en' | 'zh'> = [],
+  ): Pick<TranslateSettings, 'voiceByLanguage'> => {
+    let next: Pick<TranslateSettings, 'voiceByLanguage'> = DEFAULT_TRANSLATE_SETTINGS;
+    for (const [language, voice] of Object.entries(tokens)) {
+      next = languageVoicePatch(next, language as 'vi' | 'en' | 'zh', { voice });
+    }
+    for (const language of muted) next = languageVoicePatch(next, language, { speak: false });
+    return next;
+  };
 
-  it('speaks a reversed turn with the voice chosen for its language', async () => {
-    await mount({ twoWayPair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+  it('sends each language of a two-way pair its own setup', async () => {
+    await mount({
+      twoWayPair: { source: 'vi', target: 'en' },
+      ...voices({ vi: 'vi-voice', en: 'en-voice' }, ['vi']),
+    });
     const options = pressStart();
     // A turn heard in English is answered in Vietnamese, so the map must carry
-    // the Vietnamese voice — the one `voice` alone could never name.
-    expect(options?.voices).toEqual(VOICE_PER_LANGUAGE);
-    expect((options?.voices as Record<string, string>).vi).toBe('vi-voice');
-    // The target's own voice still rides, for a start the server runs one way.
+    // the Vietnamese setup — muted here, so the server speaks no Vietnamese.
+    expect(options?.voiceByLanguage).toMatchObject({
+      vi: { speak: false, voice: 'vi-voice' },
+      en: { speak: true, voice: 'en-voice' },
+    });
+    // The target's own voice still rides flat, for an API older than the map.
     expect(options?.voice).toBe('en-voice');
+    expect(options?.voiceOutput).toBe(true);
   });
 
-  it('sends the voice map for an auto-detected source too', async () => {
+  it('sends an auto-detected start only its target’s setup', async () => {
     await mount(
-      { languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE },
+      { languagePair: { source: 'detect', target: 'en' }, ...voices({ en: 'en-voice' }) },
       {},
       'one-way',
     );
-    expect(pressStart()?.voices).toEqual(VOICE_PER_LANGUAGE);
+    expect(Object.keys(pressStart()?.voiceByLanguage as object)).toEqual(['en']);
   });
 
-  it('keeps a pair it cannot identify on the one voice it always sent', async () => {
+  it('sends a one-way start its target’s setup, flat and mapped', async () => {
     await mount(
-      { languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } },
+      { languagePair: { source: 'vi', target: 'zh' }, ...voices({ zh: 'zh-voice' }, ['zh']) },
       {},
       'one-way',
     );
     const options = pressStart();
     expect(options?.voice).toBe('zh-voice');
-    expect(options).not.toHaveProperty('voices');
+    expect(options?.voiceOutput).toBe(false);
+    expect(Object.keys(options?.voiceByLanguage as object)).toEqual(['zh']);
   });
 
   it('shows one-way when the server answers declared for a two-way start', async () => {

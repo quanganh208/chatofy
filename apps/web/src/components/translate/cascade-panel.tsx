@@ -12,11 +12,11 @@ import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popo
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { SessionActions, SessionReadouts } from '@/components/translate/session-controls';
 import { Alert, AlertDescription, Button } from '@chatofy/ui/react';
-import { AUTO_DETECT, languagePairOf, reversePair } from '@chatofy/types';
+import { AUTO_DETECT, languagePairOf, reversePair, type LanguageCode } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import {
-  asksTwoWay,
-  chosenVoices,
+  sessionVoiceOptions,
+  spokenLanguagesOf,
   pairFor,
   pairPatchFor,
   type ConversationMode,
@@ -110,7 +110,8 @@ interface CascadePanelProps {
   settings: TranslateSettings;
   onChange: (patch: Partial<TranslateSettings>) => void;
   /** Reader for the saved volume — see `useStreamingTranslate`. */
-  getVolume: () => number;
+  /** One language's playback volume, or the untagged (one-way) stage's when absent. */
+  getVolume: (language?: LanguageCode) => number;
 }
 
 export function CascadePanel({
@@ -156,11 +157,18 @@ export function CascadePanel({
   } = useFullscreen<HTMLElement>();
   const captionWindow = useCaptionWindow(t('web.translate.captionWindowTitle'));
   // Stable, so the session built on first render keeps reading the live value.
-  const readVolume = useCallback(() => getVolume(), [getVolume]);
+  const readVolume = useCallback((language?: LanguageCode) => getVolume(language), [getVolume]);
   // Read at start through the hook's ref, so the latest saved choice applies to
   // the next conversation and never to the one running.
   const readMicProcessing = useCallback(() => settings.micProcessing, [settings.micProcessing]);
   const conversation = useStreamingTranslate(readVolume, readMicProcessing);
+  // A language's volume, straight to its gain stage. The untagged stage — a
+  // one-way turn's frames — speaks the target, so the target's slider moves it
+  // too.
+  const setLanguageVolume = (volume: number, language: LanguageCode) => {
+    conversation.setVolume(volume, language);
+    if (language === pairFor(settings, conversationMode).target) conversation.setVolume(volume);
+  };
 
   // Paused is a RUNNING state. Everything gated on `running` — the save that
   // fires on its falling edge above all — must not fire when the microphone goes
@@ -295,10 +303,9 @@ export function CascadePanel({
   const canGenerate = save.saved && conversationTurns.length > 0;
 
   const nameLanguage = languageNamer(t);
-  // Whether a start from the CURRENT settings would have its spoken language
-  // decided per turn — both ways, or auto-detected.
-  const identifiesTurns =
-    languagePair.source === AUTO_DETECT || asksTwoWay(languagePair, conversationMode);
+  // What a start from the current settings may speak, target first: both sides
+  // of a two-way pair, the target of anything else.
+  const spokenLanguages = spokenLanguagesOf(languagePair, conversationMode);
   // Asked for both ways, answered one way: the pair it runs in, or null. Read
   // off the newest turn's answer, and only while running — the answer belongs
   // to the conversation in progress.
@@ -323,22 +330,11 @@ export function CascadePanel({
     void conversation.start({
       languagePair,
       mode: conversationMode,
-      voiceGender: settings.voiceGender,
-      voiceOutput: settings.voiceOutput,
-      // Sent regardless of the pair. The server hands it to whichever
-      // engine speaks the output language, and the one without a rate
-      // control ignores it — the UI disables the picker there so the
-      // choice is never silently inert, but the value itself is honest.
-      speed: settings.speed,
-      // The target's token, for the language a declared turn speaks —
-      // and what a two-way start the server runs one way falls back
-      // to. Settings keep one per language because the two engines
-      // share no vocabulary.
-      voice: settings.voice[languagePair.target],
-      // A start whose spoken language is decided per turn also
-      // carries the whole map, so a reply is read out in the voice
-      // chosen for ITS language rather than the target's.
-      ...(identifiesTurns ? { voices: chosenVoices(settings.voice) } : {}),
+      // Each language this start may speak, as that language's own setup:
+      // whether it is spoken, how fast, in which voice. The target leads, so the
+      // flat fields an older API reads describe the language a declared turn
+      // speaks.
+      ...sessionVoiceOptions(settings, spokenLanguages),
       // Always asked for; the server decides whether to answer. A
       // tab loaded before this field existed simply never asks, so
       // it is never sent an event its copy of the contract cannot
@@ -496,15 +492,15 @@ export function CascadePanel({
             onLanguagePair={setLanguagePair}
             // The voice belongs beside the panel it speaks for, not behind the gear
             // at the far end of the dock beside the page settings.
-            voiceControl={
+            voiceControlFor={(language) => (
               <VoiceSettingsPopover
                 settings={settings}
-                mode={conversationMode}
+                language={language}
                 running={running}
                 onChange={onChange}
-                onVolumeChange={conversation.setVolume}
+                onVolumeChange={setLanguageVolume}
               />
-            }
+            )}
             stream={stream}
           />
         )}

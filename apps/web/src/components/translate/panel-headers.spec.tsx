@@ -51,7 +51,11 @@ function render(
           onSwap={onSwap}
           onLanguagePair={onLanguagePair}
           conversationMode="two-way"
-          voiceControl={<button type="button">voice slot</button>}
+          voiceControlFor={(language) => (
+            <button type="button" data-voice-language={language}>
+              voice slot
+            </button>
+          )}
           {...props}
         />
       </LocaleProvider>,
@@ -86,6 +90,13 @@ function offered(picker: HTMLButtonElement): string[] {
 
 function swap(): HTMLButtonElement | null {
   return container.querySelector<HTMLButtonElement>('button[aria-label^="Swap languages"]');
+}
+
+/** The language of every voice control on screen, in document order. */
+function voiceLanguages(): string[] {
+  return [...container.querySelectorAll<HTMLElement>('[data-voice-language]')].map(
+    (button) => button.dataset.voiceLanguage ?? '',
+  );
 }
 
 function slot(): HTMLButtonElement | null {
@@ -183,6 +194,16 @@ describe('PanelHeaders', () => {
     // object, and this component is about the two languages and the swap.
     render();
     expect(slot()).toBeTruthy();
+  });
+
+  it('gives each language of a two-way pair its own voice control, in its own header', () => {
+    render();
+    expect(voiceLanguages()).toEqual(['vi', 'en']);
+  });
+
+  it('gives a one-way source none: nothing is ever spoken in it', () => {
+    render({ conversationMode: 'one-way' });
+    expect(voiceLanguages()).toEqual(['en']);
   });
 
   it('leaves the voice control alone while running', () => {

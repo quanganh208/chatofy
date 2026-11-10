@@ -55,17 +55,24 @@ afterEach(() => {
   container.remove();
 });
 
-function render(overrides: Partial<TranslateSettings> = {}) {
+function render(
+  overrides: Partial<TranslateSettings> = {},
+  { conversationMode = 'one-way' }: { conversationMode?: 'one-way' | 'two-way' } = {},
+) {
   act(() => {
     root.render(
       <LocaleProvider>
         <TranscriptPanes
-          conversationMode="one-way"
+          conversationMode={conversationMode}
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onSwap={vi.fn()}
           onLanguagePair={vi.fn()}
-          voiceControl={<button type="button">voice slot</button>}
+          voiceControlFor={(language) => (
+            <button type="button" data-voice-language={language}>
+              voice slot
+            </button>
+          )}
           stream={{
             turns: TURNS,
             liveTurns: [],
@@ -168,6 +175,16 @@ describe('TranscriptPanes arrangements', () => {
     }
   });
 
+  it('puts the source language’s voice on the source sheet on the two-way page', () => {
+    render({ displayMode: 'split', paneLayout: 'row' }, { conversationMode: 'two-way' });
+    const sheets = [...container.querySelectorAll('[data-shuffle-card]')];
+    expect(
+      sheets.map(
+        (sheet) => sheet.querySelector<HTMLElement>('[data-voice-language]')?.dataset.voiceLanguage,
+      ),
+    ).toEqual(['vi', 'en']);
+  });
+
   it('draws a pair as two sheets on two grounds, and one stream as one sheet', () => {
     // Each side is its own region rather than one box cut down the middle, so there
     // is no divider; the sides are told apart by their grounds.
@@ -207,7 +224,11 @@ describe('TranscriptPanes and the conversation-captured language pair', () => {
             running={false}
             onSwap={vi.fn()}
             onLanguagePair={vi.fn()}
-            voiceControl={<button type="button">voice slot</button>}
+            voiceControlFor={(language) => (
+              <button type="button" data-voice-language={language}>
+                voice slot
+              </button>
+            )}
             conversationLanguagePair={{ source: 'vi', target: 'en' }}
             stream={{
               turns: TURNS,
@@ -254,7 +275,11 @@ describe('TranscriptPanes in a two-way conversation', () => {
             running
             onSwap={vi.fn()}
             onLanguagePair={vi.fn()}
-            voiceControl={<button type="button">voice slot</button>}
+            voiceControlFor={(language) => (
+              <button type="button" data-voice-language={language}>
+                voice slot
+              </button>
+            )}
             conversationLanguagePair={{ source: 'vi', target: 'en' }}
             languageMode="two-way"
             stream={{

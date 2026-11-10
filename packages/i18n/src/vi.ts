@@ -311,6 +311,7 @@ export const vi: Messages = {
   'web.translate.paneLayoutRow': 'Ngang',
   'web.translate.paneLayoutColumn': 'Dọc',
   'web.translate.voiceSettings': 'Cài đặt giọng đọc',
+  'web.translate.voiceSettingsFor': 'Giọng đọc {language}',
   'web.translate.displaySettings': 'Cài đặt hiển thị',
   'web.translate.fullscreen': 'Toàn màn hình',
   'web.translate.fullscreenExit': 'Thoát toàn màn hình',

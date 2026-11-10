@@ -373,6 +373,7 @@ export const en = {
   // which meant the icon at the bottom covered both the voice and the page layout
   // while the speaker in the panel header configured nothing.
   'web.translate.voiceSettings': 'Voice settings',
+  'web.translate.voiceSettingsFor': 'Voice for {language}',
   'web.translate.displaySettings': 'Display settings',
   // ---- fullscreen, the caption window, and the reader's appearance ----
   // One button opens the floating captions; it is called picture-in-picture

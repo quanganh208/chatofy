@@ -3,7 +3,7 @@
 import { Skeleton } from '@chatofy/ui/react';
 import { CascadePanel } from '@/components/translate/cascade-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
-import type { ConversationMode } from '@/lib/translate-settings';
+import { languageVoice, pairFor, type ConversationMode } from '@/lib/translate-settings';
 
 /**
  * The screen's geometry, before its settings are known.
@@ -86,7 +86,12 @@ export function TranslatePageBody({ conversationMode }: { conversationMode: Conv
       conversationMode={conversationMode}
       settings={settings}
       onChange={set}
-      getVolume={() => current().volume}
+      // Per language: a two-way reply's frames say which language they are in.
+      // An untagged frame belongs to a one-way turn, which speaks its target.
+      getVolume={(language) => {
+        const now = current();
+        return languageVoice(now, language ?? pairFor(now, conversationMode).target).volume;
+      }}
     />
   );
 }

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viMessages } from '@chatofy/i18n';
 import { DEFAULT_LANGUAGE_PAIR, LANGUAGE_CODES } from '@chatofy/types';
 import {
+  DEFAULT_LANGUAGE_VOICE,
   DEFAULT_STAGE_APPEARANCE,
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
@@ -15,11 +16,14 @@ import {
   asksTwoWay,
   canAutoDetectInto,
   effectiveStageAppearance,
+  languageVoicePatch,
   loadTranslateSettings,
   pairFor,
   pairPatchFor,
   representablePair,
   saveTranslateSettings,
+  sessionVoiceOptions,
+  spokenLanguagesOf,
   textSizeScale,
 } from './translate-settings';
 
@@ -47,7 +51,10 @@ describe('loadTranslateSettings', () => {
   });
 
   it('round-trips what was saved', () => {
-    const settings = { ...DEFAULT_TRANSLATE_SETTINGS, volume: 0.4, voiceOutput: false };
+    const settings = {
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'vi', { volume: 0.4, speak: false }),
+    };
     saveTranslateSettings(settings);
     expect(loadTranslateSettings()).toEqual(settings);
   });
@@ -57,8 +64,8 @@ describe('loadTranslateSettings', () => {
     // than as undefined, or every consumer needs its own fallback.
     store({ volume: 0.5 });
     const loaded = loadTranslateSettings();
-    expect(loaded.volume).toBe(0.5);
-    expect(loaded.voiceOutput).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceOutput);
+    expect(loaded.voiceByLanguage.en.volume).toBe(0.5);
+    expect(loaded.voiceByLanguage.en.speak).toBe(DEFAULT_LANGUAGE_VOICE.speak);
     expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
     expect(loaded.speakerLabels).toBe(DEFAULT_TRANSLATE_SETTINGS.speakerLabels);
     expect(loaded.textSize).toBe(DEFAULT_TRANSLATE_SETTINGS.textSize);
@@ -66,9 +73,9 @@ describe('loadTranslateSettings', () => {
 
   it('clamps a volume outside 0..1', () => {
     store({ volume: 4 });
-    expect(loadTranslateSettings().volume).toBe(1);
-    store({ volume: -2 });
-    expect(loadTranslateSettings().volume).toBe(0);
+    expect(loadTranslateSettings().voiceByLanguage.vi.volume).toBe(1);
+    store({ voiceByLanguage: { vi: { volume: -2 } }, version: 4 });
+    expect(loadTranslateSettings().voiceByLanguage.vi.volume).toBe(0);
   });
 
   it('snaps an in-range speed that is not one of the presets', () => {
@@ -76,42 +83,40 @@ describe('loadTranslateSettings', () => {
     // segmented control with no segment selected — a control that has lost its
     // value rather than one set to something unusual.
     store({ speed: 0.9 });
-    const snapped = loadTranslateSettings().speed;
+    const snapped = loadTranslateSettings().voiceByLanguage.en.speed;
     expect(SPEED_PRESETS).toContain(snapped);
     expect(snapped).toBe(1);
 
-    store({ speed: 1.3 });
-    expect(loadTranslateSettings().speed).toBe(1.25);
+    store({ voiceByLanguage: { en: { speed: 1.3 } }, version: 4 });
+    expect(loadTranslateSettings().voiceByLanguage.en.speed).toBe(1.25);
   });
 
   it('clamps a speed outside the accepted bounds before snapping', () => {
     store({ speed: 99 });
-    expect(loadTranslateSettings().speed).toBe(2);
+    expect(loadTranslateSettings().voiceByLanguage.en.speed).toBe(2);
     store({ speed: 0.1 });
-    expect(loadTranslateSettings().speed).toBe(0.5);
+    expect(loadTranslateSettings().voiceByLanguage.en.speed).toBe(0.5);
   });
 
-  it('drops a voice token longer than the wire cap', () => {
-    // The cap is chosen to match the wire field that phase 5 will add. It does not
-    // exist yet, so this bound is the client's own for now, not an agreement.
-    store({ voice: { en: 'x'.repeat(65), vi: 'Mai Anh' } });
-    const { voice } = loadTranslateSettings();
-    expect(voice.en).toBeUndefined();
-    expect(voice.vi).toBe('Mai Anh');
+  it('drops a voice token longer than the wire cap, and only that', () => {
+    store({ voice: { en: 'x'.repeat(65), vi: 'Mai Anh' }, speed: 1.5 });
+    const { voiceByLanguage } = loadTranslateSettings();
+    expect(voiceByLanguage.en.voice).toBeUndefined();
+    expect(voiceByLanguage.en.speed).toBe(1.5);
+    expect(voiceByLanguage.vi.voice).toBe('Mai Anh');
   });
 
-  it('generates one independent catch per registry language, not a shared one', () => {
-    // The voice schema is built from `LANGUAGE_CODES` with one reused schema
-    // instance rather than one written out per language — this is what proves
-    // that reuse still catches each field on its own, so an over-long token in
-    // one language cannot wipe a good token in another.
+  it('reads every language on its own: one bad setup never resets another', () => {
     for (const code of LANGUAGE_CODES) {
       const other = LANGUAGE_CODES.find((candidate) => candidate !== code);
       if (!other) continue;
-      store({ voice: { [code]: 'x'.repeat(65), [other]: 'Mai Anh' } });
-      const { voice } = loadTranslateSettings();
-      expect(voice[code]).toBeUndefined();
-      expect(voice[other]).toBe('Mai Anh');
+      store({
+        voiceByLanguage: { [code]: 'garbage', [other]: { speak: false, voice: 'Mai Anh' } },
+        version: 4,
+      });
+      const { voiceByLanguage } = loadTranslateSettings();
+      expect(voiceByLanguage[code]).toEqual(DEFAULT_LANGUAGE_VOICE);
+      expect(voiceByLanguage[other]).toMatchObject({ speak: false, voice: 'Mai Anh' });
     }
   });
 
@@ -120,7 +125,38 @@ describe('loadTranslateSettings', () => {
     // Bounding is this layer's whole job — reconciliation happens at the point of
     // use, once the catalog has resolved.
     store({ voice: { en: 'a-voice-this-build-never-heard-of' } });
-    expect(loadTranslateSettings().voice.en).toBe('a-voice-this-build-never-heard-of');
+    expect(loadTranslateSettings().voiceByLanguage.en.voice).toBe(
+      'a-voice-this-build-never-heard-of',
+    );
+  });
+
+  /**
+   * v4: one voice for every language became one per language. Each language
+   * starts as a copy of the single setup the reader had, and the token they had
+   * already chosen per language moves into its language.
+   */
+  it('copies a single voice setup into every language', () => {
+    store({
+      voiceOutput: false,
+      speed: 1.25,
+      voiceGender: 'male',
+      volume: 0.6,
+      voice: { en: 'am_adam' },
+      version: 3,
+    });
+    const loaded = loadTranslateSettings();
+    for (const code of LANGUAGE_CODES) {
+      expect(loaded.voiceByLanguage[code]).toMatchObject({
+        speak: false,
+        speed: 1.25,
+        gender: 'male',
+        volume: 0.6,
+      });
+    }
+    expect(loaded.voiceByLanguage.en.voice).toBe('am_adam');
+    expect(loaded.voiceByLanguage.vi).not.toHaveProperty('voice');
+    expect(loaded).not.toHaveProperty('voiceOutput');
+    expect(loaded).not.toHaveProperty('speed');
   });
 
   it('falls back on an unknown display mode or pane layout', () => {
@@ -147,7 +183,7 @@ describe('loadTranslateSettings', () => {
     store({ languagePair: { source: 'fr', target: 'en' }, voiceGender: 'robot' });
     const loaded = loadTranslateSettings();
     expect(loaded.languagePair).toEqual(DEFAULT_TRANSLATE_SETTINGS.languagePair);
-    expect(loaded.voiceGender).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceGender);
+    expect(loaded.voiceByLanguage.en.gender).toBe(DEFAULT_LANGUAGE_VOICE.gender);
   });
 
   it('refuses a pair that names one language twice', () => {
@@ -184,8 +220,8 @@ describe('loadTranslateSettings', () => {
     // One bad number must not discard five good choices.
     store({ volume: 'loud', voiceOutput: false, displayMode: 'list', version: 3 });
     const loaded = loadTranslateSettings();
-    expect(loaded.volume).toBe(DEFAULT_TRANSLATE_SETTINGS.volume);
-    expect(loaded.voiceOutput).toBe(false);
+    expect(loaded.voiceByLanguage.vi.volume).toBe(DEFAULT_LANGUAGE_VOICE.volume);
+    expect(loaded.voiceByLanguage.vi.speak).toBe(false);
     expect(loaded.displayMode).toBe('list');
   });
 
@@ -282,7 +318,7 @@ describe('the stored layout, across two migrations', () => {
     const loaded = loadTranslateSettings();
     expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
     // Only that field. Everything else the user actually set survives.
-    expect(loaded.volume).toBe(0.4);
+    expect(loaded.voiceByLanguage.vi.volume).toBe(0.4);
   });
 
   /**
@@ -298,7 +334,7 @@ describe('the stored layout, across two migrations', () => {
     const loaded = loadTranslateSettings();
     expect(loaded.displayMode).toBe('split');
     expect(loaded.paneLayout).toBe('row');
-    expect(loaded.volume).toBe(0.4);
+    expect(loaded.voiceByLanguage.vi.volume).toBe(0.4);
   });
 
   it('maps a chosen stacked layout onto the merged list', () => {
@@ -341,7 +377,7 @@ describe('the stored layout, across two migrations', () => {
     store({ displayMode: 'list', version: 4 });
     saveTranslateSettings({ ...loadTranslateSettings(), textSize: 6 });
     const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY) ?? '{}';
-    expect((JSON.parse(raw) as { version: number }).version).toBe(3);
+    expect((JSON.parse(raw) as { version: number }).version).toBe(4);
   });
 
   it('stamps what it writes, so the next load leaves it alone', () => {
@@ -584,5 +620,42 @@ describe('the stage', () => {
       stage: { ...DEFAULT_STAGE_APPEARANCE, followPage: true },
     });
     expect(following).toEqual({ appearance: DEFAULT_TRANSLATE_SETTINGS.appearance, textSize: 2 });
+  });
+});
+
+describe('sessionVoiceOptions', () => {
+  it('sends each spoken language its own setup, and the flat fields from the first', () => {
+    const settings = {
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      ...languageVoicePatch(
+        languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'vi', { speak: false }),
+        'en',
+        { speed: 1.5, gender: 'male', voice: 'am_adam', volume: 0.2 },
+      ),
+    };
+    expect(
+      sessionVoiceOptions(settings, spokenLanguagesOf({ source: 'vi', target: 'en' }, 'two-way')),
+    ).toEqual({
+      voiceGender: 'male',
+      voiceOutput: true,
+      speed: 1.5,
+      voice: 'am_adam',
+      voiceByLanguage: {
+        en: { speak: true, speed: 1.5, gender: 'male', voice: 'am_adam' },
+        vi: { speak: false, speed: 1, gender: DEFAULT_LANGUAGE_VOICE.gender },
+      },
+    });
+  });
+
+  it('a one-way start speaks only its target, auto-detect included', () => {
+    expect(spokenLanguagesOf({ source: 'vi', target: 'en' }, 'one-way')).toEqual(['en']);
+    expect(spokenLanguagesOf({ source: 'detect', target: 'vi' }, 'one-way')).toEqual(['vi']);
+  });
+
+  it('changing one language leaves the others and the frozen defaults alone', () => {
+    const patched = languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'vi', { speak: false });
+    expect(patched.voiceByLanguage.vi.speak).toBe(false);
+    expect(patched.voiceByLanguage.en).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage.en);
+    expect(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage.vi.speak).toBe(true);
   });
 });

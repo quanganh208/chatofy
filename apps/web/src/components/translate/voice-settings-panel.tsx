@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
-import { AUTO_DETECT, type LanguageCode } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 import {
   SPEED_PRESETS,
-  asksTwoWay,
-  pairFor,
-  type ConversationMode,
+  languageVoice,
+  languageVoicePatch,
+  type LanguageVoiceSetup,
   type TranslateSettings,
 } from '@/lib/translate-settings';
 import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
@@ -16,94 +16,67 @@ import { VoicePicker } from '@/components/translate/voice-picker';
 import { SettingsRow } from '@/components/translate/settings-row';
 import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
 import { useTranslate } from '@/i18n/provider';
-import { languageNamer } from '@/i18n/language-pair-labels';
 
 /**
- * Whether the translation is spoken, and — only if it is — how.
+ * How ONE language is spoken: whether at all, and — only if it is — in which
+ * voice, how fast and how loud.
  *
- * Everything here hangs off one switch, and that is the whole shape of the
- * component: with playback off there is no voice, no speed and no loudness to
- * choose, so there is nothing under the switch at all.
+ * **One language per panel.** A two-way conversation used to get one panel with
+ * a picker per language under one switch, one rate and one volume, all opened
+ * from the target's header. That made the switch a lie for half the room — a
+ * reader who wanted English spoken and Vietnamese not had no way to say so — and
+ * the rate a lie for half the engines, since the Vietnamese one ignores it. Each
+ * language now has its own setup (`LanguageVoiceSetup`), and each header opens
+ * the panel for its own language.
  *
- * **Volume used to escape that.** It sat below a separator with the transcript
- * layout, under a comment grouping the two as "client-side, so both stay live
- * mid-conversation" — which conflated being ADJUSTABLE with being MEANINGFUL. It
- * is the one audio control that can change during a conversation, and that is
- * exactly why it looked like it belonged with the page settings rather than with
- * the voice. With playback off it was still there, setting the loudness of
- * silence. It is inside the switch now, where the rest of the audio lives.
- *
- * Hidden rather than disabled, throughout: a disabled control invites you to work
- * out how to enable it, and the switch immediately above is already the answer.
+ * Everything here hangs off the one switch: with playback off there is no voice,
+ * no speed and no loudness to choose, so there is nothing under the switch at
+ * all. Hidden rather than disabled: a disabled control invites you to work out
+ * how to enable it, and the switch immediately above is already the answer.
  *
  * **Everything except volume is `disabled` while running.** They ride
  * `client.session.start` and `ConversationSession` holds them for the whole run,
  * so a control that stayed live would accept the press and change nothing until
- * the next conversation. Volume reaches a gain node in this tab and is live.
+ * the next conversation. Volume reaches this language's gain stage in this tab
+ * and is live — it is the last row for that reason, not a separate group.
  *
  * No accent anywhere. The screen's one accent-filled control is Start.
- *
- * **Two-way speaks both languages, so it offers a voice for each.** A reply in
- * the target is read out in the source, and a token from one language's engine
- * means nothing to the other's — so each spoken language gets its own picker,
- * named by its language. Auto-detect speaks only the target, so it keeps one.
- * The gender scope above them is shared: it is one stored setting.
  */
-
-/** The languages a conversation started in `mode` may speak, target first. */
-function spokenLanguages(settings: TranslateSettings, mode: ConversationMode): LanguageCode[] {
-  const pair = pairFor(settings, mode);
-  return pair.source !== AUTO_DETECT && asksTwoWay(pair, mode)
-    ? [pair.target, pair.source]
-    : [pair.target];
-}
 
 interface VoiceSettingsPanelProps {
   settings: TranslateSettings;
-  /**
-   * Which page's pair the voices are for — a two-way conversation speaks both
-   * of its languages, a one-way one only its target.
-   */
-  mode: ConversationMode;
+  /** Which language's setup this panel reads and writes. */
+  language: LanguageCode;
   /** A conversation is running, so everything but volume is fixed for its duration. */
   running: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
-  /** Applies gain immediately, without waiting for the debounced persist. */
-  onVolumeChange: (volume: number) => void;
+  /** Applies gain to this language immediately, without waiting for the debounced persist. */
+  onVolumeChange: (volume: number, language: LanguageCode) => void;
 }
 
 export function VoiceSettingsPanel({
   settings,
-  mode,
+  language,
   running,
   onChange,
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
-  const nameLanguage = languageNamer(t);
-  const languages = spokenLanguages(settings, mode);
-  const [outputLanguage, otherLanguage] = languages as [LanguageCode, LanguageCode | undefined];
-  // Two calls, always, so the hook count never changes with the pair. With one
-  // spoken language the second asks for the same list, which the catalog cache
-  // answers without a request.
-  const outputCatalog = useVoiceCatalog(outputLanguage);
-  const otherCatalog = useVoiceCatalog(otherLanguage ?? outputLanguage);
+  const setup = languageVoice(settings, language);
+  const set = (patch: Partial<LanguageVoiceSetup>) =>
+    onChange(languageVoicePatch(settings, language, patch));
+  const catalog = useVoiceCatalog(language);
   // Reconciled HERE rather than when settings were loaded: the catalog arrives
   // over HTTP, so a synchronous read of storage cannot know whether a saved token
   // still exists. A token the running backend no longer lists falls back to the
   // gender default, which is what the server would do with it anyway.
-  const rows = languages.map((language, index) => {
-    const catalog = index === 0 ? outputCatalog : otherCatalog;
-    const selected = catalog.voices.find((voice) => voice.token === settings.voice[language]);
-    return { language, catalog, selected };
-  });
-  // Shown unless every engine about to speak has explicitly said it ignores
-  // `speed`. `speedAdjustable` is tri-state (`SpeedAdjustable`'s doc):
-  // `'unknown'` — the catalog is still loading, the lookup failed, or the API
-  // predates the field — must keep the control visible rather than hiding a
-  // working slider for the length of a request or a stale deploy. Only an
-  // explicit `false` hides it.
-  const speedApplies = rows.some(({ catalog }) => catalog.speedAdjustable !== false);
+  const selected = catalog.voices.find((voice) => voice.token === setup.voice);
+  // Shown unless this language's engine has explicitly said it ignores `speed`.
+  // `speedAdjustable` is tri-state (`SpeedAdjustable`'s doc): `'unknown'` — the
+  // catalog is still loading, the lookup failed, or the API predates the field —
+  // keeps the control visible rather than hiding a working slider for the length
+  // of a request or a stale deploy. Only an explicit `false` hides it.
+  const speedApplies = catalog.speedAdjustable !== false;
 
   // Which voices are LISTED is a browsing state, not a setting: `all` says
   // nothing about what is spoken, so there is nothing to persist and it opens
@@ -111,18 +84,18 @@ export function VoiceSettingsPanel({
   // defaults are in the list, so it is a scope you can leave this sitting in —
   // which is what a starting state has to be.
   const [scope, setScope] = useState<VoiceScope>('all');
-  // What "Default" means right now, read off the output language's voice. `all`
-  // names no default of its own, so the stored gender keeps answering for it.
-  const voiceGender = rows[0]?.selected?.gender ?? settings.voiceGender;
+  // What "Default" means right now. `all` names no default of its own, so the
+  // stored gender keeps answering for it.
+  const gender = selected?.gender ?? setup.gender;
 
   return (
     <div className="flex flex-col gap-5">
       <SettingsRow icon={Volume2} label={t('web.translate.speakTranslation')}>
         <Switch
           aria-label={t('web.translate.speakTranslationAria')}
-          checked={settings.voiceOutput}
+          checked={setup.speak}
           disabled={running}
-          onCheckedChange={(voiceOutput) => onChange({ voiceOutput })}
+          onCheckedChange={(speak) => set({ speak })}
         />
       </SettingsRow>
 
@@ -133,7 +106,7 @@ export function VoiceSettingsPanel({
         <p className="text-muted-foreground text-hint">{t('web.translate.speakLocked')}</p>
       ) : null}
 
-      {settings.voiceOutput ? (
+      {setup.speak ? (
         <>
           <VoiceScopeToggle
             value={scope}
@@ -145,104 +118,71 @@ export function VoiceSettingsPanel({
               // which is what the scope now offers. Widening to `all`, or
               // narrowing to the gender already speaking, changes only what is
               // listed — and must not silently drop the chosen voice.
-              if (next !== 'all' && next !== voiceGender) {
-                const voice = { ...settings.voice };
-                for (const { language, selected } of rows) {
-                  if (selected?.gender !== next) voice[language] = undefined;
-                }
-                onChange({ voiceGender: next, voice });
-              }
+              if (next !== 'all' && next !== gender) set({ gender: next, voice: undefined });
             }}
             disabled={running}
           />
 
           {/* Empty catalog, failed lookup and a list of voices are three different
               answers, and the picker owns all three — see `voice-picker.tsx`. */}
-          {rows.map(({ language, catalog, selected }) => (
-            <VoicePicker
-              key={language}
-              catalog={catalog}
-              scope={scope}
-              gender={selected?.gender ?? settings.voiceGender}
-              value={selected?.token ?? ''}
-              disabled={running}
-              label={
-                rows.length > 1
-                  ? `${t('web.translate.voice')} · ${nameLanguage(language)}`
-                  : undefined
-              }
-              onChange={(token, gender) =>
-                onChange({
-                  // Reported by the picker with the voice rather than looked up
-                  // after it: in `all` a chosen voice may come from the other pool
-                  // than the one stored, and one of the two "Default" entries IS
-                  // the gender choice — it names no token to look up.
-                  voiceGender: gender,
-                  // Stored per output language: the token means nothing to the
-                  // engine that speaks the other one.
-                  voice: { ...settings.voice, [language]: token },
-                })
-              }
-            />
-          ))}
+          <VoicePicker
+            catalog={catalog}
+            scope={scope}
+            gender={gender}
+            value={selected?.token ?? ''}
+            disabled={running}
+            onChange={(voice, nextGender) =>
+              // The gender is reported by the picker with the voice rather than
+              // looked up after it: in `all` a chosen voice may come from the
+              // other pool than the one stored, and one of the two "Default"
+              // entries IS the gender choice — it names no token to look up.
+              set({ gender: nextGender, voice })
+            }
+          />
 
-          {/* Absent, not disabled, when the voice about to speak has no rate
-              control. A greyed row plus a sentence explaining why it is greyed
-              spends two lines of the panel on a thing you cannot do; removing it
-              says the same and asks nothing of the reader.
-
-              The setting itself is untouched — it is stored per conversation and
-              still sent, and the server hands it to whichever engine speaks the
-              output language. Switching the pair brings the row back with the
-              value the reader last chose. */}
+          {/* Absent, not disabled, when this language's engine has no rate
+              control. The stored rate is untouched and still sent, so an engine
+              that gains one later picks up what the reader last chose. */}
           {speedApplies ? (
             <SegmentedControl
               label={t('web.translate.speed')}
               density="compact"
               // The options are one value at six magnitudes, so an even row reads
-              // as the scale it is. Ragged widths put emphasis on `0.75×` for no
-              // reason except that the number is longer.
+              // as the scale it is.
               equalWidth
-              value={String(settings.speed)}
+              value={String(setup.speed)}
               options={SPEED_PRESETS.map((preset) => ({
                 value: String(preset),
                 label: `${preset}×`,
               }))}
               disabled={running}
-              onChange={(value) => onChange({ speed: Number(value) })}
+              onChange={(value) => set({ speed: Number(value) })}
             />
           ) : null}
 
-          {/* Live mid-conversation, unlike everything above it — the value reaches
-              a gain node in this tab rather than the session. That is why it is
-              the LAST row rather than a separate group: being adjustable now is
-              not the same as being a different kind of setting, and treating it
-              as one is how it ended up outside the switch that gives it meaning. */}
           <SettingsRow icon={Volume1} label={t('web.translate.volume')}>
             <div className="flex min-w-48 flex-1 items-center gap-3">
               <Slider
                 aria-label={t('web.translate.volumeAria')}
-                value={[settings.volume]}
+                value={[setup.volume]}
                 min={0}
                 max={1}
                 // 0.01, so every reachable position maps to its own whole percent in
-                // the readout beside it. At 0.05 the number jumped in fives and two
-                // thirds of the values it could display were unreachable by dragging.
+                // the readout beside it.
                 step={0.01}
                 onValueChange={([next]) => {
                   // Radix types the payload as a possibly-empty array; a single-thumb
-                  // slider always reports one value, and falling back to the current
-                  // one is more honest than asserting that.
-                  const volume = next ?? settings.volume;
-                  // Straight to the gain node, then into settings. The write to
-                  // storage is debounced inside the settings hook, so a drag is one
-                  // write.
-                  onVolumeChange(volume);
-                  onChange({ volume });
+                  // slider always reports one value.
+                  const volume = next ?? setup.volume;
+                  // Straight to this language's gain stage, then into settings.
+                  // The write to storage is debounced inside the settings hook,
+                  // so a drag is one write.
+                  onVolumeChange(volume, language);
+                  set({ volume });
                 }}
               />
               <span className="text-hint text-muted-foreground w-10 shrink-0 text-right tabular-nums">
-                {Math.round(settings.volume * 100)}%
+                {Math.round(setup.volume * 100)}%
               </span>
             </div>
           </SettingsRow>

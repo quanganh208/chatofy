@@ -3,8 +3,10 @@
 import { ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@chatofy/ui/react';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
-import type { ConversationMode, TranslateSettings } from '@/lib/translate-settings';
+import type { LanguageCode } from '@chatofy/types';
+import { languageVoice, type TranslateSettings } from '@/lib/translate-settings';
 import { useTranslate } from '@/i18n/provider';
+import { languageNamer } from '@/i18n/language-pair-labels';
 
 /**
  * The voice, opened from the panel it speaks for.
@@ -46,6 +48,13 @@ import { useTranslate } from '@/i18n/provider';
  * that are fixed say so themselves. A disabled trigger would hide a working
  * control behind a dead one.
  *
+ * ## One per language
+ *
+ * Each language header carries its own, for the language it names: two-way
+ * puts one on each side, one-way one on its target. The name says which
+ * language — "Voice for Vietnamese: off" — because two identical speaker glyphs
+ * on one screen are otherwise told apart only by where they sit.
+ *
  * `Popover`, never `Dialog`: Radix's popover is non-modal by default, so the
  * transcript stays readable underneath while a conversation runs. Passing `modal`
  * would undo that.
@@ -53,30 +62,29 @@ import { useTranslate } from '@/i18n/provider';
 
 interface VoiceSettingsPopoverProps {
   settings: TranslateSettings;
-  /** The page's mode — see `VoiceSettingsPanel`. */
-  mode: ConversationMode;
+  /** The language this trigger opens the voice of. */
+  language: LanguageCode;
   running: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
-  onVolumeChange: (volume: number) => void;
+  onVolumeChange: (volume: number, language: LanguageCode) => void;
 }
 
 export function VoiceSettingsPopover({
   settings,
-  mode,
+  language,
   running,
   onChange,
   onVolumeChange,
 }: VoiceSettingsPopoverProps) {
   const t = useTranslate();
-  const Speaker = settings.voiceOutput ? Volume2 : VolumeX;
-  const label = t('web.translate.voiceSettings');
+  const { speak } = languageVoice(settings, language);
+  const Speaker = speak ? Volume2 : VolumeX;
+  const label = t('web.translate.voiceSettingsFor', { language: languageNamer(t)(language) });
   // The whole sentence the trigger used to print, now said only where it is still
   // needed. Without it the button announces as "Voice settings" and the state —
   // the one fact a reader opens this to check — is carried by a glyph they cannot
   // see.
-  const state = `${label}: ${t(
-    settings.voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff',
-  )}`;
+  const state = `${label}: ${t(speak ? 'web.translate.speakOn' : 'web.translate.speakOff')}`;
 
   return (
     <Popover>
@@ -85,6 +93,7 @@ export function VoiceSettingsPopover({
           variant="outline"
           size="sm"
           aria-label={state}
+          data-voice-language={language}
           // The page ground: it sits on the translation sheet, which is `muted` — the
           // outline fill — so in that fill it had no edge but its ring.
           className="bg-background text-prose hover:text-foreground"
@@ -105,7 +114,7 @@ export function VoiceSettingsPopover({
       >
         <VoiceSettingsPanel
           settings={settings}
-          mode={mode}
+          language={language}
           running={running}
           onChange={onChange}
           onVolumeChange={onVolumeChange}

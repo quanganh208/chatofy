@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useLayoutEffect, useRef, type ComponentProps } from 'react';
-import type { SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
+import type { LanguageCode, SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
@@ -12,6 +12,7 @@ import {
   LanguageModeHint,
   PanelHeader,
   PanelHeaders,
+  sourceVoiceControl,
   SourceHeaderLanguage,
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
@@ -59,8 +60,8 @@ interface TranscriptPanesProps {
    * `LanguageModeHint`. Null when no turn has said.
    */
   languageMode?: SessionLanguageMode | null;
-  /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
-  voiceControl?: React.ReactNode;
+  /** A language's voice control, for its header's end slot — see `panel-headers.tsx`. */
+  voiceControlFor?: (language: LanguageCode) => React.ReactNode;
   stream: StreamProps;
   /**
    * Which language the finished turns on screen were actually translated into.
@@ -146,7 +147,7 @@ export function TranscriptPanes({
   onSwap,
   onLanguagePair,
   conversationMode,
-  voiceControl,
+  voiceControlFor,
   stream,
   conversationLanguagePair,
   languageMode = null,
@@ -236,6 +237,7 @@ export function TranscriptPanes({
               conversationMode={conversationMode}
             />
           }
+          end={sourceVoiceControl(languagePair, conversationMode, voiceControlFor)}
         />
         {pane('source', true, t('web.translate.paneSource'))}
       </div>
@@ -257,7 +259,7 @@ export function TranscriptPanes({
               conversationMode={conversationMode}
             />
           }
-          end={voiceControl}
+          end={voiceControlFor?.(languagePair.target)}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
       </div>
@@ -315,7 +317,7 @@ export function TranscriptPanes({
         onLanguagePair={onLanguagePair}
         conversationMode={conversationMode}
         mode={languageMode}
-        voiceControl={voiceControl}
+        voiceControlFor={voiceControlFor}
       />
       {settings.translationOnly
         ? pane('target', true, t('web.translate.paneTarget'))
