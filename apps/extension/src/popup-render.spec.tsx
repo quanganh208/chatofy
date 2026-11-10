@@ -53,6 +53,10 @@ interface Stubs {
   contexts?: unknown[];
   /** Merged over the stored settings, for cases that turn on one of them. */
   settings?: Record<string, unknown>;
+  /** What `GET /billing/me` answers with. Unset answers 503, which the pane reports. */
+  balance?: unknown;
+  /** The entries `GET /billing/usage` answers with. */
+  usage?: unknown[];
 }
 
 const sent: unknown[] = [];
@@ -67,6 +71,8 @@ function installChrome({
   overlay = { capturing: false, lines: [], outbound: 'off', errors: {} },
   contexts = [],
   settings = {},
+  balance,
+  usage = [],
 }: Stubs) {
   const store: Record<string, unknown> = {
     'chatofy.settings': {
@@ -117,7 +123,22 @@ function installChrome({
   //
   // Routed by path: `/auth/me` answers per `signedIn`, so the stub says the
   // same thing storage does; `/translation-contexts` answers with `contexts`.
+  // `/billing/*` answer for the credits block the same way.
+  const enveloped = (data: unknown) =>
+    Promise.resolve({
+      status: 200,
+      ok: true,
+      json: () => Promise.resolve({ success: true, data }),
+    } as Response);
   vi.stubGlobal('fetch', (url: string) => {
+    if (typeof url === 'string' && url.endsWith('/billing/me')) {
+      return balance === undefined
+        ? Promise.resolve({ status: 503, ok: false } as Response)
+        : enveloped(balance);
+    }
+    if (typeof url === 'string' && url.endsWith('/billing/usage')) {
+      return enveloped({ entries: usage, nextCursor: null });
+    }
     if (typeof url === 'string' && url.endsWith('/translation-contexts')) {
       return Promise.resolve({
         status: 200,
@@ -391,5 +412,58 @@ describe('the popup', () => {
       expect(trigger).not.toBeNull();
       expect(trigger?.textContent).toBe('No context');
     });
+  });
+});
+
+describe('the credits block', () => {
+  const balance = {
+    totalCredits: 2.5,
+    planCredits: 0,
+    topupCredits: 2.5,
+    planResetsAt: null,
+    plan: 'pro',
+    proSource: 'polar',
+    checkoutAllowed: true,
+    rails: { polar: 'sandbox', sepay: 'unavailable' },
+  };
+
+  it('shows the balance split, the plan and the newest rows, and sends buying to the web', async () => {
+    await mount({
+      balance,
+      usage: Array.from({ length: 7 }, (_, index) => ({
+        id: `entry-${index}`,
+        at: '2026-11-09T10:00:00.000Z',
+        kind: index === 0 ? 'grant' : 'translate',
+        credits: index === 0 ? 250 : -1,
+        conversationId: null,
+        label: 'Translation',
+      })),
+    });
+    const credits = document.getElementById('credits');
+    expect(credits?.textContent).toContain('Credits left');
+    expect(credits?.textContent).toContain('2.5 credits');
+    expect(credits?.textContent).toContain('Plan Pro');
+    expect(credits?.textContent).toContain('Buy credits on the Chatofy website');
+    const rows = document.querySelectorAll('#credit-usage li');
+    expect(rows.length).toBe(5);
+    expect(rows[0]?.textContent).toContain('+250 credits');
+    expect(rows[1]?.textContent).toContain('\u22121 credit');
+    // A readout: nothing in it is a control to press.
+    expect(credits?.querySelector('button, a, input')).toBeNull();
+  });
+
+  it('says why buying is closed for an account not let in to checkout', async () => {
+    await mount({ balance: { ...balance, checkoutAllowed: false } });
+    expect(document.getElementById('credits')?.textContent).toContain(
+      'Buying credits is not open to the public',
+    );
+  });
+
+  it('reports a balance that failed to load and still renders the popup', async () => {
+    await mount();
+    expect(document.getElementById('credits')?.textContent).toContain(
+      'Could not load your credits (HTTP 503)',
+    );
+    expect(toggle()?.textContent).toBe('Start');
   });
 });

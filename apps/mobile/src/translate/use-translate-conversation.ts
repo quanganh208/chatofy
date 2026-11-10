@@ -26,6 +26,7 @@ import {
   type PauseInterval,
   type TurnKeyedTranscript,
 } from '@chatofy/realtime-client';
+import type { ServerEvent } from '@chatofy/types';
 import {
   DEFAULT_MIC_PROCESSING,
   type MicProcessing,
@@ -39,11 +40,18 @@ import { TRANSLATE_WS_URL } from '@/conference/conference-config';
 import { micLock } from './mic-lock';
 import { NativeTranslateAudioSink } from './native-translate-audio-sink';
 import { asksTwoWay } from './translate-mode';
-import { startFailureKey } from './translate-refusal';
+import type { CreditMessage } from '@/billing/credit-amount';
+import { creditErrorCopy, startFailureKey } from './translate-refusal';
 import type { TranslateSettings } from './translate-settings';
 
-/** What went wrong, as a catalogue key where the app has the words, else the server's text. */
-export type TranslateError = { key: MessageKey } | { text: string };
+/**
+ * What went wrong, as a catalogue key where the app has the words, else the
+ * server's text. `notice` marks something to tell the reader that is not a
+ * failure: the conversation is still running (a low credit balance).
+ */
+export type TranslateError = ({ key: MessageKey; amount?: CreditMessage } | { text: string }) & {
+  notice?: boolean;
+};
 
 /** Which conversation is on screen: stamped once at start, read by the save. */
 export interface ConversationIdentity {
@@ -69,6 +77,10 @@ class SessionEnv {
   mic: MicProcessing = DEFAULT_MIC_PROCESSING;
   /** Bumped by every stop, so a start still waiting for its token can tell it was left. */
   stops = 0;
+  /** The history id of the run being started, sent on every turn start to label its credit usage. */
+  conversationId: string | undefined;
+  /** Whether this run opened a turn; a credit refusal before one is a refused start. */
+  turnOpened = false;
 
   setToken(token: string): void {
     this.token = token;
@@ -84,6 +96,24 @@ class SessionEnv {
 
   noteStop(): void {
     this.stops += 1;
+  }
+
+  setConversationId(id: string): void {
+    this.conversationId = id;
+  }
+
+  /** A run starting over has opened no turn yet. */
+  resetCredits(): void {
+    this.turnOpened = false;
+  }
+
+  /**
+   * The session hands every server event here BEFORE it reports a server error to
+   * `onError`, so a credit refusal knows whether any turn had opened. The balance
+   * the error carried arrives on `onError`'s cause itself.
+   */
+  observe(event: ServerEvent): void {
+    if (event.type === 'server.session.ready') this.turnOpened = true;
   }
 }
 
@@ -153,14 +183,31 @@ export function useTranslateConversation(): UseTranslateConversation {
               setError(null);
               return;
             }
+            const credit = creditErrorCopy(cause, live);
+            if (credit) {
+              setError(
+                credit.amount
+                  ? { key: credit.key, amount: credit.amount, notice: credit.notice }
+                  : { key: credit.key, notice: credit.notice },
+              );
+              return;
+            }
+            // A low balance with no figure still only informs: the run goes on.
+            const notice = cause?.code === 'credits_low';
             const key = startFailureKey(message, cause);
-            setError(key ? { key } : { text: message });
+            setError(key ? { key, notice } : { text: message, notice });
           },
           onLanguageMode: (mode, reason) =>
             setLanguageMode(reason === undefined ? { mode } : { mode, reason }),
           onEchoHeard: () => {},
-          onServerEvent: dispatch,
-          onReset: () => dispatch({ type: 'transcript.reset' }),
+          onServerEvent: (event) => {
+            live.observe(event);
+            dispatch(event);
+          },
+          onReset: () => {
+            live.resetCredits();
+            dispatch({ type: 'transcript.reset' });
+          },
           onPauses: setPauses,
           onTurnAbandoned: (sessionId, reason) =>
             dispatch({
@@ -200,6 +247,7 @@ export function useTranslateConversation(): UseTranslateConversation {
         () => ({
           ...cascadeRuntimeFor(live.mic),
           receivedSounding: () => live.sink?.isPlaying ?? false,
+          ...(live.conversationId === undefined ? {} : { conversationId: live.conversationId }),
         }),
       ),
   );
@@ -230,8 +278,11 @@ export function useTranslateConversation(): UseTranslateConversation {
       const askedTwoWay = asksTwoWay(pair);
       // Before `session.start`, which dispatches the reset: the id and the
       // transcript it names must change together.
+      const id = globalThis.crypto.randomUUID();
+      // The same id the save stores the conversation under, so a usage row links to it.
+      live.setConversationId(id);
       setIdentity({
-        id: globalThis.crypto.randomUUID(),
+        id,
         startedAt: new Date().toISOString(),
         pair,
         askedTwoWay,

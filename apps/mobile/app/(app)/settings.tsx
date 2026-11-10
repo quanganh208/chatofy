@@ -1,6 +1,7 @@
 /**
- * Settings: the account this phone is signed in as and the way out of it, then
- * the microphone's processing. Sign out ends the refresh family server-side, so
+ * Settings: the account this phone is signed in as and the way out of it, its
+ * credits and plan (bought on the web, never here), then the microphone's
+ * processing. The screen scrolls: ten usage rows do not fit beside the rest. Sign out ends the refresh family server-side, so
  * the stored token cannot be replayed after it.
  *
  * Audio: the phone runs echo cancellation, noise suppression and gain control as
@@ -8,11 +9,12 @@
  * locked, rather than offering a choice the phone cannot apply.
  */
 
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
+import { CreditsSummary } from '@/billing/credits-summary';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useTranslateSettings } from '@/translate/use-translate-settings';
@@ -37,92 +39,102 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView
       edges={['left', 'right']}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.fill, { backgroundColor: colors.background }]}
     >
-      <Text style={[styles.account, { color: colors.text }]}>
-        {session
-          ? t('mobile.settings.signedInAs', { email: session.user.email })
-          : t('mobile.settings.signedOut')}
-      </Text>
-
-      {/* Outline, not the accent: signing out is not what this screen exists for. */}
-      {session ? (
-        <TouchableOpacity
-          style={[styles.signOut, { borderColor: colors.border }]}
-          onPress={() => void signOut()}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.signOutText, { color: colors.text }]}>
-            {t('common.auth.signOut')}
-          </Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.signOut, { borderColor: colors.border }]}
-          onPress={() => router.push('/sign-in')}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.signOutText, { color: colors.text }]}>
-            {t('common.auth.signIn')}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.audio}>
-        <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>
-          {t('common.audio.title')}
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={[styles.account, { color: colors.text }]}>
+          {session
+            ? t('mobile.settings.signedInAs', { email: session.user.email })
+            : t('mobile.settings.signedOut')}
         </Text>
 
-        <View style={styles.row}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            {t('common.audio.echoCancellation')}
-          </Text>
-          {/* Disabled until the stored value is read, so a tap cannot save over it. */}
-          <Switch
-            value={processing}
-            onValueChange={setProcessing}
-            disabled={!loaded}
-            trackColor={trackColor}
-            accessibilityLabel={t('common.audio.echoCancellation')}
-          />
-        </View>
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t('mobile.settings.audio.voiceProcessingHint')}
-        </Text>
+        {/* Outline, not the accent: signing out is not what this screen exists for. */}
+        {session ? (
+          <TouchableOpacity
+            style={[styles.signOut, { borderColor: colors.border }]}
+            onPress={() => void signOut()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.signOutText, { color: colors.text }]}>
+              {t('common.auth.signOut')}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.signOut, { borderColor: colors.border }]}
+            onPress={() => router.push('/sign-in')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.signOutText, { color: colors.text }]}>
+              {t('common.auth.signIn')}
+            </Text>
+          </TouchableOpacity>
+        )}
 
-        {(['common.audio.noiseSuppression', 'common.audio.autoGainControl'] as const).map((key) => (
-          <View key={key} style={styles.row}>
-            <Text style={[styles.label, { color: colors.muted }]}>{t(key)}</Text>
+        <CreditsSummary signedIn={session !== null} />
+
+        <View style={styles.audio}>
+          <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>
+            {t('common.audio.title')}
+          </Text>
+
+          <View style={styles.row}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              {t('common.audio.echoCancellation')}
+            </Text>
+            {/* Disabled until the stored value is read, so a tap cannot save over it. */}
             <Switch
               value={processing}
-              disabled
+              onValueChange={setProcessing}
+              disabled={!loaded}
               trackColor={trackColor}
-              accessibilityLabel={t(key)}
-              accessibilityHint={t('mobile.settings.audio.lockedHint')}
+              accessibilityLabel={t('common.audio.echoCancellation')}
             />
           </View>
-        ))}
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t('mobile.settings.audio.lockedHint')}
-        </Text>
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            {t('mobile.settings.audio.voiceProcessingHint')}
+          </Text>
 
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t('common.audio.recommendation')}
-        </Text>
-      </View>
+          {(['common.audio.noiseSuppression', 'common.audio.autoGainControl'] as const).map(
+            (key) => (
+              <View key={key} style={styles.row}>
+                <Text style={[styles.label, { color: colors.muted }]}>{t(key)}</Text>
+                <Switch
+                  value={processing}
+                  disabled
+                  trackColor={trackColor}
+                  accessibilityLabel={t(key)}
+                  accessibilityHint={t('mobile.settings.audio.lockedHint')}
+                />
+              </View>
+            ),
+          )}
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            {t('mobile.settings.audio.lockedHint')}
+          </Text>
+
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            {t('common.audio.recommendation')}
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fill: {
     flex: 1,
+  },
+  container: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.md,
     paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
   },
   account: {
     fontSize: fontSize.base,
