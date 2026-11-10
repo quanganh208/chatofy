@@ -85,7 +85,9 @@ export function VoiceSettingsPopover({
           variant="outline"
           size="sm"
           aria-label={state}
-          className="text-prose hover:text-foreground"
+          // The page ground: it sits on the translation sheet, which is `muted` — the
+          // outline fill — so in that fill it had no edge but its ring.
+          className="bg-background text-prose hover:text-foreground"
         >
           <Speaker aria-hidden className="size-4" />
           <ChevronDown aria-hidden className="size-3.5 opacity-60" />

@@ -272,7 +272,9 @@ export function HeaderLanguage({
     disabled: running,
     nameLanguage: languageNamer(t),
     size: 'sm' as const,
-    className: 'font-medium',
+    // The page ground, not the field's usual fill: the sheets are `card` and `muted`,
+    // and a picker filled with either vanished into the sheet that matched it.
+    className: 'bg-background font-medium',
     unavailable: twoWay
       ? {
           codes: LANGUAGE_CODES.filter((language) => !IDENTIFIABLE_LANGUAGES.includes(language)),
@@ -353,11 +355,14 @@ export function LanguagePairSwap({
   running,
   onSwap,
   className,
+  iconClassName,
 }: {
   languagePair: SessionLanguagePair;
   running: boolean;
   onSwap: () => void;
   className?: string;
+  /** On the icon itself, e.g. turning it to point up and down when the sides stack. */
+  iconClassName?: string;
 }) {
   const t = useTranslate();
   const { source, target } = languagePair;
@@ -385,7 +390,11 @@ export function LanguagePairSwap({
         className,
       )}
     >
-      <ArrowLeftRight aria-hidden data-shuffle-icon className="size-3.5" />
+      {/* The wrapper is what the swap animation turns (`language-shuffle.ts`), so a
+          rotation on the icon itself survives it. */}
+      <span data-shuffle-icon className="inline-flex">
+        <ArrowLeftRight aria-hidden className={cn('size-3.5', iconClassName)} />
+      </span>
     </Button>
   );
 }

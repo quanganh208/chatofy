@@ -236,18 +236,6 @@ export function TranscriptPanes({
               conversationMode={conversationMode}
             />
           }
-          end={
-            onSwap ? (
-              <LanguagePairSwap
-                languagePair={languagePair}
-                running={running}
-                onSwap={shuffleThenSwap}
-                // Side by side the swap sits on the seam between the two languages (below);
-                // stacked, it has no seam and stays in this header.
-                className={column ? undefined : 'sm:hidden'}
-              />
-            ) : null
-          }
         />
         {pane('source', true, t('web.translate.paneSource'))}
       </div>
@@ -279,7 +267,7 @@ export function TranscriptPanes({
       <div
         ref={frame}
         className={cn(
-          'relative flex min-h-0 flex-1 gap-3',
+          'relative flex min-h-0 flex-1 gap-4',
           scheme,
           // One column below `sm` and two above it for `row`, in CSS rather than
           // in JavaScript: a `matchMedia` fork would render one thing on the
@@ -289,17 +277,21 @@ export function TranscriptPanes({
         )}
         style={scale}
       >
-        {/* The swap between the two languages, in the gap between the sheets: the
-            pair reads Source ⇄ Target left to right. */}
-        {column || !onSwap ? null : (
-          <div className="absolute top-[38px] left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 sm:block">
+        {/* The swap between the two languages, at the centre of the gap between the
+            sheets in every arrangement: side by side it points across, stacked it
+            points up and down. Raised on `card` with a control's depth so it reads as
+            a thing to press sitting over the seam, never as part of either sheet. */}
+        {onSwap ? (
+          <div className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
             <LanguagePairSwap
               languagePair={languagePair}
               running={running}
               onSwap={shuffleThenSwap}
+              className="bg-card hover:bg-muted size-11 p-0"
+              iconClassName={cn('size-5', column ? 'rotate-90' : 'max-sm:rotate-90')}
             />
           </div>
-        )}
+        ) : null}
         {source}
         {target}
       </div>
