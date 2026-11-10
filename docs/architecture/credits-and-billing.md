@@ -356,9 +356,25 @@ is in [deployment-guide.md → Deploying credits and billing](../deployment-guid
 Use the owner's allowlisted account on production. Open `/account` in a second tab to
 watch the balance.
 
-1. **Polar sandbox subscription.** On `/account`, buy Pro on Polar and pay with the test
-   card `4242 4242 4242 4242` (any future date and CVC). Back on `/account?checkout=done`,
-   the plan shows Pro (Polar) and the balance gains 600.
+1. **Polar sandbox subscription.** On `/account`, buy Pro on Polar and pay with a Stripe
+   test card (table below). Back on `/account?checkout=done`, the plan shows Pro (Polar)
+   and the balance gains 600; a Polar top-up gains its 250, 550 or 1500 the same way.
+   The grant lands when `order.paid` arrives, usually within seconds of the redirect.
+
+   Polar's sandbox charges through Stripe's test mode, so only Stripe test cards work
+   there and a real card is declined. Any future expiry (e.g. `12/34`), any 3-digit CVC,
+   and any name, email and address:
+
+   | Card                  | Result                                 |
+   | --------------------- | -------------------------------------- |
+   | `4242 4242 4242 4242` | Paid: the one to use for a grant       |
+   | `4000 0025 0000 3155` | Paid after a 3-D Secure challenge      |
+   | `4000 0000 0000 0002` | Declined: no order, nothing is granted |
+
+   Polar appends a short-lived `customer_session_token` to the success URL. `/account`
+   drops it from the address bar and history as it loads; the portal button mints its
+   own session.
+
 2. **SePay test QR.** Buy "250 credits by VietQR". The QR panel shows the amount and the
    transfer note. Simulate a transfer carrying that note from SePay's Test-mode dashboard.
    Within one poll the panel says "Payment received", and a +250 "Credits added" usage
