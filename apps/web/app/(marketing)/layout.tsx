@@ -7,7 +7,7 @@ import { getT } from '@/i18n/server';
 import { cn } from '@/lib/utils';
 
 /**
- * The public surface: today just `/`.
+ * The public surface: `/` and `/pricing`.
  *
  * Wider than the app measure on purpose. A landing page is read in sections across the
  * full column; a transcript is read line by line and wants the shorter line length. The

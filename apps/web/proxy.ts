@@ -89,6 +89,10 @@ export const config = {
    * carries no credential: two public query values, and the one that is a redirect
    * target is already clamped by `sameOriginPath`.
    *
+   * `/pricing` is open because it is a public page like `/`: it lists the plans and
+   * says checkout is not open to the public, and it exists for a visitor deciding
+   * whether to make an account at all. Its twin `/pricing.md` is open by its extension.
+   *
    * `/social-card` is open because it is the development-only source of the social
    * card image (`app/(dev)/social-card/page.tsx`); outside development it 404s by
    * itself, so letting it past the session check exposes nothing.
@@ -102,6 +106,6 @@ export const config = {
     // Each new route gets the same `name$|name/` pair as `login`: a bare
     // `register` prefix would also exempt `/registersomething`, which is not
     // this route at all.
-    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|locale$|locale/|social-card$|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
+    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|locale$|locale/|pricing$|pricing/|social-card$|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
   ],
 };

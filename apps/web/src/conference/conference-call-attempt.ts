@@ -258,7 +258,7 @@ export class CallAttempt {
         },
         onEnded: (reason) => {
           conferenceDebug(`translation ended: ${reason}`);
-          if (!this.disposed) options.sink.translationEnded(true);
+          if (!this.disposed) options.sink.translationEnded(reason);
         },
         onLog: conferenceDebug,
         ...(this.remoteActivity

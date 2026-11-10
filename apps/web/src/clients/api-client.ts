@@ -2,22 +2,29 @@ import { z } from 'zod';
 import { ApiClientError, createApiClient, type ApiRequestOptions } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  billingPortalResponseSchema,
+  checkoutOrderSchema,
+  checkoutResponseSchema,
   conferenceDetailResponseSchema,
   conferenceMinutesResponseSchema,
   conferenceResponseSchema,
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
+  creditBalanceSchema,
+  creditUsageListReadSchema,
   glossaryItemListResponseSchema,
   glossaryItemSchema,
   glossaryListResponseSchema,
   glossarySchema,
   minutesResponseSchema,
+  planListResponseSchema,
   readableTranslationContextListSchema,
   storedConferenceMinutesResponseSchema,
   translationContextSchema,
   userSchema,
   voiceGenderSchema,
+  type CreateCheckoutRequest,
   type CreateConferenceRequest,
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
@@ -549,6 +556,64 @@ export function generateConferenceMinutes(conferenceId: string, language?: Langu
     conferenceMinutesResponseSchema,
     { method: 'POST', body: JSON.stringify(body) },
   );
+}
+
+// ─── Credits and checkout ─────────────────────────────────────────────────────
+
+/**
+ * The caller's balance, plan, and whether checkout is open to them.
+ *
+ * `checkoutAllowed` and the rail statuses are the API's answer, read fresh each
+ * time; nothing in this client decides eligibility, and the checkout route
+ * checks it again whatever a page shows.
+ */
+export function getCreditBalance() {
+  return authedFetch('/billing/me', creditBalanceSchema);
+}
+
+/**
+ * One page of the caller's credit usage, newest first.
+ *
+ * Read entry by entry (`creditUsageListReadSchema`): a usage kind a later API
+ * adds is left out of this list rather than failing the whole page.
+ */
+export function listCreditUsage(cursor?: string) {
+  const suffix = cursor ? `?${new URLSearchParams({ cursor }).toString()}` : '';
+  return authedFetch(`/billing/usage${suffix}`, creditUsageListReadSchema);
+}
+
+/**
+ * The plans and top-ups on sale, with each rail's price. Public on the API, but
+ * read with the caller's session here like everything else on `/account`, so a
+ * signed-in page never needs a second client for one call.
+ */
+export function listPlans() {
+  return authedFetch('/billing/plans', planListResponseSchema);
+}
+
+/**
+ * Start buying a plan or top-up on one rail. Polar answers a hosted checkout
+ * URL; SePay answers a VietQR order. 403 `CHECKOUT_NOT_OPEN` for an account
+ * that is not let in, whatever the page showed.
+ */
+export function createCheckout(body: CreateCheckoutRequest) {
+  return authedFetch('/billing/checkout', checkoutResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** One of the caller's own payment orders; another account's is 404. */
+export function getCheckoutOrder(orderId: string) {
+  return authedFetch(`/billing/orders/${encodeURIComponent(orderId)}`, checkoutOrderSchema);
+}
+
+/**
+ * A short-lived Polar customer-portal link, minted per click and never stored:
+ * it signs whoever holds it in to the subscription.
+ */
+export function getBillingPortal() {
+  return authedFetch('/billing/portal', billingPortalResponseSchema);
 }
 
 /**
