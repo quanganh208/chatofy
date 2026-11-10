@@ -372,6 +372,9 @@ export function LanguagePairSwap({
     <Button
       variant="outline"
       size="icon"
+      // What the swap animation spins (`language-shuffle.ts`): the whole round button,
+      // so a rotation on the icon itself survives it.
+      data-shuffle-icon
       // Also dead while the source is "detect": it has no language to trade
       // places with, and a translation cannot be "detect".
       disabled={running || source === AUTO_DETECT}
@@ -390,11 +393,7 @@ export function LanguagePairSwap({
         className,
       )}
     >
-      {/* The wrapper is what the swap animation turns (`language-shuffle.ts`), so a
-          rotation on the icon itself survives it. */}
-      <span data-shuffle-icon className="inline-flex">
-        <ArrowLeftRight aria-hidden className={cn('size-3.5', iconClassName)} />
-      </span>
+      <ArrowLeftRight aria-hidden className={cn('size-3.5', iconClassName)} />
     </Button>
   );
 }

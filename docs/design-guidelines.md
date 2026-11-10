@@ -718,7 +718,7 @@ zero animating elements on `/` under reduced motion.
 **One response on `/translate`: the language swap.** The two sheets — the side you
 speak into on `card`, the side you read on `muted` — trade places like cards when the
 swap is pressed: one lifts over, the other dips under, each sheet's ground eases into
-the colour of the side it lands on, and the swap icon turns half a turn. FLIP on the Web
+the colour of the side it lands on, and the round swap, which stays above both sheets, spins half a turn. FLIP on the Web
 Animations API, `duration.slow` on `easing.standard` (`translate/language-shuffle.ts`).
 It never runs beside a translation being read, because the swap is disabled while a
 conversation runs, and it is skipped under reduced motion (`language-shuffle.spec.ts`).

@@ -280,9 +280,10 @@ export function TranscriptPanes({
         {/* The swap between the two languages, at the centre of the gap between the
             sheets in every arrangement: side by side it points across, stacked it
             points up and down. Raised on `card` with a control's depth so it reads as
-            a thing to press sitting over the seam, never as part of either sheet. */}
+            a thing to press sitting over the seam, never as part of either sheet, and
+            above both sheets while they cross (`z-20` over their 11 and 12). */}
         {onSwap ? (
-          <div className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+          <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
             <LanguagePairSwap
               languagePair={languagePair}
               running={running}

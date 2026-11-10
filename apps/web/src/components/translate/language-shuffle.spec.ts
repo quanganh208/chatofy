@@ -76,6 +76,24 @@ describe('the language shuffle', () => {
     expect(frames(first)[2]).toHaveProperty('backgroundColor');
   });
 
+  it('spins the round swap half a turn with the sheets', () => {
+    const vi1 = card('vi', 0);
+    const en = card('en', 600);
+    const swap = document.createElement('button');
+    swap.dataset.shuffleIcon = '';
+    const spin = vi.fn<(keyframes: Keyframe[]) => Animation>(() => new Animation());
+    swap.animate = spin;
+    root.append(swap);
+    const before = captureShuffle(root);
+    vi1.dataset.shuffleCard = 'en';
+    en.dataset.shuffleCard = 'vi';
+
+    playShuffle(root, before);
+
+    const keyframes = spin.mock.calls[0]![0] as unknown as { transform: string }[];
+    expect(keyframes.at(-1)!.transform).toContain('rotate(180deg)');
+  });
+
   it('leaves a card that did not move alone', () => {
     const only = card('vi', 0);
     const before = captureShuffle(root);

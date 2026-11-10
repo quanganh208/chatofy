@@ -69,7 +69,7 @@ export function playShuffle(root: HTMLElement | null, before: ShuffleSnapshot | 
     const tilt = over ? -1.5 : 1;
     const scale = over ? 1.02 : 0.97;
 
-    // Both above the swap in the gap (`z-10`), which they pass under otherwise.
+    // Under the swap (`z-20`), which stays on top while they cross.
     card.style.zIndex = over ? '12' : '11';
     const animation = card.animate(
       [
@@ -89,12 +89,16 @@ export function playShuffle(root: HTMLElement | null, before: ShuffleSnapshot | 
     animation.addEventListener('cancel', settle);
   });
 
-  // The swap's own icon turns half a turn with them.
-  for (const icon of root.querySelectorAll<SVGElement>('[data-shuffle-icon]')) {
-    if (typeof icon.animate !== 'function') continue;
-    icon.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(180deg)' }], {
-      duration: DURATION_MS,
-      easing: EASING,
-    });
+  // The round swap turns half a turn with them, swelling slightly at the midpoint.
+  for (const button of root.querySelectorAll<HTMLElement>('[data-shuffle-icon]')) {
+    if (typeof button.animate !== 'function') continue;
+    button.animate(
+      [
+        { transform: 'rotate(0deg) scale(1)' },
+        { transform: 'rotate(90deg) scale(1.12)', offset: 0.5 },
+        { transform: 'rotate(180deg) scale(1)' },
+      ],
+      { duration: DURATION_MS, easing: EASING },
+    );
   }
 }
