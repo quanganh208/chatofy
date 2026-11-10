@@ -1,6 +1,7 @@
 import { Globe, Puzzle, Smartphone } from 'lucide-react';
 import { dawn } from '@chatofy/ui';
 import { getT } from '@/i18n/server';
+import { Reveal } from '@/components/motion/reveal';
 import { Section } from './section';
 
 /** The tiles' decorative band — the dawn trio, left to right. */
@@ -46,25 +47,24 @@ export async function Surfaces() {
   return (
     <Section id="where-it-runs" title={t('web.landing.surfacesTitle')}>
       <div className="grid gap-4 md:grid-cols-3">
-        {surfaces.map((surface) => (
-          <div
-            key={surface.title}
-            className="border-hairline flex flex-col gap-3 rounded-xl border p-6"
-          >
-            <span
-              aria-hidden
-              className="h-1 w-12 rounded-full"
-              style={{ backgroundImage: DAWN_BAND }}
-            />
-            <span
-              aria-hidden
-              className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
-            >
-              <surface.Icon className="size-5" />
-            </span>
-            <h3 className="text-body font-medium tracking-tight">{surface.title}</h3>
-            <p className="text-prose text-hint">{surface.body}</p>
-          </div>
+        {surfaces.map((surface, index) => (
+          <Reveal key={surface.title} delay={index * 90}>
+            <div className="border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full flex-col gap-3 rounded-xl border p-6 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <span
+                aria-hidden
+                className="h-1 w-12 rounded-full"
+                style={{ backgroundImage: DAWN_BAND }}
+              />
+              <span
+                aria-hidden
+                className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
+              >
+                <surface.Icon className="size-5" />
+              </span>
+              <h3 className="text-body font-medium tracking-tight">{surface.title}</h3>
+              <p className="text-prose text-hint">{surface.body}</p>
+            </div>
+          </Reveal>
         ))}
       </div>
     </Section>

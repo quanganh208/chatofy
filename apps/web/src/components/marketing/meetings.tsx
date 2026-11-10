@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { FileText, Link2, MessageSquare, Volume2 } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
+import { Reveal } from '@/components/motion/reveal';
 import { Section } from './section';
 
 /**
@@ -41,19 +42,21 @@ export async function Meetings() {
       {/* Flat tiles, not cards: no shadow, so the band adds nothing to the elevated-surface
           count of the page. */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {points.map((point) => (
-          <div key={point.title} className="border-hairline flex gap-4 rounded-xl border p-5">
-            <span
-              aria-hidden
-              className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
-            >
-              <point.Icon className="size-5" />
-            </span>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <h3 className="text-body font-medium tracking-tight">{point.title}</h3>
-              <p className="text-prose text-hint text-muted-foreground">{point.body}</p>
+        {points.map((point, index) => (
+          <Reveal key={point.title} delay={(index % 2) * 90}>
+            <div className="border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full gap-4 rounded-xl border p-5 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <span
+                aria-hidden
+                className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
+              >
+                <point.Icon className="size-5" />
+              </span>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <h3 className="text-body font-medium tracking-tight">{point.title}</h3>
+                <p className="text-prose text-hint text-muted-foreground">{point.body}</p>
+              </div>
             </div>
-          </div>
+          </Reveal>
         ))}
       </div>
       <div className="mt-10 flex flex-wrap items-center gap-4">

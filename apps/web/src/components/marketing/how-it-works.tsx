@@ -1,4 +1,5 @@
 import { dawn } from '@chatofy/ui';
+import { Reveal } from '@/components/motion/reveal';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
 
@@ -37,27 +38,26 @@ export async function HowItWorks() {
     >
       <ol className="grid gap-4 md:grid-cols-3">
         {steps.map((step, index) => (
-          <li
-            key={step.title}
-            className="border-hairline flex flex-col gap-3 rounded-xl border p-6"
-          >
-            <span
-              aria-hidden
-              className="h-1 w-12 rounded-full"
-              style={{
-                backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
-              }}
-            />
-            {/* Ordinal, not a count of anything — the sequence is the content. */}
-            <span
-              aria-hidden
-              className="font-display text-muted-foreground text-display font-light leading-none"
-            >
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <h3 className="text-body mt-2 font-medium tracking-tight">{step.title}</h3>
-            <p className="text-prose text-hint">{step.body}</p>
-          </li>
+          <Reveal as="li" key={step.title} delay={index * 90}>
+            <div className="border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full flex-col gap-3 rounded-xl border p-6 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <span
+                aria-hidden
+                className="h-1 w-12 rounded-full"
+                style={{
+                  backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+                }}
+              />
+              {/* Ordinal, not a count of anything — the sequence is the content. */}
+              <span
+                aria-hidden
+                className="font-display text-muted-foreground text-display font-light leading-none"
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <h3 className="text-body mt-2 font-medium tracking-tight">{step.title}</h3>
+              <p className="text-prose text-hint">{step.body}</p>
+            </div>
+          </Reveal>
         ))}
       </ol>
     </Section>
