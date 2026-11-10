@@ -31,6 +31,7 @@ import {
   type ListConversationsQuery,
 } from './interfaces/conversation-store.interface';
 import { MinutesSummarizer } from '../minutes/minutes-summarizer.service';
+import { llmCallScope } from '../usage/llm-call-scope';
 
 /** The opening of the transcript a title is drawn from — a topic shows early. */
 const TITLE_SOURCE_MAX_CHARS = 2_000;
@@ -164,14 +165,17 @@ export class ConversationsService {
     try {
       const provider = this.summarizer.get();
       const request = { transcript, language: body.titleLanguage };
-      void provider
-        .title(request)
-        .catch(async () => {
-          await new Promise((resolve) =>
-            setTimeout(resolve, TITLE_RETRY_DELAY_MS),
-          );
-          return provider.title(request);
-        })
+      // Run in the owner's scope so the title calls, the delayed retry
+      // included, are attributed to them.
+      void llmCallScope
+        .run({ userId: ownerId }, () =>
+          provider.title(request).catch(async () => {
+            await new Promise((resolve) =>
+              setTimeout(resolve, TITLE_RETRY_DELAY_MS),
+            );
+            return provider.title(request);
+          }),
+        )
         .then((title) =>
           this.store.setTitleIfEmpty(
             ownerId,

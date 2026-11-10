@@ -25,7 +25,7 @@ import {
   type ProviderConfig,
 } from '@chatofy/ai-providers';
 import { recordQuotaCooldown } from '../quota-cooldown-meter';
-import { logLlmCall } from './llm-call-log';
+import { recordLlmCall } from './llm-call-log';
 
 /**
  * Where absorbed rate limits are reported.
@@ -131,6 +131,7 @@ export function registerDefaultProviders(
       const c = cfg as AiProviderResolveConfig;
       return new GeminiTranslationProvider({
         apiKey: c.geminiApiKey,
+        onCall: recordLlmCall,
         // The earliest sign that request volume has outgrown the quota, and it
         // used to be entirely silent: the pair went on cooldown and the walk
         // carried on, so the first visible symptom was a slow or failed turn
@@ -211,7 +212,7 @@ export function registerDefaultProviders(
           name: host.name,
           extraBody: host.extraBody,
           maxOutputTokensField: host.maxOutputTokensField,
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
           // DeepSeek accepts `stream_options.include_usage` (probed on
           // 2026-11-02); the OpenAI row stays off until a probe says it does.
           reportStreamUsage: host.name === 'deepseek',
@@ -235,7 +236,7 @@ export function registerDefaultProviders(
           name: host.name,
           extraBody: host.extraBody,
           maxOutputTokensField: host.maxOutputTokensField,
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
         });
       },
     });
@@ -276,7 +277,7 @@ export function registerDefaultProviders(
           baseUrl: COMMAND_CODE_BASE_URL,
           models: ['deepseek/deepseek-v4-flash-fast'],
           name: 'commandcode',
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
           // The proxy answers `stream_options.include_usage` with token counts
           // and cache hits (probed on 2026-11-02).
           reportStreamUsage: true,
@@ -287,7 +288,7 @@ export function registerDefaultProviders(
           models: [deepseek.model],
           name: deepseek.name,
           extraBody: deepseek.extraBody,
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
           reportStreamUsage: true,
         }),
       });
@@ -305,7 +306,7 @@ export function registerDefaultProviders(
           baseUrl: COMMAND_CODE_BASE_URL,
           model: 'deepseek/deepseek-v4-flash-fast',
           name: 'commandcode',
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
         }),
         secondary: new OpenAiCompatibleLoanwordRespeller({
           apiKey: c.openAiCompatibleApiKey,
@@ -313,7 +314,7 @@ export function registerDefaultProviders(
           model: deepseek.model,
           name: deepseek.name,
           extraBody: deepseek.extraBody,
-          onCall: logLlmCall,
+          onCall: recordLlmCall,
         }),
       });
     },
@@ -334,7 +335,7 @@ export function registerDefaultProviders(
         baseUrl: COMMAND_CODE_BASE_URL,
         model: 'gpt-5.6-sol',
         name: 'commandcode-polish',
-        onCall: logLlmCall,
+        onCall: recordLlmCall,
       });
       // Without a DeepSeek key there is nowhere to move to, and the draft
       // stands while Command Code is out, as it always did.
@@ -345,7 +346,7 @@ export function registerDefaultProviders(
             model: DEEPSEEK_POLISH_MODEL,
             name: 'deepseek-polish',
             extraBody: deepseek.extraBody,
-            onCall: logLlmCall,
+            onCall: recordLlmCall,
           })
         : null;
       // A spent usage window is the plan's, so it trips the shared circuit. A
@@ -404,6 +405,7 @@ export function registerDefaultProviders(
       return new GeminiSummarizationProvider({
         apiKey: c.geminiApiKey,
         onQuotaCooldown: minutesQuotaCooldown,
+        onCall: recordLlmCall,
       });
     },
   });
@@ -421,11 +423,13 @@ export function registerDefaultProviders(
           baseUrl: COMMAND_CODE_BASE_URL,
           model: 'google/gemini-3.7-flash',
           name: 'commandcode-minutes',
+          onCall: recordLlmCall,
         }),
         secondary: c.geminiApiKey
           ? new GeminiSummarizationProvider({
               apiKey: c.geminiApiKey,
               onQuotaCooldown: minutesQuotaCooldown,
+              onCall: recordLlmCall,
             })
           : null,
         circuit: commandCodeCircuit,

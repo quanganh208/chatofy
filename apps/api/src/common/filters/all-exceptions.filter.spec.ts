@@ -11,6 +11,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { AllExceptionsFilter } from './all-exceptions.filter';
+import { CodedHttpException } from '../exceptions/coded-http.exception';
 import { LanguageUnavailableException } from '../exceptions/language-unavailable.exception';
 
 interface MockResponse {
@@ -131,6 +132,25 @@ describe('AllExceptionsFilter', () => {
     expect(body.error.code).toBe('SERVICE_UNAVAILABLE');
     expect(body.error.message).toBe('This server cannot speak fr right now');
   });
+
+  it.each([
+    ['CHECKOUT_NOT_OPEN', 403, 'Checkout is not open to this account yet'],
+    ['CREDITS_EXHAUSTED', 402, 'Not enough credits for minutes'],
+  ] as const)(
+    'emits a coded exception as %s with status %i, not the status-derived code',
+    (code, status, message) => {
+      const res = mockResponse();
+      filter.catch(
+        new CodedHttpException(code, status, message),
+        httpHost(res),
+      );
+      expect(res.statusCode).toBe(status);
+      const body = res.body as { error: { code: string; message: string } };
+      // A plain 403 would read FORBIDDEN and a 402 VALIDATION_FAILED.
+      expect(body.error.code).toBe(code);
+      expect(body.error.message).toBe(message);
+    },
+  );
 
   it('still masks an ordinary 503 — a dependency being down is not the same fact', () => {
     const res = mockResponse();

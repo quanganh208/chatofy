@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
+import type { CreditBalance } from '@chatofy/types';
 import { checkHealth } from '@/clients/api-client';
+import { useCreditBalance } from '@/hooks/use-credits';
 import { useMicrophoneAvailability } from '@/hooks/use-microphone-availability';
 import { useMicrophonePermission } from '@/hooks/use-microphone-permission';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
+import { formatCredits } from '@/lib/credit-format';
 import type { MicrophoneAvailability } from '@/hooks/use-microphone-availability';
 import type { MicrophonePermission } from '@/hooks/use-microphone-permission';
 import type { MessageKey } from '@chatofy/i18n';
@@ -36,7 +39,8 @@ import type { MessageKey } from '@chatofy/i18n';
  * nothing. If it turns out to be a real fault, pressing Start reports it.
  *
  * So this speaks only for the two answers that are definite: the permission was
- * refused, or there is no device.
+ * refused, or there is no device. The balance follows the same rule: under one
+ * credit and at two or fewer are both definite, an unread balance is not.
  *
  * ## "No device" is only definite once permission was granted
  *
@@ -68,10 +72,34 @@ function microphoneFault(
   return null;
 }
 
+/** At or under this many credits, a conversation started now will stop soon. */
+const LOW_CREDITS = 2;
+
+/**
+ * The balance, when it is a definite problem: under one credit (the server will
+ * refuse Start) or at two or fewer (a conversation will stop soon).
+ *
+ * Read once per mount, which is once per visit and once after every
+ * conversation — the banner unmounts while one runs. A balance that could not be
+ * read says nothing: Start is never disabled here, the server decides, and its
+ * refusal is reported by the conversation itself.
+ */
+function creditsFault(
+  balance: CreditBalance | null,
+): { key: 'common.billing.startRefused' } | { key: 'common.billing.low'; credits: number } | null {
+  if (!balance) return null;
+  if (balance.totalCredits < 1) return { key: 'common.billing.startRefused' };
+  if (balance.totalCredits <= LOW_CREDITS)
+    return { key: 'common.billing.low', credits: balance.totalCredits };
+  return null;
+}
+
 export function ReadinessBanner() {
   const t = useTranslate();
+  const locale = useLocale();
   const permission = useMicrophonePermission();
   const availability = useMicrophoneAvailability();
+  const { balance } = useCreditBalance();
   const [serviceDown, setServiceDown] = useState(false);
   // Which probe is the current answer. Nothing else orders them: a probe against a
   // hung API settles at its 5s timeout, so one started a second later can resolve
@@ -130,13 +158,21 @@ export function ReadinessBanner() {
   }, []);
 
   const micKey = microphoneFault(permission, availability);
-  if (!micKey && !serviceDown) return null;
+  const credits = creditsFault(balance);
+  if (!micKey && !serviceDown && !credits) return null;
 
   return (
     <Alert variant="warning">
       <AlertDescription className="flex flex-col gap-1">
         {micKey ? <span>{t(micKey)}</span> : null}
         {serviceDown ? <span>{t('web.translate.serviceUnreachable')}</span> : null}
+        {credits ? (
+          <span data-credits-fault>
+            {credits.key === 'common.billing.low'
+              ? t(credits.key, { credits: formatCredits(t, locale, credits.credits) })
+              : t(credits.key)}
+          </span>
+        ) : null}
       </AlertDescription>
     </Alert>
   );

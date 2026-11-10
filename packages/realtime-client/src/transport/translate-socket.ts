@@ -9,6 +9,13 @@ import {
 import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event-socket.js';
 
 /**
+ * What a turn start carries: its translation settings, plus the conversation
+ * the turn belongs to when the caller knows one. The server only labels the
+ * turn's credit usage with that id, so history can link back to it.
+ */
+export type TurnStartOptions = SessionOptions & { conversationId?: string };
+
+/**
  * Typed client for `/ws/translate`.
  *
  * Two framings meet here and both are load-bearing:
@@ -128,7 +135,7 @@ export class TranslateSocket {
    * held back by the in-flight ceiling has an order and a buffer and no request
    * sent yet. See {@link newTurnId} for the generator.
    */
-  startSession(options: SessionOptions, turnId: string): void {
+  startSession(options: TurnStartOptions, turnId: string): void {
     this.send({ type: 'client.session.start', ...options, turnId });
   }
 

@@ -28,6 +28,13 @@ import {
 } from './ws-auth';
 import { TranslationSessionService } from './services/translation-session.service';
 import type { StreamSocket } from './session/stream-socket';
+import { llmCallScope } from '../usage/llm-call-scope';
+import { creditMultiplier } from '../credits/credit-pricing';
+import {
+  MESSAGES as CREDIT_MESSAGES,
+  TranslationMeter,
+  type CreditStopReason,
+} from '../credits/translation-meter';
 
 /**
  * A socket this gateway can end.
@@ -83,11 +90,18 @@ export class TranslateGateway
    * upgrade already knew. Weak so a closed socket takes its entry with it.
    */
   private readonly userBySocket = new WeakMap<CloseableSocket, string>();
+  /**
+   * Each socket's starts, run one after another. Admission awaits the ledger,
+   * and two starts must still open in the order they arrived: the server names
+   * a turn's predecessor by that order.
+   */
+  private readonly startChains = new WeakMap<StreamSocket, Promise<void>>();
 
   constructor(
     private readonly sessions: TranslationSessionService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
     private readonly terminator: SessionTerminator,
+    private readonly meter: TranslationMeter,
   ) {
     // The gateway registers ITSELF. Auth never names a gateway, a socket, or
     // `ws` — it asks for a user's live connections to end and this answers.
@@ -152,6 +166,23 @@ export class TranslateGateway
     return true;
   }
 
+  /**
+   * Run a handler's work in the scope every paid model call it causes is
+   * attributed to: this socket's user and the turn named. Work the handler
+   * starts and leaves running — a preview, a polish that settles after the turn
+   * ended — inherits the scope through its async chain.
+   */
+  private scoped<T>(
+    client: StreamSocket,
+    sessionId: string | undefined,
+    work: () => T,
+  ): T {
+    return llmCallScope.run(
+      { userId: this.userBySocket.get(client), sessionId },
+      work,
+    );
+  }
+
   /** Push one contract event, never letting a dead socket take the process down. */
   private emit(client: StreamSocket, event: ServerEvent): void {
     try {
@@ -167,7 +198,7 @@ export class TranslateGateway
   handleSessionStart(
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
-  ): void {
+  ): Promise<void> {
     // Everything except the two fields that are not translation settings is
     // forwarded WHOLESALE, and that is load-bearing rather than tidiness. This
     // used to name each option and rebuild the object, which silently dropped
@@ -185,17 +216,81 @@ export class TranslateGateway
     // the translation, and widening `sessionOptionsSchema` to hold it would drag
     // it through every layer that touches that object. `type` is the discriminant
     // and means nothing past the parse.
-    if (this.refuseLegacyStart(client, payload)) return;
+    if (this.refuseLegacyStart(client, payload)) return Promise.resolve();
+    // `conversationId` is a history label for the turn's credit entry, not a
+    // translation setting, so it is kept out of the options like `turnId`.
     const {
       type: _type,
       turnId,
+      conversationId,
       ...options
     } = this.parseEvent(payload, 'client.session.start');
+    const voiceOutput = options.voiceOutput ?? true;
+    // An upper bound for admission: extras count only on a declared one-way
+    // turn, which `start()` decides; the turn itself is priced by what it ran.
+    const estimate = creditMultiplier({
+      voiceOutput,
+      extraTargets: options.twoWay
+        ? 0
+        : (options.alsoTranslateInto?.length ?? 0),
+    });
     // Optional fields arrive as they were sent — absent stays absent, since zod
     // omits an optional key rather than setting it undefined. `TurnSession`
     // decides what an omitted one means, so one place knows the default rather
     // than one per layer.
-    this.sessions.start(client, options, turnId, this.userBySocket.get(client));
+    // Scoped to the user only: `turnId` is the client's name for the turn, not
+    // the session id the server mints inside `start()`, so no turn id exists yet
+    // to attribute to. Frames and the end carry the real one.
+    const admitThenStart = async (): Promise<void> => {
+      const userId = this.userBySocket.get(client);
+      // The in-memory ceilings first: a start they would refuse must not
+      // cost a ledger transaction. `start()` checks them again after the
+      // admission awaited the ledger.
+      if (this.sessions.refuseOverCapacity(client, options, turnId, userId)) {
+        return;
+      }
+      const admission = await this.meter.admit(client, estimate);
+      if (!admission.admitted) {
+        this.emit(client, {
+          type: 'server.error',
+          code: admission.code,
+          message: CREDIT_MESSAGES[admission.code],
+          turnId,
+          // A balance only means something on a credit refusal.
+          ...(admission.code === 'too_many_turns'
+            ? {}
+            : { remainingCreditSeconds: admission.remainingCreditSeconds }),
+        });
+        return;
+      }
+      const started = this.scoped(client, undefined, () =>
+        this.sessions.start(client, options, turnId, userId),
+      );
+      if (!started) return;
+      this.meter.turnOpened(
+        client,
+        started.sessionId,
+        creditMultiplier({ voiceOutput, extraTargets: started.extraTargets }),
+        conversationId,
+      );
+    };
+    // One failure must not poison the chain for every later start.
+    const next = (this.startChains.get(client) ?? Promise.resolve())
+      .then(admitThenStart)
+      .catch((err: unknown) => {
+        this.logger.error(
+          `turn start failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    this.startChains.set(client, next);
+    return next;
+  }
+
+  /** The meter ran this socket out of credit: end its listening turns gracefully. */
+  private stopForCredits(client: StreamSocket, reason: CreditStopReason): void {
+    this.sessions.endAllForCredits(client, reason, (sessionId, work) =>
+      this.scoped(client, sessionId, work),
+    );
   }
 
   @SubscribeMessage('client.audio.frame')
@@ -204,7 +299,11 @@ export class TranslateGateway
     @ConnectedSocket() client: StreamSocket,
   ): void {
     const event = this.parseEvent(payload, 'client.audio.frame');
-    this.sessions.pushFrame(client, event.frame);
+    const accepted = this.scoped(client, event.frame.sessionId, () =>
+      this.sessions.pushFrame(client, event.frame),
+    );
+    // Only what the turn accepted is billed; a refused frame returns 0.
+    this.meter.onFrame(client, event.frame.sessionId, accepted);
   }
 
   /**
@@ -217,7 +316,9 @@ export class TranslateGateway
     @ConnectedSocket() client: StreamSocket,
   ): void {
     const { sessionId } = this.parseEvent(payload, 'client.turn.speculate');
-    this.sessions.speculate(client, sessionId);
+    this.scoped(client, sessionId, () =>
+      this.sessions.speculate(client, sessionId),
+    );
   }
 
   @SubscribeMessage('client.session.end')
@@ -226,7 +327,9 @@ export class TranslateGateway
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
     const { sessionId } = this.parseEvent(payload, 'client.session.end');
-    return this.sessions.end(client, sessionId);
+    return this.scoped(client, sessionId, () =>
+      this.sessions.end(client, sessionId),
+    );
   }
 
   /**
@@ -257,10 +360,15 @@ export class TranslateGateway
     @ConnectedSocket() client: StreamSocket,
   ): void {
     const { segmentIds } = this.parseEvent(payload, 'client.block.retranslate');
-    void this.sessions.retranslateBlock(
-      client,
-      segmentIds,
-      this.userBySocket.get(client),
+    // A block spans several turns; it is attributed to the turn it starts in.
+    // A piece's id is `<turn>#<index>`, so the suffix is cut to name the turn.
+    const firstTurn = segmentIds[0]?.split('#')[0];
+    void this.scoped(client, firstTurn, () =>
+      this.sessions.retranslateBlock(
+        client,
+        segmentIds,
+        this.userBySocket.get(client),
+      ),
     );
   }
 
@@ -283,6 +391,9 @@ export class TranslateGateway
     if (held) held.add(client);
     else this.socketsByUser.set(userId, new Set([client]));
     this.userBySocket.set(client, userId);
+    this.meter.attach(client, userId, (reason) =>
+      this.stopForCredits(client, reason),
+    );
 
     this.closeIfRevokedSinceUpgrade(client, userId, args[0]);
   }
@@ -369,9 +480,19 @@ export class TranslateGateway
   /** Free everything a dropped socket was holding. */
   handleDisconnect(client: CloseableSocket): void {
     try {
+      // Settles every turn still open, so the detach below can close the lease.
       this.sessions.disconnect(client);
     } finally {
       this.unregisterSocket(client);
+      // Never awaited and never unhandled: a ledger outage at disconnect is
+      // logged, and the reaper gives the lease back if the close did not land.
+      void this.meter
+        .detach(client)
+        .catch((err: unknown) =>
+          this.logger.warn(
+            `closing the credit lease failed: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
     }
   }
 

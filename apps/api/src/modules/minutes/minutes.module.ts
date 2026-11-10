@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { UsageModule } from '../usage/usage.module';
+import { CreditsModule } from '../credits/credits.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { SummarizationModule } from '../summarization/summarization.module';
 import { MINUTES_STORE } from './interfaces/minutes-store.interface';
@@ -28,7 +30,14 @@ import { MinutesService } from './minutes.service';
  * it.
  */
 @Module({
-  imports: [AuthModule, ConversationsModule, SummarizationModule],
+  imports: [
+    AuthModule,
+    ConversationsModule,
+    SummarizationModule,
+    UsageModule,
+    // A run is paid for in credits, and refunded when it fails.
+    CreditsModule,
+  ],
   controllers: [MinutesController],
   providers: [
     { provide: MINUTES_STORE, useClass: PrismaMinutesStore },

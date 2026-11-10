@@ -15,6 +15,11 @@ import { errorBody, readBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { HealthDto } from '../src/modules/health/dto/health.dto';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /**
  * Boots the full AppModule so the APP_* providers (TransformInterceptor,
@@ -34,6 +39,9 @@ describe('Response envelope (e2e)', () => {
       .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();

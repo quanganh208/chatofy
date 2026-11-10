@@ -238,6 +238,9 @@ export function limitConcurrentAudioUploads(
  */
 export const CONVERSATIONS_JSON_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 
+/** Largest payment-webhook body accepted (raw, for signature verification). */
+export const WEBHOOK_BODY_LIMIT = '64kb';
+
 /**
  * Per-path JSON body ceilings, registered BEFORE the app-wide 12mb parser.
  *
@@ -255,6 +258,15 @@ export const CONVERSATIONS_JSON_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
  * executes.
  */
 export function registerNarrowBodyLimits(app: INestApplication): void {
+  // Payment webhooks are verified by an HMAC over the bytes that arrived, so
+  // the body must reach the route as a Buffer, never parsed and re-serialised.
+  // Registered first, so the app-wide JSON parser skips these requests; 64kb
+  // is far above any Polar or SePay event and refuses anything else early.
+  app.use(
+    '/billing/webhooks',
+    raw({ type: 'application/json', limit: WEBHOOK_BODY_LIMIT }),
+  );
+
   // 512KB leaves room for base64's ~4/3 expansion over the 256KB byte cap the
   // storage module enforces after decoding.
   app.use('/auth/me/avatar', json({ limit: '512kb' }));

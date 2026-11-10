@@ -63,6 +63,7 @@ const MIC_PROCESSING_OPTIONS: ReadonlyArray<{
 ];
 import { runsOn } from '../../src/site-enablement';
 import { SUPPORTED_MEETINGS } from '../../src/supported-meeting-url';
+import { CreditsPane } from './credits-pane';
 import type { usePopup } from './use-popup';
 
 /**
@@ -302,6 +303,8 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           </Row>
         ))}
       </Group>
+      {/* The account's credits, beside the account row they belong to. */}
+      <CreditsPane apiBaseUrl={settings?.apiBaseUrl} active={!hidden} />
       {/* Last, and quiet: signing out stops a running capture, so it belongs
           below the things someone came here to change rather than beside them. */}
       <div className="border-hairline flex items-center justify-between gap-2 border-t pt-3">

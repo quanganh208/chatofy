@@ -19,7 +19,11 @@ import {
 } from '../conversation/conversation-session.js';
 import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 import { CascadeSubtitleRelay } from './cascade-subtitle-relay.js';
-import { LegRestartPolicy, type ConferenceLegEndReason } from './conference-leg-restart-policy.js';
+import {
+  LegRestartPolicy,
+  type ConferenceLegEndReason,
+  type LegStopCause,
+} from './conference-leg-restart-policy.js';
 import { LegSequenceCounter } from './leg-sequence-counter.js';
 import { LegTurnPrimaries } from './leg-turn-primaries.js';
 
@@ -293,7 +297,7 @@ class CascadeLeg implements ConferenceCascadeLeg {
       workletUrl,
       ownsAudioResources,
     } = this.o.audioDeps;
-    const cause = { closeCode: null as number | null, beforeSocket: true };
+    const cause: LegStopCause = { closeCode: null, beforeSocket: true };
     const session: ConversationSession = new ConversationSession(
       {
         openMicrophone,
@@ -332,8 +336,10 @@ class CascadeLeg implements ConferenceCascadeLeg {
         onStatus: () => {},
         onLevel: () => {},
         onMuted: () => {},
-        onError: (message) => {
+        onError: (message, serverCause) => {
           if (message !== null) this.log(`translator: ${message}`);
+          // The session finishes itself on this code; the leg must not rebuild it.
+          if (serverCause?.code === 'credits_exhausted') cause.creditsExhausted = true;
         },
         onEchoHeard: () => {},
         onServerEvent: (event) => {
@@ -394,10 +400,7 @@ class CascadeLeg implements ConferenceCascadeLeg {
     });
   }
 
-  private onStopped(
-    session: ConversationSession,
-    cause: { closeCode: number | null; beforeSocket: boolean },
-  ): void {
+  private onStopped(session: ConversationSession, cause: LegStopCause): void {
     if (this.session !== session) return;
     if (this.disposed) {
       this.drained?.();

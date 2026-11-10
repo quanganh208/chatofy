@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSession } from 'next-auth/react';
+import type { ConferenceLegEndReason } from '@chatofy/realtime-client';
 import type { LanguageCode } from '@chatofy/types';
 import type { PreferredDevices } from '@/conference/acquire-local-media';
 import { ConferenceConnection } from '@/conference/conference-connection';
@@ -70,10 +71,11 @@ export interface UseConferenceReturn {
   localTranslating: boolean;
   /**
    * The speaker's translation ended for good mid-call (no token, refused, or
-   * the translator kept dropping): the others hear the speaker untranslated.
-   * Cleared when the call view resets, including a reconnect.
+   * the translator kept dropping, or the speaker ran out of credits): the
+   * others hear the speaker untranslated. Why it ended, or `null` while it has
+   * not; cleared when the call view resets, including a reconnect.
    */
-  translationEnded: boolean;
+  translationEnded: ConferenceLegEndReason | null;
   /** Current reconnect attempt (1-based); 0 when not reconnecting. */
   reconnectAttempt: number;
   /** Maximum reconnect attempts before giving up to `disconnected`. */
@@ -117,7 +119,7 @@ export function useConference(roomId: string): UseConferenceReturn {
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [localTranslating, setLocalTranslating] = useState(false);
-  const [translationEnded, setTranslationEnded] = useState(false);
+  const [translationEnded, setTranslationEnded] = useState<ConferenceLegEndReason | null>(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
   const [chatRefusal, setChatRefusal] = useState<ConferenceChatRefusal | null>(null);

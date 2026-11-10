@@ -68,6 +68,8 @@ export type { AudioEncoding, AudioFrame } from './audio-frame.js';
 export {
   clientEventSchema,
   countTermWords,
+  CREDIT_ERROR_CODES,
+  creditErrorCodeSchema,
   glossaryEntrySchema,
   MAX_BLOCK_SEGMENTS,
   MAX_GLOSSARY_TERM_WORDS,
@@ -80,6 +82,7 @@ export {
 export type {
   ClientEvent,
   ClientTurnMetrics,
+  CreditErrorCode,
   GlossaryEntry,
   ServerEvent,
   SessionLanguageMode,

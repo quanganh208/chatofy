@@ -323,14 +323,18 @@ export default function ConferenceRoomPage() {
       )}
 
       {/* Translation ended for good — a readout like the audio-only notice: no
-          card, no control; the call itself goes on untranslated. */}
+          card, no control; the call itself goes on untranslated. The reason
+          only picks the sentence: out of credits says so, and does not tell the
+          speaker to rejoin, which would end the same way. */}
       {translationEnded && (
         <p
           role="status"
           data-translation-ended
           className="text-hint text-muted-foreground border-border border-b px-4 py-1"
         >
-          {t('common.conference.translationEnded')}
+          {translationEnded === 'credits_exhausted'
+            ? t('common.conference.translationEndedNoCredits')
+            : t('common.conference.translationEnded')}
         </p>
       )}
 

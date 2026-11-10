@@ -68,4 +68,8 @@ describe('llms.txt', () => {
     expect(text).toContain('## Pages');
     expect(text).toContain(`](${ORIGIN}/index.md)`);
   });
+
+  it('links the pricing twin, so an agent can find the prices without the page', () => {
+    expect(text).toContain(`[${en['web.meta.pricing']}](${ORIGIN}/pricing.md)`);
+  });
 });

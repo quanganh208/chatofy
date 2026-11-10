@@ -421,6 +421,97 @@ describe('useStreamingTranslate languages', () => {
   });
 });
 
+describe('useStreamingTranslate credits', () => {
+  const started = async () => {
+    await act(async () => {
+      await latest.start(options);
+    });
+    return FakeConversationSession.last!;
+  };
+
+  /** A credit `server.error`, as the session passes it: the event first, then `onError`. */
+  const creditError = (
+    session: InstanceType<typeof FakeConversationSession>,
+    event: Extract<ServerEvent, { type: 'server.error' }>,
+  ) =>
+    act(() => {
+      session.listeners.onServerEvent(event);
+      session.listeners.onError(event.message, { code: event.code });
+    });
+
+  it('names the conversation on every turn start through the runtime, a new id per start', async () => {
+    const session = await started();
+    const first = (session.runtime() as { conversationId?: string }).conversationId;
+    expect(first).toBe(latest.conversationId);
+    await started();
+    const second = (session.runtime() as { conversationId?: string }).conversationId;
+    expect(second).toBe(latest.conversationId);
+    expect(second).not.toBe(first);
+  });
+
+  it('shows running low as a notice, not as the error', async () => {
+    const session = await started();
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'Your credits are running low',
+      remainingCreditSeconds: 120,
+    });
+    expect(latest.error).toBeNull();
+    expect(latest.notice).toBe('common.billing.low');
+    expect(latest.status).toBe('listening');
+  });
+
+  it('replaces the notice with the exhausted copy when the balance runs out mid-run', async () => {
+    const session = await started();
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'low',
+      remainingCreditSeconds: 60,
+    });
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_exhausted',
+      message: 'You are out of credits',
+      remainingCreditSeconds: 0,
+    });
+    expect(latest.notice).toBeNull();
+    expect(latest.error).toBe('common.billing.exhausted');
+  });
+
+  it('says a refused start as needing a credit, and an outage as its own sentence', async () => {
+    const session = await started();
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_exhausted',
+      message: 'You are out of credits',
+      turnId: 't-1',
+      remainingCreditSeconds: 30,
+    });
+    expect(latest.error).toBe('common.billing.startRefused');
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_unavailable',
+      message: 'cannot check',
+      turnId: 't-2',
+    });
+    expect(latest.error).toBe('common.billing.unavailable');
+  });
+
+  it('forgets the notice on the next start', async () => {
+    const session = await started();
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'low',
+      remainingCreditSeconds: 100,
+    });
+    await started();
+    expect(latest.notice).toBeNull();
+  });
+});
+
 describe('useStreamingTranslate microphone processing', () => {
   function stubMicrophone(applied: Partial<MicProcessing>) {
     const stream = { getAudioTracks: () => [{ getSettings: () => applied }] };

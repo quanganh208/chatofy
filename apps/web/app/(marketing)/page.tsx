@@ -5,6 +5,7 @@ import { Hero } from '@/components/marketing/hero';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { Meetings } from '@/components/marketing/meetings';
 import { RecordingPrivacy } from '@/components/marketing/recording-privacy';
+import { SOCIAL_CARD } from '@/components/marketing/social-card';
 import { StructuredData } from '@/components/marketing/structured-data';
 import { Surfaces } from '@/components/marketing/surfaces';
 
@@ -26,10 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: '/',
       types: { 'text/markdown': '/index.md' },
     },
-    // The image is named here, not left to `app/opengraph-image.png`'s file
-    // convention: any `openGraph` object on a page replaces the root segment's
-    // whole one, file image included — measured, the served page lost `og:image`
-    // and `twitter:card` fell back to `summary` the moment `url` was added.
+    // The image is named here, not left to the file convention — see `SOCIAL_CARD`.
     openGraph: {
       title,
       description,
@@ -43,25 +41,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * `app/opengraph-image.png`, served at its own path. English only, like the image:
- * it is the headline set in type, and the alt describes what is drawn.
- * Source: `app/(dev)/social-card/page.tsx`.
- */
-const SOCIAL_CARD = {
-  url: '/opengraph-image.png',
-  width: 1200,
-  height: 630,
-  type: 'image/png',
-  alt: 'The chatofy wordmark and lotus over the headline "Speak your language. Be understood in theirs." on a dawn-coloured glow',
-};
-
-/**
  * The landing page.
  *
  * Six bands, ending in the ask: the hero, meetings directly under it (the two halves of
  * the product carry equal weight), how a conversation runs, the privacy notice, where it
  * runs, and the sign-up. What is deliberately absent is as much of the design as what is
- * here: no pricing on a product with no price, no testimonials from users who do not
+ * here: no pricing section (prices live on `/pricing`, with the notice that checkout is
+ * not open to the public), no testimonials from users who do not
  * exist, no logo wall, and exactly one number on the whole page — the measured ~0.9 s
  * between the end of a sentence and the start of playback (how-it-works, step one), from
  * `docs/development-journey.md`. There is nothing else to honestly count.

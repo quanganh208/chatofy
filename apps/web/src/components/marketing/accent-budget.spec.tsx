@@ -27,7 +27,10 @@ import { accentFilledControls } from '@/design/accent-count';
 // over directly.
 vi.mock('@/i18n/server', async () => {
   const { createTranslator, en } = await import('@chatofy/i18n');
-  return { getT: () => Promise.resolve(createTranslator(en)) };
+  return {
+    getT: () => Promise.resolve(createTranslator(en)),
+    getLocale: () => Promise.resolve('en'),
+  };
 });
 
 // SIGNED OUT, deliberately and narrowly. `FooterCta` reads the session to decide
@@ -50,6 +53,8 @@ const { Meetings } = await import('./meetings');
 const { RecordingPrivacy } = await import('./recording-privacy');
 const { Surfaces } = await import('./surfaces');
 const { FooterCta } = await import('./footer-cta');
+const { PricingHero, PricingPlans } = await import('./pricing-plans');
+const { SEEDED_PLANS } = await import('@/lib/seeded-plans.fixture');
 
 const SECTIONS = [
   // Zero, and it is the row that makes the hero's one mean something: the header
@@ -62,6 +67,11 @@ const SECTIONS = [
   { name: 'RecordingPrivacy', render: RecordingPrivacy, filled: 0 },
   { name: 'Surfaces', render: Surfaces, filled: 0 },
   { name: 'FooterCta', render: FooterCta, filled: 1 },
+  // `/pricing`. The hero's "Start free" is the page's one ask; the plan bands have no
+  // buy button — checkout is not open to the public — with prices or without.
+  { name: 'PricingHero', render: PricingHero, filled: 1 },
+  { name: 'PricingPlans', render: () => PricingPlans({ plans: SEEDED_PLANS }), filled: 0 },
+  { name: 'PricingPlans (no prices)', render: () => PricingPlans({ plans: null }), filled: 0 },
 ] as const;
 
 let root: Root | undefined;
@@ -78,7 +88,7 @@ afterEach(() => {
   container.remove();
 });
 
-describe('the landing page accent budget', () => {
+describe('the public pages accent budget', () => {
   it.each(SECTIONS)('$name renders $filled filled controls', async ({ name, render, filled }) => {
     const element = await render();
     await act(async () => {

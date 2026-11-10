@@ -8,6 +8,7 @@ import { Button } from '@chatofy/ui/react';
 import { getMe } from '@/clients/api-client';
 import { AccountIdentity } from '@/components/account/account-identity';
 import { ChangePasswordForm } from '@/components/account/change-password-form';
+import { CreditsSection } from '@/components/account/credits-section';
 import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
@@ -43,6 +44,10 @@ import { signOutOfChatofy } from '@/lib/sign-out';
  * **The form opens inside the panel, not in a dialog.** It is the row's own action
  * expanded, so it adds no surface; its submit is that state's one filled control, and
  * the outline button that opened it is gone while it is open, so the two never compete.
+ *
+ * **Credits sit between identity and security, on the ground.** They are a
+ * balance and a list — readouts — so they add no surface, and every buy action
+ * in them is outline, so the screen still spends no accent. See `credits-section.tsx`.
  *
  * There is no verified badge. The row is created by redeeming the verification link, so
  * an account that exists has always been verified and there is no `emailVerified`
@@ -86,6 +91,11 @@ export function AccountScreen() {
                 : memberSince(profile.createdAt)
           }
         />
+      </div>
+
+      {/* Full width so Security and Session still pair up on the row below. */}
+      <div className="lg:col-span-2">
+        <CreditsSection />
       </div>
 
       <SettingsSection title={t('web.account.security')} panel>

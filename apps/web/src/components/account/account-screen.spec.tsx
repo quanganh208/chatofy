@@ -26,7 +26,15 @@ const me = vi.fn(() =>
     createdAt: '2026-01-09T00:00:00.000Z',
   }),
 );
-vi.mock('@/clients/api-client', () => ({ getMe: () => me() }));
+// The credits region reads its own calls; never answering keeps this spec about
+// identity and sign-out, which is all it checks. `credits-section.spec.tsx` covers it.
+vi.mock('@/clients/api-client', () => ({
+  getMe: () => me(),
+  getCreditBalance: () => new Promise(() => {}),
+  listCreditUsage: () => new Promise(() => {}),
+  listPlans: () => new Promise(() => {}),
+}));
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock('next-auth/react', () => ({
   useSession: () => ({
     data: { user: { name: 'Quang Anh', email: 'a@b.co' } },

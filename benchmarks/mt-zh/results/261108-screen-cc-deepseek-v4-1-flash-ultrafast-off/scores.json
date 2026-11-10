@@ -1,0 +1,325 @@
+{
+  "run": "261108-screen-cc-deepseek-v4-1-flash-ultrafast-off",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 38.31885539211665,
+        "sd": 0.0,
+        "min": 38.31885539211665,
+        "max": 38.31885539211665,
+        "per_repeat": [38.31885539211665]
+      },
+      "chrf": {
+        "mean": 32.272157485962424,
+        "sd": 0.0,
+        "min": 32.272157485962424,
+        "max": 32.272157485962424,
+        "per_repeat": [32.272157485962424]
+      },
+      "comet": {
+        "mean": 0.869948910176754,
+        "sd": 0.0,
+        "min": 0.869948910176754,
+        "max": 0.869948910176754,
+        "per_repeat": [0.869948910176754]
+      },
+      "latency_ms": {
+        "total_p50": 774.5,
+        "total_p95": 926.6999999999999,
+        "ttft_p50": 739.0,
+        "ttft_p95": 906.65,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27701,
+        "out": 1047,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "马尔泰利昨天在新成立的由九名成员组成的临时选举委员会（Provisional Electoral Council，CEP）中宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 50.363999133444736,
+        "sd": 0.0,
+        "min": 50.363999133444736,
+        "max": 50.363999133444736,
+        "per_repeat": [50.363999133444736]
+      },
+      "chrf": {
+        "mean": 50.78347696363252,
+        "sd": 0.0,
+        "min": 50.78347696363252,
+        "max": 50.78347696363252,
+        "per_repeat": [50.78347696363252]
+      },
+      "comet": {
+        "mean": 0.8768384501338005,
+        "sd": 0.0,
+        "min": 0.8768384501338005,
+        "max": 0.8768384501338005,
+        "per_repeat": [0.8768384501338005]
+      },
+      "latency_ms": {
+        "total_p50": 1011.5,
+        "total_p95": 1125.05,
+        "ttft_p50": 871.0,
+        "ttft_p95": 1003.8499999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25407,
+        "out": 2519,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 46.82951798842927,
+        "sd": 0.0,
+        "min": 46.82951798842927,
+        "max": 46.82951798842927,
+        "per_repeat": [46.82951798842927]
+      },
+      "chrf": {
+        "mean": 40.72414336246542,
+        "sd": 0.0,
+        "min": 40.72414336246542,
+        "max": 40.72414336246542,
+        "per_repeat": [40.72414336246542]
+      },
+      "comet": {
+        "mean": 0.8874723896384239,
+        "sd": 0.0,
+        "min": 0.8874723896384239,
+        "max": 0.8874723896384239,
+        "per_repeat": [0.8874723896384239]
+      },
+      "latency_ms": {
+        "total_p50": 857.5,
+        "total_p95": 1024.3,
+        "ttft_p50": 772.5,
+        "ttft_p95": 1000.05,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22243,
+        "out": 1036,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1693,
+            "repeat": 1,
+            "hyp": "但在失去队长这一 wicket 之后，印度仅得到36分，丢掉7个 wicket 便结束了这一局。",
+            "ref": "但在队长输掉三柱门后，印度在结束这一局的比赛时只得了 36 分，输掉 7 个三柱门。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.77957470439835,
+        "sd": 0.0,
+        "min": 59.77957470439835,
+        "max": 59.77957470439835,
+        "per_repeat": [59.77957470439835]
+      },
+      "chrf": {
+        "mean": 62.42684592546678,
+        "sd": 0.0,
+        "min": 62.42684592546678,
+        "max": 62.42684592546678,
+        "per_repeat": [62.42684592546678]
+      },
+      "comet": {
+        "mean": 0.8734951913356781,
+        "sd": 0.0,
+        "min": 0.8734951913356781,
+        "max": 0.8734951913356781,
+        "per_repeat": [0.8734951913356781]
+      },
+      "latency_ms": {
+        "total_p50": 793.5,
+        "total_p95": 1052.3,
+        "ttft_p50": 757.5,
+        "ttft_p95": 911.0,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25407,
+        "out": 1212,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 61.07548383858864,
+        "sd": 0.0,
+        "min": 61.07548383858864,
+        "max": 61.07548383858864,
+        "per_repeat": [61.07548383858864]
+      },
+      "chrf": {
+        "mean": 63.15356750673888,
+        "sd": 0.0,
+        "min": 63.15356750673888,
+        "max": 63.15356750673888,
+        "per_repeat": [63.15356750673888]
+      },
+      "comet": {
+        "mean": 0.8783619076013565,
+        "sd": 0.0,
+        "min": 0.8783619076013565,
+        "max": 0.8783619076013565,
+        "per_repeat": [0.8783619076013565]
+      },
+      "latency_ms": {
+        "total_p50": 779.0,
+        "total_p95": 964.3999999999999,
+        "ttft_p50": 746.5,
+        "ttft_p95": 903.9999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27541,
+        "out": 1204,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.00836604081275,
+        "sd": 0.0,
+        "min": 58.00836604081275,
+        "max": 58.00836604081275,
+        "per_repeat": [58.00836604081275]
+      },
+      "chrf": {
+        "mean": 58.00919409872131,
+        "sd": 0.0,
+        "min": 58.00919409872131,
+        "max": 58.00919409872131,
+        "per_repeat": [58.00919409872131]
+      },
+      "comet": {
+        "mean": 0.8885866224765777,
+        "sd": 0.0,
+        "min": 0.8885866224765777,
+        "max": 0.8885866224765777,
+        "per_repeat": [0.8885866224765777]
+      },
+      "latency_ms": {
+        "total_p50": 875.0,
+        "total_p95": 986.4499999999999,
+        "ttft_p50": 745.5,
+        "ttft_p95": 838.5999999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22083,
+        "out": 2393,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8834742650389671,
+    "threshold": 0.8534742650389671,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 150382,
+    "out": 9411,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.056407799999999994,
+      "per_1000_requests": 0.23503249999999995
+    },
+    "offpeak": {
+      "run_total": 0.028203899999999997,
+      "per_1000_requests": 0.11751624999999997
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

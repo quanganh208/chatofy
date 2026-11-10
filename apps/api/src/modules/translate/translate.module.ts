@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { UsageModule } from '../usage/usage.module';
+import { CreditsModule } from '../credits/credits.module';
+import { TranslationMeter } from '../credits/translation-meter';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import { AiProvidersFactory } from './providers/ai-providers.factory';
 import { registerDefaultProviders } from './providers/register-default-providers';
@@ -28,7 +31,7 @@ import { TranslateGateway } from './translate.gateway';
  *   pipeline.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, UsageModule, CreditsModule],
   controllers: [TranslateController],
   providers: [
     TranslateGateway,
@@ -41,6 +44,8 @@ import { TranslateGateway } from './translate.gateway';
     PipelineTranslatorService,
     TranslationSessionService,
     TurnMetricsRecorder,
+    // Bills each connection's accepted audio against the credit ledger.
+    TranslationMeter,
     // The real policy every turn runs today: trust the client's declared
     // language outright. Swapping in an audio-based identifier later is a
     // one-line change here, not a rewire of the callers that use the token.

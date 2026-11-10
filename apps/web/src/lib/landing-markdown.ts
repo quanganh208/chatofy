@@ -80,7 +80,7 @@ export function landingMarkdown(t: Translate, origin: string): string {
 
 /**
  * `/llms.txt` in the llmstxt.org shape: name, one-line summary, then links to the
- * markdown twins. One page today, so one link. Low-cost hygiene, not a ranking lever.
+ * markdown twins: the landing page and `/pricing`. Low-cost hygiene, not a ranking lever.
  */
 export function llmsTxt(t: Translate, origin: string): string {
   const url = (path: string) => new URL(path, origin).toString();
@@ -94,6 +94,7 @@ export function llmsTxt(t: Translate, origin: string): string {
     '## Pages',
     '',
     `- [${t('web.meta.home')}](${url('/index.md')}): ${t('web.landing.heroBody')}`,
+    `- [${t('web.meta.pricing')}](${url('/pricing.md')}): ${t('web.meta.pricingDescription')}`,
     '',
   ].join('\n');
 }

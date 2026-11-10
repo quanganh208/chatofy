@@ -621,6 +621,39 @@ describe('createConferenceCascadeLeg', () => {
       expect(h.ended).toEqual(['refused']);
     });
 
+    it('ends with credits_exhausted when the speaker runs out, and never rebuilds', async () => {
+      const h = harness();
+      await h.leg.start();
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'credits_exhausted',
+        message: 'You are out of credits',
+        remainingCreditSeconds: 0,
+      });
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(h.ended).toEqual(['credits_exhausted']);
+      expect(h.sockets).toHaveLength(1);
+      expect(h.getToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps translating through a credits_low notice', async () => {
+      const h = harness();
+      await h.leg.start();
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'credits_low',
+        message: 'Your credits are running low',
+        remainingCreditSeconds: 90,
+      });
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(h.ended).toEqual([]);
+      expect(h.sockets).toHaveLength(1);
+    });
+
     it('reports the retry budget running out, once', async () => {
       const h = harness();
       await h.leg.start();

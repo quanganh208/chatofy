@@ -624,14 +624,14 @@ packages/realtime-client/
 
 Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitigation.md).
 
-| Risk                           | Probability | Impact              | Mitigation                                        |
-| ------------------------------ | ----------- | ------------------- | ------------------------------------------------- |
-| Video latency > 1s             | HIGH        | Session quality ↓   | Simulcast + adaptive bitrate                      |
-| Translation lag delays video   | MEDIUM      | Subtitle mismatch   | Live preview + frame-based timing                 |
-| Speaker attribution wrong      | MEDIUM      | Confusion           | User manual override + logging                    |
-| Redis outage → room state lost | LOW         | Participants kicked | Checkpoint room state to DB every 5s              |
-| Recording composition fails    | LOW         | Lost meeting        | Retry job + alert ops                             |
-| N×M translation cost explosion | MEDIUM      | Budget overrun      | Rate limit by conference size, cache translations |
+| Risk                           | Probability | Impact              | Mitigation                                         |
+| ------------------------------ | ----------- | ------------------- | -------------------------------------------------- |
+| Video latency > 1s             | HIGH        | Session quality ↓   | Simulcast + adaptive bitrate                       |
+| Translation lag delays video   | MEDIUM      | Subtitle mismatch   | Live preview + frame-based timing                  |
+| Speaker attribution wrong      | MEDIUM      | Confusion           | User manual override + logging                     |
+| Redis outage → room state lost | LOW         | Participants kicked | Checkpoint room state to DB every 5s               |
+| Recording composition fails    | LOW         | Lost meeting        | Retry job + alert ops                              |
+| N×M translation cost explosion | MEDIUM      | Budget overrun      | Speaker pays credits per extra target (Decision 3) |
 
 ---
 
@@ -706,16 +706,16 @@ mediasoup had beaten LiveKit and Pion in #207, with a source for every cell:
 Pion was rejected in #207. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
 the proposal's original assumption, kept to show its intent; they do not describe the code.
 
-### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
+### 3. Billing vs a non-commercial thesis — **Per-minute credits built; conference billing tables deferred** (Issue #212)
 
-The design included per-minute billing (`ConferenceBillingLine`, `costEstimateCents`,
-`billingStatus`). Chatofy is a non-commercial graduation thesis; the default Vietnamese
-STT model is licensed for academic/thesis use only (see
-[README → Model licences](../README.md#model-licences)).
-
-**Decision:** billing is deferred out of thesis scope; the tables stay in
-`docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
-revenue) against free-tier quotas needs no billing tables, at most a cost column.
+Per-minute billing (`ConferenceBillingLine`, `costEstimateCents`, `billingStatus`) was
+deferred on 2026-10-07: the default Vietnamese STT model is licensed for academic/thesis
+use only ([README → Model licences](../README.md#model-licences)). **Amended 2026-11-09:**
+translation now spends credits from one ledger for every surface
+([credits-and-billing.md](./architecture/credits-and-billing.md)); in a meeting the
+speaker's leg pays for each extra target and listeners pay 0, and checkout stays
+owner-only for the same licence reason. The conference billing tables in
+`docs/database-schema-conference.md` stay deferred; the ledger needs none of them.
 
 ### 4. Stated targets — **SFU measured on mediasoup; translation on the dev stack** (Issue #211, 2026-10-11)
 
@@ -777,24 +777,13 @@ Reasoning and measurements: [video-network-path.md](./architecture/video-network
 
 ## Appendix: Comparison Matrix (estimates)
 
-### Reuse: Translation Stack
-
-```
-Component              Reuse   Effort  Note
-Language Registry      100%    0h      No change
-Type Contracts         100%    4h      Extend for video events
-Provider Abstraction    95%    8h      Add video codec provider
-STT/TTS Sidecars       100%    0h      Unchanged (capacity unmeasured)
-Speaker Attribution    100%    0h      Reuse CAM++ clustering (capped at 2 voices today; see Open decisions)
-AI Context             100%    2h      Extend to per-meeting
-WebSocket Pipeline      80%    16h     Adapt for multi-participant
-```
+What the proposal reuses is estimated per component in [§2](#2-architectural-reuse-what-exists-and-how-the-proposal-would-reuse-it).
 
 ### Build: Video Conferencing
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (Cloudflare Realtime SFU — built, flagged off)
+WebRTC SFU            YES     40h     🔴 HIGH (Cloudflare Realtime SFU — built, always loaded)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
 Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
@@ -802,8 +791,3 @@ Subtitle Overlay      YES     12h     🟡 MEDIUM
 Database Schema       YES      4h     🟢 LOW
 TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 ```
-
----
-
-**Document Version:** 1.4  
-**Last Updated:** 2026-10-25 (Decisions 1 and 7 resolved: Cloudflare Realtime SFU)
