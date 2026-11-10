@@ -14,7 +14,8 @@ import { dawn } from '@chatofy/ui';
  */
 export function PageHeader({ title, description }: { title: string; description: string }) {
   return (
-    <header className="flex flex-col gap-3 pb-2">
+    // Settles in on arrival, so a route change reads as a new page rather than a swap.
+    <header className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-col gap-3 pb-2 duration-300 motion-reduce:animate-none">
       <span
         aria-hidden
         className="h-1 w-16 rounded-full"

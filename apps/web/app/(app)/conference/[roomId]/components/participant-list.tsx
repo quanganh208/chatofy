@@ -100,7 +100,7 @@ function ParticipantRow({
   labels,
 }: ParticipantRowProps) {
   return (
-    <li className="flex items-center gap-2.5 px-3 py-1.5">
+    <li className="animate-in fade-in slide-in-from-left-2 flex items-center gap-2.5 px-3 py-1.5 duration-300 motion-reduce:animate-none">
       <span
         aria-hidden
         data-slot="roster-avatar"

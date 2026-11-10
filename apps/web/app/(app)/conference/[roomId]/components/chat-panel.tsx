@@ -115,7 +115,7 @@ export function ChatPanel({
               <div
                 key={m.id}
                 className={cn(
-                  'flex flex-col',
+                  'animate-in fade-in slide-in-from-bottom-1 flex flex-col duration-200 motion-reduce:animate-none',
                   isOwn ? 'items-end' : 'items-start',
                   startsGroup && i > 0 && 'mt-2',
                 )}

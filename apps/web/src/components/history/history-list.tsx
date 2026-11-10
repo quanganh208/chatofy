@@ -185,7 +185,7 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
   return (
     <Link
       href={`/history/${conversation.conversationId}` as Route}
-      className="hover:bg-muted focus-visible:bg-muted focus-visible:ring-ring/50 -mx-2 grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 rounded-md px-2 py-2.5 duration-fast ease-standard transition-colors motion-reduce:transition-none focus-visible:ring-[3px] focus-visible:outline-none max-[460px]:grid-cols-[minmax(0,1fr)_auto]"
+      className="animate-in fade-in fill-mode-both duration-300 motion-reduce:animate-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-ring/50 -mx-2 grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 rounded-md px-2 py-2.5 duration-fast ease-standard transition-colors motion-reduce:transition-none focus-visible:ring-[3px] focus-visible:outline-none max-[460px]:grid-cols-[minmax(0,1fr)_auto]"
     >
       <time
         dateTime={conversation.startedAt}
