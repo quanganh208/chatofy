@@ -18,23 +18,16 @@ import { MEASURE } from './measures';
  *
  * ## The collapse mechanism, decided here and only here
  *
- * **The route wins.** Which routes open collapsed is a property of the surface, not a
- * preference: `/translate` puts the transcript first, so it opens as a rail. A manual
- * toggle applies until the next navigation, and then the route's answer takes over
- * again.
+ * **The reader wins.** Open or a rail is the reader's choice, kept in the
+ * `sidebar_state` cookie the primitive writes on every toggle and read on the server
+ * (`app/(app)/layout.tsx`) so the first paint is already the remembered shape. The
+ * translator used to open as a rail by route; that took the choice away on the one
+ * screen people sit on longest, and was dropped for it.
  *
- * The alternative was the stock behaviour — a `sidebar_state` cookie read into
- * `defaultOpen`, with the route only choosing the very first visit. It was rejected
- * because the two rules cannot both be authoritative and the disagreement is silent:
- * expand the rail on `/translate`, navigate away and back, and either the sidebar
- * reopens against the route or stays collapsed against the cookie. Whichever way it
- * lands, nothing in the code says which was intended.
- *
- * So `open` is held here and `SidebarProvider` is controlled. The primitive still
- * writes that cookie on every toggle — it is upstream code and editing it would fork
- * this component from the CLI that generates it — and **nothing reads it**. That is
- * the point worth carrying forward: the cookie is inert, not a second mechanism, and
- * the day someone wires it into `defaultOpen` they are re-opening this decision.
+ * One surface still asks for a rail: the conference room, which owns the whole
+ * screen. It opens as a rail whatever the reader chose, without changing that
+ * choice; a toggle made inside it is a choice like any other, and the room opens
+ * as a rail again next time.
  *
  * ## Why the measure is here and not in the page
  *
@@ -44,31 +37,22 @@ import { MEASURE } from './measures';
  */
 
 /**
- * Routes that open as a rail (exact match).
- *
- * The two translator pages, each matched exactly rather than by a `/translate/` prefix —
- * a prefix match would quietly start claiming `/translate/history` the day it exists.
- */
-const RAIL_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
-
-/**
- * Route prefixes that also open as a rail.
+ * Route prefixes that open as a rail whatever the reader chose.
  *
  * Used for dynamic routes like `/conference/[roomId]` where the path can't be
  * expressed as a static `Route`. Prefix is intentionally specific — `/conference/`
- * (with trailing slash) so the lobby at `/conference` stays expanded.
+ * (with trailing slash) so the lobby at `/conference` follows the reader's choice.
  */
 const RAIL_PREFIXES: readonly string[] = ['/conference/'];
 
-const opensExpanded = (pathname: string) =>
-  !RAIL_ROUTES.some((route) => route === pathname) &&
-  !RAIL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+const asksForRail = (pathname: string) =>
+  RAIL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 /**
  * Routes laid out as two columns rather than one, and measured for it.
  *
- * Same shape as `RAIL_ROUTES` and for the same reason: the route asks for a
- * NAME, the width lives in `measures.ts`, and the match is exact so the day
+ * The route asks for a NAME, the width lives in `measures.ts`, and the match is
+ * exact so the day
  * `/translate/history` exists it does not silently inherit a measure nobody
  * chose for it.
  */
@@ -100,24 +84,35 @@ const isFlush = (pathname: string) => FLUSH_PREFIXES.some((prefix) => pathname.s
 const SIDEBAR_WIDTH_KEY = 'chatofy.sidebar-width';
 const SIDEBAR_WIDTH_DEFAULT = 256; // 16rem, the primitive's own default
 
-export function AppChrome({ children }: { children: React.ReactNode }) {
+export function AppChrome({
+  children,
+  defaultOpen = true,
+}: {
+  children: React.ReactNode;
+  /** The reader's last choice, from the `sidebar_state` cookie; open when unset. */
+  defaultOpen?: boolean;
+}) {
   const pathname = usePathname();
   const t = useTranslate();
   const headed = headedItemFor(pathname);
 
   /*
-    A toggle belongs to the route it was made on, which is the rule stated as data
-    rather than enforced by an effect. `open` is then derived, so navigating cannot
-    leave a stale value behind and there is no render where the sidebar is briefly
-    the previous route's shape. Resetting it in a `useEffect` instead would work and
-    would also mean a second render on every navigation, plus a lint rule to argue
-    with — for a value that was never state in the first place.
+    The reader's choice, seeded from the cookie and changed by every toggle — the
+    primitive writes the cookie on every toggle too, so a reload and a client-side
+    navigation land on the same answer. On a route that asks for a rail the toggle is
+    also held for that route alone, stored with its pathname and derived away on
+    navigation, so no effect has to reset it.
   */
+  const [preferred, setPreferred] = React.useState(defaultOpen);
   const [override, setOverride] = React.useState<{ pathname: string; open: boolean }>();
-  const open = override?.pathname === pathname ? override.open : opensExpanded(pathname);
+  const rail = asksForRail(pathname);
+  const open = override?.pathname === pathname ? override.open : rail ? false : preferred;
   const setOpen = React.useCallback(
-    (next: boolean) => setOverride({ pathname, open: next }),
-    [pathname],
+    (next: boolean) => {
+      setPreferred(next);
+      if (rail) setOverride({ pathname, open: next });
+    },
+    [pathname, rail],
   );
 
   // The width the reader dragged the sidebar to. It rides on the primitive's own CSS

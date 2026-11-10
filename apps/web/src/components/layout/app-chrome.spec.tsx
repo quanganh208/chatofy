@@ -50,12 +50,12 @@ afterEach(() => {
   container.remove();
 });
 
-function render(page: React.ReactNode = <p>page</p>) {
+function render(page: React.ReactNode = <p>page</p>, defaultOpen?: boolean) {
   act(() => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AppChrome>{page}</AppChrome>
+        <AppChrome defaultOpen={defaultOpen}>{page}</AppChrome>
       </LocaleProvider>,
     );
   });
@@ -144,22 +144,52 @@ describe('the product frame', () => {
     );
   });
 
-  it('opens as a rail where the surface asked for one, and expanded everywhere else', () => {
-    // The collapse rule is route-driven and lives in `RAIL_ROUTES`. The cookie the
-    // primitive still writes is inert; if it ever becomes authoritative again this is
-    // where the two mechanisms start disagreeing.
+  it('opens the translator the way the reader left the sidebar', () => {
+    // No route decides this any more: the translator opens expanded for a reader
+    // who never toggled, and as a rail for one whose cookie says they chose it.
     render();
-    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+    expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
     act(() => root?.unmount());
 
     pathname.mockReturnValue('/translate/two-way');
-    render();
+    render(undefined, false);
     expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
-    act(() => root?.unmount());
+  });
+
+  it('keeps a toggle across navigation', () => {
+    render();
+    const toggle = container.querySelector<HTMLButtonElement>('[data-sidebar="trigger"]');
+    act(() => toggle?.click());
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
 
     pathname.mockReturnValue('/history');
+    act(() =>
+      root?.render(
+        <LocaleProvider>
+          <AppChrome>
+            <p>page</p>
+          </AppChrome>
+        </LocaleProvider>,
+      ),
+    );
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+  });
+
+  it("opens the conference room as a rail without overwriting the reader's choice", () => {
+    pathname.mockReturnValue('/conference/room-1');
     render();
-    expect(container.querySelector('[data-state="collapsed"]')).toBeNull();
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+
+    pathname.mockReturnValue('/conference');
+    act(() =>
+      root?.render(
+        <LocaleProvider>
+          <AppChrome>
+            <p>page</p>
+          </AppChrome>
+        </LocaleProvider>,
+      ),
+    );
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
@@ -250,8 +280,7 @@ describe('the resizable sidebar', () => {
   });
 
   it('has no handle on the icon rail', () => {
-    pathname.mockReturnValue('/translate/one-way');
-    render();
+    render(undefined, false);
     expect(handle()).toBeNull();
   });
 });
