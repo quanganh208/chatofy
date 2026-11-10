@@ -151,7 +151,8 @@ describe('the credits region', () => {
     expect(actions.every((action) => !action.disabled)).toBe(true);
     expect(actions.every((action) => !action.hasAttribute('aria-describedby'))).toBe(true);
     expect(container.textContent).not.toContain(en['common.billing.checkoutClosed']);
-    expect(container.textContent).toContain(en['web.account.railSandbox']);
+    expect(container.textContent).toContain(en['web.account.railSandboxCard']);
+    expect(container.textContent).toContain(en['web.account.railSandboxQr']);
     expect(actions.map((action) => action.textContent)).toEqual([
       'Pro by card — $9.99 a month',
       'Pro for 30 days by VietQR — ₫249,000',
@@ -172,7 +173,18 @@ describe('the credits region', () => {
       'Pro for 30 days by VietQR — ₫249,000',
       '250 credits by VietQR — ₫125,000',
     ]);
-    expect(container.textContent).not.toContain(en['web.account.railSandbox']);
+    expect(container.querySelector('[data-rail-sandbox]')).toBeNull();
+  });
+
+  it('says only the sandbox rail is in test mode when the other one charges real money', async () => {
+    getCreditBalance.mockResolvedValue(
+      balanceFixture({ checkoutAllowed: true, rails: { polar: 'sandbox', sepay: 'live' } }),
+    );
+    await render();
+    const hints = Array.from(container.querySelectorAll('[data-rail-sandbox]'));
+    expect(hints.map((hint) => hint.getAttribute('data-rail-sandbox'))).toEqual(['polar']);
+    expect(hints[0]?.textContent).toBe(en['web.account.railSandboxCard']);
+    expect(container.textContent).not.toContain(en['web.account.railSandboxQr']);
   });
 
   it('opens the QR panel inline for a VietQR checkout', async () => {
