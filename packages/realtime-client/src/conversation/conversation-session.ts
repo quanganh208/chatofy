@@ -6,7 +6,11 @@ import {
   type SessionOptions,
   type TurnOutcome,
 } from '@chatofy/types';
-import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
+import type {
+  TranslateSocket,
+  TranslateSocketHandlers,
+  TurnStartOptions,
+} from '../transport/translate-socket.js';
 import { CapturePump } from '../audio/capture-pump.js';
 import { OrderedPlayback, type PlaybackSink } from '../audio/ordered-playback.js';
 import { PcmPlaybackQueue } from '../audio/pcm-playback-queue.js';
@@ -175,7 +179,24 @@ export interface ConversationRuntimeOptions {
    * them, so a client opts in rather than sending a row per turn everywhere.
    */
   reportMetrics?: boolean;
+  /**
+   * The conversation this run belongs to, sent on every turn start. The server
+   * only uses it to label the run's credit usage, so a usage row can link back
+   * to the conversation in history. Absent sends nothing.
+   */
+  conversationId?: string;
 }
+
+/**
+ * Server codes that end the conversation rather than one turn: the account
+ * ran out of credit, or credit could not be checked. Retrying cannot help, so
+ * the run stops the way a press of End stops it — what was said is still
+ * translated, spoken and saved.
+ */
+const CREDIT_STOP_CODES: ReadonlySet<string> = new Set([
+  'credits_exhausted',
+  'credits_unavailable',
+]);
 
 /**
  * The server's own code for an error it sent, beside the message it wrote.
@@ -188,6 +209,22 @@ export interface ConversationRuntimeOptions {
 export interface ServerErrorCause {
   code: string;
   detail?: string;
+  /**
+   * Credit-seconds the account had left when the server sent a credit code
+   * (`credits_low`, `credits_exhausted`); absent on every other error. A client
+   * fills its "about N credits left" copy from this.
+   */
+  remainingCreditSeconds?: number;
+}
+
+/** The cause `onError` carries, holding only the optional fields the server sent. */
+function serverErrorCause(event: Extract<ServerEvent, { type: 'server.error' }>): ServerErrorCause {
+  const cause: ServerErrorCause = { code: event.code };
+  if (event.detail !== undefined) cause.detail = event.detail;
+  if (event.remainingCreditSeconds !== undefined) {
+    cause.remainingCreditSeconds = event.remainingCreditSeconds;
+  }
+  return cause;
 }
 
 export interface ConversationSessionListeners {
@@ -335,6 +372,8 @@ export class ConversationSession {
     languagePair: DEFAULT_LANGUAGE_PAIR,
     voiceGender: DEFAULT_VOICE_GENDER,
   };
+  /** The run's conversation, read from the runtime options at `start()`. */
+  private conversationId: string | undefined;
   /**
    * Set when the server closes the turn; half of the re-arm condition.
    *
@@ -671,6 +710,7 @@ export class ConversationSession {
     this.options = options;
 
     const runtime = this.runtimeOptions();
+    this.conversationId = runtime.conversationId;
     const maxInFlight = runtime.maxInFlight ?? DEFAULT_MAX_IN_FLIGHT;
     const singleTurn = maxInFlight <= 1;
     // Not independent, though they read as two free settings. `armNextTurn()` is
@@ -874,7 +914,7 @@ export class ConversationSession {
       );
       // `this.options`, not the argument: a `reconfigure` that landed during the
       // awaits above is newer than what this run was started with.
-      pipeline.configure(this.options);
+      pipeline.configure(this.turnStartOptions());
       local.pipeline = pipeline;
 
       const pump = new CapturePump(
@@ -992,7 +1032,14 @@ export class ConversationSession {
    */
   reconfigure(options: SessionOptions): void {
     this.options = options;
-    this.live?.pipeline?.configure(options);
+    this.live?.pipeline?.configure(this.turnStartOptions());
+  }
+
+  /** What every turn start of this run carries: the settings, and the conversation when known. */
+  private turnStartOptions(): TurnStartOptions {
+    return this.conversationId === undefined
+      ? this.options
+      : { ...this.options, conversationId: this.conversationId };
   }
 
   /**
@@ -1272,12 +1319,13 @@ export class ConversationSession {
           sessionId: event.sessionId,
           turnId: event.turnId,
         });
-        this.listeners.onError(
-          event.message,
-          event.detail === undefined
-            ? { code: event.code }
-            : { code: event.code, detail: event.detail },
-        );
+        this.listeners.onError(event.message, serverErrorCause(event));
+        // Reported like every code above; `credits_low` is only a notice and
+        // stops nothing. A stop is the graceful one, and only once: `finish()`
+        // asked again would cut the drain short.
+        if (CREDIT_STOP_CODES.has(event.code) && this.live && !this.finishing) {
+          this.finish();
+        }
         break;
 
       default:

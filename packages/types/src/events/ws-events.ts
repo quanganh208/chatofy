@@ -449,6 +449,15 @@ const turnIdSchema = z.string().max(64);
 const clientSessionStartSchema = sessionOptionsSchema.extend({
   type: z.literal('client.session.start'),
   turnId: turnIdSchema.optional(),
+  /**
+   * The history conversation this turn belongs to, when the client keeps one.
+   *
+   * Optional both ways: a client built before this field omits it, and a server
+   * built before it strips it. The server only records it beside the turn's
+   * credit usage as a link back to history; it is a client claim and is never
+   * used to authorise anything.
+   */
+  conversationId: z.string().min(1).max(64).optional(),
 });
 
 const clientAudioFrameSchema = z.object({
@@ -947,6 +956,23 @@ const serverSessionEndedSchema = z.object({
   turnId: echoedTurnIdSchema,
 });
 
+/**
+ * `server.error` codes about the account's AI credits.
+ *
+ * `code` on the wire stays `z.string()`, so every shipped client still parses
+ * these and shows the message. `credits_exhausted` refuses or ends a turn;
+ * `credits_unavailable` refuses a start because the balance could not be read;
+ * `credits_low` is a connection-level NOTICE sent with no turn ids — it arrives
+ * through the same error path, but a client must keep the session running.
+ */
+export const CREDIT_ERROR_CODES = [
+  'credits_exhausted',
+  'credits_low',
+  'credits_unavailable',
+] as const;
+export const creditErrorCodeSchema = z.enum(CREDIT_ERROR_CODES);
+export type CreditErrorCode = z.infer<typeof creditErrorCodeSchema>;
+
 const serverErrorSchema = z.object({
   type: z.literal('server.error'),
   code: z.string(),
@@ -970,6 +996,12 @@ const serverErrorSchema = z.object({
    * without one.
    */
   detail: z.string().optional(),
+  /**
+   * Credit-seconds left on the account, sent with a credit code so a client can
+   * show the balance without a round trip. Display it through
+   * `creditsFromSeconds`, never raw.
+   */
+  remainingCreditSeconds: z.number().int().nonnegative().optional(),
 });
 
 export const serverEventSchema = z.discriminatedUnion('type', [

@@ -41,7 +41,10 @@ const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
 // itself, because `client.session.start` fires once per TURN and a server that
 // looked the id up would read the row on every one of them.
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The banner's balance read. Never answering keeps it silent — a balance it has
+// not read is not a problem to report — without a promise settling outside `act`.
 vi.mock('@/clients/api-client', () => ({
+  getCreditBalance: () => new Promise(() => {}),
   checkHealth: () => checkHealth(),
   uploadConversationAudio: (...args: unknown[]) => uploadConversationAudio(...(args as [])),
   listTranslationContexts: () => listTranslationContexts(),
@@ -109,7 +112,9 @@ const conversation: UseStreamingTranslate = {
   attributeTurn: vi.fn(),
   unattributeTurn: vi.fn(),
   echoHeard: 0,
+  micPaused: false,
   error: null,
+  notice: null,
   level: 0,
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
@@ -230,6 +235,42 @@ describe('CascadePanel', () => {
       el.textContent?.includes(en['web.translate.micDenied']),
     );
     expect(alerts.length, 'the fault is reported once, by the reactive path').toBe(1);
+  });
+
+  it('says credits are low as a readout while the conversation keeps going', async () => {
+    useStreamingTranslate.mockReturnValue({
+      ...conversation,
+      status: 'listening',
+      notice: 'About 2 credits left. Translation keeps going until they run out.',
+    });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            conversationMode="one-way"
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+
+    const notice = container.querySelector('[data-conversation-notice]');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toContain('About 2 credits left');
+    // A notice is not a failure: no assertive alert says it.
+    const alerts = [...container.querySelectorAll('[role="alert"]')].filter((el) =>
+      el.textContent?.includes('credits left'),
+    );
+    expect(alerts).toHaveLength(0);
   });
 
   it('keeps the minutes panel when a stored conversation fails a later edit', async () => {
@@ -395,14 +436,17 @@ describe('the recording upload alert', () => {
  * would file the conversation as finished halfway through it.
  */
 describe('the dock, pausing and resuming', () => {
-  async function renderAt(status: UseStreamingTranslate['status']) {
+  async function renderAt(
+    status: UseStreamingTranslate['status'],
+    overrides: Partial<UseStreamingTranslate> = {},
+  ) {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
       addEventListener() {},
       removeEventListener() {},
     });
-    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    useStreamingTranslate.mockReturnValue({ ...conversation, status, ...overrides });
     useConversationSave.mockReturnValue({
       saved: false,
       failure: null,
@@ -428,6 +472,16 @@ describe('the dock, pausing and resuming', () => {
     Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === text,
     );
+
+  it('says the microphone is paused while half duplex ignores it', async () => {
+    await renderAt('listening', { micPaused: true });
+    expect(container.textContent).toContain(en['web.translate.micPausedDuringPlayback']);
+  });
+
+  it('says nothing about the microphone while it is being listened to', async () => {
+    await renderAt('listening', { micPaused: false });
+    expect(container.textContent).not.toContain(en['web.translate.micPausedDuringPlayback']);
+  });
 
   it('offers Pause beside End while listening', async () => {
     await renderAt('listening');

@@ -28,6 +28,18 @@
 // history models above — a real requirement, no speculative columns — and each
 // carries at its own declaration the reason for the shape it has.
 //
+// `LlmCallRecord` is the cost ledger's raw input: one row per paid model request,
+// attributed to the user and session that caused it, so what a credit costs in
+// tokens can be read off the database instead of off a window of log lines.
+//
+// The credit ledger is seven more: `Plan` (what can be bought, seeded by its
+// migration), `CreditGrant` (one block of credits with its own expiry),
+// `CreditLease` (credits a live connection holds), `CreditEntry` (the append-only
+// record of every change), `Subscription`, `PaymentOrder` and `WebhookEvent`
+// (the payment rails' side of it). Every user column there is a plain `userId`,
+// for the reason `MeetingMinutes` gives: billing history must outlive an identity
+// prune, and nothing on the money path joins the identity row.
+//
 // Run `prisma migrate dev` to apply, `prisma generate` to regenerate the client.
 
 generator client {
@@ -650,4 +662,226 @@ model GlossaryItem {
   createdAt   DateTime @default(now())
 
   @@unique([glossaryId, clientId])
+}
+
+// One request a provider made to a paid language model: the persisted form of
+// the `llm kind=...` log line, plus who caused it.
+//
+// `userId` and `sessionId` come from the call site's async scope, not from the
+// provider, and either is null when a call ran outside one (a boot-time probe, a
+// timer that outlived its turn). A null row still counts toward per-host totals.
+// `userId` is a plain column for the reason `MeetingMinutes` gives: no join to
+// the identity row, and pruning these never touches the identity schema.
+//
+// No prompt or answer text is stored — only counts and the 8-char prompt hash
+// the log line already carries. Token columns are null when the host did not
+// report them, which is different from a reported 0.
+model LlmCallRecord {
+  id                String   @id @default(cuid())
+  userId            String?
+  sessionId         String?
+  kind              String
+  purpose           String?
+  host              String
+  model             String
+  ms                Int
+  ok                Boolean
+  inputTokens       Int?
+  outputTokens      Int?
+  cachedInputTokens Int?
+  promptHash        String
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId])
+}
+
+// Something a person can be given or buy: the Free allowance, Pro (a Polar
+// subscription or a SePay pass) and the top-up packs. Seeded by the migration
+// that creates it, so prices are data rather than code, and clients read them
+// through `GET /billing/plans`.
+//
+// `credits` is in whole credits, for display; grants are written in
+// credit-seconds (60 per credit). `polar` and `sepay` say which rails sell the
+// plan; whether a rail is open right now is the deployment's business, not the
+// row's.
+model Plan {
+  code          String  @id
+  // 'free' | 'subscription' | 'pass' | 'topup' — the `PlanKind` contract.
+  kind          String
+  credits       Int
+  priceUsdCents Int?
+  priceVnd      Int?
+  // Null for a top-up, which never expires, and for Free, which resets on the
+  // calendar month rather than after N days.
+  periodDays    Int?
+  polar         Boolean @default(false)
+  sepay         Boolean @default(false)
+  active        Boolean @default(true)
+  sortOrder     Int     @default(0)
+}
+
+// One block of credits with its own source, expiry and remaining amount.
+//
+// `remaining` is what is still spendable; credits a live connection holds are
+// already out of it (see `CreditLease`), so two connections can never both count
+// the same credit. The migration adds `CHECK (remaining >= 0)`: an allocation bug
+// fails the transaction loudly instead of writing a negative balance.
+//
+// `externalRef` is the idempotency key of the thing that caused the grant —
+// `free:<userId>:<YYYY-MM>`, a provider object id, `promo:<uuid>` — and its
+// uniqueness is what makes a replayed webhook or a second first-of-month read
+// grant once.
+model CreditGrant {
+  id          String    @id @default(cuid())
+  userId      String
+  // 'free' | 'subscription' | 'pass' | 'topup' | 'promo' | 'refund'
+  source      String
+  planCode    String?
+  // Credit-seconds, as granted and as still spendable.
+  amount      Int
+  remaining   Int
+  // Start of the paid period this grant covers; lets a renewal expire only
+  // the periods before it when deliveries arrive out of order.
+  startsAt    DateTime?
+  // Null never expires (top-ups, promos).
+  expiresAt   DateTime?
+  // Minor units paid for it (cents or đồng); 0 for anything free. Spend order
+  // takes free credits before paid ones when expiry ties.
+  costBasis   Int       @default(0)
+  currency    String?
+  // 'active' | 'expired' | 'voided'
+  status      String    @default("active")
+  externalRef String    @unique
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, status, expiresAt])
+}
+
+// Credits one live connection has taken out of its user's grants.
+//
+// A lease is how a running translation is metered without a ledger write per
+// audio frame: it holds up to a couple of minutes of credit, settles each turn
+// against what it holds, and gives back the rest when it closes. The reaper
+// finds leases whose connection died by `(status, expiresAt)`, which is why this
+// is a table and not something derived from the entries.
+//
+// Every mutation is a compare-and-set on `status = 'open'` under the user's
+// advisory lock, so a lease reaped while its socket idled can never be released
+// a second time by a late close.
+model CreditLease {
+  id        String    @id @default(cuid())
+  userId    String
+  // Credit-seconds taken from grants, and how many of them were spent.
+  held      Int       @default(0)
+  consumed  Int       @default(0)
+  expiresAt DateTime
+  // 'open' | 'closed' | 'reaped'
+  status    String    @default("open")
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  @@index([status, expiresAt])
+  @@index([userId])
+}
+
+// The append-only record of every change to a user's credits.
+//
+// `amount` is signed credit-seconds. Every kind except `settle` moves a grant's
+// `remaining` by exactly its amount (`grant` +, `reserve` −, `release` +,
+// `debit` −, `refund` +, `expire` −, `void` −). A `settle` moves no grant: it
+// records what a lease's holding was spent on, with the `sessionId` that lets
+// the cost report join the model calls behind it.
+//
+// No tokens are stored here: polish calls land after a turn has settled, so the
+// cost report joins `LlmCallRecord` by `sessionId` at read time instead.
+model CreditEntry {
+  id             String   @id @default(cuid())
+  userId         String
+  grantId        String?
+  leaseId        String?
+  // 'grant' | 'reserve' | 'release' | 'settle' | 'debit' | 'refund' | 'expire' | 'void'
+  kind           String
+  amount         Int
+  sessionId      String?
+  conversationId String?
+  reason         String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@index([leaseId])
+}
+
+// A recurring subscription as its provider reports it. Polar is the only rail
+// that has one; a SePay pass is a plain grant with an expiry.
+model Subscription {
+  id                 String    @id @default(cuid())
+  userId             String
+  provider           String
+  externalId         String    @unique
+  status             String
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  // The provider's own `modified_at`, so an older event that arrives late is
+  // ignored instead of overwriting a newer state.
+  providerUpdatedAt  DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// One checkout: a Polar checkout or a SePay transfer order.
+//
+// 'pending' | 'paid' | 'expired' | 'needs_review' | 'resolved_granted' |
+// 'resolved_dismissed'. `needs_review` is money that arrived and was not granted
+// (wrong amount, unknown code, refused account, unknown product); the owner
+// settles it with `credits:resolve-payment`. `expired` is display only: a late transfer that
+// matches still grants.
+model PaymentOrder {
+  id            String    @id @default(cuid())
+  // Null only for a payment no account could be trusted for (a transfer whose
+  // memo code matched no order, a Polar order whose customer ids disagree).
+  userId        String?
+  provider      String
+  planCode      String?
+  amountMinor   Int
+  currency      String
+  // The exact đồng the QR asks for, and what actually arrived.
+  amountVnd     Int?
+  paidAmountVnd Int?
+  // The SePay memo code a transfer must carry.
+  orderCode     String?   @unique
+  // The payment it settles: `sepay:tx:<id>` once a transfer is matched to it,
+  // `polar:order:<id>` for a Polar order held for review.
+  externalRef   String?   @unique
+  status        String
+  // 'amount_mismatch' | 'unknown_code' | 'refused_allowlist' (SePay, Polar) |
+  // 'user_mismatch' | 'unknown_product' (Polar)
+  reviewReason  String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  paidAt        DateTime?
+  resolvedAt    DateTime?
+  resolvedNote  String?
+
+  @@index([status, expiresAt])
+  @@index([userId])
+}
+
+// One webhook delivery a rail sent, kept so a replay is recognised. Written in
+// the same transaction as the grant it causes, so a grant that failed is
+// retried rather than acknowledged as a duplicate.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  eventId    String
+  objectId   String
+  type       String
+  receivedAt DateTime @default(now())
+  outcome    String
+
+  @@unique([provider, eventId])
 }

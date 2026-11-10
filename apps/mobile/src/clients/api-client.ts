@@ -16,6 +16,8 @@ import {
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
+  creditBalanceSchema,
+  creditUsageListReadSchema,
   voiceGenderSchema,
   type GenerateMinutesRequest,
   type LanguageCode,
@@ -112,4 +114,17 @@ export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
 /** Voices available for a language. */
 export function listVoices(language: LanguageCode) {
   return api.apiFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
+}
+
+/** The caller's credit balance, plan and whether this account may check out. */
+export function getCreditBalance() {
+  return api.apiFetch('/billing/me', creditBalanceSchema);
+}
+
+/**
+ * The newest page of the caller's credit usage. Read entry by entry, so a usage
+ * kind a later API adds drops that row instead of failing the whole list.
+ */
+export function listCreditUsage() {
+  return api.apiFetch('/billing/usage', creditUsageListReadSchema);
 }

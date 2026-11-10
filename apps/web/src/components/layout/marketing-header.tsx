@@ -42,9 +42,9 @@ import { isLiveSession } from '@/lib/session-guard';
  * that already fit on a phone reveals nothing; a sheet holding four links that do not
  * fit is doing a job.
  *
- * `/` is the only marketing route, so the anchors are bare fragments rather than
- * `/#how-it-works`. If a second public page is ever added they have to become absolute,
- * or they will scroll that page looking for a section it does not have.
+ * The anchors are absolute (`/#how-it-works`), not bare fragments: the header is also
+ * drawn on `/pricing`, where `#how-it-works` would scroll that page looking for a section
+ * it does not have. On `/` itself the browser treats `/#…` as a same-document jump.
  */
 export async function MarketingHeader() {
   // Neither this nor the footer CTA can loop — they render rather than redirect
@@ -55,10 +55,10 @@ export async function MarketingHeader() {
   const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [
-    { href: '#meetings', label: t('web.landing.navMeetings') },
-    { href: '#how-it-works', label: t('web.landing.navHow') },
-    { href: '#privacy', label: t('web.landing.navLocal') },
-    { href: '#where-it-runs', label: t('web.landing.navSurfaces') },
+    { href: '/#meetings', label: t('web.landing.navMeetings') },
+    { href: '/#how-it-works', label: t('web.landing.navHow') },
+    { href: '/#privacy', label: t('web.landing.navLocal') },
+    { href: '/#where-it-runs', label: t('web.landing.navSurfaces') },
   ];
 
   return (

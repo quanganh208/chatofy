@@ -21,6 +21,7 @@ import {
   AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
   languagePairSchema,
+  DEFAULT_MIC_PROCESSING,
   DEFAULT_VOICE_GENDER,
   IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
@@ -31,6 +32,7 @@ import {
   type LanguageCode,
   type LanguagePair,
   type LanguageTable,
+  type MicProcessing,
   type SessionLanguagePair,
 } from '@chatofy/types';
 import {
@@ -244,6 +246,8 @@ export interface TranslateSettings {
   appearance: ReadingAppearance;
   /** How it looks in fullscreen and in the floating caption window. */
   stage: StageAppearance;
+  /** Browser mic processing, applied at the next start. See `MicProcessing`. */
+  micProcessing: MicProcessing;
 }
 
 /**
@@ -324,6 +328,7 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   contextId: null,
   appearance: DEFAULT_READING_APPEARANCE,
   stage: DEFAULT_STAGE_APPEARANCE,
+  micProcessing: DEFAULT_MIC_PROCESSING,
 });
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -476,6 +481,14 @@ const storedSettingsSchema = z.object({
       textSize: z.number().catch(DEFAULT_STAGE_APPEARANCE.textSize).transform(snapTextSize),
     })
     .catch(DEFAULT_STAGE_APPEARANCE),
+  // Per field, like the appearance: one unreadable boolean keeps the other two.
+  micProcessing: z
+    .object({
+      echoCancellation: z.boolean().catch(DEFAULT_MIC_PROCESSING.echoCancellation),
+      noiseSuppression: z.boolean().catch(DEFAULT_MIC_PROCESSING.noiseSuppression),
+      autoGainControl: z.boolean().catch(DEFAULT_MIC_PROCESSING.autoGainControl),
+    })
+    .catch(DEFAULT_MIC_PROCESSING),
 });
 
 /**
@@ -514,6 +527,7 @@ export function loadTranslateSettings(): TranslateSettings {
       contextId: parsed.contextId,
       appearance: parsed.appearance,
       stage: parsed.stage,
+      micProcessing: parsed.micProcessing,
     };
     return settings;
   } catch {

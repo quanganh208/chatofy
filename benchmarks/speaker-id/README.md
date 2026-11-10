@@ -279,7 +279,8 @@ survives as the browser-channel arm — `recorder/`, `speaker_bench/channel.py` 
 been made**: nothing under `results/` carries a channel-delta number. That is the whole reason every
 shipped threshold is calibrated on audio the browser's `noiseSuppression` and `autoGainControl`
 never touched, and the reason the feature ships switched on to be measured rather than because the
-measurements say it is ready.
+measurements say it is ready. Since 2026-11-09 users can also switch `noiseSuppression` and
+`autoGainControl` off, so production audio can differ from that default as well.
 
 |                  | VoxVietnam (primary)                      | Vietnam-Celeb (secondary)      |
 | ---------------- | ----------------------------------------- | ------------------------------ |

@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import type {
+  MicProcessing,
   SessionLanguageMode,
   SessionLanguagePair,
   SessionOptions,
   TranscriptSegment,
 } from '@chatofy/types';
 import {
-  CASCADE_RUNTIME_OPTIONS,
   CASCADE_STREAM_COMMITTED,
+  cascadeRuntimeFor,
   ConversationSession,
   PcmPlaybackQueue,
   TranslateSocket,
@@ -37,11 +39,13 @@ import {
   useConversationRecording,
   type ConversationRecording,
 } from '@/hooks/use-conversation-recording';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
+import { formatCreditSeconds } from '@/lib/credit-format';
 import { openMicrophone } from '@/lib/open-microphone';
 import { asksTwoWay, type ConversationMode } from '@/lib/translate-settings';
 import { env } from '@/config/env';
-import type { Translate } from '@chatofy/i18n';
+import type { Locale, Translate } from '@chatofy/i18n';
+import type { ServerEvent } from '@chatofy/types';
 
 /**
  * What a caller starts a conversation with. `twoWay` is not among it: whether
@@ -60,15 +64,52 @@ interface LanguageModeAnswer {
   reason?: string;
 }
 
+/** The credit codes a `server.error` can carry; the realtime client stops on the last two. */
+const CREDIT_CODES: ReadonlySet<string> = new Set([
+  'credits_low',
+  'credits_exhausted',
+  'credits_unavailable',
+]);
+
+/**
+ * Whether the newest credit `server.error` answered one turn's start. The
+ * balance it carried arrives on `onError`'s cause; the turn id does not, so the
+ * hook reads it as the event passes through `onServerEvent` — which the session
+ * calls first, for every event.
+ */
+interface CreditEvent {
+  /** Present when the refusal answered one turn's start rather than ending the run. */
+  turnId: string | undefined;
+}
+
 /**
  * A refusal said in the reader's language, where its code is one this page
  * knows; null hands the server's own message through.
  *
- * Only `language_unavailable` with a `detail` is named: it is the answer to an
+ * `language_unavailable` with a `detail` is named: it is the answer to an
  * "Auto-detect" start, and the server's English names the mechanism where the
  * reader needs the next step.
+ *
+ * The credit codes are named too. `credits_exhausted` says two different
+ * things: carrying a `turnId` it refused a start (under one credit), and
+ * without one the balance ran out mid-conversation — so the copy follows the
+ * turn id.
  */
-function refusalMessage(t: Translate, cause: ServerErrorCause | undefined): string | null {
+function refusalMessage(
+  t: Translate,
+  locale: Locale,
+  cause: ServerErrorCause | undefined,
+  credit: CreditEvent | null = null,
+): string | null {
+  if (cause?.code === 'credits_low') {
+    return t('common.billing.low', {
+      credits: formatCreditSeconds(t, locale, cause.remainingCreditSeconds ?? 0),
+    });
+  }
+  if (cause?.code === 'credits_exhausted') {
+    return credit?.turnId ? t('common.billing.startRefused') : t('common.billing.exhausted');
+  }
+  if (cause?.code === 'credits_unavailable') return t('common.billing.unavailable');
   if (cause?.code !== 'language_unavailable') return null;
   if (cause.detail === 'language_detection') return t('web.translate.detectUnavailable');
   if (cause.detail === 'lid_capacity') return t('web.translate.detectBusy');
@@ -88,6 +129,24 @@ const NO_PAUSES: readonly PauseInterval[] = [];
  * deliberately accepts the risk of. Boosting is not worth making that loop more likely to close.
  */
 const clampVolume = (volume: number): number => Math.min(1, Math.max(0, volume));
+
+const MIC_PROCESSORS = ['echoCancellation', 'noiseSuppression', 'autoGainControl'] as const;
+
+/**
+ * Logs each processor the browser applied differently from what was asked.
+ *
+ * Only a boolean the browser reports counts: one that reports nothing has not
+ * said it disagrees, and a warning for it would be noise on every start.
+ */
+function warnIfNotApplied(stream: MediaStream, asked: MicProcessing): void {
+  const applied = stream.getAudioTracks()[0]?.getSettings();
+  for (const key of MIC_PROCESSORS) {
+    const value = applied?.[key];
+    if (typeof value === 'boolean' && value !== asked[key]) {
+      console.warn(`[chatofy] mic: browser applied ${key}=${value}, asked ${asked[key]}`);
+    }
+  }
+}
 
 export interface UseStreamingTranslate {
   status: ConversationStatus;
@@ -157,7 +216,20 @@ export interface UseStreamingTranslate {
    * `@chatofy/realtime-client` before quoting this number in a measurement.
    */
   echoHeard: number;
+  /**
+   * The pump is ignoring the microphone because our translation is audible. Only
+   * ever true in half duplex, which is to say with echo cancellation off — see
+   * `cascadeRuntimeFor`.
+   */
+  micPaused: boolean;
   error: string | null;
+  /**
+   * A notice that stops nothing: today only "credits are running low". Kept
+   * apart from `error` because an error is drawn as a failure and gates the
+   * readiness banner, and the conversation this notice is about keeps going.
+   * Cleared on the next start and by any credit stop that follows it.
+   */
+  notice: string | null;
   /** Live microphone level (0..1) for a meter. */
   level: number;
   /**
@@ -289,8 +361,14 @@ export interface UseStreamingTranslate {
  * out of storage. A volume captured by value there would be the first-render
  * default for the lifetime of the page, and the volume someone actually saved
  * would silently never apply.
+ *
+ * `getMicProcessing` is a reader for the same reason, and is read when the
+ * microphone opens and when the session reads its runtime — both at start.
  */
-export function useStreamingTranslate(getVolume: () => number = () => 1): UseStreamingTranslate {
+export function useStreamingTranslate(
+  getVolume: () => number = () => 1,
+  getMicProcessing: () => MicProcessing = () => DEFAULT_MIC_PROCESSING,
+): UseStreamingTranslate {
   // A READER, not a value. The socket cannot open without a token —
   // /ws/translate refuses an unauthenticated upgrade before any socket exists —
   // and the session resolves asynchronously, after this hook's first render.
@@ -306,8 +384,15 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     initialTurnKeyedTranscript,
   );
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // See `CreditEvent`. Written by `onServerEvent`, read by `onError` right after.
+  const creditEvent = useRef<CreditEvent | null>(null);
+  // The id `start` minted, read by the runtime factory when the session starts,
+  // so every turn start names the conversation its credit usage belongs to.
+  const conversationIdRef = useRef<string | undefined>(undefined);
   const [level, setLevel] = useState(0);
   const [echoHeard, setEchoHeard] = useState(0);
+  const [micPaused, setMicPaused] = useState(false);
   // The session's own record of when this conversation was paused; see
   // `onPauses` below.
   const [pauses, setPauses] = useState<readonly PauseInterval[]>(NO_PAUSES);
@@ -334,6 +419,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   useEffect(() => {
     getVolumeRef.current = getVolume;
   }, [getVolume]);
+  const getMicProcessingRef = useRef(getMicProcessing);
+  useEffect(() => {
+    getMicProcessingRef.current = getMicProcessing;
+  }, [getMicProcessing]);
 
   // Same treatment, and for the same reason: the session below is built once, so a
   // captured translator would be the one from the first render forever.
@@ -342,6 +431,11 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   useEffect(() => {
     tRef.current = t;
   }, [t]);
+  const locale = useLocale();
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   // Owned here because this is where the microphone stream is opened.
   //
@@ -380,7 +474,16 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // session receives exactly what it would have received and learns nothing
       // about recording. That is what keeps `@chatofy/realtime-client` — shared
       // with the extension — out of this feature entirely.
-      openMicrophone: async () => attachRecording(await openMicrophone(tRef.current)),
+      //
+      // Opened with the processing the reader chose. A browser may decline a
+      // constraint without failing (Safari is reported to), so what it actually
+      // applied is compared and a disagreement is logged rather than trusted.
+      openMicrophone: async () => {
+        const audio = getMicProcessingRef.current();
+        const stream = await openMicrophone(tRef.current, audio);
+        warnIfNotApplied(stream, audio);
+        return attachRecording(stream);
+      },
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
@@ -416,18 +519,37 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     {
       onStatus: setStatus,
       onLevel: setLevel,
-      // Nothing left to report. The microphone is honoured throughout playback
-      // now, and the pump raises this only when it is ignoring input, so on this
-      // page the edge cannot fire — see `fullDuplex` in `CASCADE_RUNTIME_OPTIONS`. Required by the
-      // session because the extension and the single-turn path both use it.
-      onMuted: () => {},
+      // Fires only in half duplex, i.e. when echo cancellation is off
+      // (`cascadeRuntimeFor`): the pump then ignores the microphone while our
+      // translation is audible, and the page says so. Under full duplex the pump
+      // never ignores input and this stays false.
+      onMuted: setMicPaused,
       // Every connection failure asks whether the session is still valid before
       // it is reported as a fault. Without this an expired token reads as the
       // API being down and the user retries into a refusal forever. Renewal is
       // attempted first now, so signing in again is the way out only once that
       // renewal has been terminally refused.
       onError: (message, cause) => {
-        setError(message === null ? null : (refusalMessage(tRef.current, cause) ?? message));
+        // A credit code is the account's state, not a connection fault: there is
+        // no session to recover. `credits_low` is a notice and stops nothing;
+        // the other two end the run (the session stops itself, gracefully, so
+        // what was said is still saved) and are said as its error.
+        if (message !== null && cause && CREDIT_CODES.has(cause.code)) {
+          const text = refusalMessage(tRef.current, localeRef.current, cause, creditEvent.current);
+          if (cause.code === 'credits_low') {
+            setNotice(text);
+          } else {
+            setNotice(null);
+            setError(text ?? message);
+          }
+          return;
+        }
+        if (message === null) setNotice(null);
+        setError(
+          message === null
+            ? null
+            : (refusalMessage(tRef.current, localeRef.current, cause) ?? message),
+        );
         void recovery.handleConnectionFailure();
       },
       onLanguageMode: (mode, reason) =>
@@ -439,6 +561,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // node of a closed context would be held until the next run replaced it.
       onStopped: () => {
         gainRef.current = null;
+        setMicPaused(false);
         // The conversation is over, so this is the last moment the acoustic
         // layer can keep its promise: every turn it heard but could not place
         // gets an ordinal here. Dispatched from the teardown signal rather than
@@ -457,7 +580,12 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
           dispatch({ type: 'transcript.settled' });
           setSettlings((count) => count + 1);
         }),
-      onServerEvent: dispatch,
+      onServerEvent: (event: ServerEvent) => {
+        if (event.type === 'server.error' && CREDIT_CODES.has(event.code)) {
+          creditEvent.current = { turnId: event.turnId };
+        }
+        dispatch(event);
+      },
       onReset: () => dispatch({ type: 'transcript.reset' }),
       // A new array on every change, straight into state: the clock, the
       // duration and every offset read it.
@@ -498,10 +626,16 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // recogniser fault.
       onLog: (message) => console.warn(`[chatofy] ${message}`),
     },
-    // Full duplex, continuous capture, the shared in-flight and length ceilings,
-    // and per-turn metrics: the tuning every cascade client shares, with the
-    // reasons beside each value where it is defined.
-    () => CASCADE_RUNTIME_OPTIONS,
+    // Full duplex unless echo cancellation is off — see `cascadeRuntimeFor`.
+    // Otherwise continuous capture, the shared in-flight and length ceilings, and
+    // per-turn metrics: the tuning every cascade client shares.
+    // The conversation id rides on the runtime because the session reads it once
+    // per start and sends it on every turn start of that run.
+    () => {
+      const runtime = cascadeRuntimeFor(getMicProcessingRef.current());
+      const conversationId = conversationIdRef.current;
+      return conversationId === undefined ? runtime : { ...runtime, conversationId };
+    },
   );
   const session = sessionRef.current;
 
@@ -531,8 +665,12 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // Before `session.start`, which is what dispatches the reset: the id and
       // the transcript it names must change together, or a save fired on the
       // edge could carry the new turns under the previous id.
+      const id = crypto.randomUUID();
+      conversationIdRef.current = id;
+      creditEvent.current = null;
+      setNotice(null);
       setIdentity({
-        id: crypto.randomUUID(),
+        id,
         startedAt: new Date().toISOString(),
         languagePair: options.languagePair,
         twoWay,
@@ -540,6 +678,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // The previous conversation's answer is not this one's: until a turn of
       // this one opens, nothing has said how it runs.
       setLanguageMode(null);
+      setMicPaused(false);
       // The previous conversation's recording must not survive into this one:
       // the upload keys off `conversationId`, and a stale blob here would be
       // attached to the wrong conversation. Its ORIGIN must not survive either —
@@ -726,7 +865,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     attributeTurn,
     unattributeTurn,
     echoHeard,
+    micPaused,
     error,
+    notice,
     level,
     conversationId: identity?.id ?? null,
     startedAt: identity?.startedAt ?? null,

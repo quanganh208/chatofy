@@ -19,6 +19,11 @@ import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { errorBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /**
  * Boots the full AppModule with a fake summarizer and no database, so the
@@ -87,6 +92,9 @@ describe('Meeting minutes (e2e)', () => {
       .useValue(minutesStore)
       .overrideProvider(ProviderRegistry)
       .useValue(fakeRegistry)
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -95,7 +103,10 @@ describe('Meeting minutes (e2e)', () => {
     await app.init();
 
     alice = await registerAndLogin(app, { email: 'alice-minutes@example.com' });
+
+    ledger.seed(alice.userId, 600);
     bob = await registerAndLogin(app, { email: 'bob-minutes@example.com' });
+    ledger.seed(bob.userId, 600);
 
     await conversations.save(alice.userId, conversationId, {
       languages: ['en', 'vi'],

@@ -6,6 +6,7 @@ import {
   type LanguageCode,
 } from '@chatofy/types';
 import { PipelineTranslatorService } from '../../translate/services/pipeline-translator.service';
+import { llmCallScope } from '../../usage/llm-call-scope';
 import { ConferencePeerLifecycle } from '../conference-peer-lifecycle.service';
 import { TokenBucket } from '../conference-token-bucket';
 import { ConferenceSocketRegistry } from '../conference-socket-registry.service';
@@ -98,7 +99,11 @@ export class ConferenceChat {
           .filter((lang) => lang !== senderLang),
       ),
     ];
-    const byLang = await this.translate(text, senderLang, targets);
+    // Billed to the sender. A typed message is not a turn, so there is no
+    // session to attribute it to.
+    const byLang = await llmCallScope.run({ userId: ws._userId }, () =>
+      this.translate(text, senderLang, targets),
+    );
 
     for (const [sid, p] of recipients) {
       this.sockets.sendTo(sid, MESSAGE_EVENT, {

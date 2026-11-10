@@ -11,7 +11,7 @@ import { SettingsSection, SettingsSectionRow } from '@/components/layout/setting
 import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
-import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
 import { canAutoDetectInto, pairPatchFor, representablePair } from '@/lib/translate-settings';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
@@ -34,7 +34,8 @@ import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
  * headers, permanently on screen, so the popover hides the row — this page has no such
  * headers, and the pair a new conversation starts in is exactly what it is for.
  *
- * `useTranslateSettings` is called here, once, in a page-level component. The rule is
+ * The settings arrive as props from `TranslateSettingsSections`, the page's one call
+ * of `useTranslateSettings`; the audio section reads the same instance. The rule is
  * one call site per PAGE, not one per app: `/translate` and `/preferences` never mount
  * together, so their copies never coexist and cannot diverge. A settings summary in a
  * layout or in the chrome WOULD break that, silently.
@@ -45,9 +46,12 @@ import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
  * earns the other one on the same grounds. Two is the ceiling here, which is what makes
  * the context editor inline rather than a dialog.
  */
-export function ConversationDefaultsSection() {
+export function ConversationDefaultsSection({
+  settings,
+  ready,
+  set,
+}: Pick<UseTranslateSettings, 'settings' | 'ready' | 'set'>) {
   const t = useTranslate();
-  const { settings, ready, set } = useTranslateSettings();
   const { contexts, status } = useTranslationContexts();
 
   return (

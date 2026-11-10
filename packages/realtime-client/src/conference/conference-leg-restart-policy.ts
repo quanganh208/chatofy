@@ -19,7 +19,9 @@ export type ConferenceLegEndReason =
   /** The socket kept dropping and the retry budget ran out. */
   | 'retries_exhausted'
   /** The session could not start before reaching the network, e.g. no microphone permission. */
-  | 'start_failed';
+  | 'start_failed'
+  /** The speaker's account ran out of credit. Raw audio still reaches the room through the SFU. */
+  | 'credits_exhausted';
 
 /** Backoff before each rebuild of a session the leg did not stop (user decision: 3 tries). */
 const RESTART_BACKOFF_MS = [1_000, 2_000, 4_000] as const;
@@ -36,6 +38,8 @@ export interface LegStopCause {
   closeCode: number | null;
   /** The session failed before it opened a socket: microphone or audio graph. */
   beforeSocket: boolean;
+  /** The translator stopped the session because the account is out of credit. */
+  creditsExhausted?: boolean;
 }
 
 export interface LegRestartPolicyDeps {
@@ -70,6 +74,11 @@ export class LegRestartPolicy {
    * why translation ends instead.
    */
   stopped(cause: LegStopCause): ConferenceLegEndReason | null {
+    // A new session would be refused at its first turn until credit is added.
+    if (cause.creditsExhausted) {
+      this.deps.log('out of credits; meeting translation ended');
+      return 'credits_exhausted';
+    }
     if (isRefusal(cause.closeCode)) {
       this.deps.log(`translator closed the connection (${cause.closeCode}); not reconnecting`);
       return 'refused';

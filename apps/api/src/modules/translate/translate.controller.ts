@@ -6,6 +6,9 @@ import {
   Inject,
   Post,
   Query,
+  Req,
+  ServiceUnavailableException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -13,6 +16,8 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
 import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
 import {
   DEFAULT_LANGUAGE_PAIR,
@@ -22,7 +27,15 @@ import {
 } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
+import { CodedHttpException } from '../../common/exceptions/coded-http.exception';
 import { LanguageUnavailableException } from '../../common/exceptions/language-unavailable.exception';
+import { UserThrottlerGuard } from '../auth/user-throttler.guard';
+import {
+  CREDIT_LEDGER,
+  LedgerUnavailableError,
+  type CreditLedgerPort,
+} from '../credits/credit-ledger.port';
+import { START_MIN_CREDIT_SECONDS } from '../credits/credit-pricing';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
@@ -42,6 +55,9 @@ import { planForPair } from './session/turn-language-plan';
  * asked for anything else.
  */
 const DEFAULT_VOICES_LANGUAGE = DEFAULT_LANGUAGE_PAIR.target;
+
+/** `POST /translate` calls per account per minute: each runs STT, an LLM and TTS. */
+export const TRANSLATE_TURNS_PER_MINUTE = 20;
 
 /**
  * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
@@ -64,6 +80,7 @@ export class TranslateController {
     private readonly languageSupport: SpeechLanguageSupport,
     @Inject(LANGUAGE_IDENTIFIER)
     private readonly identifier: LanguageIdentifier,
+    @Inject(CREDIT_LEDGER) private readonly ledger: CreditLedgerPort,
   ) {}
 
   /**
@@ -75,14 +92,16 @@ export class TranslateController {
    */
   @Post()
   @ApiBearerAuth()
+  @UseGuards(UserThrottlerGuard)
+  @Throttle({ default: { limit: TRANSLATE_TURNS_PER_MINUTE, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Translate an audio utterance to speech in the target language',
-    description:
-      'Send a complete utterance as base64 audio plus a language pair (`languagePair: { source, target }`, default `vi` → `en`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
+    description: `Send a complete utterance as base64 audio plus a language pair (\`languagePair: { source, target }\`, default \`vi\` → \`en\`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (\`plan.spoken\`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead. Gated like a streaming start: an account with less than one credit available gets 402 \`CREDITS_EXHAUSTED\`, and 503 when the balance cannot be read. The turn itself is not charged. ${TRANSLATE_TURNS_PER_MINUTE} per minute per account.`,
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
-  @ApiErrorResponses(400, 401, 503)
+  @ApiErrorResponses(400, 401, 402, 429, 503)
   async translate(
+    @Req() req: Request,
     @Body() body: TranslateRequestDto,
   ): Promise<TranslateResponse> {
     const audio = Buffer.from(body.audioBase64, 'base64');
@@ -113,6 +132,7 @@ export class TranslateController {
       // identical words.
       throw new LanguageUnavailableException(languageRefusal);
     }
+    await this.requireStartCredit(req.auth!.userId);
     return this.pipeline.translateTurn(
       {
         audio: new Uint8Array(audio),
@@ -122,6 +142,33 @@ export class TranslateController {
       },
       plan,
     );
+  }
+
+  /**
+   * The same floor a streaming start must clear: at least one credit
+   * available. Read before any provider call, so an account at zero cannot run
+   * the paid pipeline here after the socket refused it. Fails closed: a balance
+   * that cannot be read is a 503, never a free turn.
+   */
+  private async requireStartCredit(userId: string): Promise<void> {
+    let available: number;
+    try {
+      ({ available } = await this.ledger.balance(userId));
+    } catch (err) {
+      if (err instanceof LedgerUnavailableError) {
+        throw new ServiceUnavailableException(
+          'credits cannot be checked right now; try again shortly',
+        );
+      }
+      throw err;
+    }
+    if (available < START_MIN_CREDIT_SECONDS) {
+      throw new CodedHttpException(
+        'CREDITS_EXHAUSTED',
+        402,
+        'You are out of credits',
+      );
+    }
   }
 
   /**

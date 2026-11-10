@@ -37,6 +37,13 @@ describe('isRefusal', () => {
 });
 
 describe('LegRestartPolicy', () => {
+  it('ends for good, without a rebuild, when credit ran out', () => {
+    const { p, restart } = policy();
+    expect(p.stopped({ ...drop, creditsExhausted: true })).toBe('credits_exhausted');
+    vi.advanceTimersByTime(60_000);
+    expect(restart).not.toHaveBeenCalled();
+  });
+
   it('rebuilds after 1, 2 and 4 seconds, then gives up', () => {
     const h = policy();
     for (const delay of [1_000, 2_000, 4_000]) {

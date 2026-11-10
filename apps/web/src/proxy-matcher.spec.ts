@@ -21,19 +21,28 @@ const pattern = new RegExp(config.matcher[0]!);
  * by eye — `/registersomething` would pass a naive `register` exclusion.
  */
 describe('the signed-out-redirect matcher', () => {
-  it.each(['/register', '/verify-email', '/forgot-password', '/reset-password', '/login'])(
-    'exempts %s from the gate',
-    (path) => {
-      expect(pattern.test(path)).toBe(false);
-    },
-  );
+  it.each([
+    '/register',
+    '/verify-email',
+    '/forgot-password',
+    '/reset-password',
+    '/login',
+    '/pricing',
+    '/pricing.md',
+  ])('exempts %s from the gate', (path) => {
+    expect(pattern.test(path)).toBe(false);
+  });
 
-  it.each(['/register/', '/verify-email/', '/forgot-password/', '/reset-password/', '/login/'])(
-    'exempts %s (trailing slash) from the gate',
-    (path) => {
-      expect(pattern.test(path)).toBe(false);
-    },
-  );
+  it.each([
+    '/register/',
+    '/verify-email/',
+    '/forgot-password/',
+    '/reset-password/',
+    '/login/',
+    '/pricing/',
+  ])('exempts %s (trailing slash) from the gate', (path) => {
+    expect(pattern.test(path)).toBe(false);
+  });
 
   it.each([
     '/translate',
@@ -43,6 +52,7 @@ describe('the signed-out-redirect matcher', () => {
     '/verify-emailx',
     '/forgot-passwordish',
     '/reset-passwords',
+    '/pricingx',
   ])('still gates %s', (path) => {
     expect(pattern.test(path)).toBe(true);
   });

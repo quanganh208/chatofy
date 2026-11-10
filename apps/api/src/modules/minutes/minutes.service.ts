@@ -20,7 +20,12 @@ import {
   type MinutesStore,
 } from './interfaces/minutes-store.interface';
 import { MinutesSummarizer } from './minutes-summarizer.service';
-import { runMinutesPass } from './minutes-pass';
+import { chargeMinutesRun, runMinutesPass } from './minutes-pass';
+import {
+  CREDIT_LEDGER,
+  type CreditLedgerPort,
+} from '../credits/credit-ledger.port';
+import { llmCallScope } from '../usage/llm-call-scope';
 
 /**
  * Fallback speaker names for the PROMPT.
@@ -54,6 +59,7 @@ export class MinutesService {
     @Inject(MINUTES_STORE) private readonly store: MinutesStore,
     @Inject(CONVERSATION_STORE)
     private readonly conversations: ConversationStore,
+    @Inject(CREDIT_LEDGER) private readonly ledger: CreditLedgerPort,
   ) {}
 
   /**
@@ -93,17 +99,26 @@ export class MinutesService {
       );
     }
 
-    return runMinutesPass({
-      turns,
-      language: request.language,
-      summarizer: this.summarizer,
-      logger: this.logger,
-      label: `conversation ${conversationId}`,
-      save: (content) =>
-        this.store.put(ownerId, { conversationId, ...content }),
-      storedStatus: async () =>
-        (await this.store.get(ownerId, conversationId))?.status ?? null,
-    });
+    // The pass is billed to the caller; minutes belong to no live turn.
+    return llmCallScope.run({ userId: ownerId }, () =>
+      runMinutesPass({
+        turns,
+        language: request.language,
+        summarizer: this.summarizer,
+        logger: this.logger,
+        label: `conversation ${conversationId}`,
+        save: (content) =>
+          this.store.put(ownerId, { conversationId, ...content }),
+        storedStatus: async () =>
+          (await this.store.get(ownerId, conversationId))?.status ?? null,
+        charge: chargeMinutesRun(
+          this.ledger,
+          ownerId,
+          this.logger,
+          conversationId,
+        ),
+      }),
+    );
   }
 }
 

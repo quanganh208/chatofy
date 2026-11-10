@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
 import {
   NativePcmRecorder,
   type NativeRecorderApi,
@@ -35,19 +36,24 @@ class FakeRecorder implements NativeRecorderHandle {
   }
 }
 
-function setup(permission = 'Granted') {
+function setup(permission = 'Granted', mic: () => MicProcessing = () => DEFAULT_MIC_PROCESSING) {
   const recorders: FakeRecorder[] = [];
   const calls = { configured: 0, deactivated: 0 };
+  /** The processing each session configuration and each recorder was asked for, in order. */
+  const sessionMics: MicProcessing[] = [];
+  const recorderMics: MicProcessing[] = [];
   const api: NativeRecorderApi = {
-    configureSession: () => {
+    configureSession: (asked) => {
       calls.configured += 1;
+      sessionMics.push(asked);
     },
     deactivateSession: () => {
       calls.deactivated += 1;
       return Promise.resolve();
     },
     requestPermission: () => Promise.resolve(permission),
-    createRecorder: () => {
+    createRecorder: (asked) => {
+      recorderMics.push(asked);
       const recorder = new FakeRecorder();
       recorders.push(recorder);
       return recorder;
@@ -55,10 +61,50 @@ function setup(permission = 'Granted') {
   };
   const heard: number[][] = [];
   const onBuffer = (samples: Float32Array) => heard.push([...samples]);
-  return { capture: new NativePcmRecorder(api), recorders, calls, heard, onBuffer };
+  return {
+    capture: new NativePcmRecorder(api, mic),
+    recorders,
+    calls,
+    sessionMics,
+    recorderMics,
+    heard,
+    onBuffer,
+  };
 }
 
 describe('NativePcmRecorder', () => {
+  it('opens with the platform processing on by default', async () => {
+    const h = setup();
+    await h.capture.start(h.onBuffer);
+
+    assert.deepEqual(h.recorderMics, [DEFAULT_MIC_PROCESSING]);
+    assert.equal(h.recorderMics[0]!.echoCancellation, true);
+    assert.deepEqual(h.sessionMics, h.recorderMics);
+  });
+
+  it('opens with processing off when that is the stored choice', async () => {
+    const off = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    const h = setup('Granted', () => off);
+    await h.capture.start(h.onBuffer);
+
+    assert.equal(h.recorderMics[0]!.echoCancellation, false);
+    assert.deepEqual(h.sessionMics, [off]);
+  });
+
+  it('reads the choice again at each start, never mid-session', async () => {
+    let current: MicProcessing = DEFAULT_MIC_PROCESSING;
+    const h = setup('Granted', () => current);
+    await h.capture.start(h.onBuffer);
+    current = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    await h.capture.stop();
+    await h.capture.start(h.onBuffer);
+
+    assert.deepEqual(
+      h.recorderMics.map((mic) => mic.echoCancellation),
+      [true, false],
+    );
+  });
+
   it('keeps the audio session active when a recorder stops mid-call', async () => {
     const h = setup();
     await h.capture.start(h.onBuffer);

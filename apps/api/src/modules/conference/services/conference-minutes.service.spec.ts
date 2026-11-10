@@ -19,6 +19,8 @@ import type { Env } from '../../../config/env.schema';
 import { MinutesSummarizer } from '../../minutes/minutes-summarizer.service';
 import type { ConferenceMinutesStore } from '../stores/prisma-conference-minutes.store';
 import { ConferenceMinutesService } from './conference-minutes.service';
+import { InMemoryCreditLedger } from '../../../../test/utils/in-memory-credit-ledger';
+import { CodedHttpException } from '../../../common/exceptions/coded-http.exception';
 
 const draft: MeetingMinutesDraft = {
   summary: 'They agreed on the budget.',
@@ -36,7 +38,10 @@ const draft: MeetingMinutesDraft = {
  * longer exists throws, which is what makes the "room gone mid-generation"
  * case real.
  */
-function setup(summarize: SummarizationProvider['summarize']) {
+function setup(
+  summarize: SummarizationProvider['summarize'],
+  ledger = new InMemoryCreditLedger(),
+) {
   const prisma = new InMemoryConferencePrisma();
   const stored = new Map<string, ConferenceMinutes>();
   const store: ConferenceMinutesStore = {
@@ -79,6 +84,7 @@ function setup(summarize: SummarizationProvider['summarize']) {
     prisma.asPrismaService(),
     new MinutesSummarizer(config, registry),
     store,
+    ledger,
   );
 
   const room = prisma.seed({ ownerId: 'owner', status: 'ended' });
@@ -107,7 +113,7 @@ function setup(summarize: SummarizationProvider['summarize']) {
       },
     });
 
-  return { prisma, service, store, room, join, say };
+  return { prisma, service, store, room, join, say, ledger };
 }
 
 describe('ConferenceMinutesService', () => {
@@ -309,5 +315,79 @@ describe('ConferenceMinutesService', () => {
       expect(second.actionItems[0]!.id).not.toBe(first.actionItems[0]!.id);
       await expect(service.get(room.id, 'bob')).resolves.toEqual(second);
     });
+  });
+});
+
+describe('ConferenceMinutesService credits', () => {
+  const RUN = 3 * 60;
+  const available = async (ledger: InMemoryCreditLedger, userId: string) =>
+    (await ledger.balance(userId)).available;
+
+  it('bills the participant who pressed Generate, not the owner', async () => {
+    const { service, room, join, say, ledger } = setup(
+      vi.fn().mockResolvedValue(draft),
+    );
+    await say(await join('bob', 'Bob'), 'let us ship');
+    const ownerBefore = await available(ledger, 'owner');
+    const bobBefore = await available(ledger, 'bob');
+    await service.generate(room.id, 'bob', {});
+    expect(await available(ledger, 'bob')).toBe(bobBefore - RUN);
+    expect(await available(ledger, 'owner')).toBe(ownerBefore);
+  });
+
+  it('refuses with 402 before any provider call when the caller is short', async () => {
+    const summarize = vi.fn().mockResolvedValue(draft);
+    const { service, room, join, say } = setup(
+      summarize,
+      new InMemoryCreditLedger({ freeCredits: 0 }),
+    );
+    await say(await join('bob', 'Bob'), 'let us ship');
+    await expect(service.generate(room.id, 'bob', {})).rejects.toMatchObject({
+      code: 'CREDITS_EXHAUSTED',
+      status: 402,
+    });
+    await expect(service.generate(room.id, 'bob', {})).rejects.toBeInstanceOf(
+      CodedHttpException,
+    );
+    expect(summarize).not.toHaveBeenCalled();
+  });
+
+  it('refunds the run when the provider fails', async () => {
+    const { service, room, join, say, ledger } = setup(
+      vi.fn().mockRejectedValue(new Error('provider down')),
+    );
+    await say(await join('bob', 'Bob'), 'let us ship');
+    const before = await available(ledger, 'bob');
+    await expect(service.generate(room.id, 'bob', {})).rejects.toThrow(
+      'provider down',
+    );
+    expect(await available(ledger, 'bob')).toBe(before);
+  });
+
+  it('rethrows the provider error when the refund also fails', async () => {
+    const ledger = new InMemoryCreditLedger();
+    const { service, room, join, say } = setup(
+      vi.fn().mockImplementation(async () => {
+        ledger.setUnavailable(true);
+        throw new Error('provider down');
+      }),
+      ledger,
+    );
+    await say(await join('bob', 'Bob'), 'let us ship');
+    await expect(service.generate(room.id, 'bob', {})).rejects.toThrow(
+      'provider down',
+    );
+  });
+
+  it('does not charge a transcript refused at the prompt ceiling', async () => {
+    const { service, room, join, say, ledger } = setup(
+      vi.fn().mockResolvedValue(draft),
+    );
+    const bob = await join('bob', 'Bob');
+    for (let i = 0; i < 30; i++) await say(bob, 'x'.repeat(3_000));
+    await expect(service.generate(room.id, 'bob', {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(ledger.entries.some((e) => e.kind === 'debit')).toBe(false);
   });
 });

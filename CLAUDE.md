@@ -126,6 +126,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 ├── architecture/
 │   ├── contracts-and-languages.md
 │   ├── ai-providers.md
+│   ├── credits-and-billing.md          # credits ledger, metering, Polar + SePay, go-live checklist
 │   ├── authentication.md
 │   ├── data-flow.md
 │   ├── modules-extension-ci.md

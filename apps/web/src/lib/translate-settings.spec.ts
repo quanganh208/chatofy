@@ -189,6 +189,38 @@ describe('loadTranslateSettings', () => {
     expect(loaded.displayMode).toBe('list');
   });
 
+  it('keeps every mic processor on when nothing is stored', () => {
+    expect(loadTranslateSettings().micProcessing).toEqual({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+  });
+
+  it('reads one stored mic processor and keeps the others on', () => {
+    store({ micProcessing: { echoCancellation: false } });
+    expect(loadTranslateSettings().micProcessing).toEqual({
+      echoCancellation: false,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+  });
+
+  it('falls back per mic processor on a value that is not a boolean', () => {
+    store({ micProcessing: { echoCancellation: 'no' } });
+    expect(loadTranslateSettings().micProcessing.echoCancellation).toBe(true);
+  });
+
+  it('falls back to the default mic processing when the stored value is not an object', () => {
+    store({ micProcessing: 7 });
+    expect(loadTranslateSettings().micProcessing).toEqual(DEFAULT_TRANSLATE_SETTINGS.micProcessing);
+  });
+
+  it('strips a mic processor this build does not know', () => {
+    store({ micProcessing: { echoCancellation: false, voiceIsolation: true } });
+    expect(loadTranslateSettings().micProcessing).not.toHaveProperty('voiceIsolation');
+  });
+
   it('returns the defaults for a blob that is not JSON', () => {
     localStorage.setItem(TRANSLATE_SETTINGS_STORAGE_KEY, '{not json');
     expect(loadTranslateSettings()).toEqual(DEFAULT_TRANSLATE_SETTINGS);

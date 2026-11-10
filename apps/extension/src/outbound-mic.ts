@@ -1,3 +1,4 @@
+import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
 import { DuckController } from './duck-controller';
 import { MICROPHONE_BLOCKED } from './microphone-permission';
 
@@ -38,20 +39,16 @@ export interface GatedMicrophone {
 /**
  * Open the microphone and put a gate in front of the translator.
  *
- * Opened with the browser's own cleanup ON, for the same reason the echo
- * microphone is: this is the configuration a meeting client uses, so measuring
- * or translating with it off would describe a setup nobody runs.
+ * Opened with the user's processing choice (default on, the configuration a
+ * meeting client uses).
  */
-export async function openGatedMicrophone(context: AudioContext): Promise<GatedMicrophone> {
+export async function openGatedMicrophone(
+  context: AudioContext,
+  audio: MicProcessing = DEFAULT_MIC_PROCESSING,
+): Promise<GatedMicrophone> {
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    stream = await navigator.mediaDevices.getUserMedia({ audio });
   } catch (err) {
     // A `NotAllowedError` from this document is never someone clicking Block: this
     // is the offscreen document, it has no window, and Chrome refuses the call

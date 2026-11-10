@@ -1,4 +1,5 @@
 import type { MessageKey, Translate } from '@chatofy/i18n';
+import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 
 /**
  * The microphone, asked for in the reader's language when it cannot be had.
@@ -56,11 +57,7 @@ const FAULT_KEY: Record<string, MessageKey> = {
  * measurement path wants, since processing the input changes what a comparison is
  * comparing. The lab route that asked for it is gone; the reason it asked has not.
  */
-export const CONVERSATION_AUDIO: MediaTrackConstraints = {
-  echoCancellation: true,
-  noiseSuppression: true,
-  autoGainControl: true,
-};
+export const CONVERSATION_AUDIO: MediaTrackConstraints = DEFAULT_MIC_PROCESSING;
 
 export async function openMicrophone(
   t: Translate,

@@ -141,7 +141,7 @@ export function usePopup() {
   const captureable = support.ok && runsOn(enablement, site);
 
   /**
-   * The three the offscreen document is handed at capture time go through the
+   * The ones the offscreen document is handed at capture time go through the
    * worker instead of straight to storage, because a running capture has to be
    * reopened for a change to take effect and only the worker can do that. Writing
    * them here would leave the popup showing a setting the live capture is not
@@ -156,12 +156,17 @@ export function usePopup() {
         languagePair: next.languagePair,
         voiceGender: next.voiceGender,
         outbound: next.outbound,
+        micProcessing: next.micProcessing,
       })
       .catch(() => undefined);
   }, []);
 
   const change = useCallback(
-    (patch: Partial<Pick<CaptureSettings, 'languagePair' | 'voiceGender' | 'outbound'>>) => {
+    (
+      patch: Partial<
+        Pick<CaptureSettings, 'languagePair' | 'voiceGender' | 'outbound' | 'micProcessing'>
+      >,
+    ) => {
       setSettings((current) => {
         // Nothing to send before the first read: the fields this page does not show
         // would travel as whatever a default says rather than as what is stored.

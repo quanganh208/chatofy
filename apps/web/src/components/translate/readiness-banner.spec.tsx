@@ -23,7 +23,25 @@ import { en } from '@chatofy/i18n';
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const checkHealth = vi.hoisted(() => vi.fn<() => Promise<void>>());
-vi.mock('@/clients/api-client', () => ({ checkHealth: () => checkHealth() }));
+const getCreditBalance = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+vi.mock('@/clients/api-client', () => ({
+  checkHealth: () => checkHealth(),
+  getCreditBalance: () => getCreditBalance(),
+}));
+
+/** `GET /billing/me` with this many credits, everything else at its Free shape. */
+function balanceOf(totalCredits: number) {
+  return {
+    totalCredits,
+    planCredits: totalCredits,
+    topupCredits: 0,
+    planResetsAt: '2026-12-01T00:00:00.000Z',
+    plan: 'free',
+    proSource: null,
+    checkoutAllowed: false,
+    rails: { polar: 'sandbox', sepay: 'sandbox' },
+  };
+}
 
 type FakeStatus = Pick<PermissionStatus, 'state'> & {
   addEventListener: () => void;
@@ -74,6 +92,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   checkHealth.mockResolvedValue(undefined);
+  getCreditBalance.mockResolvedValue(balanceOf(120));
   enumerateDevices.mockResolvedValue(oneMic);
   permission('granted');
 });
@@ -212,5 +231,36 @@ describe('ReadinessBanner', () => {
     await render();
     expect(container.textContent).toContain(en['web.translate.micDenied']);
     expect(container.textContent).toContain(en['web.translate.serviceUnreachable']);
+  });
+
+  it('says Start will be refused when the balance is under one credit', async () => {
+    getCreditBalance.mockResolvedValue(balanceOf(0.5));
+    await render();
+    expect(container.textContent).toContain(en['common.billing.startRefused']);
+  });
+
+  it('warns at two credits or fewer, with the amount', async () => {
+    getCreditBalance.mockResolvedValue(balanceOf(1.5));
+    await render();
+    expect(container.textContent).toContain('About 1.5 credits left');
+    expect(container.textContent).not.toContain(en['common.billing.startRefused']);
+  });
+
+  it('says nothing about credits above two, or when the balance could not be read', async () => {
+    getCreditBalance.mockResolvedValue(balanceOf(2.01));
+    await render();
+    expect(container.textContent).toBe('');
+    act(() => root?.unmount());
+    root = undefined;
+
+    getCreditBalance.mockRejectedValue(new Error('503'));
+    await render();
+    expect(container.textContent).toBe('');
+  });
+
+  it('never disables Start: it renders no control at all', async () => {
+    getCreditBalance.mockResolvedValue(balanceOf(0));
+    await render();
+    expect(container.querySelector('button')).toBeNull();
   });
 });

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ranOneWayInstead, refusalMessageKey, startFailureKey } from './translate-refusal.ts';
+import {
+  creditErrorCopy,
+  ranOneWayInstead,
+  refusalMessageKey,
+  startFailureKey,
+} from './translate-refusal.ts';
 
 describe('refusalMessageKey', () => {
   it('names the two Auto-detect refusals', () => {
@@ -48,5 +53,49 @@ describe('startFailureKey', () => {
     );
     assert.equal(startFailureKey('socket closed', undefined), null);
     assert.equal(startFailureKey(null, undefined), null);
+  });
+});
+
+describe('creditErrorCopy', () => {
+  const opened = { turnOpened: true };
+  const refusedAtStart = { turnOpened: false };
+
+  it('says a refused start apart from a conversation that ran out', () => {
+    assert.deepEqual(creditErrorCopy({ code: 'credits_exhausted' }, refusedAtStart), {
+      key: 'common.billing.startRefused',
+      notice: false,
+    });
+    assert.deepEqual(creditErrorCopy({ code: 'credits_exhausted' }, opened), {
+      key: 'common.billing.exhausted',
+      notice: false,
+    });
+  });
+
+  it('names a balance that could not be checked as a failure', () => {
+    assert.deepEqual(creditErrorCopy({ code: 'credits_unavailable' }, opened), {
+      key: 'common.billing.unavailable',
+      notice: false,
+    });
+  });
+
+  it('turns a low balance into a notice carrying the amount in credits', () => {
+    assert.deepEqual(
+      creditErrorCopy({ code: 'credits_low', remainingCreditSeconds: 120 }, opened),
+      {
+        key: 'common.billing.low',
+        amount: { key: 'common.billing.creditAmount', vars: { credits: '2' } },
+        notice: true,
+      },
+    );
+    assert.deepEqual(
+      creditErrorCopy({ code: 'credits_low', remainingCreditSeconds: 60 }, opened)?.amount,
+      { key: 'common.billing.creditAmountOne' },
+    );
+  });
+
+  it('leaves a low balance with no figure, and every other cause, to the caller', () => {
+    assert.equal(creditErrorCopy({ code: 'credits_low' }, opened), null);
+    assert.equal(creditErrorCopy({ code: 'rate_limited' }, opened), null);
+    assert.equal(creditErrorCopy(undefined, opened), null);
   });
 });

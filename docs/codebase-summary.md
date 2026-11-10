@@ -61,6 +61,8 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `UserRepository` (`USER_REPOSITORY`)                    | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`                          | `PrismaUserRepository`                                                                                                                   |
 | `AvatarStorage` / `ConversationAudioStorage`            | `apps/api/src/modules/storage/interfaces/*.interface.ts`                                      | R2 implementations when all `R2_*` keys are set, disabled ones otherwise                                                                 |
 | `StreamSocket`                                          | `apps/api/src/modules/translate/session/stream-socket.ts`                                     | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers        |
+| `CreditLedgerPort` (`CREDIT_LEDGER`)                    | `apps/api/src/modules/credits/credit-ledger.port.ts`                                          | the Prisma ledger (`CreditsLedger` + `CreditLeases`); the fast e2e suites bind `test/utils/in-memory-credit-ledger.ts` instead           |
+| `PaymentProvider`                                       | `apps/api/src/modules/credits/payments/payment-provider.ts`                                   | `PolarProvider` and `SepayProvider` — see [credits and billing](./architecture/credits-and-billing.md#payments)                          |
 | `IAudioRecorder` / `IAudioPlayer`                       | `apps/mobile/src/audio/*.interface.ts`                                                        | (impl deferred)                                                                                                                          |
 
 **Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes from `packages/ai-providers/src/errors/provider-errors.ts`, under an abstract `ProviderError` base. All providers throw these; consume via `instanceof` checks.
@@ -92,7 +94,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 | Route                                                                                                                                               | Group         | Session  |
 | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- |
-| `/`                                                                                                                                                 | `(marketing)` | public   |
+| `/`, `/pricing`                                                                                                                                     | `(marketing)` | public   |
 | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`                                                                       | `(auth)`      | public   |
 | `/locale`                                                                                                                                           | route handler | public   |
 | `/api/auth/*` (Auth.js)                                                                                                                             | route handler | public   |
@@ -140,6 +142,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 - `GET /translation-contexts` — the caller's saved AI Context library, newest first. Guarded, throttled, and **unpaged**: bounded at `CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER`, so a cursor would be machinery for a page that can never exist. Read by both the web editor and the extension popup
 - `PUT /translation-contexts/:contextId` — create or replace one context. Guarded, throttled, idempotent, and a FULL replacement including the glossary, so a shorter re-save cannot leave a stale tail of pairs. `409` when the account is already at the ceiling and this id is not one it holds; a replace of an existing context is always allowed, or a full library would be uneditable. The owner is the verified token subject and the body carries no user id
 - `DELETE /translation-contexts/:contextId` — `204` whether a row went or not, so an id that never existed and one belonging to another account are indistinguishable. The glossary goes with it through the relation cascade
+- `/billing/*` — plans (public), the caller's balance and usage, checkout, order status, the Polar portal, and the two payment webhooks. Owners: the controllers under `apps/api/src/modules/credits/`; rules in [credits and billing](./architecture/credits-and-billing.md)
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health` — Liveness probe (raw, no envelope). Liveness only: it answers from process state and touches no dependency, so it never reports on the database.
 

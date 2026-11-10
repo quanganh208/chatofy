@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRANSLATE_SETTINGS_STORAGE_KEY } from '@/lib/translate-settings';
+import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,5 +71,46 @@ describe('PreJoinStage — the voice chosen here is the voice the call uses', ()
 
     expect(onJoin).toHaveBeenCalledOnce();
     expect(storedGender()).toBe('male');
+  });
+});
+
+describe('PreJoinStage — the meeting echo note', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mount() {
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <PreJoinStage onJoin={vi.fn()} />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+    });
+  }
+
+  it('warns before joining that others will hear echo when echo cancellation is off', async () => {
+    localStorage.setItem(
+      TRANSLATE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ micProcessing: { echoCancellation: false } }),
+    );
+    await mount();
+    expect(container.textContent).toContain(en['web.preferences.audio.conferenceNote']);
+  });
+
+  it('says nothing about echo with echo cancellation on', async () => {
+    await mount();
+    expect(container.textContent).not.toContain(en['web.preferences.audio.conferenceNote']);
   });
 });

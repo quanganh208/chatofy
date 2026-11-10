@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { UsageModule } from '../usage/usage.module';
+import { CreditsModule } from '../credits/credits.module';
 import { MinutesModule } from '../minutes/minutes.module';
 import { TranslateModule } from '../translate/translate.module';
 import { ConferenceMinutesController } from './conference-minutes.controller';
@@ -26,7 +28,13 @@ import { ConferenceTranslationRouter } from './services/conference-translation-r
 @Module({
   // MinutesModule for its MinutesSummarizer: a room's minutes run the same
   // resolved provider the conversation minutes do.
-  imports: [AuthModule, TranslateModule, MinutesModule],
+  imports: [
+    AuthModule,
+    TranslateModule,
+    MinutesModule,
+    UsageModule,
+    CreditsModule,
+  ],
   controllers: [ConferenceController, ConferenceMinutesController],
   providers: [
     PrismaConferenceMinutesStore,

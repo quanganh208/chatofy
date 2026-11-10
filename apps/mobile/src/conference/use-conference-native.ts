@@ -21,9 +21,9 @@ import {
   conferenceRoomIdSchema,
 } from '@chatofy/types/events';
 import type { ConferenceChatMessage, ConferenceIceServer } from '@chatofy/types/events';
-import type { LanguageCode, VoiceGender } from '@chatofy/types/domain';
+import type { LanguageCode, MicProcessing, VoiceGender } from '@chatofy/types/domain';
 import { NativeTranslationAudioSink } from './native-audio-playback';
-import type { ConferenceCascadeLeg } from '@chatofy/realtime-client';
+import type { ConferenceCascadeLeg, ConferenceLegEndReason } from '@chatofy/realtime-client';
 import {
   createNativeConferenceLeg,
   drainLegThenClose,
@@ -79,9 +79,10 @@ export interface UseConferenceReturn {
   localTranslating: boolean;
   /**
    * The speaker's translation ended for good mid-call (no token, refused, or the
-   * translator kept dropping); cleared when the call view resets.
+   * translator kept dropping, or the speaker's credits ran out), with the reason so
+   * the readout can say which; null while it runs, cleared when the call view resets.
    */
-  translationEnded: boolean;
+  translationEnded: ConferenceLegEndReason | null;
   /** Current reconnect attempt (1-based). 0 when not reconnecting. */
   reconnectAttempt: number;
   /** Maximum reconnect attempts before giving up to `disconnected`. */
@@ -152,9 +153,14 @@ export function useConferenceNative(
     /** The translated voice others hear this speaker in; chosen in the lobby. */
     voiceGender: VoiceGender;
     getToken: () => Promise<string>;
+    /**
+     * The processing chain the translation recorder opens with, read at each
+     * open. The call's own audio track is not affected: the platform processes it.
+     */
+    micProcessing: () => MicProcessing;
   },
 ): UseConferenceReturn {
-  const { displayName, sourceLanguage, voiceGender, getToken } = options;
+  const { displayName, sourceLanguage, voiceGender, getToken, micProcessing } = options;
 
   const [status, setStatus] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
@@ -164,7 +170,7 @@ export function useConferenceNative(
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [localTranslating, setLocalTranslating] = useState(false);
-  const [translationEnded, setTranslationEnded] = useState(false);
+  const [translationEnded, setTranslationEnded] = useState<ConferenceLegEndReason | null>(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
   /** Why the last chat message was refused; cleared by the next send. */
@@ -243,7 +249,7 @@ export function useConferenceNative(
     audioSinkRef.current?.close();
     audioSinkRef.current = null;
     setLocalTranslating(false);
-    setTranslationEnded(false);
+    setTranslationEnded(null);
     setLocalStream(null);
     setPeers((prev) => {
       prev.forEach((p) => p.stream.getTracks().forEach((t) => t.stop()));
@@ -412,7 +418,7 @@ export function useConferenceNative(
           if (!micLock.acquire('conference')) {
             throw new Error('the microphone is in use by the translate screen');
           }
-          captureRef.current ??= new NativeAudioCapture();
+          captureRef.current ??= new NativeAudioCapture(micProcessing);
           const leg = createNativeConferenceLeg({
             confWs: ws,
             capture: captureRef.current,
@@ -424,7 +430,7 @@ export function useConferenceNative(
             onEnded: (reason) => {
               console.log(`[conference] translation ended: ${reason}`);
               // A leg already replaced by a reconnect says nothing about this call.
-              if (legRef.current === leg) setTranslationEnded(true);
+              if (legRef.current === leg) setTranslationEnded(reason);
             },
             // A user muted before a reconnect is not transcribed by the fresh leg.
             muted: localMutedRef.current,
@@ -447,6 +453,7 @@ export function useConferenceNative(
       sourceLanguage,
       voiceGender,
       getToken,
+      micProcessing,
       onTrack,
       endCall,
       scheduleReconnect,

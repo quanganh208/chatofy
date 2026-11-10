@@ -44,7 +44,7 @@ function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
     localVideoEnabled: true,
     audioBlocked: false,
     localTranslating: false,
-    translationEnded: false,
+    translationEnded: null,
     reconnectAttempt: 0,
     reconnectCap: 3,
     join: vi.fn(() => Promise.resolve()),
@@ -127,11 +127,22 @@ describe('ConferenceRoomPage — translation that ended mid-call', () => {
   };
 
   it('says so in one quiet line while the call goes on', () => {
-    render(call({ translationEnded: true }));
+    render(call({ translationEnded: 'retries_exhausted' }));
     const notice = container.querySelectorAll('[data-translation-ended]');
     expect(notice).toHaveLength(1);
     expect(notice[0]!.textContent).toContain('Translation stopped');
+    expect(notice[0]!.textContent).toContain('Rejoin');
     expect(notice[0]!.querySelector('button')).toBeNull();
+  });
+
+  it('names running out of credits in the same line, and adds no second notice', () => {
+    render(call({ translationEnded: 'credits_exhausted' }));
+    const notice = container.querySelectorAll('[data-translation-ended]');
+    expect(notice).toHaveLength(1);
+    expect(notice[0]!.textContent).toContain('credits ran out');
+    // Rejoining would end the same way, so the line does not suggest it.
+    expect(notice[0]!.textContent).not.toContain('Rejoin');
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
   });
 
   it('shows nothing while translation runs', () => {

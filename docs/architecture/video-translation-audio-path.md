@@ -376,8 +376,9 @@ A same-language peer, whose translation never plays on the phone, gave 0 rows.
 
 What this settled:
 
-- **The recorder patch.** `patches/react-native-audio-api@0.13.6.patch` sets the
-  `VoiceCommunication` input preset and an allocated session id. The preset alone opened
+- **The recorder patch.** The library sets the `VoiceCommunication` input preset itself
+  since 1.0.0; `patches/react-native-audio-api@1.0.0.patch` adds the allocated session
+  id for that preset only (until 2026-11-09 the 0.13.6 patch set both). The preset alone opened
   AAudio's MMAP path, which runs no effects; the session id forces the legacy path, where
   `dumpsys audio` shows `'Acoustic Echo Canceler'` on the leg recorder. The reason is in
   `pnpm-workspace.yaml` beside the patch entry.
@@ -401,8 +402,36 @@ What this settled:
 speaking at the phone while a translation plays; iOS, whose capture probably has no voice
 processing because the library never enables it on its input node (unverified, no iOS
 build); and web on Chrome and Firefox, which needs a machine with a microphone and
-speakers. Web does not wire the gate, by the rule that it ships only where a measurement
-fails.
+speakers. Web wires the gate only when the user turns echo cancellation off; see the
+next section.
+
+### User mic processing (2026-11-09)
+
+The three browser and platform processors (echo cancellation, noise suppression,
+automatic gain control) are now user settings, all on by default, as Saydi offers them.
+The type and default are `MicProcessing` / `DEFAULT_MIC_PROCESSING` in `@chatofy/types`.
+A choice applies at the next start, never mid-session. Echo cancellation off must never
+reopen the loudspeaker-to-microphone loop, and each surface closes it its own way:
+
+| Surface                       | Switches                                                        | With echo cancellation off                                                                                                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web /translate (/preferences) | three                                                           | half duplex: `cascadeRuntimeFor` sets `fullDuplex: false`, and the page says the microphone is paused while the translation plays                                                                              |
+| Web conference                | the same three, on the published track                          | the received-audio onset gate, fed by each peer's WebRTC voice (RMS ≥ `REMOTE_SPEECH_RMS`, 300 ms hold) and by translations playing on this device; the row and the pre-join screen warn that others hear echo |
+| Extension popup               | three                                                           | nothing new: `applyMicrophoneGate` already silences the mic at the source while our audio plays                                                                                                                |
+| Mobile settings               | one switch; noise suppression and gain control are locked to it | translate runs half duplex; the recorder opens as `voiceRecognition` (Android) / without iOS voice processing; the conference keeps its gate                                                                   |
+
+`fullDuplex: false` is inert wherever `ownsEchoMeasurement` is set (conference legs, the
+extension), which is why those surfaces do not call `cascadeRuntimeFor`. Like the mobile
+gate, the web gate never cuts an open turn. Turning noise suppression or gain control off
+also changes what the conversation recording holds, because it taps the same stream.
+
+Measured on the Galaxy A13 (2026-11-09, `dumpsys media.audio_flinger`):
+with the switch on, the translate recorder opens as `VOICE_COMMUNICATION` and `dumpsys`
+lists "Acoustic Echo Canceler" on its session; with it off, it opens as
+`VOICE_RECOGNITION` with no effect chain. Not yet measured: phantom rows with the switch
+off on a loudspeaker (web or phone), the web gate's RMS threshold on real peers, Safari
+(reported to ignore these constraints; the web logs any processor the browser applied
+differently) and iOS.
 
 ---
 

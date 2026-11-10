@@ -21,6 +21,13 @@ import { InlineNotice } from '@/ui/components/inline-notice';
 
 const t = createTranslator(en);
 
+/** The error's words; a credit amount is translated first, then filled into its sentence. */
+function errorText(error: TranslateError): string {
+  if (!('key' in error)) return error.text;
+  if (!error.amount) return t(error.key);
+  return t(error.key, { credits: t(error.amount.key, error.amount.vars) });
+}
+
 interface StatusStripProps {
   status: ConversationStatus;
   /** Microphone level, 0..1; drawn only while the microphone is open. */
@@ -81,8 +88,10 @@ export function StatusStrip({
         />
       ) : null}
 
+      {/* A notice (a low credit balance) informs while the run goes on; only a
+          failure takes the error tone and is announced as an alert. */}
       {error ? (
-        <InlineNotice tone="error" message={'key' in error ? t(error.key) : error.text} />
+        <InlineNotice tone={error.notice ? 'info' : 'error'} message={errorText(error)} />
       ) : null}
 
       {save.phase === 'saving' ? <InlineNotice message={t('web.translate.saving')} /> : null}

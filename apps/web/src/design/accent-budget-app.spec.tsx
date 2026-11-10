@@ -7,6 +7,12 @@ import type { UseConferenceReturn } from '@/hooks/use-conference';
 import type { UseConferenceEnd } from '@/hooks/use-conference-end';
 import { accentFilledControls } from './accent-count';
 import { elevatedSurfaces } from './surface-count';
+import {
+  balanceFixture,
+  PLANS,
+  SEPAY_ORDER,
+  USAGE_PAGE,
+} from '@/components/account/credits.fixture';
 
 /**
  * One accent-filled control per app screen, mechanically.
@@ -78,7 +84,21 @@ const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>()
 // The conference lobby's "Create a room". Never pressed by a counting row except
 // the one that wants the failure line, which rejects it for itself.
 const createConference = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The credits reads: `/account`'s region and the `/translate` readiness banner.
+// Defaulted in `beforeEach` to a Free account with plenty left and checkout
+// closed, which is what every row sees unless it names another state.
+const getCreditBalance = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listCreditUsage = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listPlans = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const createCheckout = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
+  getCreditBalance: () => getCreditBalance(),
+  listCreditUsage: () => listCreditUsage(),
+  listPlans: () => listPlans(),
+  createCheckout: () => createCheckout(),
+  // The QR panel's poll; never answering keeps the panel at "waiting".
+  getCheckoutOrder: () => new Promise(() => {}),
+  getBillingPortal: vi.fn(),
   listConversations: () => listConversations(),
   getMe: () => getMe(),
   listVoices: () => listVoices(),
@@ -191,7 +211,9 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     attributeTurn: vi.fn(),
     unattributeTurn: vi.fn(),
     echoHeard: 0,
+    micPaused: false,
     error: null,
+    notice: null,
     level: 0,
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
@@ -226,7 +248,7 @@ function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
     localVideoEnabled: true,
     audioBlocked: false,
     localTranslating: false,
-    translationEnded: false,
+    translationEnded: null,
     reconnectAttempt: 0,
     reconnectCap: 3,
     join: vi.fn(() => Promise.resolve()),
@@ -542,6 +564,44 @@ const SCREENS: ScreenState[] = [
       });
     },
     render: translate(),
+  },
+  {
+    // Under one credit: the readiness banner says Start will be refused. It is
+    // a notice, not a control, and Start stays the one filled action.
+    name: '/translate/one-way — balance under one credit',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      getCreditBalance.mockResolvedValue(balanceFixture({ totalCredits: 0.5 }));
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+    shows: '[data-credits-fault]',
+  },
+  {
+    // Credits running low mid-conversation: a readout line, and the run goes on.
+    name: '/translate/one-way — running, credits low',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(
+        conversation({ status: 'listening', notice: 'About 2 credits left.' }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+    shows: '[data-conversation-notice]',
   },
   {
     name: '/translate/one-way — running',
@@ -1089,6 +1149,35 @@ const SCREENS: ScreenState[] = [
     render: () => <AccountPage />,
   },
   {
+    // The credits region with checkout closed: the balance, the usage list and
+    // four disabled buy actions, all on the page ground. Every action is
+    // outline, so the screen still spends nothing, and the one surface is still
+    // the security panel.
+    name: '/account — credits, checkout closed',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      getMe.mockRejectedValue(new Error('not read in this row'));
+    },
+    render: () => <AccountPage />,
+    shows: '[data-credit-buy-actions] button[disabled]',
+  },
+  {
+    // An allowlisted account opened a VietQR checkout. The QR panel is a region
+    // with a hairline, not a card, and its controls are ghost: still 0 and 1.
+    name: '/account — SePay QR open',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      getMe.mockRejectedValue(new Error('not read in this row'));
+      getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
+      createCheckout.mockResolvedValue(SEPAY_ORDER);
+    },
+    render: () => <AccountPage />,
+    press: '[data-credit-buy-actions] button:last-child',
+    shows: '[data-sepay-qr-panel]',
+  },
+  {
     // The profile request failed, which on this screen means the join date holds
     // a place and nothing else changes. The panel is still the screen's one
     // surface and sign-out is still ghost — a failure does not promote anything.
@@ -1350,7 +1439,16 @@ const SCREENS: ScreenState[] = [
     name: '/conference/[roomId] — translation ended mid-call',
     filled: 1,
     surfaces: 0,
-    setup: inRoom({ peers: ALICE, translationEnded: true }),
+    setup: inRoom({ peers: ALICE, translationEnded: 'retries_exhausted' }),
+    render: () => <ConferenceRoomPage />,
+    shows: '[data-translation-ended]',
+  },
+  {
+    // Out of credits picks the same readout's other sentence: no new surface, no new control.
+    name: '/conference/[roomId] — translation ended, out of credits',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ peers: ALICE, translationEnded: 'credits_exhausted' }),
     render: () => <ConferenceRoomPage />,
     shows: '[data-translation-ended]',
   },
@@ -1477,6 +1575,10 @@ beforeEach(() => {
   // No contexts, which is what every screen but the two named for them sees.
   listTranslationContexts.mockResolvedValue({ contexts: [] });
   createConference.mockRejectedValue(new Error('not created in this test'));
+  getCreditBalance.mockResolvedValue(balanceFixture());
+  listCreditUsage.mockResolvedValue(USAGE_PAGE);
+  listPlans.mockResolvedValue({ plans: PLANS });
+  createCheckout.mockRejectedValue(new Error('not checked out in this test'));
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.

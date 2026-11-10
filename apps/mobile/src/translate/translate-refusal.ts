@@ -7,12 +7,9 @@
  */
 
 import type { MessageKey } from '@chatofy/i18n';
-import type { SessionLanguageMode } from '@chatofy/types';
-
-export interface ServerErrorCause {
-  code: string;
-  detail?: string;
-}
+import type { ServerErrorCause } from '@chatofy/realtime-client';
+import { creditsFromSeconds, type SessionLanguageMode } from '@chatofy/types';
+import { creditAmountMessage, type CreditMessage } from '../billing/credit-amount.ts';
 
 export function refusalMessageKey(cause: ServerErrorCause | undefined): MessageKey | null {
   if (cause?.code !== 'language_unavailable') return null;
@@ -45,4 +42,53 @@ export function startFailureKey(
   if (message !== null && /permission not granted/i.test(message))
     return 'mobile.translate.micDenied';
   return null;
+}
+
+/** What the run has seen of its turns, read when a credit code arrives. */
+export interface CreditContext {
+  /** Whether any turn of this conversation was opened; none means the start itself was refused. */
+  turnOpened: boolean;
+}
+
+/** A credit code in the reader's words. `notice` copy leaves the conversation running. */
+export interface CreditCopy {
+  key: MessageKey;
+  /** Filled into the key's `{credits}`, itself translated first ("2 credits"). */
+  amount?: CreditMessage;
+  notice: boolean;
+}
+
+/**
+ * The words for the three credit codes, or null for any other cause.
+ *
+ * `credits_exhausted` before any turn opened is a refused start, where "what was
+ * said is saved" would be false; after one it ended the conversation. The
+ * session stops itself on both of these and on `credits_unavailable`.
+ * `credits_low` is only a notice: the session keeps translating, so it must not
+ * read as a failure. Without an amount it has no sentence to fill, and the
+ * caller shows the server's own text, still as a notice.
+ */
+export function creditErrorCopy(
+  cause: ServerErrorCause | undefined,
+  context: CreditContext,
+): CreditCopy | null {
+  switch (cause?.code) {
+    case 'credits_exhausted':
+      return {
+        key: context.turnOpened ? 'common.billing.exhausted' : 'common.billing.startRefused',
+        notice: false,
+      };
+    case 'credits_unavailable':
+      return { key: 'common.billing.unavailable', notice: false };
+    case 'credits_low': {
+      if (cause.remainingCreditSeconds === undefined) return null;
+      return {
+        key: 'common.billing.low',
+        amount: creditAmountMessage(creditsFromSeconds(cause.remainingCreditSeconds)),
+        notice: true,
+      };
+    }
+    default:
+      return null;
+  }
 }
