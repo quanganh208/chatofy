@@ -1,19 +1,26 @@
-// credits:resolve-payment [<orderId> grant|dismiss [--user <email>] [--note <text>]] [--prod]
+// credits:resolve-payment [<orderId> grant|dismiss [--user <email>] [--plan <code>] [--note <text>]] [--prod]
 //
 // With no order id, lists the paid payments (SePay transfers, Polar orders)
 // waiting for review. `grant` writes the order plan's grant under the payment's
-// own reference, so a later webhook retry cannot grant it twice; `dismiss` only
-// closes the review.
+// own reference, so a later webhook retry cannot grant it twice; `--plan`
+// grants another catalogue plan instead (a transfer whose amount matches no
+// plan names none). `dismiss` only closes the review.
 import { normalizeEmail } from '../modules/auth/normalize-email';
 import { PrismaService } from '../prisma/prisma.service';
 import { CliRefusal } from './cli-prod-guard';
 import { runCreditsCli } from './credits-cli.module';
 
 const USAGE =
-  'Usage: credits:resolve-payment [<orderId> grant|dismiss [--user <email>] [--note <text>]] [--prod]';
+  'Usage: credits:resolve-payment [<orderId> grant|dismiss [--user <email>] [--plan <code>] [--note <text>]] [--prod]';
 
-runCreditsCli({ user: { type: 'string' }, note: { type: 'string' } }, USAGE, {
-  describe(positionals) {
+const OPTIONS = {
+  user: { type: 'string' },
+  note: { type: 'string' },
+  plan: { type: 'string' },
+} as const;
+
+runCreditsCli(OPTIONS, USAGE, {
+  describe(positionals, values) {
     // Listing only reads, so it needs --prod against production but no typed confirmation.
     if (positionals.length === 0) {
       return { action: 'list payments waiting for review' };
@@ -23,6 +30,9 @@ runCreditsCli({ user: { type: 'string' }, note: { type: 'string' } }, USAGE, {
       !['grant', 'dismiss'].includes(positionals[1]!)
     ) {
       throw new CliRefusal(USAGE);
+    }
+    if (values.plan !== undefined && positionals[1] !== 'grant') {
+      throw new CliRefusal('--plan applies to grant only.');
     }
     return {
       action: `${positionals[1]!} payment order ${positionals[0]!}`,
@@ -57,6 +67,7 @@ runCreditsCli({ user: { type: 'string' }, note: { type: 'string' } }, USAGE, {
 
     const [orderId, action] = positionals as [string, 'grant' | 'dismiss'];
     const note = typeof values.note === 'string' ? values.note : null;
+    const planCode = typeof values.plan === 'string' ? values.plan : undefined;
     let userId: string | undefined;
     if (typeof values.user === 'string') {
       const email = normalizeEmail(values.user);
@@ -70,6 +81,7 @@ runCreditsCli({ user: { type: 'string' }, note: { type: 'string' } }, USAGE, {
     const result = await owner.resolvePayment(orderId, action, {
       userId,
       note,
+      planCode,
     });
     switch (result.state) {
       case 'not_found':

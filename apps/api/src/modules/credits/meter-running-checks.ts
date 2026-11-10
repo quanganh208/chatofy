@@ -9,6 +9,7 @@ import {
   describe,
   emit,
   headroom,
+  leaseMayBeReaped,
   liveMultiplier,
   MESSAGES,
   remaining,
@@ -53,10 +54,13 @@ export class MeterRunningChecks {
         return this.exhaust(socket, conn, 'credits_exhausted');
       }
     }
+    // A lease the reaper may have taken is confirmed with the ledger even when
+    // the mirror shows room (or showed none to give): the room may be gone.
+    const stale = leaseMayBeReaped(conn);
     if (
-      room < EXTEND_HEADROOM_AUDIO_SECONDS * multiplier &&
+      (stale || room < EXTEND_HEADROOM_AUDIO_SECONDS * multiplier) &&
       !extending &&
-      !conn.starved &&
+      (stale || !conn.starved) &&
       !conn.outage
     ) {
       void track(

@@ -1,5 +1,8 @@
 import type { LedgerTx } from '../ledger-transaction';
-import { recordPaymentReview } from './payment-review-rows';
+import {
+  recordPaymentReview,
+  type PaymentReviewReason,
+} from './payment-review-rows';
 import type { ReviewReason, SepayTransfer } from './sepay-webhook-payload';
 
 /** An order a transfer may still settle; anything else already has its outcome. */
@@ -35,8 +38,10 @@ export function recordSepayReview(
 /**
  * Marks the order itself for review when it is still open; otherwise (it was
  * already paid or reviewed) the extra money gets a review row of its own. A
- * wrong amount is filed under the plan priced at what was actually paid, so
- * the owner can grant it without naming one. Returns the review row's id.
+ * wrong amount is filed under the plan priced at what was actually paid (none
+ * when no plan costs exactly that), on the order and on a row of its own
+ * alike, so resolving it can never grant the plan that was ordered but not
+ * paid for. Returns the review row's id.
  */
 export async function markSepayReview(
   tx: LedgerTx,
@@ -50,11 +55,16 @@ export async function markSepayReview(
   },
 ): Promise<string> {
   const { order, transfer, ref, now, reason } = input;
+  const planCode =
+    reason === 'amount_mismatch'
+      ? await input.planCodeForAmount(transfer.transferAmount)
+      : order.planCode;
   const marked = await tx.paymentOrder.updateMany({
     where: { id: order.id, status: { in: OPEN_SEPAY_ORDER_STATUSES } },
     data: {
       status: 'needs_review',
       reviewReason: reason,
+      planCode,
       paidAmountVnd: transfer.transferAmount,
       paidAt: now,
       externalRef: ref,
@@ -63,10 +73,74 @@ export async function markSepayReview(
   if (marked.count === 1) return order.id;
   return recordSepayReview(tx, transfer, ref, now, {
     userId: order.userId,
-    planCode:
-      reason === 'amount_mismatch'
-        ? await input.planCodeForAmount(transfer.transferAmount)
-        : order.planCode,
+    planCode,
     reason,
+  });
+}
+
+/** The order fields settling it reads. */
+export interface SepaySettledOrder {
+  id: string;
+  userId: string | null;
+  planCode: string | null;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  externalRef: string | null;
+  paidAmountVnd: number | null;
+  reviewReason: string | null;
+  paidAt: Date | null;
+}
+
+/**
+ * Marks the order paid by the transfer that was just granted for it.
+ *
+ * An order still under review (an earlier transfer for it had the wrong amount
+ * or was refused) is settled as well: left in review, resolving it would grant
+ * the plan a second time under the earlier transfer's reference, which the
+ * grant's idempotency key cannot catch. That earlier transfer is real money,
+ * so it keeps a review row of its own, under its own reference and with what
+ * it was filed under, written after the order gives that reference up.
+ */
+export async function settleSepayOrder(
+  tx: LedgerTx,
+  order: SepaySettledOrder,
+  transfer: SepayTransfer,
+  ref: string,
+  now: Date,
+): Promise<void> {
+  const settled = await tx.paymentOrder.updateMany({
+    where: {
+      id: order.id,
+      status: { in: [...OPEN_SEPAY_ORDER_STATUSES, 'needs_review'] },
+    },
+    data: {
+      status: 'paid',
+      reviewReason: null,
+      paidAt: now,
+      paidAmountVnd: transfer.transferAmount,
+      externalRef: ref,
+    },
+  });
+  const earlierRef = order.externalRef;
+  if (
+    settled.count !== 1 ||
+    order.status !== 'needs_review' ||
+    !earlierRef ||
+    earlierRef === ref
+  ) {
+    return;
+  }
+  await recordPaymentReview(tx, {
+    provider: 'sepay',
+    userId: order.userId,
+    planCode: order.planCode,
+    amountMinor: order.paidAmountVnd ?? order.amountMinor,
+    currency: order.currency,
+    paidAmountVnd: order.paidAmountVnd,
+    externalRef: earlierRef,
+    // The column is written only from `PaymentReviewReason`.
+    reason: (order.reviewReason ?? 'amount_mismatch') as PaymentReviewReason,
+    now: order.paidAt ?? now,
   });
 }

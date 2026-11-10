@@ -2081,6 +2081,33 @@ describe('ConversationSession credits', () => {
     expect(h.socket().closed).toBe(0);
   });
 
+  it('keeps running and retries the turn when the start is refused as too_many_turns', async () => {
+    // What the server answers when too many of the account's starts are
+    // already waiting on the ledger: transient, so the run must survive it.
+    vi.useFakeTimers();
+    const h = harness();
+    await h.session.start(startOptions);
+    h.talk();
+    const turnId = h.socket().sent.find((e) => e.type === 'client.session.start')?.turnId;
+    expect(turnId).toBeDefined();
+
+    h.socket().emit({
+      type: 'server.error',
+      code: 'too_many_turns',
+      message: 'Too many turns are starting at once; try again in a moment',
+      turnId,
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    vi.useRealTimers();
+
+    expect(h.session.isRunning).toBe(true);
+    expect(h.listeners.onStopped).not.toHaveBeenCalled();
+    const retried = h
+      .socket()
+      .sent.filter((e) => e.type === 'client.session.start' && e.turnId === turnId);
+    expect(retried.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('keeps running after a credits_low notice', async () => {
     const h = harness();
     await h.session.start(startOptions);

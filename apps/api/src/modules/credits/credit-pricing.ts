@@ -24,6 +24,8 @@ export const LOW_BALANCE_CREDIT_SECONDS = 120;
  * pause or a slow turn end does not hand back credit a live socket still uses.
  */
 export const LEASE_GRACE_MS = 60_000;
+/** How often the reaper runs. A crashed socket's lease is back within lease length + grace + this. */
+export const REAPER_INTERVAL_MS = 30_000;
 
 /** Ceiling on one `credits:grant` run, in whole credits: a typo cannot mint a fortune. */
 export const CLI_GRANT_MAX_CREDITS = 10_000;

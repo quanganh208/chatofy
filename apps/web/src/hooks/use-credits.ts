@@ -157,14 +157,22 @@ export function useCreditUsage(enabled = true): UseCreditUsage {
 
 /** How often an open VietQR order is asked about. */
 export const ORDER_POLL_MS = 3000;
+/**
+ * How often an EXPIRED order is still asked about, and for how many asks. The
+ * server grants a matching transfer however late it lands, so a transfer sent
+ * just before the QR expired can still settle the order; the slower cadence
+ * keeps watching for it for ten minutes without polling forever.
+ */
+export const EXPIRED_ORDER_POLL_MS = 15_000;
+export const EXPIRED_ORDER_POLLS = 40;
 
 /**
  * Statuses after which nothing more will happen to an order on its own:
- * paid, expired, or held for the owner to review. Polling stops at any of them.
+ * paid, or held for the owner to review. Polling stops at any of them.
+ * `expired` is not one: a late transfer still moves it to `paid`.
  */
 const SETTLED: ReadonlySet<CheckoutOrderStatus> = new Set([
   'paid',
-  'expired',
   'needs_review',
   'resolved_granted',
   'resolved_dismissed',
@@ -172,7 +180,9 @@ const SETTLED: ReadonlySet<CheckoutOrderStatus> = new Set([
 
 /**
  * Poll one SePay order every {@link ORDER_POLL_MS} until it settles, or until
- * the caller unmounts or passes `null`.
+ * the caller unmounts or passes `null`. Once it reads `expired`, polling slows
+ * to {@link EXPIRED_ORDER_POLL_MS} and stops after {@link EXPIRED_ORDER_POLLS}
+ * asks, unless a late transfer settles it first.
  *
  * A timeout chain rather than an interval, so a slow answer is never overlapped
  * by the next request. A failed poll is not an answer — the transfer may still
@@ -192,9 +202,12 @@ export function useCheckoutOrder(
   useEffect(() => {
     if (!orderId) return;
     let stopped = false;
+    let expired = false;
+    let expiredPolls = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const tick = () => {
+      if (expired) expiredPolls += 1;
       getCheckoutOrder(orderId)
         .then((next) => {
           if (stopped) return;
@@ -202,13 +215,18 @@ export function useCheckoutOrder(
           if (SETTLED.has(next.status)) {
             stopped = true;
             settledRef.current?.(next);
+          } else if (next.status === 'expired') {
+            expired = true;
           }
         })
         .catch(() => {
           // Transient: the next tick asks again.
         })
         .finally(() => {
-          if (!stopped) timer = setTimeout(tick, ORDER_POLL_MS);
+          if (expired && expiredPolls >= EXPIRED_ORDER_POLLS) stopped = true;
+          if (!stopped) {
+            timer = setTimeout(tick, expired ? EXPIRED_ORDER_POLL_MS : ORDER_POLL_MS);
+          }
         });
     };
     timer = setTimeout(tick, ORDER_POLL_MS);

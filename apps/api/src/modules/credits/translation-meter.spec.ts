@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryCreditLedger } from '../../../test/utils/in-memory-credit-ledger';
 import type { StreamSocket } from '../translate/session/stream-socket';
-import { LEASE_AUDIO_SECONDS } from './credit-pricing';
+import {
+  LEASE_AUDIO_SECONDS,
+  LEASE_GRACE_MS,
+  REAPER_INTERVAL_MS,
+} from './credit-pricing';
 import {
   EXTEND_RETRY_DELAYS_MS,
   MAX_ADMITS_IN_FLIGHT_PER_USER,
@@ -128,6 +132,56 @@ describe('TranslationMeter', () => {
       await meter.admit(socket, 1);
       expect(extend).not.toHaveBeenCalled();
       expect(open).not.toHaveBeenCalled();
+    });
+
+    it('refuses a restart on a lease the reaper took once the balance was spent elsewhere', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const { meter, socket, ledger, userId, balance } = harness(120);
+      await meter.admit(socket, 1);
+      meter.turnOpened(socket, 's1', 1);
+      meter.onFrame(socket, 's1', 10);
+      meter.turnEnded('s1');
+      await flush();
+      expect(await balance()).toBe(0);
+
+      // The socket idles past the lease's expiry; the reaper releases the
+      // unspent 110, and another device of the same account spends it.
+      vi.advanceTimersByTime(
+        LEASE_AUDIO_SECONDS * 1000 + LEASE_GRACE_MS + REAPER_INTERVAL_MS,
+      );
+      const leaseId = ledger.entries.find(
+        (e) => e.kind === 'reserve',
+      )!.leaseId!;
+      expect(ledger.reap(leaseId)).toBe(true);
+      await ledger.debit({ userId, amount: 110, idempotencyKey: 'elsewhere' });
+      expect(await balance()).toBe(0);
+
+      // The mirror still shows 110 of room; the ledger is asked, and says no.
+      await expect(meter.admit(socket, 1)).resolves.toEqual({
+        admitted: false,
+        code: 'credits_exhausted',
+        remainingCreditSeconds: 0,
+      });
+      await meter.detach(socket);
+    });
+
+    it('asks the ledger again once the lease is within a reaper tick of expiry', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const { meter, socket, ledger } = harness(6000);
+      await meter.admit(socket, 1);
+      const extend = vi.spyOn(ledger, 'extendLease');
+      vi.advanceTimersByTime(
+        LEASE_AUDIO_SECONDS * 1000 + LEASE_GRACE_MS - REAPER_INTERVAL_MS - 1,
+      );
+      await meter.admit(socket, 1);
+      expect(extend).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      await meter.admit(socket, 1);
+      expect(extend).toHaveBeenCalledTimes(1);
+      // The extend touched the lease, so the next start trusts the mirror again.
+      await meter.admit(socket, 1);
+      expect(extend).toHaveBeenCalledTimes(1);
+      await meter.detach(socket);
     });
   });
 
@@ -327,9 +381,10 @@ describe('TranslationMeter', () => {
         () => meter.admit(socketFor(), 1),
       );
       await flush();
+      // The transient code clients retry, never a credit code that ends the run.
       await expect(meter.admit(socketFor(), 1)).resolves.toEqual({
         admitted: false,
-        code: 'credits_unavailable',
+        code: 'too_many_turns',
         remainingCreditSeconds: 0,
       });
       while (gates.length > 0) {
@@ -414,6 +469,27 @@ describe('TranslationMeter', () => {
       await meter.detach(socket);
       expect(settles().map((e) => -e.amount)).toEqual([10, 100]);
       expect(await balance()).toBe(6000 - 110);
+    });
+
+    it('stops a running turn whose lease the reaper took once the balance was spent elsewhere', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const { meter, socket, ledger, userId, stops } = harness(120);
+      await meter.admit(socket, 1);
+      meter.turnOpened(socket, 's1', 1);
+      vi.advanceTimersByTime(
+        LEASE_AUDIO_SECONDS * 1000 + LEASE_GRACE_MS + REAPER_INTERVAL_MS,
+      );
+      const leaseId = ledger.entries.find(
+        (e) => e.kind === 'reserve',
+      )!.leaseId!;
+      ledger.reap(leaseId);
+      await ledger.debit({ userId, amount: 120, idempotencyKey: 'elsewhere' });
+
+      // Plenty of room by the mirror, none by the ledger: the first frames
+      // confirm the lease, find it gone, and stop the turn.
+      await harnessSpeak(meter, socket, 's1', 3);
+      expect(stops).toEqual(['credits_exhausted']);
+      await meter.detach(socket);
     });
 
     it('fails open for one lease when an extend throws, retries with backoff, then stops with credits_unavailable', async () => {

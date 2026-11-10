@@ -9,18 +9,20 @@ import {
   writeEntries,
 } from './credit-grant-ops';
 import { returnToGrants } from './credit-grant-return';
-import type {
-  DebitInput,
-  DebitResult,
-  GrantInput,
-  GrantResult,
-  LedgerBalance,
-  RefundInput,
-  RefundResult,
+import {
+  LedgerUnavailableError,
+  type DebitInput,
+  type DebitResult,
+  type GrantInput,
+  type GrantResult,
+  type LedgerBalance,
+  type RefundInput,
+  type RefundResult,
 } from './credit-ledger.port';
 import { assertCreditSeconds } from './credit-spend';
 import { ensureFreeGrant, prepareUser } from './free-grant';
 import {
+  isLedgerUnavailable,
   runLedgerRead,
   runLedgerTransaction,
   type LedgerTx,
@@ -43,9 +45,20 @@ export class CreditsLedger {
     private readonly plans: PlanCatalog,
   ) {}
 
-  /** The Free allowance in credit-seconds, read before a transaction opens. */
-  freeAmount(): Promise<number> {
-    return this.plans.freeCreditSeconds();
+  /**
+   * The Free allowance in credit-seconds, read before a transaction opens.
+   * The read sits outside the transactions that map an outage, so it maps its
+   * own: a database that cannot be reached is `LedgerUnavailableError` (503),
+   * the same as it would be one step later.
+   */
+  async freeAmount(): Promise<number> {
+    try {
+      return await this.plans.freeCreditSeconds();
+    } catch (err) {
+      if (isLedgerUnavailable(err))
+        throw new LedgerUnavailableError({ cause: err });
+      throw err;
+    }
   }
 
   /**

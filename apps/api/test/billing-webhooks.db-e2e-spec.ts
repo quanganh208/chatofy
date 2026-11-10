@@ -775,9 +775,119 @@ describe('billing webhooks and checkout (db-e2e)', () => {
       expect(row).toMatchObject({
         status: 'needs_review',
         reviewReason: 'amount_mismatch',
+        planCode: null,
         paidAmountVnd: 120000,
         externalRef: `sepay:tx:${short.id}`,
       });
+      expect(
+        await prisma.creditGrant.count({
+          where: { externalRef: `sepay:tx:${short.id}` },
+        }),
+      ).toBe(0);
+    });
+
+    it('an underpaid order is filed under the plan the amount buys, and resolve grants that plan', async () => {
+      const order = await sepayOrder(buyer, 'topup_1500');
+      const short = transfer(order.orderCode, 125000);
+      expect((await postSepay(short)).body).toBe('{"success":true}');
+      expect(
+        await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }),
+      ).toMatchObject({
+        status: 'needs_review',
+        reviewReason: 'amount_mismatch',
+        planCode: 'topup_250',
+        paidAmountVnd: 125000,
+      });
+
+      const resolved = await admin.resolvePayment(order.orderId, 'grant');
+      expect(resolved.state).toBe('granted');
+      const granted = await prisma.creditGrant.findMany({
+        where: { externalRef: `sepay:tx:${short.id}` },
+      });
+      expect(granted).toHaveLength(1);
+      expect(granted[0]).toMatchObject({
+        userId: buyer.userId,
+        amount: credits(250),
+      });
+    });
+
+    it('an amount no plan costs names no plan: resolve refuses until --plan names a catalogue one', async () => {
+      const order = await sepayOrder(buyer2, 'topup_550');
+      const odd = transfer(order.orderCode, 100000);
+      expect((await postSepay(odd)).body).toBe('{"success":true}');
+      expect(
+        (await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }))
+          ?.planCode,
+      ).toBeNull();
+
+      await expect(
+        admin.resolvePayment(order.orderId, 'grant'),
+      ).rejects.toThrow(/names no plan/);
+      await expect(
+        admin.resolvePayment(order.orderId, 'grant', { planCode: 'nope' }),
+      ).rejects.toThrow(/No plan nope/);
+      await expect(
+        admin.resolvePayment(order.orderId, 'grant', { planCode: 'free' }),
+      ).rejects.toThrow(/cannot be granted/);
+      expect(
+        await prisma.creditGrant.count({
+          where: { externalRef: `sepay:tx:${odd.id}` },
+        }),
+      ).toBe(0);
+
+      const resolved = await admin.resolvePayment(order.orderId, 'grant', {
+        planCode: 'topup_250',
+      });
+      expect(resolved.state).toBe('granted');
+      expect(
+        await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }),
+      ).toMatchObject({ status: 'resolved_granted', planCode: 'topup_250' });
+      expect(
+        await prisma.creditGrant.findUnique({
+          where: { externalRef: `sepay:tx:${odd.id}` },
+        }),
+      ).toMatchObject({ userId: buyer2.userId, amount: credits(250) });
+    });
+
+    it('a correct transfer after an underpay settles the order, which resolve then refuses; the underpay stays reviewable alone', async () => {
+      const order = await sepayOrder(buyer, 'topup_550');
+      const short = transfer(order.orderCode, 125000);
+      expect((await postSepay(short)).body).toBe('{"success":true}');
+      const paid = transfer(order.orderCode, 250000);
+      expect((await postSepay(paid)).body).toBe('{"success":true}');
+
+      expect(
+        await prisma.paymentOrder.findUnique({ where: { id: order.orderId } }),
+      ).toMatchObject({
+        status: 'paid',
+        reviewReason: null,
+        paidAmountVnd: 250000,
+        externalRef: `sepay:tx:${paid.id}`,
+      });
+      expect(
+        await prisma.creditGrant.findUnique({
+          where: { externalRef: `sepay:tx:${paid.id}` },
+        }),
+      ).toMatchObject({ userId: buyer.userId, amount: credits(550) });
+      expect(await admin.resolvePayment(order.orderId, 'grant')).toEqual({
+        state: 'not_reviewable',
+        status: 'paid',
+      });
+
+      // The short transfer is still money to settle, now on its own row and
+      // filed under what it actually buys, never the plan that was ordered.
+      const underpay = await prisma.paymentOrder.findUnique({
+        where: { externalRef: `sepay:tx:${short.id}` },
+      });
+      expect(underpay).toMatchObject({
+        userId: buyer.userId,
+        provider: 'sepay',
+        status: 'needs_review',
+        reviewReason: 'amount_mismatch',
+        planCode: 'topup_250',
+        paidAmountVnd: 125000,
+      });
+      expect(underpay!.id).not.toBe(order.orderId);
       expect(
         await prisma.creditGrant.count({
           where: { externalRef: `sepay:tx:${short.id}` },

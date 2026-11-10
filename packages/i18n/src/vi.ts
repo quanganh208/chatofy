@@ -624,7 +624,8 @@ export const vi: Messages = {
   'web.account.qrCopied': 'Đã sao chép',
   'web.account.qrWaiting': 'Đang chờ khoản chuyển của bạn…',
   'web.account.qrPaid': 'Đã nhận thanh toán. Số credit của bạn đã được cập nhật.',
-  'web.account.qrExpired': 'Mã này đã hết hạn. Hãy bắt đầu lại nếu bạn vẫn muốn thanh toán.',
+  'web.account.qrExpired':
+    'Mã này đã hết hạn. Khoản bạn đã chuyển vẫn sẽ được cộng; nếu bạn chưa thanh toán, hãy bắt đầu lại.',
   'web.account.qrNeedsReview':
     'Chúng tôi đã nhận được một khoản thanh toán nhưng chưa khớp được tự động. Khoản này sẽ được kiểm tra và cộng credit thủ công.',
   'web.account.qrClose': 'Đóng',

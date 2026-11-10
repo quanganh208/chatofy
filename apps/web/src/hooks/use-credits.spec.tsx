@@ -5,6 +5,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { balanceFixture, USAGE_PAGE } from '@/components/account/credits.fixture';
 import {
+  EXPIRED_ORDER_POLL_MS,
+  EXPIRED_ORDER_POLLS,
+  ORDER_POLL_MS,
   useCheckoutOrder,
   useCreditBalance,
   useCreditUsage,
@@ -177,23 +180,60 @@ describe('useCheckoutOrder', () => {
     expect(order).toBeNull();
   });
 
-  it.each(['paid', 'expired', 'needs_review'])(
-    'stops at %s and reports it once',
-    async (settled) => {
-      vi.useFakeTimers();
-      getCheckoutOrder.mockResolvedValueOnce(answer('pending')).mockResolvedValue(answer(settled));
-      const onSettled = vi.fn();
-      await mount('order-1', onSettled);
-      for (let i = 0; i < 4; i += 1) {
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(3000);
-        });
-      }
-      expect(getCheckoutOrder).toHaveBeenCalledTimes(2);
-      expect(onSettled).toHaveBeenCalledTimes(1);
-      expect(order?.status).toBe(settled);
-    },
-  );
+  it('keeps asking about an expired order, slower, and reports a late payment', async () => {
+    vi.useFakeTimers();
+    getCheckoutOrder
+      .mockResolvedValueOnce(answer('expired'))
+      .mockResolvedValueOnce(answer('expired'))
+      .mockResolvedValue(answer('paid'));
+    const onSettled = vi.fn();
+    await mount('order-1', onSettled);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ORDER_POLL_MS);
+    });
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(1);
+    expect(onSettled).not.toHaveBeenCalled();
+    // Not at the open-order cadence any more.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(EXPIRED_ORDER_POLL_MS - 1);
+    });
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1 + EXPIRED_ORDER_POLL_MS);
+    });
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(3);
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(order?.status).toBe('paid');
+  });
+
+  it('stops asking about an expired order after a bounded number of asks', async () => {
+    vi.useFakeTimers();
+    getCheckoutOrder.mockResolvedValue(answer('expired'));
+    const onSettled = vi.fn();
+    await mount('order-1', onSettled);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(
+        ORDER_POLL_MS + EXPIRED_ORDER_POLL_MS * (EXPIRED_ORDER_POLLS + 5),
+      );
+    });
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(1 + EXPIRED_ORDER_POLLS);
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it.each(['paid', 'needs_review'])('stops at %s and reports it once', async (settled) => {
+    vi.useFakeTimers();
+    getCheckoutOrder.mockResolvedValueOnce(answer('pending')).mockResolvedValue(answer(settled));
+    const onSettled = vi.fn();
+    await mount('order-1', onSettled);
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+    }
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(2);
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(order?.status).toBe(settled);
+  });
 
   it('stops when the order id goes away', async () => {
     vi.useFakeTimers();

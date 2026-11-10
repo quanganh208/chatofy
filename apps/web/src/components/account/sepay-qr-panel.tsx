@@ -21,7 +21,8 @@ import { formatVnd } from '@/lib/pricing-content';
  * hint says to keep it exact.
  *
  * **Polling** is `useCheckoutOrder`: every 3 s, stopped at a settled status or
- * when this unmounts. The outcome line is an `aria-live="polite"` region that
+ * when this unmounts. An expired order is still watched, slower and for a
+ * bounded while, because a transfer that lands late is still credited. The outcome line is an `aria-live="polite"` region that
  * exists before its text changes, so "payment received" is announced.
  */
 export function SepayQrPanel({

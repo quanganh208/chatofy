@@ -27,11 +27,12 @@ credit-seconds** (60 per credit); a credit is only a display unit. The constants
 `apps/api/src/modules/credits/credit-pricing.ts`, and the conversion is
 `CREDIT_SECONDS_PER_CREDIT` in `packages/types/src/http/billing.ts`.
 
-| What is charged                                              | Price                                         | Why                                                                                                                                                                     |
-| ------------------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ws/translate` audio                                        | accepted seconds × (1 + extra targets) × mode | Each extra target is another translation of the same speech. Mode is 1 for captions and 2 for voice output; local TTS costs no money, so 2× stands in for its capacity. |
-| A minutes run (conversation or meeting)                      | 3 credits flat, refunded if the pass fails    | The summarization cost is not measured yet, so this is an estimate.                                                                                                     |
-| Titles, meeting chat, block retranslation, `POST /translate` | not metered                                   | Included in every plan rather than priced separately.                                                                                                                   |
+| What is charged                           | Price                                         | Why                                                                                                                                                                     |
+| ----------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/ws/translate` audio                     | accepted seconds × (1 + extra targets) × mode | Each extra target is another translation of the same speech. Mode is 1 for captions and 2 for voice output; local TTS costs no money, so 2× stands in for its capacity. |
+| A minutes run (conversation or meeting)   | 3 credits flat, refunded if the pass fails    | The summarization cost is not measured yet, so this is an estimate.                                                                                                     |
+| Titles, meeting chat, block retranslation | not metered                                   | Included in every plan rather than priced separately.                                                                                                                   |
+| `POST /translate` (one REST turn)         | not charged, but gated                        | Refused with 402 `CREDITS_EXHAUSTED` under one credit available, 503 when the balance cannot be read, and throttled to 20 per minute per account.                       |
 
 Examples: captions into one language cost 1 credit a minute, voice into one costs 2,
 and voice into three costs 6.
@@ -47,7 +48,8 @@ and voice into three costs 6.
 
 The plans are rows in the `Plan` table, seeded by
 `apps/api/prisma/migrations/20261109114047_add_credits_ledger/migration.sql`. That table
-is the price authority, and `/pricing` and `GET /billing/plans` read it. In short:
+is the price authority, and `/pricing` and `GET /billing/plans` read it (the web server
+reuses a fetched list for 60 s, so page renders do not share out the API's per-IP throttle). In short:
 
 - Free: 120 credits a calendar month, Asia/Saigon time, with no rollover.
 - Pro: 600 credits a cycle. On Polar it is a monthly subscription; on SePay it is a 30-day
@@ -105,7 +107,8 @@ long. Twenty parallel spends on one user never take a grant below 0 (proven in
 **One account cannot take the pool.** A transaction waiting on a user's lock still holds
 a pool connection (`max: 20`), so the meter runs at most two ledger transactions per
 account and queues the rest in memory (`user-ledger-gate.ts`). It refuses a start
-(`credits_unavailable`) when three starts of that account already wait on the ledger,
+with `too_many_turns` when three starts of that account already wait on the ledger
+(transient: clients keep the audio and retry it, where a credit code ends the run),
 and the gateway runs the in-memory turn ceilings before the credit admission, so a
 start they refuse costs no transaction. `GET /billing/me` takes no lock: it reads one
 REPEATABLE READ snapshot and leaves due grants out instead of expiring them.
@@ -149,7 +152,10 @@ Every mutation after `open` is a compare-and-set on `status = 'open'` under the 
 lock, and the reaper uses the same lock and the same check. A lease reaped while its
 socket sat idle therefore releases its credit exactly once. A settle that needs more
 than the lease holds takes the rest from the grants. Anything beyond the whole balance is
-recorded as `overshoot_uncovered`, which is at most one lease. The ledger moves whole
+recorded as `overshoot_uncovered`. The meter keeps that to at most one lease per
+connection: its mirror of the lease is trusted only until one reaper tick before the
+lease could expire, and after that a start or the next audio frame asks the ledger
+first, which reopens a reaped lease at whatever the balance still allows. The ledger moves whole
 credit-seconds, so the fraction a turn leaves over is carried to the connection's next
 turn, and the last remainder is settled, rounded, under `settle:<sessionId>:rest` when
 the socket closes.
@@ -223,7 +229,12 @@ checkout link made outside the API credits no one. Both checks compare addresses
   - An order expires after 30 minutes, but a matching transfer that arrives later still
     grants, and the delay is logged.
   - A wrong amount, or a code that matches no order, grants nothing. It becomes a
-    `needs_review` row that the owner resolves with the CLI.
+    `needs_review` row that the owner resolves with the CLI. A wrong amount is filed
+    under the plan priced at exactly what was paid, or under none, never under the plan
+    that was ordered.
+  - A correct transfer for an order already in review grants and marks the order
+    `paid`. The earlier transfer moves to a review row of its own under its own
+    reference, so resolving it cannot grant the ordered plan a second time.
 
 Routes are in `billing.controller.ts`, `payments/billing-checkout.controller.ts` and
 `payments/billing-webhooks.controller.ts`.
@@ -234,12 +245,12 @@ The commands are in `apps/api/src/cli/` and are built to `dist/cli/*.js`. The
 production image has no pnpm, so production runs them with `node` inside the API
 container.
 
-| Command                                                                           | What it does                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `credits-grant.js <email> <credits> <reason>`                                     | A never-expiring `promo` grant, plus an audit entry carrying the reason. `credits` must be a whole number from 1 to `CLI_GRANT_MAX_CREDITS`. Prints the grant id.                                                                                                                  |
-| `credits-void.js <grantId> [--note]`                                              | Writes off what the grant still holds. Voiding it again changes nothing.                                                                                                                                                                                                           |
-| `credits-resolve-payment.js [<orderId> grant\|dismiss [--user <email>] [--note]]` | With no arguments, lists the `needs_review` payments. `grant` writes the order plan's grant under the payment's own reference, so a later webhook retry cannot grant it again.                                                                                                     |
-| `credits-cost-report.js [--from YYYY-MM-DD] [--to YYYY-MM-DD]`                    | Per user and Saigon month: credits settled, plus the tokens and list-price USD behind them, joined from `LlmCallRecord` by `sessionId` at read time. Late polish calls are therefore counted. Minutes runs carry no `sessionId` and are not in it. The price table is in the file. |
+| Command                                                                                           | What it does                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `credits-grant.js <email> <credits> <reason>`                                                     | A never-expiring `promo` grant, plus an audit entry carrying the reason. `credits` must be a whole number from 1 to `CLI_GRANT_MAX_CREDITS`. Prints the grant id.                                                                                                                  |
+| `credits-void.js <grantId> [--note]`                                                              | Writes off what the grant still holds. Voiding it again changes nothing.                                                                                                                                                                                                           |
+| `credits-resolve-payment.js [<orderId> grant\|dismiss [--user <email>] [--plan <code>] [--note]]` | With no arguments, lists the `needs_review` payments. `grant` writes the order plan's grant under the payment's own reference, so a later webhook retry cannot grant it again. `--plan` grants another catalogue plan instead and records it on the order.                         |
+| `credits-cost-report.js [--from YYYY-MM-DD] [--to YYYY-MM-DD]`                                    | Per user and Saigon month: credits settled, plus the tokens and list-price USD behind them, joined from `LlmCallRecord` by `sessionId` at read time. Late polish calls are therefore counted. Minutes runs carry no `sessionId` and are not in it. The price table is in the file. |
 
 - In development: `pnpm --filter api build` once, then
   `pnpm --filter api credits:grant <email> <credits> <reason>`. The same pattern works for
@@ -378,5 +389,3 @@ watch the balance.
 - **Talking until `credits_exhausted` with the speech sidecars up** has not been done on
   web, mobile or the extension popup. The protocol is proven on the real gateway in
   `apps/api/test/credits-translate-ws.db-e2e-spec.ts`.
-- **An unknown-code transfer whose amount matches no plan can only be dismissed.**
-  `credits:resolve-payment` takes its grant from the order's plan.

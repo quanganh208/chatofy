@@ -1,6 +1,11 @@
 import type { Logger } from '@nestjs/common';
 import type { ServerEvent } from '@chatofy/types';
 import type { StreamSocket } from '../translate/session/stream-socket';
+import {
+  LEASE_AUDIO_SECONDS,
+  LEASE_GRACE_MS,
+  REAPER_INTERVAL_MS,
+} from './credit-pricing';
 
 // One socket's credit state for the translation meter, and the arithmetic over
 // it. Every amount is credit-seconds: accepted audio seconds × the turn's
@@ -9,11 +14,18 @@ import type { StreamSocket } from '../translate/session/stream-socket';
 /** Why a connection's turns were stopped by the meter. */
 export type CreditStopReason = 'credits_exhausted' | 'credits_unavailable';
 
+/**
+ * Why a start was refused. `too_many_turns` is the transient one: too many of
+ * the account's starts are already waiting on the ledger. Every client keeps
+ * the turn's audio and retries that code, where a credit code ends the run.
+ */
+export type AdmissionRefusalCode = CreditStopReason | 'too_many_turns';
+
 export type CreditAdmission =
   | { admitted: true }
   | {
       admitted: false;
-      code: CreditStopReason;
+      code: AdmissionRefusalCode;
       remainingCreditSeconds: number;
     };
 
@@ -36,6 +48,13 @@ export interface ConnectionCredit {
   userId: string;
   onStop: (reason: CreditStopReason) => void;
   leaseId?: string;
+  /**
+   * When the ledger may reap the lease (epoch ms), as of the last answer that
+   * touched it: every open, extend and settle moves the lease's `expiresAt` to
+   * now + lease length + grace, and nothing else does. Past this, the mirror
+   * below may describe a lease the reaper already released.
+   */
+  leaseExpiresAt: number;
   /** Mirror of the lease: credit-seconds it holds and has had settled against it. */
   held: number;
   consumed: number;
@@ -79,6 +98,7 @@ export function newConnection(
   return {
     userId,
     onStop,
+    leaseExpiresAt: 0,
     held: 0,
     consumed: 0,
     settling: 0,
@@ -95,6 +115,28 @@ export function newConnection(
     warned: false,
     detached: false,
   };
+}
+
+/** The ledger just touched the connection's lease: it cannot be reaped before this. */
+export function leaseTouched(conn: ConnectionCredit, now = Date.now()): void {
+  conn.leaseExpiresAt = now + LEASE_AUDIO_SECONDS * 1000 + LEASE_GRACE_MS;
+}
+
+/**
+ * Whether the lease mirror can no longer be trusted on its own: the lease is
+ * within one reaper tick of its expiry, or past it, so the reaper may have
+ * released it (and its credit spent elsewhere) without this socket knowing.
+ * Admission and the running checks must then ask the ledger, whose extend
+ * reopens a reaped lease at whatever the balance still allows.
+ */
+export function leaseMayBeReaped(
+  conn: ConnectionCredit,
+  now = Date.now(),
+): boolean {
+  return (
+    conn.leaseId !== undefined &&
+    now >= conn.leaseExpiresAt - REAPER_INTERVAL_MS
+  );
 }
 
 /** Credit-seconds the lease (plus any fail-open credit) has left. */
@@ -119,13 +161,14 @@ export function liveMultiplier(conn: ConnectionCredit): number {
 }
 
 /** The client-facing text for each stop; clients localise by `code`. */
-export const MESSAGES: Record<CreditStopReason, string> = {
+export const MESSAGES: Record<AdmissionRefusalCode, string> = {
   credits_exhausted: 'You are out of credits',
   credits_unavailable: 'Credits cannot be checked right now; try again shortly',
+  too_many_turns: 'Too many turns are starting at once; try again in a moment',
 };
 
 export function refusal(
-  code: CreditStopReason,
+  code: AdmissionRefusalCode,
   remainingCreditSeconds: number,
 ): CreditAdmission {
   return { admitted: false, code, remainingCreditSeconds };

@@ -9,6 +9,7 @@ import {
   clearRetry,
   describe,
   headroom,
+  leaseMayBeReaped,
   newConnection,
   refusal,
   remaining,
@@ -27,6 +28,7 @@ import { UserLedgerGate } from './user-ledger-gate';
 
 export {
   MESSAGES,
+  type AdmissionRefusalCode,
   type CreditAdmission,
   type CreditStopReason,
 } from './meter-connection';
@@ -57,7 +59,8 @@ export const MAX_LEDGER_CALLS_PER_USER = 2;
 /**
  * Starts one account may have waiting on the ledger at once. An account can
  * hold three turns, so more starts than that in flight can only be churn (many
- * sockets looping `start`); they are refused without touching the database.
+ * sockets looping `start`); they are refused with `too_many_turns`, which
+ * clients retry, without touching the database.
  */
 export const MAX_ADMITS_IN_FLIGHT_PER_USER = 3;
 
@@ -101,7 +104,8 @@ export class TranslationMeter {
   /**
    * Whether a turn priced at `multiplier` may start. Opens the connection's
    * lease on its first start; otherwise reaches the ledger only when the lease
-   * is nearly spent, so most starts cost no database round trip.
+   * is nearly spent or nearly due for the reaper, so most starts cost no
+   * database round trip and none is admitted on a lease already released.
    */
   async admit(
     socket: StreamSocket,
@@ -112,6 +116,7 @@ export class TranslationMeter {
     if (!conn || conn.detached) return refusal('credits_exhausted', 0);
     const needsLedger =
       !conn.leaseId ||
+      leaseMayBeReaped(conn) ||
       headroom(conn) <
         Math.max(
           START_MIN_CREDIT_SECONDS,
@@ -120,7 +125,9 @@ export class TranslationMeter {
     if (needsLedger) {
       const inFlight = this.admitsInFlight.get(conn.userId) ?? 0;
       if (inFlight >= MAX_ADMITS_IN_FLIGHT_PER_USER) {
-        return refusal('credits_unavailable', 0);
+        // Transient: a slot frees within one ledger round trip, so the client
+        // keeps the audio and retries rather than ending the conversation.
+        return refusal('too_many_turns', 0);
       }
       this.admitsInFlight.set(conn.userId, inFlight + 1);
       const want = LEASE_AUDIO_SECONDS * multiplier;

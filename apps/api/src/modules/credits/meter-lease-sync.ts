@@ -1,6 +1,7 @@
 import type { CreditLedgerPort, LeaseState } from './credit-ledger.port';
 import {
   clearRetry,
+  leaseTouched,
   type ConnectionCredit,
   type SettleJob,
 } from './meter-connection';
@@ -64,6 +65,7 @@ export class MeterLeaseSync {
         this.ledger.openLease(conn.userId, want),
       );
       conn.leaseId = lease.leaseId;
+      leaseTouched(conn);
       conn.consumed = 0;
       conn.held = lease.held;
       conn.available = lease.available;
@@ -93,6 +95,7 @@ export class MeterLeaseSync {
         continue;
       }
       if (conn.leaseId === leaseId) {
+        leaseTouched(conn);
         conn.consumed += result.covered;
         // An overshoot the grants covered grew the lease to match.
         conn.held = Math.max(conn.held, conn.consumed);
@@ -110,6 +113,7 @@ export class MeterLeaseSync {
 }
 
 function applyLease(conn: ConnectionCredit, lease: LeaseState): void {
+  leaseTouched(conn);
   conn.held = lease.held;
   conn.available = lease.available;
   conn.starved = lease.granted === 0;

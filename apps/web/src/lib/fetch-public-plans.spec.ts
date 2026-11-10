@@ -5,7 +5,8 @@ import type { Plan } from '@chatofy/types';
 // build, not this function's behaviour.
 vi.mock('server-only', () => ({}));
 
-const { fetchPublicPlans } = await import('./fetch-public-plans');
+const { PLANS_CACHE_MS, clearPublicPlansCache, fetchPublicPlans } =
+  await import('./fetch-public-plans');
 
 const API = 'https://api.chatofy.example';
 
@@ -28,7 +29,11 @@ const envelope = (data: unknown) => ({
 const answering = (body: unknown, status = 200) =>
   vi.fn<typeof fetch>(() => Promise.resolve(Response.json(body, { status })));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+  clearPublicPlansCache();
+});
 
 /**
  * `/pricing` renders without prices on every failure, so the fetcher's whole contract
@@ -67,6 +72,27 @@ describe('fetchPublicPlans', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fetchImpl = vi.fn<typeof fetch>(() => Promise.reject(new TypeError('fetch failed')));
     await expect(fetchPublicPlans(fetchImpl, API)).resolves.toBeNull();
+  });
+
+  it('serves renders within a minute from memory, then asks the API again', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const fetchImpl = answering(envelope({ plans: [PRO] }));
+    await expect(fetchPublicPlans(fetchImpl, API)).resolves.toEqual([PRO]);
+    vi.advanceTimersByTime(PLANS_CACHE_MS - 1);
+    await expect(fetchPublicPlans(fetchImpl, API)).resolves.toEqual([PRO]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    await expect(fetchPublicPlans(fetchImpl, API)).resolves.toEqual([PRO]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not remember a failure: the next render asks again', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const refused = answering({ success: false }, 429);
+    await expect(fetchPublicPlans(refused, API)).resolves.toBeNull();
+    const fetchImpl = answering(envelope({ plans: [PRO] }));
+    await expect(fetchPublicPlans(fetchImpl, API)).resolves.toEqual([PRO]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('gives up after the timeout instead of holding the page open', async () => {

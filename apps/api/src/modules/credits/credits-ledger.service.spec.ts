@@ -142,3 +142,36 @@ describe('CreditsLedger argument checks', () => {
     ).rejects.toBeInstanceOf(RangeError);
   });
 });
+
+describe('CreditsLedger plan read', () => {
+  it('maps a database outage while reading the Free plan to LedgerUnavailableError', async () => {
+    const outage = Object.assign(new Error("Can't reach database server"), {
+      code: 'P1001',
+    });
+    const plans = {
+      freeCreditSeconds: vi.fn(async () => {
+        throw outage;
+      }),
+    } as unknown as PlanCatalog;
+    const $transaction = vi.fn();
+    const ledger = new CreditsLedger(
+      { $transaction } as unknown as PrismaService,
+      plans,
+    );
+    const err = await ledger.balance('u').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(LedgerUnavailableError);
+    expect((err as Error).cause).toBe(outage);
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it('lets any other plan-read error through unchanged', async () => {
+    const bug = new TypeError('plans is not iterable');
+    const plans = {
+      freeCreditSeconds: vi.fn(async () => {
+        throw bug;
+      }),
+    } as unknown as PlanCatalog;
+    const ledger = new CreditsLedger({} as PrismaService, plans);
+    await expect(ledger.freeAmount()).rejects.toBe(bug);
+  });
+});

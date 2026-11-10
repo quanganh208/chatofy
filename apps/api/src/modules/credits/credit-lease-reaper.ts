@@ -7,9 +7,9 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreditLeases } from './credit-leases.service';
 import { CreditOwnerTools } from './credit-owner-tools.service';
+import { REAPER_INTERVAL_MS } from './credit-pricing';
 
-/** How often the reaper runs. A crashed socket's lease is back within lease length + grace + this. */
-export const REAPER_INTERVAL_MS = 30_000;
+export { REAPER_INTERVAL_MS };
 
 /**
  * The ledger's housekeeping, in process.

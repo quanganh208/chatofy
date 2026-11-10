@@ -801,7 +801,8 @@ export const en = {
   'web.account.qrCopied': 'Copied',
   'web.account.qrWaiting': 'Waiting for your transfer…',
   'web.account.qrPaid': 'Payment received. Your balance is updated.',
-  'web.account.qrExpired': 'This code has expired. Start again if you still want to pay.',
+  'web.account.qrExpired':
+    'This code has expired. A transfer you already sent will still be credited; if you have not paid yet, start again.',
   'web.account.qrNeedsReview':
     "We received a payment we couldn't match automatically. It will be reviewed and credited by hand.",
   'web.account.qrClose': 'Close',

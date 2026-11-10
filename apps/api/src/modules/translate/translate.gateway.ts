@@ -256,7 +256,10 @@ export class TranslateGateway
           code: admission.code,
           message: CREDIT_MESSAGES[admission.code],
           turnId,
-          remainingCreditSeconds: admission.remainingCreditSeconds,
+          // A balance only means something on a credit refusal.
+          ...(admission.code === 'too_many_turns'
+            ? {}
+            : { remainingCreditSeconds: admission.remainingCreditSeconds }),
         });
         return;
       }

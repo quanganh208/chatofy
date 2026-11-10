@@ -104,13 +104,19 @@ export class CreditOwnerTools {
    * a payment no account could be matched to) keyed on the order's payment
    * reference (`sepay:tx:<id>`, `polar:order:<id>`) — the same key the webhook
    * grants under — so a later webhook retry cannot grant it a second time. A
-   * pass also moves the account's pass end, as the webhook would. `dismiss`
+   * pass also moves the account's pass end, as the webhook would. `planCode`
+   * grants a catalogue plan other than the one the order names (a transfer
+   * whose amount matched no plan), and is recorded on the order. `dismiss`
    * only closes the review. Both are a compare-and-set on `needs_review`.
    */
   async resolvePayment(
     orderId: string,
     action: 'grant' | 'dismiss',
-    options: { userId?: string; note?: string | null } = {},
+    options: {
+      userId?: string;
+      note?: string | null;
+      planCode?: string;
+    } = {},
   ): Promise<ResolvePaymentResult> {
     const order = await this.prisma.paymentOrder.findUnique({
       where: { id: orderId },
@@ -140,10 +146,13 @@ export class CreditOwnerTools {
       throw new Error('This order has no user; pass --user <email>.');
     if (!order.externalRef)
       throw new Error('This order has no payment reference to grant under.');
-    if (!order.planCode) throw new Error('This order names no plan.');
-    const plan = await this.plans.get(order.planCode);
+    const planCode = options.planCode ?? order.planCode;
+    if (!planCode)
+      throw new Error('This order names no plan; pass --plan <code>.');
+    const plan = await this.plans.get(planCode);
+    if (!plan) throw new Error(`No plan ${planCode} in the catalogue.`);
     if (!isGrantablePlan(plan))
-      throw new Error(`Plan ${order.planCode} cannot be granted.`);
+      throw new Error(`Plan ${planCode} cannot be granted.`);
     const now = new Date();
     const grant = grantForPlan(plan, {
       userId,
@@ -157,7 +166,7 @@ export class CreditOwnerTools {
     return runLedgerTransaction(this.prisma, userId, async (tx) => {
       const done = await tx.paymentOrder.updateMany({
         where: { id: orderId, status: 'needs_review' },
-        data: { ...resolved('resolved_granted'), userId },
+        data: { ...resolved('resolved_granted'), userId, planCode },
       });
       if (done.count !== 1)
         return { state: 'not_reviewable', status: 'changed' };

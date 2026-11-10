@@ -15,8 +15,8 @@ import {
 import { SepayProvider } from './sepay-provider';
 import {
   markSepayReview,
-  OPEN_SEPAY_ORDER_STATUSES,
   recordSepayReview,
+  settleSepayOrder,
   type SepayReviewOrder,
 } from './sepay-review-rows';
 import { WebhookInbox, type InboxResult } from './webhook-inbox';
@@ -106,14 +106,21 @@ export class SepayWebhookHandler {
       return `review_${decision.reason}`;
     }
 
-    const plan = order.planCode
-      ? await this.plans.get(order.planCode)
-      : undefined;
+    // An order in review for a wrong amount was refiled under the plan that
+    // amount buys, so its own plan is no longer on it; this transfer paid the
+    // asked amount exactly, so the plan priced at that amount is the one ordered.
+    const planCode =
+      order.status === 'needs_review' &&
+      order.reviewReason === 'amount_mismatch' &&
+      order.amountVnd !== null
+        ? await this.planCodeForAmount(order.amountVnd)
+        : order.planCode;
+    const plan = planCode ? await this.plans.get(planCode) : undefined;
     if (!plan || (plan.kind !== 'topup' && plan.kind !== 'pass')) {
       // The order was created from this plan; losing it is a deploy fault, and
       // failing makes SePay retry once it is fixed.
       throw new Error(
-        `sepay order ${order.id} names plan ${order.planCode ?? '-'}, which cannot be granted`,
+        `sepay order ${order.id} names plan ${planCode ?? '-'}, which cannot be granted`,
       );
     }
     const grant = grantForPlan(
@@ -130,15 +137,7 @@ export class SepayWebhookHandler {
     const granted = await this.ledger.grant(grant, tx);
     if (grant.expiresAt)
       await extendPass(tx, order.userId, now, grant.expiresAt);
-    await tx.paymentOrder.updateMany({
-      where: { id: order.id, status: { in: OPEN_SEPAY_ORDER_STATUSES } },
-      data: {
-        status: 'paid',
-        paidAt: now,
-        paidAmountVnd: transfer.transferAmount,
-        externalRef: ref,
-      },
-    });
+    await settleSepayOrder(tx, order, transfer, ref, now);
     const late =
       decision.lateBySeconds > 0
         ? ` late by ${decision.lateBySeconds}s after the order expired`

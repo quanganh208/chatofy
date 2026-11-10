@@ -20,6 +20,7 @@ vi.mock('@/clients/api-client', () => ({
 
 const { SepayQrPanel } = await import('./sepay-qr-panel');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { EXPIRED_ORDER_POLL_MS } = await import('@/hooks/use-credits');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -101,14 +102,19 @@ describe('SepayQrPanel', () => {
     expect(getCheckoutOrder).toHaveBeenCalledTimes(2);
   });
 
-  it('says an expired order has expired, and stops', async () => {
-    getCheckoutOrder.mockResolvedValue(order('expired'));
+  it('says an expired order has expired, and keeps watching, slower, for a late transfer', async () => {
+    getCheckoutOrder.mockResolvedValueOnce(order('expired')).mockResolvedValue(order('paid'));
     await render();
     await tick();
     expect(status()?.textContent).toBe(en['web.account.qrExpired']);
     await tick();
     expect(getCheckoutOrder).toHaveBeenCalledTimes(1);
-    expect(onPaid).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(EXPIRED_ORDER_POLL_MS);
+    });
+    expect(getCheckoutOrder).toHaveBeenCalledTimes(2);
+    expect(onPaid).toHaveBeenCalledTimes(1);
+    expect(status()?.textContent).toBe(en['web.account.qrPaid']);
   });
 
   it('says a transfer held for review will be credited by hand, and stops', async () => {
