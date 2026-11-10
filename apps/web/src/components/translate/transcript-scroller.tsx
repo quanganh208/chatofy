@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useLayoutEffect, useRef } from 'react';
+import { ScrollArea } from '@chatofy/ui/react';
 
 /**
  * How far from the end still counts as reading the newest turn.
@@ -104,18 +105,24 @@ export function TranscriptScroller({
   });
 
   return (
-    <div
-      ref={region}
-      onScroll={onScroll}
-      // Focusable and named, because a scroll region that only some browsers make
-      // reachable is one a keyboard user cannot read in the others. Its contents
-      // are often only the live line, which holds nothing focusable of its own.
-      tabIndex={0}
-      role="region"
-      aria-label={label}
-      className="focus-visible:ring-ring/50 relative min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
+    // shadcn's scroll area for a thin themed bar instead of the browser's. The element
+    // that scrolls is its viewport, so the ref, the scroll listener and the region's
+    // focus and name all go there; the root only takes the place in the flex column.
+    <ScrollArea
+      className="min-h-0 flex-1"
+      viewportProps={{
+        ref: region,
+        onScroll,
+        // Focusable and named, because a scroll region that only some browsers make
+        // reachable is one a keyboard user cannot read in the others. Its contents
+        // are often only the live line, which holds nothing focusable of its own.
+        tabIndex: 0,
+        role: 'region',
+        'aria-label': label,
+        className: 'overscroll-contain',
+      }}
     >
       {children}
-    </div>
+    </ScrollArea>
   );
 }

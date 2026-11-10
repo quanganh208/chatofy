@@ -70,6 +70,7 @@ export {
   PopoverTrigger,
 } from './popover.js';
 export { RadioGroup, RadioGroupItem } from './radio-group.js';
+export { ScrollArea, ScrollBar } from './scroll-area.js';
 export {
   Select,
   SelectContent,
