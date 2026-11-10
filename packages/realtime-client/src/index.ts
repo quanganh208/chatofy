@@ -37,6 +37,7 @@ export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 // schedules on a Web Audio clock, exported so a sink living in another context
 // can reuse the scheduling rather than growing a second copy of it.
 export { PcmPlaybackQueue } from './audio/pcm-playback-queue.js';
+export type { PlaybackDestination } from './audio/pcm-playback-queue.js';
 export type { PlaybackSink } from './audio/ordered-playback.js';
 // The same leaf for a caller whose audio goes to OTHER people: it hands each
 // chunk over as it arrives and keeps only the drain bookkeeping on a clock.

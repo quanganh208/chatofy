@@ -56,7 +56,14 @@ export const CONFERENCE_LEG_RUNTIME_OPTIONS: Readonly<ConversationRuntimeOptions
   ownsEchoMeasurement: true,
 });
 
-export type ConferenceLegVoice = Partial<Pick<SessionOptions, 'voiceGender' | 'speed' | 'voices'>>;
+/**
+ * The speaker's voice choices. `voiceByLanguage` carries rate, gender and voice
+ * per language; any `speak` in it is ignored, because whether a meeting turn is
+ * spoken is the leg's to decide from who is listening, not a reader preference.
+ */
+export type ConferenceLegVoice = Partial<
+  Pick<SessionOptions, 'voiceGender' | 'speed' | 'voices' | 'voiceByLanguage'>
+>;
 
 export interface ConferenceCascadeLegOptions {
   audioDeps: CaptureDeps;
@@ -258,6 +265,9 @@ class CascadeLeg implements ConferenceCascadeLeg {
       voiceGender: voice.voiceGender ?? DEFAULT_VOICE_GENDER,
       ...(voice.speed === undefined ? {} : { speed: voice.speed }),
       ...(voice.voices === undefined ? {} : { voices: voice.voices }),
+      ...(voice.voiceByLanguage === undefined
+        ? {}
+        : { voiceByLanguage: withoutSpeak(voice.voiceByLanguage) }),
     };
   }
 
@@ -427,4 +437,16 @@ class CascadeLeg implements ConferenceCascadeLeg {
   private log(message: string): void {
     this.o.onLog?.(`[conference-leg] ${message}`);
   }
+}
+
+/** Per-language voice choices with every `speak` dropped — see {@link ConferenceLegVoice}. */
+function withoutSpeak(
+  voiceByLanguage: NonNullable<SessionOptions['voiceByLanguage']>,
+): NonNullable<SessionOptions['voiceByLanguage']> {
+  return Object.fromEntries(
+    Object.entries(voiceByLanguage).map(([language, entry]) => {
+      const { speak: _speak, ...rest } = entry ?? {};
+      return [language, rest];
+    }),
+  );
 }
