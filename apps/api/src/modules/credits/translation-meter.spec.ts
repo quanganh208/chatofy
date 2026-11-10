@@ -215,6 +215,22 @@ describe('TranslationMeter', () => {
       expect(settles().map((e) => -e.amount)).toEqual([2]);
     });
 
+    it('reprices a turn down before it settles, and never up', async () => {
+      const { meter, socket, settles } = harness(6000);
+      await meter.admit(socket, 2);
+      meter.turnOpened(socket, 's1', 2);
+      meter.turnOpened(socket, 's2', 1);
+      meter.onFrame(socket, 's1', 4);
+      meter.onFrame(socket, 's2', 4);
+      meter.repriceTurn('s1', 1);
+      meter.repriceTurn('s2', 2);
+      meter.repriceTurn('unknown', 1);
+      meter.turnEnded('s1');
+      meter.turnEnded('s2');
+      await meter.detach(socket);
+      expect(settles().map((e) => -e.amount)).toEqual([4, 4]);
+    });
+
     it('settles a turn once, with its session and conversation ids', async () => {
       const { meter, socket, settles } = harness(6000);
       await meter.admit(socket, 1);

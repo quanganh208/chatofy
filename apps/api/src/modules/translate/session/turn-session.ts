@@ -30,6 +30,7 @@ import {
   type TranslationMap,
 } from './turn-language-plan';
 import { TurnLanguageDecision } from './turn-language-decision';
+import { resolveLanguageVoice, type LanguageVoice } from './language-voice';
 
 /**
  * The identifier behind `TurnSessionDeps.languages`'s default plan.
@@ -184,6 +185,8 @@ export class TurnSession {
   readonly voice?: string;
   /** A voice per spoken language, for a turn that may be spoken in either. */
   readonly voices?: Partial<Record<LanguageCode, string>>;
+  /** How each language is spoken, when the client chose per language — see {@link voiceFor}. */
+  readonly voiceByLanguage?: SessionOptions['voiceByLanguage'];
   /**
    * Whether this client asked for a voice vector for its turns.
    *
@@ -263,11 +266,17 @@ export class TurnSession {
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;
-    this.tagsAudioLanguage = (options.alsoTranslateInto?.length ?? 0) > 0;
+    // Also a turn whose language is decided while it is spoken: the client keeps
+    // a volume per language, and the frame is the only place it learns which
+    // language a two-way reply is in.
+    this.tagsAudioLanguage =
+      (options.alsoTranslateInto?.length ?? 0) > 0 ||
+      deps.decision !== undefined;
     this.meeting = options.meeting ?? false;
     this.speed = options.speed ?? 1;
     this.voice = options.voice;
     this.voices = options.voices;
+    this.voiceByLanguage = options.voiceByLanguage;
     this.embedSpeaker = options.embedSpeaker ?? false;
     this.repairDisplay = options.repairDisplay ?? false;
     this.userId = deps.userId ?? this.sessionId;
@@ -295,6 +304,25 @@ export class TurnSession {
    */
   get languages(): TurnLanguagePlan {
     return this.decision.plan;
+  }
+
+  /**
+   * How `language` is spoken in this turn: its own setting where the client
+   * chose per language, the turn's flat fields where it did not. See
+   * `resolveLanguageVoice`.
+   */
+  voiceFor(language: LanguageCode): LanguageVoice {
+    return resolveLanguageVoice(this, language);
+  }
+
+  /**
+   * The languages this turn's translation will actually be synthesized in:
+   * {@link TurnLanguagePlan.voiced} less every language the client muted.
+   */
+  get speakingLanguages(): LanguageCode[] {
+    return this.languages.voiced.filter(
+      (language) => this.voiceFor(language).speak,
+    );
   }
 
   /** Separates this turn's settled transcript text from the revisable rest. */

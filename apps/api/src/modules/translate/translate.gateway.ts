@@ -31,6 +31,10 @@ import type { StreamSocket } from './session/stream-socket';
 import { llmCallScope } from '../usage/llm-call-scope';
 import { creditMultiplier } from '../credits/credit-pricing';
 import {
+  languagesAStartMaySpeak,
+  resolveLanguageVoice,
+} from './session/language-voice';
+import {
   MESSAGES as CREDIT_MESSAGES,
   TranslationMeter,
   type CreditStopReason,
@@ -225,7 +229,13 @@ export class TranslateGateway
       conversationId,
       ...options
     } = this.parseEvent(payload, 'client.session.start');
-    const voiceOutput = options.voiceOutput ?? true;
+    // The upper bound: spoken if ANY language this start may speak is unmuted.
+    // A two-way turn's language is known only once heard, so admission cannot
+    // know which side it will answer in; the turn reprices down at settle when
+    // it lands on a muted one (`TranslationSessionService.settle`).
+    const voiceOutput = languagesAStartMaySpeak(options).some(
+      (language) => resolveLanguageVoice(options, language).speak,
+    );
     // An upper bound for admission: extras count only on a declared one-way
     // turn, which `start()` decides; the turn itself is priced by what it ran.
     const estimate = creditMultiplier({

@@ -114,7 +114,10 @@ interface Harness {
    * Answers `refusal()` per plan when given, overriding `languageRefusal`: for
    * an engine that serves some spoken languages and not others.
    */
-  refusalFor?: (plan: { spoken: LanguageCode | null }) => string | null;
+  refusalFor?: (plan: {
+    spoken: LanguageCode | null;
+    voiceOutput?: boolean;
+  }) => string | null;
   /**
    * What the STT engine reports it can identify, or `null` when not known —
    * the state every test above this feature runs in.
@@ -2301,6 +2304,153 @@ describe('TranslationSessionService', () => {
       expect(synthesize).toHaveBeenCalledWith(
         expect.objectContaining({ language: 'vi', voice: 'voice-vi' }),
       );
+    });
+
+    describe('voice per language', () => {
+      const muteVi = {
+        voiceByLanguage: { vi: { speak: false }, en: { speed: 1.5 } },
+      } as const;
+
+      it('a reply into a muted language is shown and never synthesized, and settles at the caption rate', async () => {
+        const reprice = vi.spyOn(TranslationMeter.prototype, 'repriceTurn');
+        try {
+          const { transcribeAndTranslate } = resolving({
+            language: 'en',
+            confidence: 0.97,
+          });
+          const { service, synthesize, synthesizeStream } = makeService({
+            identifiable: ['vi', 'en'],
+            transcribeAndTranslate,
+          });
+          const socket = new FakeSocket();
+
+          const sessionId = await twoWayTurn(service, socket, muteVi);
+
+          expect(synthesize).not.toHaveBeenCalled();
+          expect(synthesizeStream).not.toHaveBeenCalled();
+          expect(socket.ofType('server.audio.frame')).toHaveLength(0);
+          expect(finalOf(socket, sessionId).translations).toMatchObject({
+            vi: 'in vi',
+          });
+          expect(reprice).toHaveBeenCalledWith(sessionId, 1);
+        } finally {
+          reprice.mockRestore();
+        }
+      });
+
+      it('a reply into the language left on is spoken at its own rate, tagged, and not repriced', async () => {
+        const reprice = vi.spyOn(TranslationMeter.prototype, 'repriceTurn');
+        try {
+          const { transcribeAndTranslate } = resolving({
+            language: 'vi',
+            confidence: 0.97,
+          });
+          const { service, synthesize } = makeService({
+            identifiable: ['vi', 'en'],
+            transcribeAndTranslate,
+          });
+          const socket = new FakeSocket();
+
+          await twoWayTurn(service, socket, { ...muteVi, speed: 0.75 });
+
+          expect(synthesize).toHaveBeenCalledWith(
+            expect.objectContaining({ language: 'en', speed: 1.5 }),
+          );
+          const frames = socket.ofType('server.audio.frame');
+          expect(frames.length).toBeGreaterThan(0);
+          expect(frames.every((f) => f.lang === 'en')).toBe(true);
+          expect(reprice).not.toHaveBeenCalled();
+        } finally {
+          reprice.mockRestore();
+        }
+      });
+
+      it('a field a language leaves out falls back to the flat one', async () => {
+        const { transcribeAndTranslate } = resolving({
+          language: 'en',
+          confidence: 0.97,
+        });
+        const { service, synthesize } = makeService({
+          identifiable: ['vi', 'en'],
+          transcribeAndTranslate,
+        });
+        const socket = new FakeSocket();
+
+        await twoWayTurn(service, socket, {
+          speed: 0.75,
+          voiceGender: 'male',
+          voiceByLanguage: { vi: { voice: 'voice-vi' } },
+        });
+
+        expect(synthesize).toHaveBeenCalledWith(
+          expect.objectContaining({
+            language: 'vi',
+            voice: 'voice-vi',
+            speed: 0.75,
+            voiceGender: 'male',
+          }),
+        );
+      });
+
+      it('never hands the target’s flat voice to a reply spoken in the source', async () => {
+        const { transcribeAndTranslate } = resolving({
+          language: 'en',
+          confidence: 0.97,
+        });
+        const { service, synthesize } = makeService({
+          identifiable: ['vi', 'en'],
+          transcribeAndTranslate,
+        });
+        const socket = new FakeSocket();
+
+        // An English voice chosen, no Vietnamese one: heard in English, the
+        // turn is spoken in Vietnamese, by an engine the English token means
+        // nothing to.
+        await twoWayTurn(service, socket, { voice: 'en-speaker-3' });
+
+        expect(synthesize).toHaveBeenCalledWith(
+          expect.objectContaining({ language: 'vi', voice: undefined }),
+        );
+      });
+
+      it('a muted language the engine cannot speak right now refuses nothing', () => {
+        const { service } = makeService({
+          identifiable: ['vi', 'en'],
+          refusalFor: (plan) =>
+            plan.voiceOutput && plan.spoken === 'vi'
+              ? 'This server cannot speak vi right now'
+              : null,
+        });
+        const socket = new FakeSocket();
+
+        service.start(
+          socket,
+          {
+            languagePair: { source: 'vi', target: 'en' },
+            voiceGender: 'female',
+            twoWay: true,
+            ...muteVi,
+          },
+          't1',
+        );
+        expect(socket.ofType('server.error')).toHaveLength(0);
+        expect(socket.ofType('server.session.ready')).toHaveLength(1);
+
+        // Unmuted, the same engine state refuses it, as it always has.
+        const other = new FakeSocket();
+        service.start(
+          other,
+          {
+            languagePair: { source: 'vi', target: 'en' },
+            voiceGender: 'female',
+            twoWay: true,
+          },
+          't2',
+        );
+        expect(other.ofType('server.error')[0]?.code).toBe(
+          'language_unavailable',
+        );
+      });
     });
 
     it('decodes a degraded two-way turn in its declared source', async () => {
