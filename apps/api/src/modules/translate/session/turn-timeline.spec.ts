@@ -206,4 +206,56 @@ describe('TurnTimeline', () => {
       diagnostics,
     );
   });
+
+  describe('stages', () => {
+    it('keeps the first stamp when a stage is marked twice', () => {
+      const clock = fakeClock();
+      const timeline = new TurnTimeline(clock.now);
+
+      clock.advance(120);
+      timeline.markStage('sttDone');
+      clock.advance(300);
+      timeline.markStage('sttDone');
+      timeline.markDuration('alternateWait', 87);
+      timeline.markDuration('alternateWait', 400);
+
+      const { stages } = timeline.toMetrics(openSession(), audioOf(3200), true);
+      expect(stages).toEqual({ sttDone: 120, alternateWait: 87 });
+    });
+
+    // A speculation reaches its stages before `end()` built the timeline; they
+    // are replayed with their own absolute times and land before the endpoint.
+    it('reports a stage reached before the endpoint as negative', () => {
+      const clock = fakeClock();
+      const timeline = new TurnTimeline(clock.now);
+
+      timeline.markStage('mtDone', 1_000_000 - 250);
+      clock.advance(30);
+      timeline.markStage('lineSent');
+
+      const { stages } = timeline.toMetrics(openSession(), audioOf(3200), true);
+      expect(stages).toEqual({ mtDone: -250, lineSent: 30 });
+    });
+
+    it('returns the stage map and the two flags in the row', () => {
+      const clock = fakeClock();
+      const timeline = new TurnTimeline(clock.now);
+      const session = openSession();
+      const audio = audioOf(3200);
+
+      const bare = timeline.toMetrics(session, audio, true);
+      expect(bare.stages).toEqual({});
+      expect(bare).not.toHaveProperty('speculationInFlightAtEnd');
+      expect(bare).not.toHaveProperty('correctionsLate');
+
+      clock.advance(10);
+      timeline.markStage('translationsReady');
+      timeline.markSpeculationInFlight(true);
+      timeline.markCorrectionsLate();
+      const metrics = timeline.toMetrics(session, audio, true);
+      expect(metrics.stages).toEqual({ translationsReady: 10 });
+      expect(metrics.speculationInFlightAtEnd).toBe(true);
+      expect(metrics.correctionsLate).toBe(true);
+    });
+  });
 });

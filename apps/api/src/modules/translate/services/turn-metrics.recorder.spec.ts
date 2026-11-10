@@ -75,4 +75,55 @@ describe('TurnMetricsRecorder', () => {
       'final=fresh bytes=10 specAt=- chars=5 words=1 speechMs=-',
     );
   });
+
+  it('appends the stage timings in a fixed order, skipping the stages a turn never reached', () => {
+    const log = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    new TurnMetricsRecorder().record(
+      row({
+        // Given out of order on purpose: the line's order is the stages', not the map's.
+        stages: { lineSent: 360, mtDone: 340, sttDone: 12 },
+        speculationInFlightAtEnd: true,
+        correctionsLate: true,
+      }),
+    );
+
+    const line = String(log.mock.calls[0]?.[0]);
+    expect(line).toContain('stages=sttDone:12,mtDone:340,lineSent:360');
+    expect(line).toContain('lastAudio=4000ms');
+    expect(line).toMatch(/ inflight=yes corrLate=yes$/);
+  });
+
+  it('says no for a turn that was not in flight and whose checks were on time', () => {
+    const log = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    new TurnMetricsRecorder().record(
+      row({ stages: { sttDone: -40, alternateWait: 87 } }),
+    );
+
+    expect(String(log.mock.calls[0]?.[0])).toContain(
+      'stages=sttDone:-40,alternateWait:87 inflight=no corrLate=no',
+    );
+  });
+
+  it('appends the split-candidate flag and the fusion count only where the turn reached them', () => {
+    const log = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    const recorder = new TurnMetricsRecorder();
+    recorder.record(
+      row({ stages: {}, splitCandidate: true, fusedCorrections: 0 }),
+    );
+    recorder.record(
+      row({ stages: {}, splitCandidate: false, fusedCorrections: 2 }),
+    );
+    recorder.record(row({ stages: {} }));
+
+    const lines = log.mock.calls.map((call) => String(call[0]));
+    expect(lines[0]).toMatch(/ corrLate=no cand=yes fused=0$/);
+    expect(lines[1]).toMatch(/ corrLate=no cand=no fused=2$/);
+    expect(lines[2]).toMatch(/ corrLate=no$/);
+  });
 });

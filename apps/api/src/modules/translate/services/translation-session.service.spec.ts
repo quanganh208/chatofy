@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BadRequestException, Logger } from '@nestjs/common';
 import type {
@@ -1548,6 +1548,116 @@ describe('TranslationSessionService', () => {
       expect(recorded[0]).toMatchObject({
         completed: false,
         speculationUsed: true,
+      });
+    });
+
+    describe('stage timings', () => {
+      /** A pipeline that reports its stages and moves the clock between them. */
+      const timedPipeline = (clock: { t: number }) =>
+        vi.fn(
+          async (input: {
+            onStage?: (stage: string, durationMs?: number) => void;
+          }) => {
+            input.onStage?.('sttDone');
+            clock.t += 100;
+            input.onStage?.('mtDone');
+            clock.t += 50;
+            input.onStage?.('translationsReady');
+            return { sourceText: 'xin chào', translations: { en: 'hello' } };
+          },
+        );
+
+      afterEach(() => vi.restoreAllMocks());
+
+      it('times a fresh turn in the order it ran, from the endpoint', async () => {
+        const clock = { t: 1_000_000 };
+        vi.spyOn(Date, 'now').mockImplementation(() => clock.t);
+        const { service, recorded } = makeService({
+          transcribeAndTranslate: timedPipeline(clock),
+        });
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        service.pushFrame(socket, frame({ sessionId }));
+
+        await service.end(socket);
+
+        const stages = recorded[0]!.stages!;
+        expect(stages.sttDone).toBe(0);
+        expect(stages.sttDone!).toBeLessThan(stages.mtDone!);
+        expect(stages.mtDone!).toBeLessThan(stages.lineSent!);
+        expect(stages.lineSent!).toBeLessThanOrEqual(stages.ttsRequested!);
+        expect(recorded[0]).not.toHaveProperty('speculationInFlightAtEnd');
+      });
+
+      it('says the turn was no split candidate, and leaves the fusion count out when no fusion ran', async () => {
+        const { service, recorded } = makeService();
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        service.pushFrame(socket, frame({ sessionId }));
+
+        await service.end(socket);
+
+        expect(recorded[0]?.splitCandidate).toBe(false);
+        expect(recorded[0]).not.toHaveProperty('fusedCorrections');
+      });
+
+      it('counts the fusion corrections the final line carried', async () => {
+        const fusion = { heard: 'giao', said: 'dao', at: 2 };
+        const homophone = { heard: 'xin', said: 'sin', at: 0 };
+        const { service, recorded } = makeService({
+          transcribeAndTranslate: vi.fn().mockResolvedValue({
+            sourceText: 'xin chào giao',
+            translations: { en: 'hello knife' },
+            corrections: [homophone, fusion],
+            fusedCorrections: [fusion],
+          }),
+        });
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        service.pushFrame(socket, frame({ sessionId }));
+
+        await service.end(socket);
+
+        expect(recorded[0]?.fusedCorrections).toBe(1);
+      });
+
+      it('counts zero when the fusion ran and nothing of it reached the line', async () => {
+        const { service, recorded } = makeService({
+          transcribeAndTranslate: vi.fn().mockResolvedValue({
+            sourceText: 'xin chào',
+            translations: { en: 'hello' },
+            fusedCorrections: [],
+          }),
+        });
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        service.pushFrame(socket, frame({ sessionId }));
+
+        await service.end(socket);
+
+        expect(recorded[0]?.fusedCorrections).toBe(0);
+      });
+
+      it('replays a reused guess’s stages before the endpoint, and the line after it', async () => {
+        const clock = { t: 1_000_000 };
+        vi.spyOn(Date, 'now').mockImplementation(() => clock.t);
+        const { service, recorded } = makeService({
+          transcribeAndTranslate: timedPipeline(clock),
+        });
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        service.pushFrame(socket, frame({ sessionId }));
+
+        service.speculate(socket);
+        await settleMicrotasks();
+        clock.t += 500; // the speaker's hangover: the guess answered before the endpoint
+        await service.end(socket);
+
+        expect(recorded[0]?.speculationUsed).toBe(true);
+        expect(recorded[0]?.speculationInFlightAtEnd).toBe(false);
+        const stages = recorded[0]!.stages!;
+        expect(stages.mtDone!).toBeLessThan(0);
+        expect(stages.lineSent!).toBeGreaterThanOrEqual(0);
       });
     });
 

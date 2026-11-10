@@ -1455,6 +1455,145 @@ describe('PipelineTranslatorService', () => {
     });
   });
 
+  describe('transcribeAndTranslate — stage timings', () => {
+    afterEach(() => vi.useRealTimers());
+
+    /** A vi turn with a display, whose every slow step takes a known time. */
+    const timedTurn = ({ fusionMs }: { fusionMs: number }) => {
+      const translate = vi.fn(
+        async (req: {
+          onChunk?: (delta: string, restart: boolean) => void;
+        }) => {
+          await new Promise((resolve) => setTimeout(resolve, 40));
+          req.onChunk?.('hel', true);
+          req.onChunk?.('lo', false);
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          return { text: 'hello' };
+        },
+      );
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            return {
+              text: 'Hắn đâm giao vào người',
+              language: 'vi' as const,
+              alternates: ['hắn đâm dao vào người'],
+              alternateWaitMs: 42,
+            };
+          }),
+        },
+        translation: { name: 'fake-translation', translate },
+      });
+      const restore = () =>
+        new Promise<string>((resolve) =>
+          setTimeout(() => resolve('Hắn đâm giao vào người.'), 150),
+        );
+      const fuseRecognizers = () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve('hắn đâm dao vào người'), fusionMs),
+        );
+      return {
+        service: serviceWith(trio, restore, { fuseRecognizers }),
+        translate,
+      };
+    };
+
+    it('reports each stage once, in the order the turn passes them', async () => {
+      vi.useFakeTimers();
+      const { service } = timedTurn({ fusionMs: 120 });
+      const seen: { stage: string; at: number; durationMs?: number }[] = [];
+
+      const turn = service.transcribeAndTranslate(
+        {
+          ...input,
+          restoreDisplay: { terms: [] },
+          onStage: (stage, durationMs) =>
+            seen.push({
+              stage,
+              at: Date.now(),
+              ...(durationMs === undefined ? {} : { durationMs }),
+            }),
+        },
+        VI_TO_EN,
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      const result = await turn;
+
+      expect(seen.map((s) => s.stage)).toEqual([
+        'sttDone',
+        'alternateWait',
+        'mtFirstToken',
+        'mtDone',
+        'restoreDone',
+        'correctionsDone',
+        'translationsReady',
+      ]);
+      const at = (stage: string) => seen.find((s) => s.stage === stage)!.at;
+      expect(at('sttDone')).toBeLessThan(at('mtDone'));
+      expect(at('mtFirstToken')).toBeLessThan(at('mtDone'));
+      expect(at('mtDone')).toBeLessThanOrEqual(at('restoreDone'));
+      expect(at('restoreDone')).toBeLessThanOrEqual(at('translationsReady'));
+      expect(seen.find((s) => s.stage === 'alternateWait')?.durationMs).toBe(
+        42,
+      );
+      // Timing it changed nothing the turn answers.
+      expect(result.translations).toEqual({ en: 'hello' });
+      expect(result.corrections).toEqual([
+        { heard: 'giao', said: 'dao', at: 2 },
+      ]);
+      // The fusion's own correction, as the same object the line carries.
+      expect(result.fusedCorrections).toEqual(result.corrections);
+      expect(result.fusedCorrections![0]).toBe(result.corrections![0]);
+    });
+
+    it('says when the transcript checks were late, and still reports the stages after them', async () => {
+      vi.useFakeTimers();
+      const { service } = timedTurn({ fusionMs: 5_000 });
+      const stages: string[] = [];
+      const late = vi.fn();
+
+      const turn = service.transcribeAndTranslate(
+        {
+          ...input,
+          restoreDisplay: { terms: [] },
+          onStage: (stage) => stages.push(stage),
+          onCorrectionsLate: late,
+        },
+        VI_TO_EN,
+      );
+      await vi.advanceTimersByTimeAsync(6_000);
+      const result = await turn;
+
+      expect(late).toHaveBeenCalledTimes(1);
+      expect(result).not.toHaveProperty('corrections');
+      // The fusion ran, and none of it reached the turn.
+      expect(result.fusedCorrections).toEqual([]);
+      expect(stages.slice(-2)).toEqual([
+        'correctionsDone',
+        'translationsReady',
+      ]);
+    });
+
+    it('listens to the translation stream only when someone is timing the turn', async () => {
+      const { service, translate } = timedTurn({ fusionMs: 0 });
+      vi.useFakeTimers();
+      const plain = service.transcribeAndTranslate(input, VI_TO_EN);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await plain;
+      expect(translate.mock.calls[0]![0].onChunk).toBeUndefined();
+    });
+
+    it('reports no fusion when none ran', async () => {
+      const result = await serviceWith(fakeTrio()).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+      expect(result).not.toHaveProperty('fusedCorrections');
+    });
+  });
+
   describe('listVoices', () => {
     it('never leaks the cache entry expiresAt, cold or warm', async () => {
       const catalog = {
