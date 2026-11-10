@@ -12,6 +12,13 @@ import { formatUsd, formatVnd } from '@/lib/pricing-content';
 /** A VietQR order the section shows in its inline panel. */
 export type SepayCheckout = Extract<CheckoutResponse, { rail: 'sepay' }>;
 
+/** The test-mode line for each rail, in button order. */
+const SANDBOX_HINT_RAILS = ['polar', 'sepay'] as const satisfies readonly PaymentRail[];
+const SANDBOX_HINT = {
+  polar: 'web.account.railSandboxCard',
+  sepay: 'web.account.railSandboxQr',
+} as const satisfies Record<PaymentRail, string>;
+
 /** One buy button: which plan, on which rail, and what it says. */
 interface BuyOption {
   key: string;
@@ -85,7 +92,11 @@ export function CreditBuyActions({
   });
   if (options.length === 0) return null;
 
-  const sandbox = options.some((option) => balance.rails[option.rail] === 'sandbox');
+  // Named per rail: one rail can be live while the other is a sandbox, and a
+  // single "test mode" line would then sit under buttons that charge real money.
+  const sandboxRails = SANDBOX_HINT_RAILS.filter(
+    (rail) => balance.rails[rail] === 'sandbox' && options.some((option) => option.rail === rail),
+  );
   const closed = !balance.checkoutAllowed;
 
   const buy = async (option: BuyOption) => {
@@ -136,9 +147,13 @@ export function CreditBuyActions({
           {t('web.account.checkoutFailed')}
         </p>
       ) : null}
-      {sandbox && !closed ? (
-        <p className="text-muted-foreground text-hint">{t('web.account.railSandbox')}</p>
-      ) : null}
+      {closed
+        ? null
+        : sandboxRails.map((rail) => (
+            <p key={rail} className="text-muted-foreground text-hint" data-rail-sandbox={rail}>
+              {t(SANDBOX_HINT[rail])}
+            </p>
+          ))}
     </div>
   );
 }
