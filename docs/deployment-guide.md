@@ -661,6 +661,47 @@ removed code, not a config change.
 so /translate keeps 2. A single continuous en→vi speaker saturates the Vietnamese TTS
 engine, which /translate's vi users share; that is a known limit, not fixed here.
 
+## Deploying credits and billing
+
+**What changes.** Live translation and minutes now spend credits, and every account gets
+120 free a month. Checkout opens for the allowlisted accounts only. Why and how:
+[credits-and-billing.md](./architecture/credits-and-billing.md).
+
+**The migrations are additive.** `20261109112943_add_llm_call_record` and
+`20261109114047_add_credits_ledger` only create tables and indexes, seed the `Plan` rows
+and add a CHECK on the new `CreditGrant` table. They touch no existing table, so the
+ordinary pipeline order is safe, and the pipeline's `pg_dump` runs before them as for
+every deploy.
+
+**Nothing new is required to boot.** Every billing key is optional in
+`prod.env.example`. Until the keys are set in the host's env file, both rails report
+`unavailable`, and translation is still metered against the free grant. The keys and
+their sandbox and live values are in
+[environment-variables.md → Billing rails](./environment-variables.md#billing-rails).
+
+**Webhook URLs** to register with the providers:
+
+- Polar: `https://chatofy-api.quanganh208.dev/billing/webhooks/polar`
+- SePay: `https://chatofy-api.quanganh208.dev/billing/webhooks/sepay`
+
+Both go through the tunnel like every other API route. Cloudflare Bot Fight Mode must not
+challenge them, because a provider cannot answer a challenge.
+
+**Running the credits CLI in production.** The runtime image has no pnpm, so run the
+built file with `node` inside the API container. A command that writes asks you to type
+the email or id back, so it needs `-it`:
+
+```bash
+docker exec -it chatofy_prod_api node dist/cli/credits-grant.js <email> <credits> <reason> --prod
+```
+
+The other commands (`credits-void`, `credits-resolve-payment`, `credits-cost-report`)
+take the same form. They are listed in
+[credits-and-billing.md → Owner CLI](./architecture/credits-and-billing.md#owner-cli).
+
+**Old clients keep working.** A client from before this change sends no
+`conversationId`, so its usage rows carry no conversation link.
+
 ## Known gaps
 
 - **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Traditional-script output and Cantonese are out of scope.

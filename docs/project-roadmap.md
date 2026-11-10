@@ -22,6 +22,7 @@ Grouped by area; the PR numbers are the merges that delivered each piece.
 | Video meetings       | Rooms by link, Cloudflare Realtime SFU, vi↔en subtitles and spoken translation per listener, translated chat, end screen with minutes, mobile meeting screens (dev builds) | #207–#212, #255–#258  | [video-conferencing-architecture.md](./video-conferencing-architecture.md)                                                |
 | Browser extension    | Chrome MV3 translator for Google Meet, Zoom web and Facebook calls, both directions                                                                                        | outbound merge, #74   | [README](../README.md#browser-extension), [extension path](./architecture/modules-extension-ci.md#browser-extension-path) |
 | Web UI and brand     | Production UI, translate page revamp, lotus brand identity, design-rule specs                                                                                              | #83, #97, #168        | [design-guidelines.md](./design-guidelines.md), [brand-mark.md](./brand-mark.md)                                          |
+| Credits and billing  | A credit ledger metering `/ws/translate` and minutes, Free 120/month, Polar and SePay checkout for allowlisted accounts only, public `/pricing`                            | —                     | [credits-and-billing.md](./architecture/credits-and-billing.md)                                                           |
 | Delivery             | Self-hosted Docker deploy from `main`, CI gate, alert when `main` goes red, deploy refuses runs not from this repo's `main`                                                | #91, #204, #205       | [deployment-guide.md](./deployment-guide.md)                                                                              |
 
 The measurements and the dead ends behind these are in
@@ -66,16 +67,17 @@ Design and evidence:
 
 ### Still open
 
-| Gate                                                | Issue | Status                                                             |
-| --------------------------------------------------- | ----- | ------------------------------------------------------------------ |
-| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)                         |
-| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production                                   |
-| Translation load with several simultaneous speakers | —     | Measured on the dev stack; meeting legs capped at 4 of 6 turns     |
-| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                                         |
-| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                                         |
-| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build                                  |
-| Mobile register, Google sign-in, translate, History | —     | Built; pending: owner run on a dev build (needs Google client ids) |
-| Billing tables, recording access                    | #212  | Deferred out of thesis scope                                       |
+| Gate                                                | Issue | Status                                                                                                                  |
+| --------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------- |
+| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)                                                                              |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production                                                                                        |
+| Translation load with several simultaneous speakers | —     | Measured on the dev stack; meeting legs capped at 4 of 6 turns                                                          |
+| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                                                                                              |
+| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                                                                                              |
+| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build                                                                                       |
+| Mobile register, Google sign-in, translate, History | —     | Built; pending: owner run on a dev build (needs Google client ids)                                                      |
+| Billing                                             | #212  | Built owner-only: [credits and billing](./architecture/credits-and-billing.md); conference billing tables stay deferred |
+| Recording access                                    | #212  | Deferred out of thesis scope                                                                                            |
 
 ## Known gaps
 

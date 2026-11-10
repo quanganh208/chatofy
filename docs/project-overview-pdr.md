@@ -36,8 +36,12 @@ the extension, or in Chatofy's own video meetings.
   library (instructions plus a glossary) that steers translation on web and in the
   extension
 - Generic preset voice for TTS
-- Free tier with usage cap (AI cost control) — **not built yet**; today only per-route
-  rate limits exist
+- **Credits** (AI cost control) — built: every account gets 120 free credits per
+  calendar month (1 credit = 1 caption-minute), and live translation and minutes
+  spend them. Pro and top-ups are bought through Polar or SePay, but checkout is open
+  to the owner's allowlisted accounts only; the real money is the owner's own, on
+  SePay. Plans and prices are public on `/pricing`. See
+  [credits-and-billing](./architecture/credits-and-billing.md)
 - **Browser extension for meeting calls** (`apps/extension`) — two-way translation
   in a Meet / Zoom web / Facebook call tab, with capture that never stops. What
   the other people say is translated for the user; what the user says is
@@ -68,8 +72,10 @@ the extension, or in Chatofy's own video meetings.
   (PR #180). Identifying Chinese automatically is still out: it needs a language
   identifier that passes on CPU
   ([three-language LID](./architecture/contracts-and-languages.md#lid-and-audio-based-detection)).
-- Payment / subscription tiering
-- Analytics / metering (beyond basic rate limits)
+- Public sales — the ledger, metering and checkout are built (see MVP scope), but
+  selling to anyone but the owner waits on the
+  [go-live checklist](./architecture/credits-and-billing.md#go-live-checklist): the
+  Vietnamese STT model's NC-ND licence forbids commercial use
 - Offline mode
 
 ## Tech Decisions
@@ -104,12 +110,12 @@ the extension, or in Chatofy's own video meetings.
 
 ## Key Risks
 
-| Risk                                                       | Mitigation                                                |
-| ---------------------------------------------------------- | --------------------------------------------------------- |
-| OpenAI Realtime Vietnamese quality unverified              | Spike prototype before locking AI pipeline                |
-| AI cost at scale (~$0.30/min realtime)                     | Hard rate limit + free tier cap in MVP                    |
-| Mobile audio cross-platform bugs (iOS echo, Android perms) | Test on real devices early in feature phase               |
-| Auth provider lock-in                                      | Defer — `AuthAdapter` interface lets any provider slot in |
+| Risk                                                       | Mitigation                                                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| OpenAI Realtime Vietnamese quality unverified              | Spike prototype before locking AI pipeline                                                  |
+| AI cost per minute outgrows what credits charge            | Credits metered per accepted second; `credits:cost-report` compares credits with token cost |
+| Mobile audio cross-platform bugs (iOS echo, Android perms) | Test on real devices early in feature phase                                                 |
+| Auth provider lock-in                                      | Defer — `AuthAdapter` interface lets any provider slot in                                   |
 
 ## Milestones
 
@@ -135,5 +141,5 @@ minutes; see [project-roadmap](./project-roadmap.md#video-meetings).
 - End-to-end conversation latency < 2s
 - Handle 10-minute conversations without dropouts
 - ≥ 70% translation accuracy on everyday conversation (manual eval with native VI speakers)
-- Free tier: 10 min/day/user hard cap
+- Free tier: 120 credits/month/user, hard cap (a session cannot start under 1 credit)
 - Beta users (internal) can install + run without support

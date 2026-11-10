@@ -52,47 +52,53 @@ falls back with `||` or an empty check, never `??`.
 D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 `environment:` outranks the env file, so setting it there does nothing.
 
-| Key                                                                                | Read by                                 | Required                                | Default                          | D                | P              |
-| ---------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- | -------------------------------- | ---------------- | -------------- |
-| `DATABASE_URL`                                                                     | api, prisma, bench-user script          | yes                                     | —                                | ✓                | pinned         |
-| `AUTH_JWT_SECRET`                                                                  | api                                     | yes (≥32 chars)                         | —                                | ✓                | ✓              |
-| `CLOUDFLARE_REALTIME_APP_ID`, `_SECRET`                                            | api                                     | yes (boot refuses)                      | —                                | ✓                | ✓              |
-| `CLOUDFLARE_TURN_KEY_ID`, `_API_TOKEN`                                             | api                                     | no; TURN on when both set               | —                                | ✓                | ✓              |
-| `WEB_BASE_URL`                                                                     | api, web, compose (`AUTH_URL`)          | prod yes                                | `http://localhost:3001`          | default          | ✓              |
-| `CORS_ORIGIN`                                                                      | api                                     | no                                      | `WEB_BASE_URL`                   | —                | —              |
-| `TRUST_PROXY_HOPS`                                                                 | api                                     | prod yes                                | `0`                              | default          | pinned `1`     |
-| `REDIS_URL`                                                                        | api                                     | no                                      | `redis://localhost:6379`         | default          | pinned         |
-| `AI_TRANSLATION_PROVIDER`                                                          | api                                     | no                                      | `commandcode`                    | default          | default        |
-| `COMMAND_CODE_API_KEY`                                                             | api                                     | for `commandcode`                       | —                                | ✓                | ✓              |
-| `OPENAI_COMPATIBLE_API_KEY`                                                        | api, benchmarks                         | for `commandcode`, `deepseek`, `openai` | —                                | ✓                | ✓              |
-| `GEMINI_API_KEY`                                                                   | api, benchmarks                         | for `gemini`, minutes fallback          | —                                | ✓                | ✓              |
-| `AI_SUMMARIZATION_PROVIDER`                                                        | api                                     | no                                      | follows translation              | —                | —              |
-| `ELEVENLABS_API_KEY`                                                               | benchmarks only (Scribe reference)      | no                                      | —                                | ✓                | —              |
-| `LOCAL_STT_URL`, `LOCAL_TTS_URL`                                                   | api                                     | no                                      | `http://localhost:8002` / `8003` | default          | pinned         |
-| `TRANSLATE_SPECULATION_OVERLAP`, `_HOMOPHONES`                                     | api                                     | no                                      | `off`                            | default          | default        |
-| `TRANSLATE_LIVE_COMMIT_SCALE`                                                      | api                                     | no                                      | `3`                              | default          | default        |
-| `AUTH_SECRET`                                                                      | web                                     | yes                                     | —                                | ✓                | ✓              |
-| `AUTH_GOOGLE_ID`                                                                   | web, api                                | no; both halves or neither              | —                                | ✓                | ✓              |
-| `AUTH_GOOGLE_SECRET`                                                               | web                                     | no                                      | —                                | ✓                | ✓              |
-| `AUTH_GOOGLE_MOBILE_IDS`                                                           | api                                     | no                                      | —                                | —                | —              |
-| `NEXT_PUBLIC_API_BASE_URL`                                                         | web (build time)                        | prod yes                                | `http://localhost:3000`          | default          | ✓              |
-| `SMTP_USER`, `SMTP_PASS`                                                           | api                                     | prod yes                                | —                                | ignored          | ✓              |
-| `SMTP_HOST`, `SMTP_PORT`                                                           | api                                     | no                                      | `smtp.gmail.com`, `465`          | —                | —              |
-| `MAIL_FROM`                                                                        | api                                     | no                                      | `SMTP_USER`                      | —                | —              |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`           | api                                     | no; all or none                         | —                                | ✓                | ✓              |
-| `R2_PUBLIC_BASE_URL`                                                               | api, web (build time)                   | with the other four                     | —                                | ✓                | ✓              |
-| `NODE_ENV`, `PORT`                                                                 | api                                     | no                                      | `development`, `3000`            | default          | images/compose |
-| `POSTGRES_USER`, `POSTGRES_DB`                                                     | compose                                 | no                                      | `chatofy`                        | default          | pinned         |
-| `POSTGRES_PASSWORD`                                                                | compose                                 | prod yes                                | `chatofy` (dev)                  | default          | ✓              |
-| `POSTGRES_PORT`, `REDIS_PORT`, `LOCAL_STT_PORT`, `LOCAL_TTS_PORT`                  | dev compose                             | no                                      | `5432`, `6379`, `8002`, `8003`   | default          | —              |
-| `LOCAL_STT_THREADS`, `LOCAL_TTS_THREADS`, `LOCAL_STT_CONCURRENCY`, `LOCAL_STT_LID` | dev compose → sidecars                  | no                                      | `8`, `8`, `4`, `on`              | default          | —              |
-| `PROD_LOCAL_STT_THREADS`, `PROD_LOCAL_TTS_THREADS`, `PROD_LOCAL_STT_CONCURRENCY`   | prod compose → sidecars                 | no                                      | `4`                              | —                | default        |
-| `CHATOFY_ENV_FILE`, `STT_MODELS_DIR`, `TTS_MODELS_DIR`                             | prod compose                            | no                                      | under `$HOME`                    | —                | default        |
-| `SHADOW_DATABASE_URL`                                                              | prisma `migrate diff`                   | no                                      | —                                | ✓                | never          |
-| `HF_TOKEN`                                                                         | model download scripts (from the shell) | no                                      | —                                | ✓                | —              |
-| `ANTHROPIC_API_KEY`                                                                | `benchmarks/translation-judge`          | no                                      | —                                | ✓                | —              |
-| `EXPO_PUBLIC_API_BASE_URL`                                                         | mobile                                  | yes                                     | —                                | mobile `.env`    | —              |
-| `WXT_API_BASE_URL`                                                                 | extension (compile time)                | release yes                             | `http://localhost:3000`          | extension `.env` | —              |
+| Key                                                                                | Read by                                 | Required                                        | Default                          | D                | P                   |
+| ---------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | -------------------------------- | ---------------- | ------------------- |
+| `DATABASE_URL`                                                                     | api, prisma, bench-user script          | yes                                             | —                                | ✓                | pinned              |
+| `AUTH_JWT_SECRET`                                                                  | api                                     | yes (≥32 chars)                                 | —                                | ✓                | ✓                   |
+| `CLOUDFLARE_REALTIME_APP_ID`, `_SECRET`                                            | api                                     | yes (boot refuses)                              | —                                | ✓                | ✓                   |
+| `CLOUDFLARE_TURN_KEY_ID`, `_API_TOKEN`                                             | api                                     | no; TURN on when both set                       | —                                | ✓                | ✓                   |
+| `WEB_BASE_URL`                                                                     | api, web, compose (`AUTH_URL`)          | prod yes                                        | `http://localhost:3001`          | default          | ✓                   |
+| `CORS_ORIGIN`                                                                      | api                                     | no                                              | `WEB_BASE_URL`                   | —                | —                   |
+| `TRUST_PROXY_HOPS`                                                                 | api                                     | prod yes                                        | `0`                              | default          | pinned `1`          |
+| `REDIS_URL`                                                                        | api                                     | no                                              | `redis://localhost:6379`         | default          | pinned              |
+| `AI_TRANSLATION_PROVIDER`                                                          | api                                     | no                                              | `commandcode`                    | default          | default             |
+| `COMMAND_CODE_API_KEY`                                                             | api                                     | for `commandcode`                               | —                                | ✓                | ✓                   |
+| `OPENAI_COMPATIBLE_API_KEY`                                                        | api, benchmarks                         | for `commandcode`, `deepseek`, `openai`         | —                                | ✓                | ✓                   |
+| `GEMINI_API_KEY`                                                                   | api, benchmarks                         | for `gemini`, minutes fallback                  | —                                | ✓                | ✓                   |
+| `AI_SUMMARIZATION_PROVIDER`                                                        | api                                     | no                                              | follows translation              | —                | —                   |
+| `ELEVENLABS_API_KEY`                                                               | benchmarks only (Scribe reference)      | no                                              | —                                | ✓                | —                   |
+| `LOCAL_STT_URL`, `LOCAL_TTS_URL`                                                   | api                                     | no                                              | `http://localhost:8002` / `8003` | default          | pinned              |
+| `TRANSLATE_SPECULATION_OVERLAP`, `_HOMOPHONES`                                     | api                                     | no                                              | `off`                            | default          | default             |
+| `TRANSLATE_LIVE_COMMIT_SCALE`                                                      | api                                     | no                                              | `3`                              | default          | default             |
+| `AUTH_SECRET`                                                                      | web                                     | yes                                             | —                                | ✓                | ✓                   |
+| `AUTH_GOOGLE_ID`                                                                   | web, api                                | no; both halves or neither                      | —                                | ✓                | ✓                   |
+| `AUTH_GOOGLE_SECRET`                                                               | web                                     | no                                              | —                                | ✓                | ✓                   |
+| `AUTH_GOOGLE_MOBILE_IDS`                                                           | api                                     | no                                              | —                                | —                | —                   |
+| `NEXT_PUBLIC_API_BASE_URL`                                                         | web (build time)                        | prod yes                                        | `http://localhost:3000`          | default          | ✓                   |
+| `SMTP_USER`, `SMTP_PASS`                                                           | api                                     | prod yes                                        | —                                | ignored          | ✓                   |
+| `SMTP_HOST`, `SMTP_PORT`                                                           | api                                     | no                                              | `smtp.gmail.com`, `465`          | —                | —                   |
+| `MAIL_FROM`                                                                        | api                                     | no                                              | `SMTP_USER`                      | —                | —                   |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`           | api                                     | no; all or none                                 | —                                | ✓                | ✓                   |
+| `R2_PUBLIC_BASE_URL`                                                               | api, web (build time)                   | with the other four                             | —                                | ✓                | ✓                   |
+| `BILLING_CHECKOUT_ALLOWLIST`                                                       | api                                     | no; unset means no one may buy                  | —                                | —                | for checkout        |
+| `POLAR_MODE`, `SEPAY_MODE`                                                         | api                                     | no                                              | `sandbox`                        | —                | `sandbox` or `live` |
+| `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_IDS`                  | api                                     | no; Polar rail unavailable without both secrets | —                                | —                | for Polar           |
+| `SEPAY_WEBHOOK_SECRET`, `SEPAY_BANK_ACCOUNT`, `SEPAY_BANK`                         | api                                     | no; SePay rail unavailable without all three    | —                                | —                | for SePay           |
+| `SEPAY_ORDER_PREFIX`                                                               | api                                     | no                                              | `CHF`                            | —                | —                   |
+| `NODE_ENV`, `PORT`                                                                 | api                                     | no                                              | `development`, `3000`            | default          | images/compose      |
+| `POSTGRES_USER`, `POSTGRES_DB`                                                     | compose                                 | no                                              | `chatofy`                        | default          | pinned              |
+| `POSTGRES_PASSWORD`                                                                | compose                                 | prod yes                                        | `chatofy` (dev)                  | default          | ✓                   |
+| `POSTGRES_PORT`, `REDIS_PORT`, `LOCAL_STT_PORT`, `LOCAL_TTS_PORT`                  | dev compose                             | no                                              | `5432`, `6379`, `8002`, `8003`   | default          | —                   |
+| `LOCAL_STT_THREADS`, `LOCAL_TTS_THREADS`, `LOCAL_STT_CONCURRENCY`, `LOCAL_STT_LID` | dev compose → sidecars                  | no                                              | `8`, `8`, `4`, `on`              | default          | —                   |
+| `PROD_LOCAL_STT_THREADS`, `PROD_LOCAL_TTS_THREADS`, `PROD_LOCAL_STT_CONCURRENCY`   | prod compose → sidecars                 | no                                              | `4`                              | —                | default             |
+| `CHATOFY_ENV_FILE`, `STT_MODELS_DIR`, `TTS_MODELS_DIR`                             | prod compose                            | no                                              | under `$HOME`                    | —                | default             |
+| `SHADOW_DATABASE_URL`                                                              | prisma `migrate diff`                   | no                                              | —                                | ✓                | never               |
+| `HF_TOKEN`                                                                         | model download scripts (from the shell) | no                                              | —                                | ✓                | —                   |
+| `ANTHROPIC_API_KEY`                                                                | `benchmarks/translation-judge`          | no                                              | —                                | ✓                | —                   |
+| `EXPO_PUBLIC_API_BASE_URL`                                                         | mobile                                  | yes                                             | —                                | mobile `.env`    | —                   |
+| `EXPO_PUBLIC_WEB_BASE_URL`                                                         | mobile (bundle time)                    | release yes                                     | `http://10.0.2.2:3001`           | mobile `.env`    | —                   |
+| `WXT_API_BASE_URL`                                                                 | extension (compile time)                | release yes                                     | `http://localhost:3000`          | extension `.env` | —                   |
 
 ## Secrets
 
@@ -269,6 +275,52 @@ mints avatar URLs from it at runtime, and the web bakes it into the CSP `img-src
 at build time. Changing it is therefore a web **rebuild**. A restart alone looks
 like it worked while the deployed CSP still forbids every URL the api mints. The
 deploy smoke asserts the served `img-src` against this value.
+
+## Billing rails
+
+Checkout is open only to the accounts in `BILLING_CHECKOUT_ALLOWLIST`, each
+compared through `normalizeEmail`; unset means no one. The allowlist is checked
+again when a payment is granted, so a checkout link made outside the api credits
+no one. Every key is optional, so a deployment without billing boots.
+
+Each rail reports `sandbox`, `live` or `unavailable` in `GET /billing/me`
+(`apps/api/src/modules/credits/payments/rail-status.ts`). It is `unavailable`
+while any of its secrets is missing; otherwise it reports its mode.
+
+- Polar: `POLAR_MODE` picks `https://sandbox-api.polar.sh/v1` or
+  `https://api.polar.sh/v1`; the access token (scopes `checkouts:write`,
+  `customer_sessions:write`) and the webhook secret must come from that same
+  environment. `POLAR_PRODUCT_IDS` maps plan codes to product ids
+  (`pro_monthly=<id>,topup_250=<id>,...`); a plan without one is not offered on
+  Polar, and the webhook reads an order's plan from its product through the same
+  list. The webhook verifies both secret schemes Polar uses (Standard Webhooks
+  and the legacy UTF-8 key), so a secret from either era works.
+- SePay: `SEPAY_MODE=sandbox` is SePay's Test mode. `SEPAY_BANK_ACCOUNT` and
+  `SEPAY_BANK` (SePay's short bank name, e.g. `MBBank`) go into the VietQR.
+  `SEPAY_WEBHOOK_SECRET` is the webhook's HMAC-SHA256 secret.
+  `SEPAY_ORDER_PREFIX` must equal the prefix of the payment-code structure set
+  in SePay, with an 8-character alphanumeric suffix; a mismatch makes SePay's
+  `code` arrive null, and matching then falls back to the memo text.
+
+**Sandbox and live values are not interchangeable.** A rail's secrets must come from
+the environment its mode names: Polar's sandbox organization (sandbox.polar.sh) or its
+live one, and SePay's Test-mode or Live-mode webhook. Switching a mode means replacing
+the token, the secret and, for Polar, the product ids together.
+
+**Production reads them from prod.env.** `prod.env.example` lists every billing key as
+optional (`# KEY=`), so `scripts/check-prod-env.mjs` accepts a prod.env with or without
+them, and the api reads them through compose's `env_file:`. Billing works on production
+only once they are set there; without them both rails report `unavailable`. Owner setup
+for each rail:
+[credits-and-billing.md → Owner setup](./architecture/credits-and-billing.md#owner-setup-polar-sandbox-and-sepay).
+
+`EXPO_PUBLIC_WEB_BASE_URL` is the web origin the mobile app opens for "Buy credits on
+the web" (`apps/mobile/src/config/web-base-url.ts`). Like the API origin beside it,
+Expo inlines it at bundle time, so a change needs a new build.
+
+Webhook endpoints: `https://<api>/billing/webhooks/polar` and
+`https://<api>/billing/webhooks/sepay`. The web shows the QR from `vietqr.app`,
+which its CSP `img-src` must allow.
 
 ## Build-time keys
 
