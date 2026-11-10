@@ -1,37 +1,9 @@
 'use client';
 
-import { Skeleton } from '@chatofy/ui/react';
 import { CascadePanel } from '@/components/translate/cascade-panel';
+import { TranslateSkeleton } from '@/components/translate/translate-skeleton';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { languageVoice, pairFor, type ConversationMode } from '@/lib/translate-settings';
-
-/**
- * The screen's geometry, before its settings are known.
- *
- * Reserves the pair and the dock at the heights they actually take, so the real
- * panel replaces it without moving anything below.
- */
-function TranslateSkeleton() {
-  return (
-    // The same flex chain the real panel uses, so the pair is already the height
-    // it will keep. A fixed-height placeholder under a panel that fills the
-    // viewport is a jump on every load — the larger of the two shifts, since it
-    // moves the dock rather than a line of text.
-    <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-4">
-      {/* The same bound the real section carries, so the dock sits at the height it
-          will keep rather than jumping when settings land. It is on the section
-          because the number of scroll regions is a setting — see
-          `cascade-panel.tsx`. */}
-      <div className="border-hairline flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border">
-        <Skeleton className="m-0 h-[58px] rounded-b-none" />
-        <Skeleton className="m-3.5 min-h-0 flex-1" />
-      </div>
-      <div className="flex justify-center">
-        <Skeleton className="h-11 w-52 rounded-full" />
-      </div>
-    </div>
-  );
-}
 
 /**
  * The translator, as both of its pages draw it: `/translate/one-way` and
@@ -79,7 +51,7 @@ export function TranslatePageBody({ conversationMode }: { conversationMode: Conv
   // a layout that rearranges for content that appears from nowhere, which is the
   // larger shift of the two, and leaving a client whose JavaScript never arrives
   // with a permanently blank screen instead of a usable panel.
-  if (!ready) return <TranslateSkeleton />;
+  if (!ready) return <TranslateSkeleton conversationMode={conversationMode} />;
 
   return (
     <CascadePanel
