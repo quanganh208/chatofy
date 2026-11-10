@@ -541,6 +541,14 @@ export function CascadePanel({
         </p>
       ) : null}
 
+      {/* Credits running low: a readout like the line above, because the
+          conversation goes on. The stop that may follow is the error below. */}
+      {conversation.notice ? (
+        <p role="status" className="text-muted-foreground text-hint" data-conversation-notice>
+          {conversation.notice}
+        </p>
+      ) : null}
+
       {conversation.error ? (
         <Alert variant="live">
           <AlertDescription>{conversation.error}</AlertDescription>

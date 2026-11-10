@@ -5,6 +5,7 @@ import {
   ProviderConnectionError,
   ProviderResponseError,
 } from '../../errors/provider-errors.js';
+import type { LlmCallEvent } from '../../interfaces/llm-call-event.js';
 import { OpenAiCompatibleSummarizationProvider } from './openai-compatible-summarization-provider.js';
 
 /**
@@ -125,5 +126,105 @@ describe('OpenAiCompatibleSummarizationProvider', () => {
     expect(body.messages[0]!.content).toContain('Write the title in Vietnamese');
     expect(body.messages[1]!.content).toContain('<transcript>');
     expect(body.max_tokens).toBeLessThan(1_000);
+  });
+
+  describe('reporting each call', () => {
+    const reporting = (events: LlmCallEvent[]) =>
+      new OpenAiCompatibleSummarizationProvider({
+        apiKey: 'k',
+        baseUrl: 'https://host.example/v1',
+        model: 'google/gemini-3.7-flash',
+        name: 'commandcode-minutes',
+        onCall: (event) => events.push(event),
+      });
+
+    function answerWithUsage(content: string, usage: unknown) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ choices: [{ message: { content } }], usage }), {
+              status: 200,
+            }),
+        ),
+      );
+    }
+
+    it('emits one minutes event per pass with the host token counts', async () => {
+      const events: LlmCallEvent[] = [];
+      answerWithUsage(JSON.stringify(MINUTES), {
+        prompt_tokens: 1200,
+        completion_tokens: 240,
+        prompt_tokens_details: { cached_tokens: 1024 },
+      });
+      await reporting(events).summarize(request);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        kind: 'minutes',
+        host: 'commandcode-minutes',
+        model: 'google/gemini-3.7-flash',
+        ok: true,
+        inputTokens: 1200,
+        outputTokens: 240,
+        cachedInputTokens: 1024,
+      });
+      expect(events[0]!.promptHash).toMatch(/^[0-9a-f]{8}$/);
+      expect(events[0]!.purpose).toBeUndefined();
+    });
+
+    it('emits a title event', async () => {
+      const events: LlmCallEvent[] = [];
+      answerWithUsage(JSON.stringify({ title: 'Rent' }), {
+        prompt_tokens: 300,
+        completion_tokens: 9,
+      });
+      await reporting(events).title({ transcript: 'An: rent', language: 'en' });
+      expect(events).toEqual([
+        expect.objectContaining({ kind: 'title', ok: true, inputTokens: 300, outputTokens: 9 }),
+      ]);
+    });
+
+    it('leaves the token fields undefined when the host sends no usage', async () => {
+      const events: LlmCallEvent[] = [];
+      answerWithUsage(JSON.stringify(MINUTES), undefined);
+      await reporting(events).summarize(request);
+      expect(events).toHaveLength(1);
+      expect(events[0]!.inputTokens).toBeUndefined();
+      expect(events[0]!.outputTokens).toBeUndefined();
+      expect(events[0]!.cachedInputTokens).toBeUndefined();
+    });
+
+    it('emits a failed event on a refusal and on an unreachable host', async () => {
+      const events: LlmCallEvent[] = [];
+      answer('busy', 503);
+      await expect(reporting(events).summarize(request)).rejects.toMatchObject({ status: 503 });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new TypeError('fetch failed');
+        }),
+      );
+      await expect(reporting(events).summarize(request)).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+      expect(events.map((e) => [e.kind, e.ok])).toEqual([
+        ['minutes', false],
+        ['minutes', false],
+      ]);
+    });
+
+    it('never fails the pass when the listener throws', async () => {
+      answer(JSON.stringify(MINUTES));
+      const broken = new OpenAiCompatibleSummarizationProvider({
+        apiKey: 'k',
+        baseUrl: 'https://host.example/v1',
+        model: 'm',
+        onCall: () => {
+          throw new Error('sink down');
+        },
+      });
+      await expect(broken.summarize(request)).resolves.toMatchObject({ summary: MINUTES.summary });
+    });
   });
 });

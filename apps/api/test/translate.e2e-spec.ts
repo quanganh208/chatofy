@@ -13,6 +13,11 @@ import { errorBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /**
  * Boots the full AppModule with the provider factory overridden by fakes, so the
@@ -55,6 +60,9 @@ describe('POST /translate (e2e)', () => {
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => fakeProviders })
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -62,6 +70,7 @@ describe('POST /translate (e2e)', () => {
     app.use(requestIdMiddleware);
     await app.init();
     identity = await registerAndLogin(app);
+    ledger.seed(identity.userId, 600);
   });
 
   afterAll(async () => {

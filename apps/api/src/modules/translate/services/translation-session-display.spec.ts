@@ -13,6 +13,8 @@ import { encodePcm16Wav } from '../audio/wav-codec';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 import { DeclaredLanguageIdentifier } from '../session/language-identifier';
 import { restoreKeepsWords } from './display-restore-request';
+import { TranslationMeter } from '../../credits/translation-meter';
+import { InMemoryCreditLedger } from '../../../../test/utils/in-memory-credit-ledger';
 
 /**
  * Display typesetting on a finished turn.
@@ -232,6 +234,7 @@ function makeService(
       metrics,
       languageSupport,
       new DeclaredLanguageIdentifier(),
+      new TranslationMeter(new InMemoryCreditLedger()),
     ),
     turns,
     inputs,

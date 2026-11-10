@@ -30,7 +30,7 @@
 // models reject `thinkingBudget` outright ("Request contains an invalid
 // argument"). Leaving the field off is both the only shape every model tried
 // has accepted and the fastest one measured.
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type GenerateContentResponseUsageMetadata } from '@google/genai';
 import type {
   TranslationProvider,
   TranslationRequest,
@@ -60,6 +60,9 @@ import {
   wrapTranscript,
 } from './prompt-builder.js';
 import { StreamForwarder } from './stream-forwarder.js';
+import type { LlmCallListener, LlmCallPurpose } from '../../interfaces/llm-call-event.js';
+import { emitLlmCall, promptHash } from '../openai-compatible/llm-call-reporting.js';
+import { geminiUsageFields } from './gemini-usage-fields.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
 
 // Order leads with the newest flash model, because the two were measured a tie
@@ -114,6 +117,8 @@ export interface GeminiTranslationConfig {
    * should not acquire one; the caller owns how it is reported.
    */
   onQuotaCooldown?: (event: { model: string; cooldownMs: number }) => void;
+  /** Told about every request, each walked (key, model) attempt included. */
+  onCall?: LlmCallListener;
 }
 
 export class GeminiTranslationProvider implements TranslationProvider {
@@ -121,6 +126,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
   private readonly keys: KeyRotation;
   private readonly models: string[];
   private readonly onQuotaCooldown?: GeminiTranslationConfig['onQuotaCooldown'];
+  private readonly onCall: LlmCallListener | undefined;
 
   constructor(config: GeminiTranslationConfig) {
     const apiKeys = resolveApiKeys(config.apiKey);
@@ -130,6 +136,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     this.keys = new KeyRotation(apiKeys);
     this.models = config.models?.length ? config.models : DEFAULT_MODELS;
     this.onQuotaCooldown = config.onQuotaCooldown;
+    this.onCall = config.onCall;
   }
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
@@ -160,7 +167,16 @@ export class GeminiTranslationProvider implements TranslationProvider {
     const reminder = buildReminder(req.targetLanguage, text, req.sourceLanguage);
 
     return this.walk(req.models, (client, model) =>
-      this.generate(client, model, instruction, reminder, text, context?.text ?? null, req.onChunk),
+      this.generate(
+        client,
+        model,
+        instruction,
+        reminder,
+        text,
+        context?.text ?? null,
+        req.purpose,
+        req.onChunk,
+      ),
     );
   }
 
@@ -316,42 +332,64 @@ export class GeminiTranslationProvider implements TranslationProvider {
     reminder: string,
     text: string,
     context: string | null,
+    purpose: LlmCallPurpose | undefined,
     onChunk?: (delta: string, restart: boolean) => void,
   ): Promise<TranslationResult> {
-    const stream = await client.models.generateContentStream({
-      model,
-      // The transcript and the reminder are two parts of ONE user turn: the
-      // reminder has to come after the data to be the last thing read, and a
-      // separate turn would invite the model to answer the turn before it.
-      //
-      // Context leads, for the same positional reason read the other way round:
-      // it has to be in view BEFORE the transcript to disambiguate it, and it
-      // must not be the last thing in the turn, because the last thing in a
-      // turn is what a model weighs most and that slot belongs to the reminder.
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            ...(context ? [{ text: context }] : []),
-            { text: wrapTranscript(text) },
-            { text: reminder },
-          ],
-        },
-      ],
-      config: { systemInstruction },
-    });
-
+    const contents = [
+      {
+        role: 'user',
+        parts: [
+          ...(context ? [{ text: context }] : []),
+          { text: wrapTranscript(text) },
+          { text: reminder },
+        ],
+      },
+    ];
     let translated = '';
     let reason: string | undefined;
-    // One forwarder per ATTEMPT, so a retry on another key announces its own
-    // restart rather than appending to what the abandoned attempt showed.
-    const forwarder = onChunk ? new StreamForwarder(onChunk) : null;
-    for await (const chunk of stream) {
-      translated += chunk.text ?? '';
-      // Only the chunk that stops generation carries the reason, and it is the
-      // one thing that explains an empty body.
-      reason ??= chunk.candidates?.[0]?.finishReason;
-      forwarder?.push(translated);
+    // One event per attempt, emitted however it ends. The counts ride on the
+    // stream's last chunk, so the latest metadata seen is the request's total.
+    const started = Date.now();
+    let ok = false;
+    let usage: GenerateContentResponseUsageMetadata | undefined;
+    try {
+      const stream = await client.models.generateContentStream({
+        model,
+        // The transcript and the reminder are two parts of ONE user turn: the
+        // reminder has to come after the data to be the last thing read, and a
+        // separate turn would invite the model to answer the turn before it.
+        //
+        // Context leads, for the same positional reason read the other way round:
+        // it has to be in view BEFORE the transcript to disambiguate it, and it
+        // must not be the last thing in the turn, because the last thing in a
+        // turn is what a model weighs most and that slot belongs to the reminder.
+        contents,
+        config: { systemInstruction },
+      });
+
+      // One forwarder per ATTEMPT, so a retry on another key announces its own
+      // restart rather than appending to what the abandoned attempt showed.
+      const forwarder = onChunk ? new StreamForwarder(onChunk) : null;
+      for await (const chunk of stream) {
+        translated += chunk.text ?? '';
+        // Only the chunk that stops generation carries the reason, and it is the
+        // one thing that explains an empty body.
+        reason ??= chunk.candidates?.[0]?.finishReason;
+        usage = chunk.usageMetadata ?? usage;
+        forwarder?.push(translated);
+      }
+      ok = true;
+    } finally {
+      emitLlmCall(this.onCall, {
+        kind: 'translate',
+        ...(purpose === undefined ? {} : { purpose }),
+        host: this.name,
+        model,
+        ms: Date.now() - started,
+        ok,
+        ...geminiUsageFields(usage),
+        promptHash: promptHash(model, [{ systemInstruction }, ...contents]),
+      });
     }
 
     // Stripped BEFORE the emptiness test on purpose: a reply that is nothing

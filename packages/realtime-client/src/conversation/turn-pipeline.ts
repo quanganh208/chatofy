@@ -1,4 +1,4 @@
-import type { SessionOptions } from '@chatofy/types';
+import type { TurnStartOptions } from '../transport/translate-socket.js';
 import { pcm16ToBase64, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
 import { MAX_CAPTURE_GAP_MS } from '../state/display-groups.js';
 import { newTurnId } from '../transport/translate-socket.js';
@@ -76,7 +76,7 @@ const MAX_PENDING_MS = 20_000;
 const REFUSAL_RETRY_MS = 750;
 
 export interface TurnPipelineTransport {
-  startSession(options: SessionOptions, turnId: string): void;
+  startSession(options: TurnStartOptions, turnId: string): void;
   /**
    * Push one audio frame. Returns whether it actually left the socket.
    *
@@ -201,7 +201,7 @@ export class TurnPipeline {
   private capturing: string | null = null;
   /** How the most recent captured turn ended, for the turn that opens after it. */
   private lastCapture: { closedAt: number; cutForced: boolean } | null = null;
-  private options: SessionOptions | null = null;
+  private options: TurnStartOptions | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Audio that arrived belonging to no turn at all.
@@ -221,7 +221,7 @@ export class TurnPipeline {
   ) {}
 
   /** Settings every turn of this conversation is opened with. */
-  configure(options: SessionOptions): void {
+  configure(options: TurnStartOptions): void {
     this.options = options;
   }
 

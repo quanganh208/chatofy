@@ -21,6 +21,11 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 import { SpeechLanguageSupport } from '../src/modules/translate/providers/speech-language-support';
 import { encodePcm16Wav } from '../src/modules/translate/audio/wav-codec';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /**
  * Drives /ws/translate over a real socket.
@@ -110,6 +115,9 @@ describe('/ws/translate (e2e)', () => {
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => fakeProviders })
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -117,6 +125,7 @@ describe('/ws/translate (e2e)', () => {
     // A real port: the point of this suite is to speak the actual protocol.
     await app.listen(0);
     identity = await registerAndLogin(app);
+    ledger.seed(identity.userId, 600);
     const address = app.getHttpServer().address() as AddressInfo;
     url = `ws://127.0.0.1:${address.port}/ws/translate`;
   });

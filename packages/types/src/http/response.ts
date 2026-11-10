@@ -21,6 +21,14 @@ export const errorCodeSchema = z.enum([
    * caller what to change).
    */
   'SERVICE_UNAVAILABLE',
+  /** Sent with 402: the account has too few AI credits for this request. */
+  'CREDITS_EXHAUSTED',
+  /**
+   * Sent with 403: checkout is not open to this account yet. Distinct from
+   * `FORBIDDEN` so a client can explain why buying is disabled instead of
+   * treating it as a permissions fault.
+   */
+  'CHECKOUT_NOT_OPEN',
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 

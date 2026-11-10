@@ -2,6 +2,7 @@
  * The public shapes of a conference call, shared by the hook, the connection
  * that drives it, and the in-call components.
  */
+import type { ConferenceLegEndReason } from '@chatofy/realtime-client';
 import type { ConferenceChatMessage } from '@chatofy/types/events';
 
 export type { ConferenceChatMessage };
@@ -62,8 +63,12 @@ export interface ConferenceSink {
   peers(update: (prev: PeerMap) => PeerMap): void;
   audioBlocked(blocked: boolean): void;
   translating(active: boolean): void;
-  /** The speaker's translation ended for good while the call goes on. */
-  translationEnded(ended: boolean): void;
+  /**
+   * The speaker's translation ended for good while the call goes on, and why;
+   * `null` clears it. The reason picks the readout's copy — running out of
+   * credits says so — and nothing else.
+   */
+  translationEnded(reason: ConferenceLegEndReason | null): void;
   chat(message: ConferenceChatMessage): void;
   /** The server refused the last chat message this client sent. */
   chatRefused(refusal: ConferenceChatRefusal): void;

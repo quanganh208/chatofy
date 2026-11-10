@@ -7,6 +7,7 @@ import {
   type TurnKeyedAction,
 } from '@chatofy/realtime-client';
 import type { LanguagePair } from '@chatofy/types';
+import { CreditContext, creditErrorMessage } from './credits';
 import type { LegRunner } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
@@ -92,6 +93,8 @@ export interface LanguagePairSessionDeps {
  *                  of seconds, so length is what has to end a turn.
  */
 export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRunner {
+  // Per leg, like the session: each leg's socket meters and warns on its own.
+  const credits = new CreditContext();
   return new ConversationSession(
     {
       // Already open, and owned by the caller: this is either the captured tab
@@ -142,11 +145,23 @@ export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRun
       onStatus: () => {},
       onLevel: () => {},
       onMuted: () => {},
-      onError: (message) => deps.onError(message ?? undefined),
+      // The credit codes in the reader's words; every other error keeps the
+      // server's text. A low balance is a notice — the session keeps running —
+      // and its sentence says so where the popup shows it.
+      onError: (message, cause) =>
+        deps.onError(
+          message === null ? undefined : (creditErrorMessage(cause, credits) ?? message),
+        ),
       onEchoHeard: () => {},
       onPlaybackBusy: deps.onBusy,
-      onServerEvent: deps.onServerEvent,
-      onReset: deps.onReset,
+      onServerEvent: (event) => {
+        credits.observe(event);
+        deps.onServerEvent(event);
+      },
+      onReset: () => {
+        credits.reset();
+        deps.onReset();
+      },
       onTurnAbandoned: (sessionId) => deps.onTurnAbandoned(sessionId),
       onLog: deps.onLog,
       onStopped: deps.onStopped,

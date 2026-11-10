@@ -11,6 +11,7 @@ name, so every section they mention is listed below with the file it now lives i
 | [Authentication](./architecture/authentication.md)                             | Tokens (access/refresh lifetimes, cookie session) · Guard registration · WebSocket auth · Google account linking · Registration · Mail · Test substrate · Avatar storage (and the R2 bucket layout)                                                 |
 | [Data Flow](./architecture/data-flow.md)                                       | `POST /translate` pipeline · Streaming turn (`/ws/translate`) · Meeting speaker legs · Live mode on the same socket (retired) · AI context and hints · Standard request/response                                                                    |
 | [Modules, Browser Extension and CI/CD](./architecture/modules-extension-ci.md) | API module organization · Browser extension path · CI/CD                                                                                                                                                                                            |
+| [Credits and Billing](./architecture/credits-and-billing.md)                   | The unit and multipliers · Ledger, spend order and lease lifecycle · Payment rails and webhook rules · Owner CLI · Go-live checklist · Owner setup · Demo runbook                                                                                   |
 
 Video meetings are on `main` and always loaded; the design and its open decisions are in
 [`video-conferencing-architecture.md`](./video-conferencing-architecture.md), meeting

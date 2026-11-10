@@ -28,6 +28,11 @@ import {
   registerAndLogin,
   type Identity,
 } from './utils/auth-fixture';
+import { CREDIT_LEDGER } from '../src/modules/credits/credit-ledger.port';
+import { InMemoryCreditLedger } from './utils/in-memory-credit-ledger';
+
+/** Every account here starts with the monthly Free allowance; the seeded users get more. */
+const ledger = new InMemoryCreditLedger();
 
 /** The outcome of one raw HTTP upgrade attempt against /ws/translate. */
 interface UpgradeResult {
@@ -101,6 +106,9 @@ describe('WebSocket upgrade auth (e2e)', () => {
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => ({}) })
+      // The ledger behind the meter and minutes, without a database.
+      .overrideProvider(CREDIT_LEDGER)
+      .useValue(ledger)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -108,6 +116,7 @@ describe('WebSocket upgrade auth (e2e)', () => {
     await app.listen(0);
     port = (app.getHttpServer().address() as AddressInfo).port;
     identity = await registerAndLogin(app);
+    ledger.seed(identity.userId, 600);
 
     startTurn = vi.spyOn(app.get(TranslationSessionService), 'start');
   });

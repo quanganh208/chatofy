@@ -220,6 +220,59 @@ export const envSchema = z.object({
   CLOUDFLARE_TURN_KEY_API_TOKEN: emptyStringAsUndefined(
     z.string().min(1).optional(),
   ),
+
+  // ── Billing (Polar and SePay) ─────────────────────────────────────────────
+  // All OPTIONAL: a deployment without billing still boots, and a rail whose
+  // secrets are missing reports itself `unavailable` (see rail-status.ts) rather
+  // than failing at the first checkout.
+  //
+  // Who may check out at all: comma-separated emails, each compared through
+  // `normalizeEmail`. Unset or empty means no one — checkout is not open to the
+  // public, so the default is closed.
+  BILLING_CHECKOUT_ALLOWLIST: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
+  // Which Polar environment: `sandbox` (sandbox-api.polar.sh, test cards) or
+  // `live` (api.polar.sh, real money). The token and webhook secret must come
+  // from the same environment.
+  POLAR_MODE: emptyStringAsUndefined(
+    z.enum(['sandbox', 'live']).default('sandbox'),
+  ),
+  // An organization access token (scopes checkouts:write, customer_sessions:write)
+  // and the webhook endpoint's secret (`whsec_…`). Either missing: rail unavailable.
+  POLAR_ACCESS_TOKEN: emptyStringAsUndefined(z.string().min(1).optional()),
+  POLAR_WEBHOOK_SECRET: emptyStringAsUndefined(z.string().min(1).optional()),
+  // Plan code to Polar product id: `pro_monthly=<id>,topup_250=<id>,...`. A
+  // plan with no entry is not offered on Polar. The webhook maps an order's
+  // product back to its plan through the same list.
+  POLAR_PRODUCT_IDS: emptyStringAsUndefined(
+    z
+      .string()
+      .regex(
+        /^[a-z0-9_]+=[^\s,=]+(,[a-z0-9_]+=[^\s,=]+)*$/,
+        'expected plan_code=product_id pairs separated by commas',
+      )
+      .optional(),
+  ),
+  // `sandbox` is SePay's Test mode (simulated transfers); `live` is the real
+  // bank account. Shown to the client so a test-mode QR is labelled as one.
+  SEPAY_MODE: emptyStringAsUndefined(
+    z.enum(['sandbox', 'live']).default('sandbox'),
+  ),
+  // The webhook's HMAC-SHA256 secret, and the account and bank the VietQR names
+  // (bank as SePay's short name, e.g. `MBBank`). Any missing: rail unavailable.
+  SEPAY_WEBHOOK_SECRET: emptyStringAsUndefined(z.string().min(1).optional()),
+  SEPAY_BANK_ACCOUNT: emptyStringAsUndefined(z.string().min(1).optional()),
+  SEPAY_BANK: emptyStringAsUndefined(z.string().min(1).optional()),
+  // The memo prefix every order code starts with. Must equal the prefix of the
+  // payment-code structure configured in SePay (case-sensitive there), or the
+  // webhook's `code` arrives null and matching falls back to the memo text.
+  SEPAY_ORDER_PREFIX: emptyStringAsUndefined(
+    z
+      .string()
+      .regex(/^[A-Z]{2,5}$/)
+      .default('CHF'),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

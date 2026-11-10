@@ -295,7 +295,11 @@ export default function ConferenceCallScreen() {
           accessibilityRole="text"
           accessibilityLiveRegion="polite"
         >
-          {t('common.conference.translationEnded')}
+          {t(
+            translationEnded === 'credits_exhausted'
+              ? 'common.conference.translationEndedNoCredits'
+              : 'common.conference.translationEnded',
+          )}
         </Text>
       ) : null}
 

@@ -44,6 +44,8 @@ import {
   type LanguageIdentifier,
 } from '../session/language-identifier';
 import type { TurnLanguagePlan } from '../session/turn-language-plan';
+import { TranslationMeter } from '../../credits/translation-meter';
+import { InMemoryCreditLedger } from '../../../../test/utils/in-memory-credit-ledger';
 
 const SAMPLE_RATE = 16000;
 const TTS_SAMPLE_RATE = 24000;
@@ -238,6 +240,7 @@ function makeService(
       metrics,
       languageSupport,
       identifier,
+      new TranslationMeter(new InMemoryCreditLedger()),
       costEnv === null ? undefined : configFrom(costEnv),
     ),
     transcribe,
@@ -4875,6 +4878,7 @@ describe('language fan-out (through the real pipeline)', () => {
       metrics,
       languageSupport,
       identifier,
+      new TranslationMeter(new InMemoryCreditLedger()),
     );
     return { service, stt, synthesize, synthesizeStream };
   }
@@ -5317,5 +5321,170 @@ describe('the meeting turn ceiling', () => {
     service.start(late, leg, undefined, 'dave');
 
     expect(late.ofType('server.session.ready')).toHaveLength(1);
+  });
+});
+
+describe('credit metering hooks', () => {
+  /** Seconds of 16-bit mono audio a frame's payload holds at the turn's rate. */
+  const SECONDS_PER_FRAME =
+    Math.round(SAMPLE_RATE * 2 * 0.32) / (SAMPLE_RATE * 2);
+
+  it('reports what each turn it opened adds beyond the first language', () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+    expect(
+      service.start(
+        socket,
+        {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+          alsoTranslateInto: ['zh'],
+        },
+        't1',
+      ),
+    ).toEqual({ sessionId: expect.any(String), extraTargets: 1 });
+    // Extras ride on a declared one-way turn only.
+    expect(
+      service.start(
+        socket,
+        {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+          twoWay: true,
+          alsoTranslateInto: ['zh'],
+        },
+        't2',
+      ),
+    ).toEqual({ sessionId: expect.any(String), extraTargets: 0 });
+  });
+
+  it('returns undefined for a start it refused', () => {
+    const { service } = makeService({ languageRefusal: 'not served' });
+    expect(
+      service.start(
+        new FakeSocket(),
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
+        't1',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('returns the seconds an accepted frame added', () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    expect(service.pushFrame(socket, frame({ sessionId }))).toBeCloseTo(
+      SECONDS_PER_FRAME,
+      6,
+    );
+  });
+
+  it('returns 0 for every kind of refused frame', () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+    // No turn open at all, then a turn this socket does not hold.
+    expect(service.pushFrame(socket, frame({ sessionId: 'none' }))).toBe(0);
+    const sessionId = open(service, socket);
+    expect(service.pushFrame(socket, frame({ sessionId: 'other' }))).toBe(0);
+    // Not pcm16.
+    expect(
+      service.pushFrame(socket, frame({ sessionId, encoding: 'opus' })),
+    ).toBe(0);
+    service.pushFrame(socket, frame({ sessionId, sequence: 1 }));
+    // A sequence that did not advance, and a sample rate that changed.
+    expect(service.pushFrame(socket, frame({ sessionId, sequence: 1 }))).toBe(
+      0,
+    );
+    expect(
+      service.pushFrame(
+        socket,
+        frame({ sessionId, sequence: 2, sampleRate: 48000 }),
+      ),
+    ).toBe(0);
+    // Over the length cap: refused, and the turn closes.
+    expect(
+      service.pushFrame(
+        socket,
+        frame({
+          sessionId,
+          sequence: 3,
+          payload: Buffer.alloc(MAX_SAMPLE_RATE * 2 * 60 + 2).toString(
+            'base64',
+          ),
+        }),
+      ),
+    ).toBe(0);
+  });
+
+  it('returns 0 for a frame that reaches a turn already being translated', async () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+    const ending = service.end(socket, sessionId);
+    expect(service.pushFrame(socket, frame({ sessionId, sequence: 1 }))).toBe(
+      0,
+    );
+    await ending;
+  });
+
+  it('settles a turn when it closes and every open turn when the socket drops', async () => {
+    const turnEnded = vi.spyOn(TranslationMeter.prototype, 'turnEnded');
+    try {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      const first = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId: first }));
+      await service.end(socket, first);
+      expect(turnEnded).toHaveBeenCalledWith(first);
+
+      const second = open(service, socket, 't2');
+      const third = open(service, socket, 't3');
+      service.disconnect(socket);
+      expect(turnEnded).toHaveBeenCalledWith(second);
+      expect(turnEnded).toHaveBeenCalledWith(third);
+    } finally {
+      turnEnded.mockRestore();
+    }
+  });
+
+  it('ends every listening turn through end() with the credit reason', async () => {
+    const { service, transcribeAndTranslate } = makeService();
+    const socket = new FakeSocket();
+    const a = open(service, socket, 'a');
+    const b = open(service, socket, 'b');
+    service.pushFrame(socket, frame({ sessionId: a }));
+    service.pushFrame(socket, frame({ sessionId: b }));
+    const scoped: string[] = [];
+
+    service.endAllForCredits(socket, 'credits_exhausted', (id, work) => {
+      scoped.push(id);
+      return work();
+    });
+    for (let i = 0; i < 20; i += 1) await settleMicrotasks();
+
+    expect(scoped.sort()).toEqual([a, b].sort());
+    // What was said is still translated, not dropped.
+    expect(transcribeAndTranslate).toHaveBeenCalledTimes(2);
+    expect(socket.ofType('server.session.ended').map((e) => e.reason)).toEqual([
+      'credits_exhausted',
+      'credits_exhausted',
+    ]);
+    // Later frames for those turns are refused, so they are never billed.
+    expect(
+      service.pushFrame(socket, frame({ sessionId: a, sequence: 9 })),
+    ).toBe(0);
+  });
+
+  it('leaves a turn that is already translating to finish on its own', async () => {
+    const { service, transcribeAndTranslate } = makeService();
+    const socket = new FakeSocket();
+    const a = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId: a }));
+    const ending = service.end(socket, a);
+    service.endAllForCredits(socket, 'credits_exhausted');
+    await ending;
+    expect(transcribeAndTranslate).toHaveBeenCalledTimes(1);
+    expect(socket.ofType('server.error')).toHaveLength(0);
   });
 });

@@ -218,6 +218,6 @@ export class ConferenceConnection {
     sink.selfSocketId(null);
     sink.audioBlocked(false);
     sink.translating(false);
-    sink.translationEnded(false);
+    sink.translationEnded(null);
   }
 }

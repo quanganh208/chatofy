@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BadGatewayException,
   BadRequestException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -25,6 +26,10 @@ import type { ConversationStore } from '../conversations/interfaces/conversation
 import type { MinutesStore } from './interfaces/minutes-store.interface';
 import { MinutesService } from './minutes.service';
 import { MinutesSummarizer } from './minutes-summarizer.service';
+import { CodedHttpException } from '../../common/exceptions/coded-http.exception';
+// The ledger double the fast e2e suites use: a run's charge and refund are the
+// behaviour under test here, so they go through the real spend rules.
+import { InMemoryCreditLedger } from '../../../test/utils/in-memory-credit-ledger';
 
 /**
  * Minimal in-process doubles, defined HERE rather than imported from
@@ -101,6 +106,7 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
 function makeService(
   summarize: SummarizationProvider['summarize'],
   turns: ConversationTurn[] = [turn()],
+  ledger = new InMemoryCreditLedger(),
 ) {
   const { conversations, conversationStore, minutesStore, key } = fakeStores();
   const registry = new ProviderRegistry();
@@ -122,6 +128,7 @@ function makeService(
     new MinutesSummarizer(config, registry),
     minutesStore,
     conversationStore as ConversationStore,
+    ledger,
   );
 
   const seed = (ownerId: string, conversationId: string, rows = turns) => {
@@ -150,7 +157,7 @@ function makeService(
   const forget = (ownerId: string, conversationId: string) =>
     conversations.delete(key(ownerId, conversationId));
 
-  return { service, store: minutesStore, seed, forget };
+  return { service, store: minutesStore, seed, forget, ledger };
 }
 
 describe('MinutesService', () => {
@@ -331,5 +338,119 @@ describe('MinutesService', () => {
     await service.generate('u1', 'c1', request);
     await service.generate('u1', 'c2', request);
     expect(summarize).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('MinutesService credits', () => {
+  const RUN = 3 * 60;
+  const request: GenerateMinutesRequest = {};
+  const available = async (ledger: InMemoryCreditLedger) =>
+    (await ledger.balance('u1')).available;
+
+  it('charges the caller one run, linked to the conversation', async () => {
+    const { service, seed, ledger } = makeService(
+      vi.fn().mockResolvedValue(draft),
+    );
+    await seed('u1', 'c1');
+    const before = await available(ledger);
+    await service.generate('u1', 'c1', request);
+    expect(await available(ledger)).toBe(before - RUN);
+    expect(ledger.entries.filter((e) => e.kind === 'debit')).toEqual([
+      expect.objectContaining({
+        userId: 'u1',
+        amount: -RUN,
+        conversationId: 'c1',
+        idempotencyKey: expect.stringMatching(/^minutes:/),
+      }),
+    ]);
+  });
+
+  it('refuses with 402 CREDITS_EXHAUSTED before any provider call when credits are short', async () => {
+    const summarize = vi.fn().mockResolvedValue(draft);
+    const { service, seed } = makeService(
+      summarize,
+      undefined,
+      new InMemoryCreditLedger({ freeCredits: 2 }),
+    );
+    await seed('u1', 'c1');
+    const refused = service.generate('u1', 'c1', request);
+    await expect(refused).rejects.toBeInstanceOf(CodedHttpException);
+    await expect(refused).rejects.toMatchObject({
+      code: 'CREDITS_EXHAUSTED',
+      status: 402,
+    });
+    expect(summarize).not.toHaveBeenCalled();
+  });
+
+  it('answers 503 when the ledger cannot be reached, without calling the provider', async () => {
+    const summarize = vi.fn().mockResolvedValue(draft);
+    const { service, seed, ledger } = makeService(summarize);
+    await seed('u1', 'c1');
+    ledger.setUnavailable(true);
+    await expect(service.generate('u1', 'c1', request)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(summarize).not.toHaveBeenCalled();
+  });
+
+  it('refunds the run when the provider fails', async () => {
+    const { service, seed, ledger } = makeService(
+      vi.fn().mockRejectedValue(new ProviderResponseError('non-JSON minutes')),
+    );
+    await seed('u1', 'c1');
+    const before = await available(ledger);
+    await expect(service.generate('u1', 'c1', request)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(await available(ledger)).toBe(before);
+    expect(ledger.entries.filter((e) => e.kind === 'refund')).toEqual([
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^refund:/),
+      }),
+    ]);
+  });
+
+  it('still returns the provider error when the refund itself fails', async () => {
+    const ledger = new InMemoryCreditLedger();
+    const warn = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
+    const { service, seed } = makeService(
+      vi.fn().mockImplementation(async () => {
+        ledger.setUnavailable(true);
+        throw new ProviderResponseError('non-JSON minutes');
+      }),
+      undefined,
+      ledger,
+    );
+    await seed('u1', 'c1');
+    await expect(service.generate('u1', 'c1', request)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(
+      warn.mock.calls.some(([line]) =>
+        /minutes refund refund:\S+ of debit minutes:\S+ \(\d+ credits\) for user u1 failed/.test(
+          String(line),
+        ),
+      ),
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('does not charge a transcript refused at the prompt ceiling', async () => {
+    const { service, seed, ledger } = makeService(
+      vi.fn().mockResolvedValue(draft),
+    );
+    await seed(
+      'u1',
+      'c1',
+      Array.from({ length: 30 }, (_, position) =>
+        turn({ position, sourceText: 'x'.repeat(3_000) }),
+      ),
+    );
+    await expect(service.generate('u1', 'c1', request)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(ledger.entries.some((e) => e.kind === 'debit')).toBe(false);
   });
 });

@@ -5,6 +5,8 @@ import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
 import { SessionTerminator } from '../auth/session-terminator';
 import { VERIFIED_USER_ID } from './ws-auth';
 import { TranslateGateway } from './translate.gateway';
+import { TranslationMeter } from '../credits/translation-meter';
+import { InMemoryCreditLedger } from '../../../test/utils/in-memory-credit-ledger';
 import type {
   StreamSocket,
   TranslationSessionService,
@@ -14,11 +16,19 @@ describe('TranslateGateway', () => {
   let sessions: Mocked<
     Pick<
       TranslationSessionService,
-      'start' | 'pushFrame' | 'speculate' | 'end' | 'disconnect'
+      | 'start'
+      | 'pushFrame'
+      | 'speculate'
+      | 'end'
+      | 'disconnect'
+      | 'endAllForCredits'
+      | 'refuseOverCapacity'
     >
   >;
   let auth: Mocked<AuthAdapter>;
   let gateway: TranslateGateway;
+  let ledger: InMemoryCreditLedger;
+  let meter: TranslationMeter;
   const socket: StreamSocket = { send: vi.fn() };
 
   beforeEach(() => {
@@ -28,7 +38,13 @@ describe('TranslateGateway', () => {
       speculate: vi.fn(),
       end: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn(),
+      endAllForCredits: vi.fn(),
+      refuseOverCapacity: vi.fn().mockReturnValue(false),
     };
+    // The real meter on the in-memory ledger: admission is part of every start.
+    ledger = new InMemoryCreditLedger();
+    meter = new TranslationMeter(ledger);
+    meter.attach(socket, 'user_1', vi.fn());
     // A mock verifier as an ordinary constructor argument, matching this
     // file's existing style. The upgrade check itself is covered directly in
     // ws-auth.spec.ts, which needs no gateway at all.
@@ -44,6 +60,7 @@ describe('TranslateGateway', () => {
       sessions as unknown as TranslationSessionService,
       auth,
       new SessionTerminator(),
+      meter,
     );
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
@@ -63,8 +80,8 @@ describe('TranslateGateway', () => {
   // The gateway is transport only: its whole job is to reject anything the
   // shared contract does not describe, then hand the rest to the state machine.
   describe('delegation', () => {
-    it('passes valid session.start options to the session service', () => {
-      gateway.handleSessionStart(
+    it('passes valid session.start options to the session service', async () => {
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -85,7 +102,7 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('forwards every option the contract carries, including the opt-in flags', () => {
+    it('forwards every option the contract carries, including the opt-in flags', async () => {
       // This is the regression the previous shape allowed. The gateway named
       // each option and rebuilt the object, so `embedSpeaker` and
       // `repairDisplay` — both optional, both parsed correctly here — were
@@ -98,7 +115,7 @@ describe('TranslateGateway', () => {
       // Asserting the WHOLE object rather than the two flags is deliberate. A
       // test that named them would have to be edited for the next field too,
       // which is the same failure one layer up.
-      gateway.handleSessionStart(
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -122,10 +139,10 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('defaults the voice for a start that names no gender', () => {
+    it('defaults the voice for a start that names no gender', async () => {
       // The field is optional on the wire so an older client keeps working; by
       // the time it reaches the state machine it must already be decided.
-      gateway.handleSessionStart(
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -143,8 +160,8 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('carries voice output and speed when the client sends them', () => {
-      gateway.handleSessionStart(
+    it('carries voice output and speed when the client sends them', async () => {
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -161,13 +178,13 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('CLAMPS a speed outside the accepted range instead of refusing the turn', () => {
+    it('CLAMPS a speed outside the accepted range instead of refusing the turn', async () => {
       // The distinction this asserts is the whole reason the field is written the
       // way it is. A rejected `client.session.start` throws a WsException, which
       // AllExceptionsFilter swallows — so the client is answered with silence and
       // sits in "connecting" forever, with clearing its own storage the only way
       // out. A clamped value starts the conversation.
-      gateway.handleSessionStart(
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -183,10 +200,10 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('starts a turn for a client that sends neither new field', () => {
+    it('starts a turn for a client that sends neither new field', async () => {
       // web and api do not deploy together, so a tab loaded before this change is
       // still sending the old shape and must keep working unchanged.
-      gateway.handleSessionStart(
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'en', target: 'vi' },
@@ -245,15 +262,19 @@ describe('TranslateGateway', () => {
   });
 
   describe('turn starts', () => {
-    const client = () => ({ send: vi.fn(), close: vi.fn() });
+    const client = () => {
+      const c = { send: vi.fn(), close: vi.fn() };
+      meter.attach(c, 'user_1', vi.fn());
+      return c;
+    };
     const sent = (c: ReturnType<typeof client>) =>
       c.send.mock.calls.map(
         ([body]) => JSON.parse(String(body)) as { type: string; code?: string },
       );
 
-    it('serves a turn start without closing or answering early', () => {
+    it('serves a turn start without closing or answering early', async () => {
       const c = client();
-      gateway.handleSessionStart(
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'vi', target: 'en' },
@@ -268,7 +289,7 @@ describe('TranslateGateway', () => {
 
     // A socket may hold several turns at once, which is exactly what the
     // extension does.
-    it('allows a second turn start on the same connection', () => {
+    it('allows a second turn start on the same connection', async () => {
       const start = () =>
         gateway.handleSessionStart(
           {
@@ -277,9 +298,165 @@ describe('TranslateGateway', () => {
           },
           socket,
         );
-      start();
-      expect(() => start()).not.toThrow();
+      await start();
+      await start();
       expect(sessions.start).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('credits', () => {
+    const start = (client: StreamSocket, extra: Record<string, unknown> = {}) =>
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'vi', target: 'en' },
+          turnId: 'turn-1',
+          ...extra,
+        },
+        client,
+      );
+    const lastSent = (client: StreamSocket) =>
+      JSON.parse(
+        (client.send as Mock<(data: string) => void>).mock.lastCall![0],
+      ) as Record<string, unknown>;
+
+    it('refuses a start from a socket with no verified owner as credits_exhausted', async () => {
+      const stranger: StreamSocket = { send: vi.fn() };
+      await start(stranger);
+      expect(sessions.start).not.toHaveBeenCalled();
+      expect(lastSent(stranger)).toMatchObject({
+        type: 'server.error',
+        code: 'credits_exhausted',
+        turnId: 'turn-1',
+        remainingCreditSeconds: 0,
+      });
+    });
+
+    it('refuses a start over a turn ceiling before it reaches the ledger', async () => {
+      sessions.refuseOverCapacity.mockReturnValue(true);
+      const admit = vi.spyOn(meter, 'admit');
+      const openLease = vi.spyOn(ledger, 'openLease');
+      await start(socket, { meeting: true });
+      expect(sessions.refuseOverCapacity).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({ meeting: true }),
+        'turn-1',
+        undefined,
+      );
+      expect(admit).not.toHaveBeenCalled();
+      expect(openLease).not.toHaveBeenCalled();
+      expect(sessions.start).not.toHaveBeenCalled();
+    });
+
+    it('refuses a start with credits_unavailable when the ledger cannot be reached', async () => {
+      ledger.setUnavailable(true);
+      await start(socket);
+      expect(sessions.start).not.toHaveBeenCalled();
+      expect(lastSent(socket)).toMatchObject({
+        type: 'server.error',
+        code: 'credits_unavailable',
+        turnId: 'turn-1',
+      });
+    });
+
+    it('keeps conversationId out of the options and bills the turn with it', async () => {
+      sessions.start.mockReturnValue({ sessionId: 's1', extraTargets: 0 });
+      const opened = vi.spyOn(meter, 'turnOpened');
+      await start(socket, { conversationId: 'conv-1', voiceOutput: false });
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+          voiceOutput: false,
+        },
+        'turn-1',
+        undefined,
+      );
+      // Captions into one language: 1 credit-second per accepted second.
+      expect(opened).toHaveBeenCalledWith(socket, 's1', 1, 'conv-1');
+    });
+
+    it('prices a voiced turn by the extra targets start() actually ran', async () => {
+      sessions.start.mockReturnValue({ sessionId: 's1', extraTargets: 2 });
+      const opened = vi.spyOn(meter, 'turnOpened');
+      await start(socket, { alsoTranslateInto: ['zh'] });
+      expect(opened).toHaveBeenCalledWith(socket, 's1', 6, undefined);
+    });
+
+    it('opens two starts in arrival order even when the first waits on the ledger', async () => {
+      const order: string[] = [];
+      sessions.start.mockImplementation((_c, _o, turnId) => {
+        order.push(String(turnId));
+        return undefined;
+      });
+      let release!: () => void;
+      const admit = meter.admit.bind(meter);
+      vi.spyOn(meter, 'admit')
+        .mockImplementationOnce(async (client, multiplier) => {
+          await new Promise<void>((resolve) => (release = resolve));
+          return admit(client, multiplier);
+        })
+        .mockImplementation(admit);
+      const first = start(socket, { turnId: 'first' });
+      const second = start(socket, { turnId: 'second' });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(order).toEqual([]);
+      release();
+      await Promise.all([first, second]);
+      expect(order).toEqual(['first', 'second']);
+    });
+
+    it('does not let one failed start poison the next', async () => {
+      sessions.start
+        .mockImplementationOnce(() => {
+          throw new Error('boom');
+        })
+        .mockReturnValue(undefined);
+      await start(socket, { turnId: 'a' });
+      await start(socket, { turnId: 'b' });
+      expect(sessions.start).toHaveBeenCalledTimes(2);
+    });
+
+    it('meters only what pushFrame accepted', () => {
+      sessions.pushFrame.mockReturnValue(0.25);
+      const onFrame = vi.spyOn(meter, 'onFrame');
+      gateway.handleAudioFrame(
+        { type: 'client.audio.frame', frame: validFrame },
+        socket,
+      );
+      expect(onFrame).toHaveBeenCalledWith(socket, 's1', 0.25);
+    });
+
+    it('detaches the meter after the session service let go of the socket', () => {
+      const detach = vi.spyOn(meter, 'detach');
+      gateway.handleDisconnect(socket);
+      expect(sessions.disconnect).toHaveBeenCalledWith(socket);
+      expect(detach).toHaveBeenCalledWith(socket);
+      expect(sessions.disconnect.mock.invocationCallOrder[0]).toBeLessThan(
+        detach.mock.invocationCallOrder[0]!,
+      );
+    });
+
+    it('never surfaces a failed detach as an unhandled rejection', async () => {
+      vi.spyOn(meter, 'detach').mockRejectedValue(new Error('ledger down'));
+      expect(() => gateway.handleDisconnect(socket)).not.toThrow();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it('ends the listening turns of a connection the meter stopped', () => {
+      const client = { send: vi.fn(), close: vi.fn() };
+      const req: Record<string | symbol, unknown> = { headers: {} };
+      req[VERIFIED_USER_ID] = 'user_2';
+      const attach = vi.spyOn(meter, 'attach');
+      gateway.handleConnection(client, req);
+      const onStop = attach.mock.lastCall![2];
+      onStop('credits_exhausted');
+      expect(sessions.endAllForCredits).toHaveBeenCalledWith(
+        client,
+        'credits_exhausted',
+        expect.any(Function),
+      );
     });
   });
 
@@ -305,8 +482,8 @@ describe('TranslateGateway', () => {
     // old field. No wire compat is kept, but the refusal is EMITTED: a thrown
     // one reaches the client as silence and the stale page never learns to
     // reload.
-    it('answers a turn start carrying the legacy direction with client_outdated', () => {
-      gateway.handleSessionStart(
+    it('answers a turn start carrying the legacy direction with client_outdated', async () => {
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           direction: 'vi_to_en',
@@ -326,8 +503,8 @@ describe('TranslateGateway', () => {
       });
     });
 
-    it('forwards twoWay and a detect source on a turn start, for the session to decide', () => {
-      gateway.handleSessionStart(
+    it('forwards twoWay and a detect source on a turn start, for the session to decide', async () => {
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           languagePair: { source: 'detect', target: 'en' },
@@ -347,8 +524,8 @@ describe('TranslateGateway', () => {
       );
     });
 
-    it('refuses direction even beside a valid language pair, like REST', () => {
-      gateway.handleSessionStart(
+    it('refuses direction even beside a valid language pair, like REST', async () => {
+      await gateway.handleSessionStart(
         {
           type: 'client.session.start',
           direction: 'vi_to_en',
@@ -445,6 +622,7 @@ describe('TranslateGateway', () => {
         sessions as unknown as TranslationSessionService,
         auth,
         terminator,
+        meter,
       );
       const client = { send: vi.fn(), close: vi.fn() };
       own.handleConnection(client, {

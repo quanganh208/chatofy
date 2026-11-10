@@ -91,11 +91,12 @@ describe('the marketing header', () => {
 
     // Anchors and their targets land together — `Section` owns the ids. An anchor to a
     // missing id fails silently and only for the person who clicked it.
-    expect(hrefs.filter((href) => href?.startsWith('#'))).toEqual([
-      '#meetings',
-      '#how-it-works',
-      '#privacy',
-      '#where-it-runs',
+    // Absolute, so they still land on `/` when the header is drawn on `/pricing`.
+    expect(hrefs.filter((href) => href?.includes('#'))).toEqual([
+      '/#meetings',
+      '/#how-it-works',
+      '/#privacy',
+      '/#where-it-runs',
     ]);
   });
 });

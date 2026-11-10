@@ -106,6 +106,8 @@ export const vi: Messages = {
   'common.conference.errorGeneric': 'Đã xảy ra lỗi.',
   'common.conference.translationEnded':
     'Đã dừng dịch — mọi người giờ nghe bạn mà không có bản dịch. Tham gia lại cuộc gọi để bật lại.',
+  'common.conference.translationEndedNoCredits':
+    'Đã dừng dịch vì bạn hết credit — mọi người giờ nghe bạn mà không có bản dịch.',
   'common.conference.translating': 'Đang dịch…',
   'common.conference.reconnecting': 'Đang kết nối lại ({attempt}/{cap})…',
   'common.conference.creating': 'Đang tạo…',
@@ -125,6 +127,40 @@ export const vi: Messages = {
   'common.conference.guest': 'Khách',
   'common.conference.chatRateLimited': 'Gửi chậm lại — hãy đợi vài giây rồi gửi tiếp.',
   'common.conference.chatNotSent': 'Chưa gửi được tin nhắn.',
+
+  // ---- common.billing ----
+  'common.billing.title': 'Credit và gói',
+  'common.billing.creditAmount': '{credits} credit',
+  'common.billing.creditAmountOne': '1 credit',
+  'common.billing.totalCredits': 'Credit còn lại',
+  'common.billing.planCredits': 'Credit của gói',
+  'common.billing.planResetsOn': 'Đặt lại vào {date}',
+  'common.billing.topupCredits': 'Credit nạp thêm',
+  'common.billing.topupNeverExpire': 'Không bao giờ hết hạn',
+  'common.billing.currentPlan': 'Gói',
+  'common.billing.planFree': 'Miễn phí',
+  'common.billing.planPro': 'Pro',
+  'common.billing.proSourcePolar': 'Thuê bao qua thẻ, tự gia hạn',
+  'common.billing.proSourceSepay': 'Gói VietQR, hết hạn vào {date}',
+  'common.billing.loadFailed': 'Không tải được số credit của bạn. Hãy thử lại.',
+  'common.billing.startRefused': 'Bạn cần ít nhất 1 credit để bắt đầu dịch.',
+  'common.billing.exhausted':
+    'Bạn đã hết credit nên việc dịch đã dừng. Mọi điều đã nói được lưu vào lịch sử.',
+  'common.billing.low': 'Còn khoảng {credits}. Việc dịch vẫn tiếp tục cho tới khi hết.',
+  'common.billing.unavailable':
+    'Chưa kiểm tra được số credit của bạn nên chưa bắt đầu dịch. Hãy thử lại sau giây lát.',
+  'common.billing.checkoutClosed':
+    'Chưa mở bán credit cho mọi người. Chatofy là đồ án tốt nghiệp phi thương mại, chỉ chủ dự án mới thanh toán được.',
+  'common.billing.usageTitle': 'Lịch sử sử dụng',
+  'common.billing.usageEmpty': 'Chưa dùng credit nào.',
+  'common.billing.usageLoadFailed': 'Không tải được lịch sử sử dụng. Hãy thử lại.',
+  'common.billing.usageKind.translate': 'Dịch',
+  'common.billing.usageKind.minutes': 'Biên bản cuộc họp',
+  'common.billing.usageKind.grant': 'Được cộng credit',
+  'common.billing.usageKind.refund': 'Hoàn lại',
+  'common.billing.usageKind.expire': 'Hết hạn',
+  'common.billing.usageKind.void': 'Đã gỡ',
+  'common.billing.usageOpenConversation': 'Mở cuộc trò chuyện',
 
   // ---- common.minutes ----
   'common.minutes.title': 'Biên bản cuộc họp',
@@ -220,6 +256,9 @@ export const vi: Messages = {
   'web.meta.history': 'Lịch sử · Chatofy',
   'web.meta.preferences': 'Tuỳ chọn · Chatofy',
   'web.meta.account': 'Tài khoản · Chatofy',
+  'web.meta.pricing': 'Bảng giá · Chatofy',
+  'web.meta.pricingDescription':
+    'Các gói của Chatofy: hạn mức miễn phí hằng tháng, Pro và credit nạp thêm không bao giờ hết hạn. Một credit là một phút phụ đề đã dịch.',
 
   'web.translate.startTranslating': 'Bắt đầu dịch',
   'web.translate.startConversation': 'Bắt đầu hội thoại',
@@ -564,6 +603,32 @@ export const vi: Messages = {
     'Chưa đổi được mật khẩu — không có gì bị thay đổi. Hãy thử lại.',
   'web.account.signOutHint':
     'Chỉ đăng xuất khỏi trình duyệt này. Các thiết bị khác vẫn đăng nhập cho tới khi phiên của chúng hết hạn.',
+  'web.account.buyTitle': 'Mua credit',
+  'web.account.buyProCard': 'Pro qua thẻ — {price} mỗi tháng',
+  'web.account.buyProPass': 'Pro 30 ngày qua VietQR — {price}',
+  'web.account.buyTopupCard': '{credits} qua thẻ — {price}',
+  'web.account.buyTopupQr': '{credits} qua VietQR — {price}',
+  'web.account.railSandbox': 'Chế độ thử: không trừ tiền thật.',
+  'web.account.checkoutOpening': 'Đang mở trang thanh toán…',
+  'web.account.checkoutFailed': 'Không mở được trang thanh toán. Hãy thử lại.',
+  'web.account.checkoutReturned': 'Đã thanh toán xong. Số credit của bạn đã được cập nhật.',
+  'web.account.manageSubscription': 'Quản lý thuê bao',
+  'web.account.usageShowMore': 'Xem thêm',
+  'web.account.qrTitle': 'Quét bằng ứng dụng ngân hàng',
+  'web.account.qrImageAlt': 'Mã VietQR để thanh toán {amount}',
+  'web.account.qrAmount': 'Số tiền',
+  'web.account.qrCode': 'Nội dung chuyển khoản',
+  'web.account.qrCodeHint':
+    'Giữ nguyên nội dung như trên — đó là cách khoản chuyển tìm đúng đơn của bạn.',
+  'web.account.qrCopy': 'Sao chép',
+  'web.account.qrCopied': 'Đã sao chép',
+  'web.account.qrWaiting': 'Đang chờ khoản chuyển của bạn…',
+  'web.account.qrPaid': 'Đã nhận thanh toán. Số credit của bạn đã được cập nhật.',
+  'web.account.qrExpired':
+    'Mã này đã hết hạn. Khoản bạn đã chuyển vẫn sẽ được cộng; nếu bạn chưa thanh toán, hãy bắt đầu lại.',
+  'web.account.qrNeedsReview':
+    'Chúng tôi đã nhận được một khoản thanh toán nhưng chưa khớp được tự động. Khoản này sẽ được kiểm tra và cộng credit thủ công.',
+  'web.account.qrClose': 'Đóng',
 
   'web.landing.heroTitle': 'Nói bằng ngôn ngữ của bạn. Được hiểu bằng ngôn ngữ của người nghe.',
   'web.landing.heroBody':
@@ -631,6 +696,25 @@ export const vi: Messages = {
   'web.landing.navLocal': 'Riêng tư',
   'web.landing.navSurfaces': 'Nơi dùng',
   'web.landing.heroTitleEmphasis': 'Được hiểu',
+
+  // ---- web.pricing ----
+  'web.pricing.title': 'Bảng giá',
+  'web.pricing.intro': 'Việc dịch được trả bằng credit. Một credit là một phút phụ đề đã dịch.',
+  'web.pricing.notOpen':
+    'Chưa mở thanh toán cho mọi người: Chatofy là đồ án tốt nghiệp phi thương mại, chỉ chủ dự án mới mua được.',
+  'web.pricing.startFree': 'Dùng miễn phí',
+  'web.pricing.freeSummary': '{credits} credit mỗi tháng. Credit chưa dùng không được cộng dồn.',
+  'web.pricing.proSummary': '{credits} credit mỗi chu kỳ, đặt lại khi chu kỳ mới bắt đầu.',
+  'web.pricing.proPriceCard': '{price} mỗi tháng qua thẻ, tự gia hạn',
+  'web.pricing.proPricePass': '{price} cho 30 ngày qua VietQR, không tự gia hạn',
+  'web.pricing.topupsTitle': 'Nạp thêm',
+  'web.pricing.topupsSummary': 'Credit không bao giờ hết hạn, được dùng sau credit của gói.',
+  'web.pricing.topupPrice': '{usd} qua thẻ · {vnd} qua VietQR',
+  'web.pricing.footnoteUnits':
+    'Phụ đề dùng 1 credit mỗi phút, hoặc 2 nếu bản dịch được đọc thành tiếng. Mỗi biên bản cuộc họp dùng 3 credit.',
+  'web.pricing.footnoteLanguages':
+    'Mỗi ngôn ngữ dịch thêm trong cuộc họp tính thêm một lần như vậy.',
+  'web.pricing.pricesUnavailable': 'Hiện chưa hiển thị được giá.',
 
   // ---- web.conference ----
   'web.conference.joining': 'Đang tham gia…',
@@ -712,6 +796,8 @@ export const vi: Messages = {
   'mobile.settings.audio.voiceProcessingHint':
     'Bật/tắt chuỗi xử lý giọng nói của điện thoại. Khi tắt, micro tạm dừng lúc bản dịch đang phát. Âm thanh cuộc gọi không đổi.',
   'mobile.settings.audio.lockedHint': 'Điện thoại bật/tắt mục này cùng với khử vọng.',
+
+  'mobile.settings.buyOnWeb': 'Mua credit trên web',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Bảng thuật ngữ',

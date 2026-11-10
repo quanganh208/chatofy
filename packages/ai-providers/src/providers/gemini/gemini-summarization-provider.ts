@@ -13,7 +13,7 @@
 // over the whole conversation at once, where the translator reasons over one
 // sentence, so the quality/latency trade-off lands differently and the extra
 // few hundred ms is worth it here where it was not on a live turn.
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type GenerateContentResponse } from '@google/genai';
 import type {
   MeetingMinutesDraft,
   SummarizationProvider,
@@ -43,6 +43,9 @@ import {
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
 import { buildTitleInstruction, buildTitleReminder } from '../title-prompt-builder.js';
 import { parseTitle } from '../title-parser.js';
+import type { LlmCallKind, LlmCallListener } from '../../interfaces/llm-call-event.js';
+import { emitLlmCall, promptHash } from '../openai-compatible/llm-call-reporting.js';
+import { geminiUsageFields } from './gemini-usage-fields.js';
 
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 
@@ -53,6 +56,8 @@ export interface GeminiSummarizationConfig {
   models?: string[];
   /** A rate limit was absorbed — one (key, model) pair went on cooldown. */
   onQuotaCooldown?: (event: { model: string; cooldownMs: number }) => void;
+  /** Told about every request, each walked (key, model) attempt included. */
+  onCall?: LlmCallListener;
 }
 
 export class GeminiSummarizationProvider implements SummarizationProvider {
@@ -60,6 +65,7 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
   private readonly keys: KeyRotation;
   private readonly models: string[];
   private readonly onQuotaCooldown?: GeminiSummarizationConfig['onQuotaCooldown'];
+  private readonly onCall: LlmCallListener | undefined;
 
   constructor(config: GeminiSummarizationConfig) {
     const apiKeys = resolveApiKeys(config.apiKey);
@@ -69,6 +75,7 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     this.keys = new KeyRotation(apiKeys);
     this.models = config.models?.length ? config.models : DEFAULT_MODELS;
     this.onQuotaCooldown = config.onQuotaCooldown;
+    this.onCall = config.onCall;
   }
 
   async summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft> {
@@ -76,7 +83,10 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     const reminder = buildMinutesReminder();
     const wrapped = wrapMinutesTranscript(req.transcript);
     return this.walk(async (client, model) =>
-      parseMinutesDraft(await this.generate(client, model, instruction, reminder, wrapped), model),
+      parseMinutesDraft(
+        await this.generate('minutes', client, model, instruction, reminder, wrapped),
+        model,
+      ),
     );
   }
 
@@ -85,7 +95,10 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     const reminder = buildTitleReminder();
     const wrapped = wrapMinutesTranscript(req.transcript);
     return this.walk(async (client, model) =>
-      parseTitle(await this.generate(client, model, instruction, reminder, wrapped), model),
+      parseTitle(
+        await this.generate('title', client, model, instruction, reminder, wrapped),
+        model,
+      ),
     );
   }
 
@@ -168,27 +181,47 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
 
   /** One blocking round-trip asking for a JSON object; returns its raw text. */
   private async generate(
+    kind: Extract<LlmCallKind, 'minutes' | 'title'>,
     client: GoogleGenAI,
     model: string,
     systemInstruction: string,
     reminder: string,
     wrappedTranscript: string,
   ): Promise<string> {
-    const response = await client.models.generateContent({
-      model,
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: wrappedTranscript }, { text: reminder }],
-        },
-      ],
-      config: {
-        systemInstruction,
-        // Ask for a document, not prose. The model still has to honor the shape
-        // inside; this only removes the "parse JSON out of a sentence" failure.
-        responseMimeType: 'application/json',
+    const contents = [
+      {
+        role: 'user',
+        parts: [{ text: wrappedTranscript }, { text: reminder }],
       },
-    });
+    ];
+    // One event per attempt, emitted however it ends: each attempt in the walk
+    // is a request the project's quota and bill both see.
+    const started = Date.now();
+    let ok = false;
+    let response: GenerateContentResponse | undefined;
+    try {
+      response = await client.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          // Ask for a document, not prose. The model still has to honor the shape
+          // inside; this only removes the "parse JSON out of a sentence" failure.
+          responseMimeType: 'application/json',
+        },
+      });
+      ok = true;
+    } finally {
+      emitLlmCall(this.onCall, {
+        kind,
+        host: this.name,
+        model,
+        ms: Date.now() - started,
+        ok,
+        ...geminiUsageFields(response?.usageMetadata),
+        promptHash: promptHash(model, [{ systemInstruction }, ...contents]),
+      });
+    }
 
     const body = (response.text ?? '').trim();
     if (!body) {

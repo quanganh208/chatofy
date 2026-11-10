@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 /**
- * What a shared link and a search result see of `/`.
+ * What a shared link and a search result see of `/` and `/pricing`.
  *
  * The case worth a spec is the silent one: adding any `openGraph` field to this page
  * replaces the root segment's whole Open Graph object, so `app/opengraph-image.png`
@@ -18,8 +18,10 @@ vi.mock('@/i18n/server', async () => {
 // env at import time.
 vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
 vi.mock('@/components/marketing/structured-data', () => ({ StructuredData: () => null }));
+vi.mock('server-only', () => ({}));
 
 const { generateMetadata } = await import('./page');
+const pricing = await import('./pricing/page');
 
 describe('the landing metadata', () => {
   it('keeps the social card when it sets Open Graph fields', async () => {
@@ -34,5 +36,23 @@ describe('the landing metadata', () => {
     const meta = await generateMetadata();
     expect(meta.alternates?.canonical).toBe('/');
     expect(meta.alternates?.types).toEqual({ 'text/markdown': '/index.md' });
+  });
+});
+
+describe('the pricing metadata', () => {
+  it('keeps the social card when it sets Open Graph fields', async () => {
+    const meta = await pricing.generateMetadata();
+    const og = meta.openGraph as { images?: { url: string }[]; url?: string } | undefined;
+    expect(og?.images?.[0]).toMatchObject({ url: '/opengraph-image.png' });
+    expect(og?.url).toBe('/pricing');
+    expect(meta.twitter).toMatchObject({ card: 'summary_large_image' });
+  });
+
+  it('is its own canonical and advertises its markdown twin', async () => {
+    const meta = await pricing.generateMetadata();
+    expect(meta.title).toBe('Pricing · Chatofy');
+    expect(meta.description).toBeTruthy();
+    expect(meta.alternates?.canonical).toBe('/pricing');
+    expect(meta.alternates?.types).toEqual({ 'text/markdown': '/pricing.md' });
   });
 });

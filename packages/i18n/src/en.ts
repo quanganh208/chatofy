@@ -109,6 +109,9 @@ export const en = {
   // Quiet readout when the speaker's translation ended for good mid-call.
   'common.conference.translationEnded':
     'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
+  // The same readout, when the speaker ran out of credits.
+  'common.conference.translationEndedNoCredits':
+    'Translation stopped because your credits ran out — others now hear you without it.',
   // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
   // Pure readout — no accent fill; Leave stays the one accent control.
   'common.conference.translating': 'Translating…',
@@ -137,6 +140,48 @@ export const en = {
   'common.conference.guest': 'Guest',
   'common.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
   'common.conference.chatNotSent': 'Message not sent.',
+
+  // ---- common.billing: the credits words web and mobile both show ----
+  // The section and block title on web /account and mobile settings.
+  'common.billing.title': 'Credits & plan',
+  // Amounts are pre-formatted by the caller; English needs the singular by hand.
+  'common.billing.creditAmount': '{credits} credits',
+  'common.billing.creditAmountOne': '1 credit',
+  'common.billing.totalCredits': 'Credits left',
+  'common.billing.planCredits': 'Plan credits',
+  'common.billing.planResetsOn': 'Reset on {date}',
+  'common.billing.topupCredits': 'Top-up credits',
+  'common.billing.topupNeverExpire': 'Never expire',
+  'common.billing.currentPlan': 'Plan',
+  'common.billing.planFree': 'Free',
+  'common.billing.planPro': 'Pro',
+  'common.billing.proSourcePolar': 'Card subscription, renews automatically',
+  'common.billing.proSourceSepay': 'VietQR pass, ends {date}',
+  'common.billing.loadFailed': 'Could not load your credits. Try again.',
+  // Turn refused at start: the balance is under one credit.
+  'common.billing.startRefused': 'You need at least 1 credit to start translating.',
+  // The balance ran out mid-conversation; what was said is kept.
+  'common.billing.exhausted':
+    'Your credits ran out, so translation stopped. Everything said so far is saved to history.',
+  // A notice, not a failure: the conversation keeps going. {credits} is a
+  // formatted `common.billing.creditAmount` string, e.g. "2 credits".
+  'common.billing.low': 'About {credits} left. Translation keeps going until they run out.',
+  'common.billing.unavailable':
+    'Your credits could not be checked just now, so translation did not start. Try again in a moment.',
+  // Why buying is disabled for everyone but the owner.
+  'common.billing.checkoutClosed':
+    'Buying credits is not open to the public. Chatofy is a non-commercial thesis project, and only its owner can check out.',
+  // Usage history rows.
+  'common.billing.usageTitle': 'Usage',
+  'common.billing.usageEmpty': 'Nothing used yet.',
+  'common.billing.usageLoadFailed': 'Could not load your usage. Try again.',
+  'common.billing.usageKind.translate': 'Translation',
+  'common.billing.usageKind.minutes': 'Meeting minutes',
+  'common.billing.usageKind.grant': 'Credits added',
+  'common.billing.usageKind.refund': 'Refund',
+  'common.billing.usageKind.expire': 'Expired',
+  'common.billing.usageKind.void': 'Removed',
+  'common.billing.usageOpenConversation': 'Open conversation',
 
   // ---- common.minutes: LLM meeting minutes, on /translate, history and the meeting end screen ----
   'common.minutes.title': 'Meeting minutes',
@@ -248,6 +293,9 @@ export const en = {
   'web.meta.history': 'History · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
+  'web.meta.pricing': 'Pricing · Chatofy',
+  'web.meta.pricingDescription':
+    'Chatofy plans: a free monthly allowance, Pro, and top-ups that never expire. One credit is one minute of translated captions.',
 
   // ---- web.translate ----
   'web.translate.startTranslating': 'Start translating',
@@ -730,6 +778,34 @@ export const en = {
     'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
+  // Credits & plan: buying. Every action is outline or ghost; /account spends no accent.
+  'web.account.buyTitle': 'Buy credits',
+  'web.account.buyProCard': 'Pro by card — {price} a month',
+  'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
+  'web.account.buyTopupCard': '{credits} by card — {price}',
+  'web.account.buyTopupQr': '{credits} by VietQR — {price}',
+  'web.account.railSandbox': 'Test mode: no real money is charged.',
+  'web.account.checkoutOpening': 'Opening checkout…',
+  'web.account.checkoutFailed': 'Could not open checkout. Try again.',
+  'web.account.checkoutReturned': 'Payment finished. Your balance is updated.',
+  'web.account.manageSubscription': 'Manage subscription',
+  'web.account.usageShowMore': 'Show more',
+  // The VietQR panel, polled until the transfer lands or the order expires.
+  'web.account.qrTitle': 'Scan with your banking app',
+  'web.account.qrImageAlt': 'VietQR code to pay {amount}',
+  'web.account.qrAmount': 'Amount',
+  'web.account.qrCode': 'Transfer note',
+  'web.account.qrCodeHint':
+    'Keep the note exactly as shown — it is how the payment finds your order.',
+  'web.account.qrCopy': 'Copy',
+  'web.account.qrCopied': 'Copied',
+  'web.account.qrWaiting': 'Waiting for your transfer…',
+  'web.account.qrPaid': 'Payment received. Your balance is updated.',
+  'web.account.qrExpired':
+    'This code has expired. A transfer you already sent will still be credited; if you have not paid yet, start again.',
+  'web.account.qrNeedsReview':
+    "We received a payment we couldn't match automatically. It will be reviewed and credited by hand.",
+  'web.account.qrClose': 'Close',
 
   // ---- web.landing ----
   //
@@ -844,6 +920,26 @@ export const en = {
   // falls back to an upright headline when it does not.
   'web.landing.heroTitleEmphasis': 'Be understood',
 
+  // ---- web.pricing: the public /pricing page ----
+  'web.pricing.title': 'Pricing',
+  'web.pricing.intro':
+    'Translation is paid for in credits. One credit is one minute of translated captions.',
+  'web.pricing.notOpen':
+    'Checkout is not open to the public: Chatofy is a non-commercial thesis, and only its owner can buy.',
+  'web.pricing.startFree': 'Start free',
+  'web.pricing.freeSummary': '{credits} credits every month. Unused credits do not carry over.',
+  'web.pricing.proSummary': '{credits} credits each cycle, reset when the next one starts.',
+  'web.pricing.proPriceCard': '{price} a month by card, renews automatically',
+  'web.pricing.proPricePass': '{price} for 30 days by VietQR, does not renew',
+  'web.pricing.topupsTitle': 'Top-ups',
+  'web.pricing.topupsSummary': 'Credits that never expire, spent after your plan credits.',
+  'web.pricing.topupPrice': '{usd} by card · {vnd} by VietQR',
+  'web.pricing.footnoteUnits':
+    'Captions use 1 credit a minute, or 2 with the translation spoken aloud. Meeting minutes use 3 credits each.',
+  'web.pricing.footnoteLanguages':
+    'Each extra language a meeting translates into adds the same again.',
+  'web.pricing.pricesUnavailable': 'Prices are unavailable right now.',
+
   // ---- web.conference: video conferencing lobby + in-call screen ----
   'web.conference.joining': 'Joining…',
   // ---- web.conference: in-call control bar ----
@@ -936,6 +1032,9 @@ export const en = {
     "Turns the phone's voice processing on or off. When off, the microphone pauses while a translation plays. Call audio is unchanged.",
   'mobile.settings.audio.lockedHint':
     'The phone turns this on and off together with echo cancellation.',
+
+  // Buying happens on the web; the phone only links there.
+  'mobile.settings.buyOnWeb': 'Buy credits on the web',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Glossaries',

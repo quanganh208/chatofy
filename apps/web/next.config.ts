@@ -63,6 +63,9 @@ const CLOUDFLARE_INSIGHTS = {
   report: 'https://cloudflareinsights.com',
 };
 
+/** Where the SePay checkout's VietQR image comes from (`sepay-provider.ts` in the API). */
+const VIETQR_ORIGIN = 'https://vietqr.app';
+
 function contentSecurityPolicy(): string {
   const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
   const socket = api.replace(/^http/, 'ws');
@@ -98,7 +101,9 @@ function contentSecurityPolicy(): string {
       ? `script-src 'self' 'unsafe-inline' ${CLOUDFLARE_INSIGHTS.script}`
       : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${CLOUDFLARE_INSIGHTS.script}`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob:${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
+    // vietqr.app renders the SePay payment QR on /account; the API builds that
+    // URL, so the origin is fixed rather than configured.
+    `img-src 'self' data: blob: ${VIETQR_ORIGIN}${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
     "font-src 'self' data:",
     `connect-src 'self' ${api} ${socket} ${CLOUDFLARE_INSIGHTS.report}`,
     // The worklet is same-origin; naming it keeps a future CDN move deliberate.
