@@ -11,6 +11,7 @@ import { SettingsSection, SettingsSectionRow } from '@/components/layout/setting
 import { ORDER_POLL_MS, useCreditBalance, useCreditUsage } from '@/hooks/use-credits';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatCredits, formatDay } from '@/lib/credit-format';
+import { stripPolarSessionToken } from '@/lib/strip-polar-session-token';
 
 /**
  * "Credits & plan" on `/account`: what is left, which plan, what it went on,
@@ -43,6 +44,12 @@ export function CreditsSection() {
   const [portalFailed, setPortalFailed] = useState(false);
   const { refetch: refetchBalance } = credits;
   const { refetch: refetchUsage } = usage;
+
+  // Polar adds its customer session token to the success URL; nothing here
+  // reads it, so it is taken out of the address bar and history at once.
+  useEffect(() => {
+    stripPolarSessionToken(window.location, window.history);
+  }, []);
 
   useEffect(() => {
     if (!returned) return;
