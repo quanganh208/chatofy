@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement } from 'react';
+import { act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useStoredWidth } from './use-stored-width';
@@ -17,7 +17,11 @@ let root: Root;
 let current: ReturnType<typeof useStoredWidth>;
 
 function Probe({ min = 200, max = 360 }: { min?: number; max?: number | (() => number) }) {
-  current = useStoredWidth('test.width', 256, min, max);
+  const value = useStoredWidth('test.width', 256, min, max);
+  // In an effect, not during render — see `use-translate-settings.spec.tsx`.
+  useEffect(() => {
+    current = value;
+  });
   return null;
 }
 
