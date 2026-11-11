@@ -345,7 +345,7 @@ The web /translate page reconnects after an unexpected close instead of ending t
   - The client has a watchdog: a turn that finished capture and has heard no server frame for 15 s forces a reconnect.
 - **Telemetry.** The first frame on the new socket is `client.connection.report`, which the API logs as one line: `connection.report cause= code= clean= sinceLastFrame= down= inFlight= resubmitted= attempt=`.
 
-Checked with `benchmarks/socket-drop/`. A forced half-open drop at 45 s kept 19 of 19 turns, with one re-submit and no `too_many_turns`. Without reconnect, the heartbeat freed the socket about 30 s after the drop. That proxy talks to the API directly, so whether the Cloudflare edge forwards pings is still unmeasured.
+Checked with `benchmarks/socket-drop/`, locally and on production after deploy (2026-11-11). A forced half-open drop at 45 s kept 19 of 19 turns, the same as the undisturbed run, with one re-submit, `down=593ms` and no `too_many_turns`. Without reconnect, the heartbeat freed the socket about 30 s after the drop. The Cloudflare edge forwards the API's pings end to end: through the tunnel, a client that never answers pings was terminated after 28 s (1006), while one that answers kept its socket.
 
 ### Two-way and auto-detect turns
 

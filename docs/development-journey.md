@@ -2835,6 +2835,8 @@ Prod conversation `09ddb1a2` (one-way en→vi, 163 s) ended with "Connection to 
 - **Measured locally** against the branch API, with a proxy that kills the client leg and leaves the API's end open:
   - The forced drop at 45 s kept 19 of 19 turns, the same as the undisturbed run, with 1 reconnect, 1 re-submit, `down=509ms` and no server errors.
   - With reconnect off, the heartbeat freed the half-open socket 30 s after the drop.
-- **Still open.** Whether Cloudflare forwards WebSocket pings to the browser or answers them at the edge. The proxy bypasses Cloudflare.
+- **Measured on production** after the deploy, on the same recording:
+  - The forced drop kept 19 of 19 turns, with 1 reconnect, 1 re-submit and `down=593ms`. The API logged `socket.superseded previous=open` and the `connection.report` line, and no `too_many_turns` or `idle for`.
+  - Through the Cloudflare tunnel, a socket that never answers pings received the API's ping and was terminated after 28 s, so the edge forwards pings end to end. The heartbeat therefore also catches a dead browser leg.
 
 Ruler: `benchmarks/socket-drop/`.
