@@ -2805,3 +2805,14 @@ Two follow-ups to the latency baseline, both replayed against production.
 - **A second Vietnamese TTS process is not needed for one speaker.** Two English recordings replayed en→vi with voice on (45 turns) held VieNeu about half the speech time, and no turn ended `engine_busy`. The 0.94–0.97 occupancy on record came from the dev stack with fake-audio peers. Three turns (7%) waited 2.3–3.5 s behind the previous turn's synthesis, where earlier audio was usually still playing. The phase closed on its gate.
 
 Ruler: `benchmarks/latency/` (`--run-tag baseline-capacity`, `clause-voice`).
+
+## Cutting Kokoro's first clause where a speaker would pause (11/11/2026)
+
+Kokoro synthesizes each clause whole, so English first audio waits on the first clause: 201 ms + 15 ms per character on production (r = 0.96).
+
+- **A word-boundary cap was rejected.** Cutting at 20 chars brought synthesis of the head from 711 to 409 ms offline. It also produced cuts like "Principle single | origin" that the owner found unnatural.
+- **What shipped (PR #326):** a cut only in front of a subordinator, a coordinator or a phrase-level word, with guards for names, pronoun objects and spelled-out ranges. A clause with no such place stays whole. At seams the sidecar made, Kokoro's padding (about 95 ms before and 150 ms after each `generate`) is trimmed to 80 ms.
+- **Automatic judges could not see the cut.** ElevenLabs used as a reference reader pauses 35–80 ms between almost every word, so its pause at our cut points did not separate bad cuts from good ones (gap percentile 0.53 vs 0.55). UTMOS scored every version about 4.4, cut or whole. The owner could not hear trimmed from untrimmed seams either.
+- **Production:** turns that get cut (about 17%) reach first audio about 190 ms sooner, in two replays. The overall p50 did not move, because most turns are uncut and both after-runs ran on a host loaded by another project. A translation-prompt nudge for an earlier comma moved the median first clause only from 24.5 to 22 chars, and was dropped before judging.
+
+Ruler: `benchmarks/latency/` (`clause-voice`, `clause-natural`, `clause-natural-warm`).
