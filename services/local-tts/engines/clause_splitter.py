@@ -100,6 +100,14 @@ LATER_PIECE_MIN_CHARS = 45
 LATER_PIECE_GROWTH = 3
 
 
+_CURRENCY = "$€£¥₫"
+
+
+def _word(token: str) -> str:
+    """A token as a bare lowercase word, without quotes or trailing punctuation."""
+    return token.strip("\"'“”‘’,;:()").lower()
+
+
 def _cut(clause: str, max_chars: int) -> tuple[str, str] | None:
     """The best word-boundary cut of `clause` with a head of at most `max_chars`."""
     candidates = []
@@ -107,14 +115,15 @@ def _cut(clause: str, max_chars: int) -> tuple[str, str] | None:
         head, rest = clause[: match.start()], clause[match.end() :]
         if not MIN_CAP_PART_CHARS <= len(head) <= max_chars or len(rest) < MIN_CAP_PART_CHARS:
             continue
-        if head[-1].isdigit() or rest[0].isdigit():
+        # A currency sign belongs to the number after it: "$ | 150" is a digit cut.
+        if head[-1].isdigit() or rest.lstrip(_CURRENCY)[:1].isdigit():
             continue
-        if head.rsplit(" ", 1)[-1].lower() in _DANGLING:
+        if _word(head.split()[-1]) in _DANGLING:
             continue
         candidates.append((head, rest))
     if not candidates:
         return None
-    natural = [c for c in candidates if c[1].split(" ", 1)[0].lower().strip(",") in _PHRASE_STARTS]
+    natural = [c for c in candidates if _word(c[1].split(None, 1)[0]) in _PHRASE_STARTS]
     return (natural or candidates)[-1]
 
 

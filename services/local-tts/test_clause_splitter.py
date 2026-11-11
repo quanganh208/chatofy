@@ -31,10 +31,26 @@ def _cap(text, max_chars=20):
     return cap_first_clause(split_into_clauses(text), max_chars)
 
 
+CAPPED_INPUTS = [
+    "Today I went for my check-up exactly as scheduled, then home.",
+    "Many countries and tech leaders are warning about new risks",
+    "Artificial intelligence has become one of the strategic components",
+    "The water level at the station will rise 34 to 35 centimeters above the alert level.",
+    "Sometimes you just go to work so that at the end of the month you get your salary.",
+]
+
+
+@pytest.mark.parametrize("text", CAPPED_INPUTS)
+def test_cap_cuts_and_keeps_the_text_exactly(text):
+    plain = split_into_clauses(text)
+    parts = _cap(text)
+    assert len(parts) > len(plain)
+    assert " ".join(parts) == " ".join(plain)
+
+
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
-def test_cap_keeps_every_word(case):
-    parts = _cap(case["input"])
-    assert " ".join(parts).split() == " ".join(case["parts"]).split()
+def test_cap_keeps_every_fixture_input(case):
+    assert " ".join(_cap(case["input"])) == " ".join(case["parts"])
 
 
 def test_cap_cuts_a_long_first_clause_only():
@@ -115,3 +131,24 @@ def test_cap_leaves_a_remainder_within_budget_whole():
 def test_cap_keeps_a_two_word_head_together():
     parts = _cap("Artificial intelligence has become one of the strategic components")
     assert parts[0] == "Artificial intelligence"
+
+
+def test_function_word_rule_sees_tabs_and_newlines():
+    parts = _cap("Today I  went\tfor my\ncheck-up exactly as scheduled")
+    for piece in parts[:-1]:
+        assert piece.split()[-1].lower() not in {"for", "my", "i"}
+
+
+def test_currency_sign_counts_as_a_digit():
+    for a, b in zip(parts := _cap("Prices hit $150 yesterday across all the markets"), parts[1:]):
+        assert not b.startswith("$")
+
+
+def test_only_kokoro_english_caps_its_first_clause():
+    from engines.kokoro_en import KokoroEn
+    from engines.kokoro_zh import KokoroZh
+    from engines.kokoro_runtime import SharedKokoroEngine
+
+    assert KokoroEn.FIRST_CLAUSE_CAP_CHARS == 20
+    assert KokoroZh.FIRST_CLAUSE_CAP_CHARS is None
+    assert SharedKokoroEngine.FIRST_CLAUSE_CAP_CHARS is None

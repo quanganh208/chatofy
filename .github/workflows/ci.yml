@@ -488,9 +488,9 @@ jobs:
   # checked against the fixture the TypeScript one reads. A leaked engine lock
   # silences a language until the process restarts, and a drifted splitter cuts
   # streamed text differently from the fallback path — neither shows up in any
-  # Node suite. (Kokoro English also caps its first clause on the stream path
-  # only; that cut is deliberate and tested in the same file.) The model-backed files (`test_app.py`, `test_stream.py`) stay
-  # local: they need ~900MB of weights.
+  # Node suite. Kokoro English's first-clause cap is deliberately sidecar-only
+  # and is tested in the same file. The model-backed files (`test_app.py`,
+  # `test_stream.py`) stay local: they need ~900MB of weights.
   sidecar-unit:
     name: TTS sidecar unit tests
     runs-on: ubuntu-latest
