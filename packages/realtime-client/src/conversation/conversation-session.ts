@@ -164,9 +164,9 @@ export interface ConversationRuntimeOptions {
    * Reconnect after an unexpected socket close instead of ending the
    * conversation, and re-send the turns the dropped socket never answered.
    *
-   * Off by default. The web /translate page turns it on. The extension keeps it
-   * off because its access token is fixed for the whole run, and the conference
-   * cascade leg has its own restart policy.
+   * Off by default. The web /translate page and the mobile translate screen
+   * turn it on. The extension keeps it off because its access token is fixed for
+   * the whole run, and the conference cascade legs have their own restart policy.
    */
   reconnectOnDrop?: boolean;
   /** Keep listening while our own translation plays. */

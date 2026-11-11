@@ -328,7 +328,7 @@ splitting changes prosody at the seams.
 
 ### Dropped connections
 
-The web /translate page reconnects after an unexpected close instead of ending the conversation (`reconnectOnDrop` in `ConversationSession`; the extension and the meeting leg keep it off). This was added after a prod drop on 2026-11-11 between the browser and the Cloudflare edge, which the API never saw.
+The web /translate page and the mobile translate screen reconnect after an unexpected close instead of ending the conversation (`reconnectOnDrop` in `ConversationSession`; the extension and the meeting legs keep it off). Mobile fetches a fresh access token as soon as the status turns `reconnecting`, because a phone back from the background often holds an expired one; if the first attempt is too early for it, the next attempt uses it. This was added after a prod drop on 2026-11-11 between the browser and the Cloudflare edge, which the API never saw.
 
 - **Resume key.** Each run sends a random `resume` query parameter on every upgrade. When a socket arrives for the same user and key (`SocketResumeRegistry`), the gateway does the following:
   - moves the old socket's conversation state to it: earlier turns, learned spellings, decided languages, finished segments, the last voice and the source prior. Turn and transport state stays behind;
@@ -341,7 +341,7 @@ The web /translate page reconnects after an unexpected close instead of ending t
 - **Re-submit.** A run that can reconnect keeps the audio it sent for each turn (up to 12 s) until the turn's `server.transcript.final` or first audio frame. After reconnecting, every turn the server never answered is started again under the same turn id with `resubmit: true` and replayed from sequence 0. A turn that was answered closes with `connection_lost`. A turn is re-sent at most once. The re-sent audio is metered again.
 - **Retries.** The client waits 0.5, 1.5 and 4 s (±20%) before its three attempts, and shows `reconnecting` meanwhile while capture keeps running. After the third failure it ends with "Connection to the translator dropped", as before. Code 1008 (credentials changed) and codes from 4000 up are never retried.
 - **Detection.**
-  - The server pings every socket every 15 s and terminates one that missed a pong, so a half-open socket is freed within 30 s. This applies to every client, including mobile and the extension, which do not reconnect: a client that stops answering pongs, such as a suspended app, loses its socket within about 30 s.
+  - The server pings every socket every 15 s and terminates one that missed a pong, so a half-open socket is freed within 30 s. This applies to every client: a client that stops answering pongs, such as a suspended phone app, loses its socket within about 30 s. Web and mobile then reconnect when they can; the extension, which does not reconnect, ends the conversation.
   - The client has a watchdog: a turn that finished capture and has heard no server frame for 15 s forces a reconnect.
 - **Telemetry.** The first frame on the new socket is `client.connection.report`, which the API logs as one line: `connection.report cause= code= clean= sinceLastFrame= down= inFlight= resubmitted= attempt=`.
 

@@ -164,8 +164,10 @@ export function useTranslateConversation(): UseTranslateConversation {
         {
           ...pushedCaptureDeps(capture),
           // The token is read when the run starts (`start` below), a moment before the
-          // socket opens, so it has at least the refresh skew left at the handshake.
-          createSocket: (handlers) => new TranslateSocket(TRANSLATE_WS_URL, handlers, live.token),
+          // socket opens, so it has at least the refresh skew left at the handshake. A
+          // reconnect reads it again; `onStatus` refreshes it as reconnecting begins.
+          createSocket: (handlers, connection) =>
+            new TranslateSocket(TRANSLATE_WS_URL, handlers, live.token, connection?.resumeKey),
           // The session's own "context" is the pushed-capture shim, which cannot play
           // anything; translations go to the phone's speaker through a native sink.
           createPlaybackSink: (_context, onTurnDrained) => {
@@ -175,7 +177,21 @@ export function useTranslateConversation(): UseTranslateConversation {
           },
         },
         {
-          onStatus: setStatus,
+          onStatus: (next) => {
+            // A dropped socket is replaced with one opened a moment from now, and the
+            // run's token may have expired since it started: an app back from the
+            // background is the usual case. Fetched now, it is in place for the first
+            // attempt or, if that one is too soon, for the next.
+            if (next === 'reconnecting') {
+              void authClient
+                .getAccessToken()
+                .then((token) => live.setToken(token))
+                .catch((err: unknown) =>
+                  console.log(`[translate] token refresh failed: ${String(err)}`),
+                );
+            }
+            setStatus(next);
+          },
           onLevel: setLevel,
           onMuted: () => {},
           onError: (message, cause) => {
@@ -246,6 +262,10 @@ export function useTranslateConversation(): UseTranslateConversation {
         // so the run is half-duplex: the microphone pauses while a translation plays.
         () => ({
           ...cascadeRuntimeFor(live.mic),
+          // A dropped socket is replaced rather than ending the conversation; on a
+          // phone the usual drop is the app going to the background, which the
+          // server's 15 s heartbeat ends within about 30 s.
+          reconnectOnDrop: true,
           receivedSounding: () => live.sink?.isPlaying ?? false,
           ...(live.conversationId === undefined ? {} : { conversationId: live.conversationId }),
         }),
