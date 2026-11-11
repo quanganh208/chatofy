@@ -2816,3 +2816,25 @@ Kokoro synthesizes each clause whole, so English first audio waits on the first 
 - **Production:** about 17% of turns get cut. On a quieter host, those turns reached first audio in 549 ms p50, against 924 ms before. Uncut turns stayed within noise of the pre-deploy fit (+15 ms). vi→en TTS request → first audio p50 went from 801 to 720 ms. Two earlier after-runs, on a host loaded by another project, showed about −190 ms on cut turns and slower uncut turns. A translation-prompt nudge for an earlier comma moved the median first clause only from 24.5 to 22 chars, and was dropped before judging.
 
 Ruler: `benchmarks/latency/` (`clause-voice`, `clause-natural`, `clause-natural-warm`, `clause-natural-quiet`).
+
+## A dropped socket no longer ends a conversation (11/11/2026)
+
+Prod conversation `09ddb1a2` (one-way en→vi, 163 s) ended with "Connection to the translator dropped".
+
+- **What broke.** The browser's socket died between the browser and the Cloudflare edge. cloudflared logged no edge reconnect that day, and HTTP through the tunnel 1 s later succeeded. The API never saw the close: the open turn waited 32 s for the idle sweep, and the last finished turn (154.4–163.6 s, 35 words) was translated and voiced into a dead socket and is missing from history.
+- **Why it hurt.** Nothing pinged `/ws/translate`. The client stopped on any close. Conversation state (context, voices, priors) was keyed by socket. The per-user ceiling of 3 turns still counted the dead socket's turns, so a fast reconnect would have earned `too_many_turns`.
+- **What shipped.**
+  - The client reconnects and re-sends the turns the dead socket never answered.
+  - The server joins the new socket to the conversation through a `resume` key, frees the dead socket at once, and keeps a cleanly closed socket's history for 30 s.
+  - A 15 s heartbeat.
+  - A client watchdog.
+  - A `client.connection.report` line, so the next drop can be attributed.
+
+  Details are in [data flow](architecture/data-flow.md#dropped-connections).
+
+- **Measured locally** against the branch API, with a proxy that kills the client leg and leaves the API's end open:
+  - The forced drop at 45 s kept 19 of 19 turns, the same as the undisturbed run, with 1 reconnect, 1 re-submit, `down=509ms` and no server errors.
+  - With reconnect off, the heartbeat freed the half-open socket 30 s after the drop.
+- **Still open.** Whether Cloudflare forwards WebSocket pings to the browser or answers them at the edge. The proxy bypasses Cloudflare.
+
+Ruler: `benchmarks/socket-drop/`.

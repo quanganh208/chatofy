@@ -326,6 +326,27 @@ splitting changes prosody at the seams.
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
 
+### Dropped connections
+
+The web /translate page reconnects after an unexpected close instead of ending the conversation (`reconnectOnDrop` in `ConversationSession`; the extension and the meeting leg keep it off). This was added after a prod drop on 2026-11-11 between the browser and the Cloudflare edge, which the API never saw.
+
+- **Resume key.** Each run sends a random `resume` query parameter on every upgrade. When a socket arrives for the same user and key (`SocketResumeRegistry`), the gateway does the following:
+  - moves the old socket's conversation state to it: earlier turns, learned spellings, decided languages, finished segments, the last voice and the source prior. Turn and transport state stays behind;
+  - runs `handleDisconnect` on the old socket at once, so its turns no longer hold the per-user ceiling;
+  - queues the new socket's starts behind the old lease closing;
+  - terminates the old socket.
+
+  A socket that closed cleanly keeps its conversation history for 30 s, waiting for that reconnect.
+
+- **Re-submit.** A run that can reconnect keeps the audio it sent for each turn (up to 12 s) until the turn's `server.transcript.final` or first audio frame. After reconnecting, every turn the server never answered is started again under the same turn id with `resubmit: true` and replayed from sequence 0. A turn that was answered closes with `connection_lost`. A turn is re-sent at most once. The re-sent audio is metered again.
+- **Retries.** The client waits 0.5, 1.5 and 4 s (±20%) before its three attempts, and shows `reconnecting` meanwhile while capture keeps running. After the third failure it ends with "Connection to the translator dropped", as before. Code 1008 (credentials changed) and codes from 4000 up are never retried.
+- **Detection.**
+  - The server pings every socket every 15 s and terminates one that missed a pong, so a half-open socket is freed within 30 s. This applies to every client, including mobile and the extension, which do not reconnect: a client that stops answering pongs, such as a suspended app, loses its socket within about 30 s.
+  - The client has a watchdog: a turn that finished capture and has heard no server frame for 15 s forces a reconnect.
+- **Telemetry.** The first frame on the new socket is `client.connection.report`, which the API logs as one line: `connection.report cause= code= clean= sinceLastFrame= down= inFlight= resubmitted= attempt=`.
+
+Checked with `benchmarks/socket-drop/`. A forced half-open drop at 45 s kept 19 of 19 turns, with one re-submit and no `too_many_turns`. Without reconnect, the heartbeat freed the socket about 30 s after the drop. That proxy talks to the API directly, so whether the Cloudflare edge forwards pings is still unmeasured.
+
 ### Two-way and auto-detect turns
 
 The same steps, with the turn's language decided while it is spoken instead of
