@@ -71,3 +71,86 @@ def _absorb_fragments(parts: list[str]) -> list[str]:
         else:
             merged.append(part)
     return merged
+
+
+#: A capped head shorter than this is not worth a synthesis call of its own,
+#: and a remainder shorter than this would be spoken as a stub after it.
+MIN_CAP_PART_CHARS = 8
+
+#: Words a head must not end on: the listener would hear the phrase stop on them.
+_DANGLING = frozenset(
+    (
+        "a an the to of in on at for with my your his her our their its"
+        " is are was were be been will would can could has have had"
+    ).split()
+)
+#: Words a cut may fall in front of, where speech already pauses naturally.
+_PHRASE_STARTS = frozenset(
+    "and but or because that when if so to for with which while after before".split()
+)
+
+
+#: Longest head tried when the capped head would be a single word, so a pair
+#: like "Artificial intelligence" stays together.
+TWO_WORD_HEAD_MAX_CHARS = 24
+#: Floor and growth of each later piece's budget. A piece is synthesized while
+#: the one before it plays, so it may grow with that one's length; a fixed
+#: second cut left 7 of 71 recorded turns with a gap over 150 ms.
+LATER_PIECE_MIN_CHARS = 45
+LATER_PIECE_GROWTH = 3
+
+
+def _cut(clause: str, max_chars: int) -> tuple[str, str] | None:
+    """The best word-boundary cut of `clause` with a head of at most `max_chars`."""
+    candidates = []
+    for match in re.finditer(r" +", clause):
+        head, rest = clause[: match.start()], clause[match.end() :]
+        if not MIN_CAP_PART_CHARS <= len(head) <= max_chars or len(rest) < MIN_CAP_PART_CHARS:
+            continue
+        if head[-1].isdigit() or rest[0].isdigit():
+            continue
+        if head.rsplit(" ", 1)[-1].lower() in _DANGLING:
+            continue
+        candidates.append((head, rest))
+    if not candidates:
+        return None
+    natural = [c for c in candidates if c[1].split(" ", 1)[0].lower().strip(",") in _PHRASE_STARTS]
+    return (natural or candidates)[-1]
+
+
+def cap_first_clause(parts: list[str], max_chars: int | None) -> list[str]:
+    """Cut the first clause into pieces, the first at most `max_chars` long.
+
+    The first clause is synthesized whole before any audio exists, and on Kokoro
+    its cost grows with its length: 201 ms + 15 ms per character on production,
+    r = 0.96 (docs/development-journey.md, 11/11/2026). A shorter head makes the
+    first audio earlier. Each later piece of that clause is synthesized while
+    the piece before it plays, so its budget is `LATER_PIECE_GROWTH` times that
+    piece's length, never under `LATER_PIECE_MIN_CHARS`; that keeps it ready
+    before the previous one ends. Later clauses are left as they are.
+
+    The text is unchanged: the pieces together are exactly the first clause. A
+    cut never touches a digit (it would split "20 percent" or "1 000"), never
+    leaves a function word ending a piece, and never leaves a piece under
+    `MIN_CAP_PART_CHARS`. With no such space the clause stays whole, and so does
+    every clause when `max_chars` is None.
+    """
+    if max_chars is None or not parts or len(parts[0]) <= max_chars:
+        return parts
+    cut = _cut(parts[0], max_chars)
+    if cut is not None and " " not in cut[0]:
+        wider = _cut(parts[0], TWO_WORD_HEAD_MAX_CHARS)
+        if wider is not None and " " in wider[0]:
+            cut = wider
+    if cut is None:
+        return parts
+    pieces = [cut[0]]
+    rest = cut[1]
+    while True:
+        budget = max(LATER_PIECE_MIN_CHARS, LATER_PIECE_GROWTH * len(pieces[-1]))
+        nxt = _cut(rest, budget) if len(rest) > budget else None
+        if nxt is None:
+            pieces.append(rest)
+            return [*pieces, *parts[1:]]
+        pieces.append(nxt[0])
+        rest = nxt[1]

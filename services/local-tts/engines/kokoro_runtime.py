@@ -22,7 +22,7 @@ from collections.abc import Iterator
 import numpy as np
 
 from .base import MODELS_DIR, TtsEngine, preload_onnxruntime_dll
-from .clause_splitter import split_into_clauses
+from .clause_splitter import cap_first_clause, split_into_clauses
 
 MODEL_DIR = MODELS_DIR / "kokoro-multi-lang-v1_0"
 LEXICONS = ("lexicon-us-en.txt", "lexicon-zh.txt")
@@ -91,6 +91,10 @@ class SharedKokoroEngine(TtsEngine):
     HOLDS_LOCK_FOR_TURN = False
     #: `generate(..., speed=)` is honoured by this runtime, unlike VieNeu's.
     SPEED_ADJUSTABLE = True
+    #: Longest first clause synthesized as one piece, or None to cut only at
+    #: punctuation. See `cap_first_clause`; a language sets it once its cost per
+    #: character has been measured.
+    FIRST_CLAUSE_CAP_CHARS: int | None = None
 
     def __init__(self) -> None:
         super().__init__(lock=RUNTIME.lock)
@@ -137,6 +141,6 @@ class SharedKokoroEngine(TtsEngine):
         Sequential by construction: one `generate` finishes before the next
         starts, and `TtsEngine.stream` holds the shared lock around each one.
         """
-        for clause in split_into_clauses(text):
+        for clause in cap_first_clause(split_into_clauses(text), self.FIRST_CLAUSE_CAP_CHARS):
             audio = self._engine.generate(self.prepare(clause), sid=int(voice), speed=speed)
             yield np.asarray(audio.samples, dtype=np.float32)
