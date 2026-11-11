@@ -180,6 +180,20 @@ export class FinishedSegments {
     Map<string, FinishedSegment>
   >();
 
+  /**
+   * Carry the finished segments of a dropped socket to the one that replaced
+   * it, so a block retranslation the reader asks for after a reconnect can
+   * still reach the turns spoken before it. A copy, and never over a socket
+   * that already holds segments. There is no `forget`: the `WeakMap` lets the
+   * old socket's entry go with the socket.
+   */
+  adopt(from: StreamSocket, to: StreamSocket): void {
+    const segments = this.bySocket.get(from);
+    if (segments && !this.bySocket.has(to)) {
+      this.bySocket.set(to, new Map(segments));
+    }
+  }
+
   record(
     socket: StreamSocket,
     segmentId: string,

@@ -128,6 +128,7 @@ worktrees/
 **/benchmarks/punct/data/external/
 **/benchmarks/punct/results/smoke/
 **/benchmarks/call-budget/results/
+**/benchmarks/latency/results/
 **/benchmarks/conversation-context/data/
 **/benchmarks/conversation-context/results/
 **/benchmarks/translation-judge/data/

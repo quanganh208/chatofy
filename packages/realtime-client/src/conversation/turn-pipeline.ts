@@ -156,7 +156,42 @@ interface Turn {
   echoEvents: number;
   /** Times the server has refused to open this turn. */
   refusals: number;
+  /**
+   * Audio the transport took for this turn, kept until the server answers it.
+   *
+   * What a re-submit replays after the socket that carried the turn dropped:
+   * the server's copy went with that socket, and the only other copy is the
+   * recording, which is compressed and not this pipeline's. Bounded by
+   * {@link MAX_RETAINED_MS}.
+   */
+  sent: Int16Array[];
+  sentRetainedMs: number;
+  /** Retained audio was shed at the cap, so a re-submit replays a partial turn. */
+  retainedTruncated: boolean;
+  /**
+   * The server has given the reader something for this turn — its final text
+   * or its first audio — so replaying it would say it twice.
+   */
+  answered: boolean;
+  /** Being sent again on a new socket; its start says so, and the ceiling spares it. */
+  resubmit: boolean;
+  /** When it was last re-sent; the refusal deadline runs from here. */
+  resubmittedAt?: number;
+  /** How many times it has been re-sent. */
+  resubmits: number;
 }
+
+/**
+ * The most sent audio kept per turn for a re-submit.
+ *
+ * The longest turn is `maxUtteranceMs` (8 s) plus its pre-roll. Past that the
+ * oldest blocks go, and the replay says so in the log rather than pretending
+ * the turn was whole.
+ */
+const MAX_RETAINED_MS = 12_000;
+
+/** Times one turn may be re-sent before a reconnect gives it up. */
+const MAX_RESUBMITS = 1;
 
 /**
  * What the client measured about one turn, as far as the pipeline can see it.
@@ -211,9 +246,11 @@ export class TurnPipeline {
    * the log line can state its size, where before it was invisible.
    */
   private orphanedMs = 0;
+  /** Whether sent audio is kept for a re-submit; see `retainForResubmit`. */
+  private retaining = false;
 
   constructor(
-    private readonly transport: TurnPipelineTransport,
+    private transport: TurnPipelineTransport,
     private readonly handlers: TurnPipelineHandlers = {},
     private readonly maxInFlight: number = DEFAULT_MAX_IN_FLIGHT,
     /** Injected so a spec can measure without sleeping. */
@@ -286,6 +323,12 @@ export class TurnPipeline {
         openedAt - previous.closedAt <= MAX_CAPTURE_GAP_MS,
       echoEvents: 0,
       refusals: 0,
+      sent: [],
+      sentRetainedMs: 0,
+      retainedTruncated: false,
+      answered: false,
+      resubmit: false,
+      resubmits: 0,
       preRollMs: preRoll.reduce((ms, block) => ms + (block.length / TARGET_SAMPLE_RATE) * 1000, 0),
     };
     this.turns.set(turnId, turn);
@@ -355,6 +398,7 @@ export class TurnPipeline {
       }
       turn.sequence += 1;
       turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
+      this.retain(turn, block);
       return;
     }
     // Still waiting on a slot or on the handshake. Held rather than dropped.
@@ -462,12 +506,131 @@ export class TurnPipeline {
     if (turn.phase === 'handshaking') turn.phase = 'streaming';
     this.handlers.onTurnReady?.(turn.turnId, sessionId);
     this.flushPending(turn);
+    // Its replay is on the wire; from here the ceiling treats it like any turn.
+    turn.resubmit = false;
 
     // A turn capture had already finished with was waiting only for this id.
     if (turn.captureFinished) {
       turn.phase = 'ending';
       this.transport.endSession(sessionId);
     }
+  }
+
+  /**
+   * The server has given the reader something for this turn: its
+   * `server.transcript.final` or its first `server.audio.frame`.
+   *
+   * From then on a re-submit would make the reader hear or read the turn
+   * twice, so its retained audio is let go and a reconnect closes it instead.
+   */
+  noteAnswered(sessionId: string): void {
+    const turn = this.find({ sessionId });
+    if (!turn || turn.answered) return;
+    turn.answered = true;
+    turn.sent = [];
+    turn.sentRetainedMs = 0;
+  }
+
+  /**
+   * When the oldest turn that finished capture and is still waiting for its
+   * answer started waiting, or `null` when none is.
+   */
+  awaitingAnswerSince(): number | null {
+    let since: number | null = null;
+    for (const turn of this.turns.values()) {
+      if (turn.phase !== 'ending' || turn.answered) continue;
+      if (since === null || turn.closedAt < since) since = turn.closedAt;
+    }
+    return since;
+  }
+
+  /**
+   * Keep sent audio until each turn is answered, so a reconnect can re-send
+   * it. Off unless the session can reconnect: a turn that can never be
+   * re-sent would hold up to 12 s of PCM for nothing.
+   */
+  retainForResubmit(): void {
+    this.retaining = true;
+  }
+
+  /**
+   * Point the pipeline at a new socket, after the old one dropped. Only the
+   * transport changes; every turn keeps its place, and `resubmitAfterReconnect`
+   * decides what each one does next.
+   */
+  setTransport(transport: TurnPipelineTransport): void {
+    this.transport = transport;
+  }
+
+  /**
+   * Put every turn the dropped socket was carrying back through the start path
+   * on the new one.
+   *
+   * - An **answered** turn closes with `connection_lost`. The reader already
+   *   has its text, and possibly some of its audio.
+   * - A turn still **waiting** never reached the server and is left alone; it
+   *   starts normally.
+   * - Every other turn goes back to `waiting` with all its audio, sent and
+   *   held, as `pending`, its sequence back at 0 and its start marked
+   *   `resubmit`. The same turn id keeps its place in speaking order and its
+   *   single history row. `onReady` then replays it frame by frame and ends it
+   *   if capture had finished, exactly as for a turn that waited on a slot.
+   */
+  resubmitAfterReconnect(): {
+    resubmitted: { turnId: string; oldSessionId: string | null }[];
+    closed: string[];
+  } {
+    const resubmitted: { turnId: string; oldSessionId: string | null }[] = [];
+    const closed: string[] = [];
+    // The server names a continuation's predecessor as the turn opened just
+    // before it on the socket. A continuation whose cut turn closes here would
+    // be stitched to whatever opened before THAT, so it starts fresh instead.
+    let previousSurvivesCut = false;
+    for (const turn of [...this.turns.values()]) {
+      if (turn.answered) {
+        closed.push(turn.turnId);
+        this.forget(turn, 'connection_lost');
+        previousSurvivesCut = false;
+        continue;
+      }
+      if (turn.continuesCut && !previousSurvivesCut) turn.continuesCut = false;
+      previousSurvivesCut = turn.cutForced;
+      if (turn.phase === 'waiting') continue;
+      // Sent once already and still unanswered: the server is not going to
+      // answer this one, and re-sending it again would loop on every
+      // watchdog trip with the refusal deadline restarting each time.
+      if (turn.resubmits >= MAX_RESUBMITS) {
+        closed.push(turn.turnId);
+        this.forget(turn, 'connection_lost');
+        previousSurvivesCut = false;
+        continue;
+      }
+      turn.resubmits += 1;
+
+      resubmitted.push({ turnId: turn.turnId, oldSessionId: turn.sessionId });
+      if (turn.retainedTruncated) {
+        this.handlers.onLog?.(
+          `turn ${turn.turnId} resubmitted without its first ` +
+            `${Math.round(turn.sentMs - turn.sentRetainedMs)}ms (retain cap)`,
+        );
+      }
+      turn.pending = [...turn.sent, ...turn.pending];
+      turn.pendingMs = turn.pending.reduce(
+        (ms, block) => ms + (block.length / TARGET_SAMPLE_RATE) * 1000,
+        0,
+      );
+      turn.sent = [];
+      turn.sentRetainedMs = 0;
+      // Counted again as the replay goes out, so the row is not double.
+      turn.sentMs = 0;
+      turn.sessionId = null;
+      turn.sequence = 0;
+      turn.phase = 'waiting';
+      turn.resubmit = true;
+      turn.resubmittedAt = this.now();
+    }
+    this.startNextWaiting();
+    return { resubmitted, closed };
   }
 
   /** The server closed a turn. Identified by either name. */
@@ -497,7 +660,9 @@ export class TurnPipeline {
       // The same deadline the pending ceiling would use to evict this audio if it
       // sat un-sent for that long: retrying past it would hold audio the client
       // has already decided is too old to be worth keeping.
-      if (this.now() - turn.openedAt >= MAX_PENDING_MS) {
+      // A re-sent turn is old by construction, so its clock restarts when it
+      // was re-sent; `openedAt` itself stays, since grouping reads it.
+      if (this.now() - (turn.resubmittedAt ?? turn.openedAt) >= MAX_PENDING_MS) {
         this.handlers.onLog?.(
           `turn ${turn.turnId} refused ${turn.refusals} times; giving up on ` +
             `${Math.round(turn.pendingMs)}ms of audio`,
@@ -576,6 +741,19 @@ export class TurnPipeline {
       }
       turn.sequence += 1;
       turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
+      this.retain(turn, block);
+    }
+  }
+
+  /** Keep a sent block for a possible re-submit, within {@link MAX_RETAINED_MS}. */
+  private retain(turn: Turn, block: Int16Array): void {
+    if (!this.retaining || turn.answered) return;
+    turn.sent.push(block);
+    turn.sentRetainedMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
+    while (turn.sentRetainedMs > MAX_RETAINED_MS && turn.sent.length > 1) {
+      const oldest = turn.sent.shift()!;
+      turn.sentRetainedMs -= (oldest.length / TARGET_SAMPLE_RATE) * 1000;
+      turn.retainedTruncated = true;
     }
   }
 
@@ -597,7 +775,11 @@ export class TurnPipeline {
 
     turn.phase = 'handshaking';
     // Added only when true, so every other turn's start is the message it always was.
-    const options = turn.continuesCut ? { ...this.options, continuesCut: true } : this.options;
+    const options = {
+      ...this.options,
+      ...(turn.continuesCut ? { continuesCut: true } : {}),
+      ...(turn.resubmit ? { resubmit: true } : {}),
+    };
     this.transport.startSession(options, turn.turnId);
   }
 
@@ -656,6 +838,8 @@ export class TurnPipeline {
       this.closedMetrics.delete(oldest);
     }
 
+    turn.sent = [];
+    turn.sentRetainedMs = 0;
     this.turns.delete(turn.turnId);
     if (this.capturing === turn.turnId) this.capturing = null;
     this.handlers.onTurnClosed?.(turn.turnId, reason);
@@ -685,12 +869,18 @@ export class TurnPipeline {
    */
   private enforcePendingCeiling(): void {
     for (;;) {
+      // A turn being re-submitted is spared: its pending audio is the replay of
+      // a turn already spoken, bounded by `MAX_RETAINED_MS`, and three of them
+      // at 8 s each would otherwise be shed — or, still `waiting`, forgotten
+      // whole — by the very ceiling meant to protect the conversation.
       let total = 0;
-      for (const turn of this.turns.values()) total += turn.pendingMs;
+      for (const turn of this.turns.values()) {
+        if (!turn.resubmit) total += turn.pendingMs;
+      }
       if (total <= MAX_PENDING_MS) return;
 
       const oldest = [...this.turns.values()].find(
-        (turn) => turn.pendingMs > 0 && turn.turnId !== this.capturing,
+        (turn) => turn.pendingMs > 0 && turn.turnId !== this.capturing && !turn.resubmit,
       );
       if (!oldest) return;
 

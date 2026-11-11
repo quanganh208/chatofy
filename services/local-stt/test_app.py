@@ -331,6 +331,8 @@ def test_alternates_on_returns_the_second_reading(client, webm_audio, monkeypatc
     assert body["alternates"] == ["xin chào các bạn"]
     # Never biased: the primary got the term, the alternate did not.
     assert fake.calls == [""]
+    # How long the answer waited for it, for the caller's latency timeline.
+    assert isinstance(body["alternateWaitMs"], int) and body["alternateWaitMs"] >= 0
 
 
 def test_alternates_on_without_an_alternate_loaded(client, webm_audio, monkeypatch):
@@ -343,6 +345,8 @@ def test_alternates_on_without_an_alternate_loaded(client, webm_audio, monkeypat
 
     assert res.status_code == 200
     assert "alternates" not in res.json()
+    # No alternate was started, so there was no wait to report.
+    assert "alternateWaitMs" not in res.json()
 
 
 @pytest.mark.parametrize(
@@ -363,7 +367,11 @@ def test_a_failing_alternate_never_fails_the_turn(client, webm_audio, monkeypatc
     res = _post_vi(client, webm_audio, alternates="true")
 
     assert res.status_code == 200
-    assert res.json() == {"text": "xin chào", "language": "vi"}
+    body = res.json()
+    # The wait is reported even when the alternate came to nothing: the turn
+    # still spent it. Everything else is the plain transcript.
+    assert body.pop("alternateWaitMs") >= 0
+    assert body == {"text": "xin chào", "language": "vi"}
 
 
 def test_a_late_alternate_is_dropped_not_waited_for(client, webm_audio, monkeypatch):
@@ -382,7 +390,10 @@ def test_a_late_alternate_is_dropped_not_waited_for(client, webm_audio, monkeypa
     res = _post_vi(client, webm_audio, alternates="true")
 
     assert res.status_code == 200
-    assert res.json() == {"text": "xin chào", "language": "vi"}
+    body = res.json()
+    # A late alternate is reported as the whole wait it was given, no more.
+    assert 40 <= body.pop("alternateWaitMs") < 900
+    assert body == {"text": "xin chào", "language": "vi"}
     assert time.perf_counter() - started < 0.9
 
 

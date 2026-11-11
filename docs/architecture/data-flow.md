@@ -217,7 +217,17 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      `speculations` and `liveTranslations`. Both are
      metered requests that buy a head start, and neither was visible in the
      latency table before — the saving showed in `firstAudioAtMs` while its cost
-     sat in no column at all
+     sat in no column at all.
+     The line also carries `stages=`. Each value is the number of ms from the
+     endpoint at which a stage finished: `sttDone`, `alternateWait` (a duration,
+     reported by the STT sidecar as `alternateWaitMs`), `mtFirstToken`, `mtDone`,
+     `restoreDone`, `correctionsDone`, `translationsReady`, `lineSent`,
+     `embeddingDone` and `ttsRequested`. A stage that a reused speculation ran
+     before the endpoint comes out negative. Next to `stages=` the line carries
+     `inflight=` (the speculation had not finished when the endpoint arrived),
+     `corrLate=`, `cand=` (a speaker-split candidate existed) and `fused=`
+     (fusion corrections applied to the final line). `benchmarks/latency/` replays
+     recordings and turns these lines into per-stage tables.
 5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
    the turn actually ended for, and a metrics row flagged `completed: false`:
    - a pipeline fault (STT, translation, synthesis) closes with reason `error`,
@@ -315,6 +325,27 @@ splitting changes prosody at the seams.
 - No configured engine serves the turn's language → `LanguageUnavailableException` (HTTP 503, `SERVICE_UNAVAILABLE`, message passed through)
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
+
+### Dropped connections
+
+The web /translate page and the mobile translate screen reconnect after an unexpected close instead of ending the conversation (`reconnectOnDrop` in `ConversationSession`; the extension and the meeting legs keep it off). Mobile fetches a fresh access token as soon as the status turns `reconnecting`, because a phone back from the background often holds an expired one; if the first attempt is too early for it, the next attempt uses it. This was added after a prod drop on 2026-11-11 between the browser and the Cloudflare edge, which the API never saw.
+
+- **Resume key.** Each run sends a random `resume` query parameter on every upgrade. When a socket arrives for the same user and key (`SocketResumeRegistry`), the gateway does the following:
+  - moves the old socket's conversation state to it: earlier turns, learned spellings, decided languages, finished segments, the last voice and the source prior. Turn and transport state stays behind;
+  - runs `handleDisconnect` on the old socket at once, so its turns no longer hold the per-user ceiling;
+  - queues the new socket's starts behind the old lease closing;
+  - terminates the old socket.
+
+  A socket that closed cleanly keeps its conversation history for 30 s, waiting for that reconnect.
+
+- **Re-submit.** A run that can reconnect keeps the audio it sent for each turn (up to 12 s) until the turn's `server.transcript.final` or first audio frame. After reconnecting, every turn the server never answered is started again under the same turn id with `resubmit: true` and replayed from sequence 0. A turn that was answered closes with `connection_lost`. A turn is re-sent at most once. The re-sent audio is metered again.
+- **Retries.** The client waits 0.5, 1.5 and 4 s (±20%) before its three attempts, and shows `reconnecting` meanwhile while capture keeps running. After the third failure it ends with "Connection to the translator dropped", as before. Code 1008 (credentials changed) and codes from 4000 up are never retried.
+- **Detection.**
+  - The server pings every socket every 15 s and terminates one that missed a pong, so a half-open socket is freed within 30 s. This applies to every client: a client that stops answering pongs, such as a suspended phone app, loses its socket within about 30 s. Web and mobile then reconnect when they can; the extension, which does not reconnect, ends the conversation.
+  - The client has a watchdog: a turn that finished capture and has heard no server frame for 15 s forces a reconnect.
+- **Telemetry.** The first frame on the new socket is `client.connection.report`, which the API logs as one line: `connection.report cause= code= clean= sinceLastFrame= down= inFlight= resubmitted= attempt=`.
+
+Checked with `benchmarks/socket-drop/`, locally and on production after deploy (2026-11-11). A forced half-open drop at 45 s kept 19 of 19 turns, the same as the undisturbed run, with one re-submit, `down=593ms` and no `too_many_turns`. Without reconnect, the heartbeat freed the socket about 30 s after the drop. The Cloudflare edge forwards the API's pings end to end: through the tunnel, a client that never answers pings was terminated after 28 s (1006), while one that answers kept its socket.
 
 ### Two-way and auto-detect turns
 

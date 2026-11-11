@@ -487,9 +487,10 @@ jobs:
   # busy 503, the stream worker's release paths, and the Python clause splitter
   # checked against the fixture the TypeScript one reads. A leaked engine lock
   # silences a language until the process restarts, and a drifted splitter cuts
-  # streamed English differently from the fallback path — neither shows up in
-  # any Node suite. The model-backed files (`test_app.py`, `test_stream.py`) stay
-  # local: they need ~900MB of weights.
+  # streamed text differently from the fallback path — neither shows up in any
+  # Node suite. Kokoro English's first-clause cap is deliberately sidecar-only
+  # and is tested in the same file. The model-backed files (`test_app.py`,
+  # `test_stream.py`) stay local: they need ~900MB of weights.
   sidecar-unit:
     name: TTS sidecar unit tests
     runs-on: ubuntu-latest
@@ -514,7 +515,7 @@ jobs:
         run: >-
           uv run --frozen --directory services/local-tts
           pytest -q test_engine_lock.py test_stream_worker.py test_clause_splitter.py
-          test_zh_number_verbalizer.py
+          test_zh_number_verbalizer.py test_seam_trim.py
 
   # The STT sidecar's tests that need no model weights: webm/opus decoding, the
   # hotword builder's limits, speech-duration and word-pause measurement, the

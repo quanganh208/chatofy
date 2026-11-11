@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ClientTurnMetrics, SessionLanguagePair } from '@chatofy/types';
+import { TURN_STAGES, type TurnStages } from '../session/turn-timeline';
 
 /**
  * How a turn's final source text was produced, in counts only.
@@ -130,6 +131,31 @@ export interface TurnMetrics {
   firstAudioAtMs: number;
   /** Endpoint → last audio byte pushed. */
   lastAudioAtMs: number;
+  /**
+   * When each stage of the critical path finished, from the endpoint; see
+   * `TurnStage`. Absent on rows built by hand, and on every row written
+   * before stages were recorded, so a reader must not read absence as zero.
+   */
+  stages?: TurnStages;
+  /**
+   * Set only when a reusable speculation was waiting at `end()`: whether it
+   * was still running then. A hit that was still in flight saved less than one
+   * that had already settled.
+   */
+  speculationInFlightAtEnd?: boolean;
+  /** True when the transcript checks missed their grace and the line went without them. */
+  correctionsLate?: boolean;
+  /**
+   * Whether `end()` found the audio could hold a change of voice. Such a turn
+   * takes the split path even when it is not split in the end. Absent on a
+   * turn that never got that far.
+   */
+  splitCandidate?: boolean;
+  /**
+   * Recognizer-fusion corrections the final line carried. Zero when the
+   * fusion ran and none reached the line; absent when it never ran.
+   */
+  fusedCorrections?: number;
 }
 
 /**
@@ -176,7 +202,8 @@ export class TurnMetricsRecorder {
         `clauses=${metrics.clauses}${metrics.ttsDelivery ? `/${metrics.ttsDelivery}` : ''} ` +
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}` +
-        finalSourceFields(metrics.finalSource),
+        finalSourceFields(metrics.finalSource) +
+        stageFields(metrics),
     );
   }
 
@@ -204,5 +231,36 @@ function finalSourceFields(d: FinalSourceDiagnostics | undefined): string {
   return (
     ` final=${d.src} bytes=${d.bytes} specAt=${d.specAtBytes ?? '-'}` +
     ` chars=${d.chars} words=${d.words} speechMs=${d.speechMs ?? '-'}`
+  );
+}
+
+/**
+ * The stage timings as ` lastAudio=… stages=a:n,b:n inflight=… corrLate=…`,
+ * then ` cand=yes|no` and ` fused=N` where the turn reached them, or
+ * nothing on a row that carries no stage map (one built by hand, not by a
+ * timeline), so such a row keeps the line it always had.
+ *
+ * Stages go in the fixed order of `TURN_STAGES` and absent ones are skipped
+ * rather than dashed: `benchmarks/latency/analyze-latency.mjs` splits the list
+ * on commas and colons, and a stage that never ran has no number to give.
+ * `lastAudio` rides here too — it was always computed and never logged.
+ */
+function stageFields(metrics: TurnMetrics): string {
+  const { stages } = metrics;
+  if (!stages) return '';
+  const timed = TURN_STAGES.flatMap((stage) => {
+    const at = stages[stage];
+    return at === undefined ? [] : [`${stage}:${at}`];
+  });
+  return (
+    ` lastAudio=${metrics.lastAudioAtMs}ms stages=${timed.join(',')}` +
+    ` inflight=${metrics.speculationInFlightAtEnd ? 'yes' : 'no'}` +
+    ` corrLate=${metrics.correctionsLate ? 'yes' : 'no'}` +
+    (metrics.splitCandidate === undefined
+      ? ''
+      : ` cand=${metrics.splitCandidate ? 'yes' : 'no'}`) +
+    (metrics.fusedCorrections === undefined
+      ? ''
+      : ` fused=${metrics.fusedCorrections}`)
   );
 }

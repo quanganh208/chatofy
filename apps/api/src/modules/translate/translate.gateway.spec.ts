@@ -23,6 +23,8 @@ describe('TranslateGateway', () => {
       | 'disconnect'
       | 'endAllForCredits'
       | 'refuseOverCapacity'
+      | 'adoptConversation'
+      | 'forgetConversation'
     >
   >;
   let auth: Mocked<AuthAdapter>;
@@ -40,6 +42,8 @@ describe('TranslateGateway', () => {
       disconnect: vi.fn(),
       endAllForCredits: vi.fn(),
       refuseOverCapacity: vi.fn().mockReturnValue(false),
+      adoptConversation: vi.fn(),
+      forgetConversation: vi.fn(),
     };
     // The real meter on the in-memory ledger: admission is part of every start.
     ledger = new InMemoryCreditLedger();
@@ -653,6 +657,276 @@ describe('TranslateGateway', () => {
       });
       expect(terminator.terminate('user_1')).toBe(1);
       expect(client.close).toHaveBeenCalled();
+    });
+  });
+  /**
+   * A client that reconnects after a drop names its conversation with a
+   * `resume` key, and the gateway joins it back: the old socket's history moves
+   * over, and the old socket — still open when it died without a close — is
+   * ended before the new one's first start, so its turns no longer hold the
+   * user's ceiling.
+   */
+  describe('reconnect', () => {
+    type FakeSocket = StreamSocket & {
+      close: Mock;
+      terminate: Mock;
+      ping: Mock;
+      on: Mock;
+    };
+    const fake = (): FakeSocket => ({
+      send: vi.fn(),
+      close: vi.fn(),
+      terminate: vi.fn(),
+      ping: vi.fn(),
+      on: vi.fn(),
+    });
+    function connect(
+      client: FakeSocket,
+      userId: string,
+      url = '/ws/translate',
+    ) {
+      const req: Record<string | symbol, unknown> = { headers: {}, url };
+      req[VERIFIED_USER_ID] = userId;
+      gateway.handleConnection(client, req);
+      return client;
+    }
+    const withKey = '/ws/translate?resume=conv-key-0001';
+
+    it('same user, same key: adopts first, disconnects the old socket once, then terminates it', () => {
+      const old = connect(fake(), 'user_1', withKey);
+      const next = connect(fake(), 'user_1', withKey);
+
+      expect(sessions.adoptConversation).toHaveBeenCalledWith(old, next);
+      expect(sessions.disconnect).toHaveBeenCalledTimes(1);
+      expect(sessions.disconnect).toHaveBeenCalledWith(old);
+      expect(
+        sessions.adoptConversation.mock.invocationCallOrder[0],
+      ).toBeLessThan(sessions.disconnect.mock.invocationCallOrder[0]!);
+      expect(old.terminate).toHaveBeenCalledTimes(1);
+      expect(old.close).not.toHaveBeenCalled();
+    });
+
+    it('a different user with the same key is never joined to it', () => {
+      const old = connect(fake(), 'user_1', withKey);
+      connect(fake(), 'user_2', withKey);
+      expect(sessions.adoptConversation).not.toHaveBeenCalled();
+      expect(old.terminate).not.toHaveBeenCalled();
+    });
+
+    it('no key: no supersede', () => {
+      const old = connect(fake(), 'user_1');
+      connect(fake(), 'user_1');
+      expect(sessions.adoptConversation).not.toHaveBeenCalled();
+      expect(old.terminate).not.toHaveBeenCalled();
+    });
+
+    it("queues the new socket's first start behind the old lease closing", async () => {
+      const old = connect(fake(), 'user_1', withKey);
+      let release!: () => void;
+      const detach = vi
+        .spyOn(meter, 'detach')
+        .mockImplementation(
+          () => new Promise<void>((resolve) => (release = resolve)),
+        );
+      const next = connect(fake(), 'user_1', withKey);
+      expect(detach).toHaveBeenCalledWith(old);
+      void gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'en', target: 'vi' },
+        },
+        next,
+      );
+      await Promise.resolve();
+      expect(sessions.refuseOverCapacity).not.toHaveBeenCalled();
+      release();
+      await vi.waitFor(() =>
+        expect(sessions.refuseOverCapacity).toHaveBeenCalled(),
+      );
+    });
+
+    it('the disconnect ws reports after a supersede does not run the cleanup twice', () => {
+      const old = connect(fake(), 'user_1', withKey);
+      connect(fake(), 'user_1', withKey);
+      gateway.handleDisconnect(old);
+      expect(sessions.disconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('a cleanly closed socket keeps its history for a reconnect within the window', () => {
+      vi.useFakeTimers();
+      try {
+        const old = connect(fake(), 'user_1', withKey);
+        gateway.handleDisconnect(old);
+        expect(sessions.disconnect).toHaveBeenCalledWith(old, {
+          keepConversation: true,
+        });
+
+        vi.advanceTimersByTime(5_000);
+        const next = connect(fake(), 'user_1', withKey);
+        expect(sessions.adoptConversation).toHaveBeenCalledWith(old, next);
+        expect(sessions.disconnect).toHaveBeenCalledTimes(1);
+        expect(old.terminate).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(60_000);
+        expect(sessions.forgetConversation).toHaveBeenCalledTimes(1);
+        expect(sessions.forgetConversation).toHaveBeenCalledWith(old);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('forgets a parked history nobody reconnected for', () => {
+      vi.useFakeTimers();
+      try {
+        const old = connect(fake(), 'user_1', withKey);
+        gateway.handleDisconnect(old);
+        vi.advanceTimersByTime(30_000);
+        expect(sessions.forgetConversation).toHaveBeenCalledWith(old);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('logs a resubmitted start without passing the flag to the session', async () => {
+      const client = connect(fake(), 'user_1');
+      void gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'en', target: 'vi' },
+          turnId: '7c1d4a0e-2f7b-4c1e-9a55-3c6f8d9e1b20',
+          resubmit: true,
+        },
+        client,
+      );
+      await vi.waitFor(() => expect(sessions.start).toHaveBeenCalled());
+      expect(JSON.stringify(sessions.start.mock.calls[0])).not.toContain(
+        'resubmit',
+      );
+    });
+
+    it('accepts a valid connection report and rejects an invalid one', () => {
+      const report = {
+        type: 'client.connection.report',
+        closeCode: 1006,
+        wasClean: false,
+        sinceLastServerFrameMs: 400,
+        downMs: 800,
+        turnsInFlight: 2,
+        resubmittedTurns: 1,
+        attempt: 1,
+        cause: 'closed',
+      };
+      expect(() =>
+        gateway.handleConnectionReport(report, fake()),
+      ).not.toThrow();
+      expect(() =>
+        gateway.handleConnectionReport({ ...report, cause: 'nope' }, fake()),
+      ).toThrow(WsException);
+    });
+
+    it('logs one connection report per socket', () => {
+      const log = vi
+        .spyOn(
+          (gateway as unknown as { logger: { log: (line: string) => void } })
+            .logger,
+          'log',
+        )
+        .mockImplementation(() => undefined);
+      const report = {
+        type: 'client.connection.report',
+        closeCode: 1006,
+        wasClean: false,
+        sinceLastServerFrameMs: 1,
+        downMs: 1,
+        turnsInFlight: 0,
+        resubmittedTurns: 0,
+        attempt: 1,
+        cause: 'closed',
+      };
+      const client = fake();
+      gateway.handleConnectionReport(report, client);
+      gateway.handleConnectionReport(report, client);
+      expect(
+        log.mock.calls.filter(([line]) =>
+          String(line).startsWith('connection.report'),
+        ),
+      ).toHaveLength(1);
+    });
+  });
+
+  describe('heartbeat', () => {
+    it('terminates a socket that missed a pong, and only that one', () => {
+      vi.useFakeTimers();
+      try {
+        const clients = new Set<
+          StreamSocket & { terminate: Mock; ping: Mock; on: Mock }
+        >();
+        gateway.afterInit({ options: {}, clients, on: vi.fn() });
+        const silent = {
+          send: vi.fn(),
+          terminate: vi.fn(),
+          ping: vi.fn(),
+          on: vi.fn(),
+        };
+        let pong: (() => void) | undefined;
+        const answering = {
+          send: vi.fn(),
+          terminate: vi.fn(),
+          ping: vi.fn(() => pong?.()),
+          on: vi.fn((_event: string, listener: () => void) => {
+            pong = listener;
+          }),
+        };
+        for (const client of [silent, answering]) {
+          const req: Record<string | symbol, unknown> = { headers: {} };
+          req[VERIFIED_USER_ID] = 'user_1';
+          gateway.handleConnection(client, req);
+          clients.add(client);
+        }
+
+        vi.advanceTimersByTime(15_000);
+        expect(silent.terminate).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(15_000);
+        expect(silent.terminate).toHaveBeenCalledTimes(1);
+        expect(answering.terminate).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('never ends a socket that cannot report a pong, and survives one that throws', () => {
+      vi.useFakeTimers();
+      try {
+        const clients = new Set<
+          StreamSocket & { terminate: Mock; ping?: Mock; on?: Mock }
+        >();
+        gateway.afterInit({ options: {}, clients, on: vi.fn() });
+        const deaf = { send: vi.fn(), terminate: vi.fn() };
+        const throwing = {
+          send: vi.fn(),
+          terminate: vi.fn(),
+          ping: vi.fn(() => {
+            throw new Error('socket gone');
+          }),
+          on: vi.fn(),
+        };
+        const silent = {
+          send: vi.fn(),
+          terminate: vi.fn(),
+          ping: vi.fn(),
+          on: vi.fn(),
+        };
+        for (const client of [deaf, throwing, silent]) {
+          const req: Record<string | symbol, unknown> = { headers: {} };
+          req[VERIFIED_USER_ID] = 'user_1';
+          gateway.handleConnection(client, req);
+          clients.add(client);
+        }
+        vi.advanceTimersByTime(30_000);
+        expect(deaf.terminate).not.toHaveBeenCalled();
+        expect(silent.terminate).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

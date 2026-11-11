@@ -274,6 +274,7 @@ export const vi: Messages = {
   'web.translate.resume': 'Tiếp tục',
   'web.translate.notListening': 'Chưa nghe',
   'web.translate.connecting': 'Đang kết nối…',
+  'web.translate.reconnecting': 'Đang kết nối lại…',
   'web.translate.listening': 'Đang nghe — bạn cứ nói',
   'web.translate.hearingYou': 'Đang nghe bạn nói…',
   'web.translate.translating': 'Đang dịch…',

@@ -23,6 +23,7 @@ import { StreamingCommitter } from '../audio/streaming-committer';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
+import type { TimedStage } from './turn-timeline';
 import { DeclaredLanguageIdentifier } from './language-identifier';
 import {
   planForPair,
@@ -504,13 +505,30 @@ export class TurnSession {
     return this.speculation.canRenew(this.audio.byteLength);
   }
 
-  startSpeculation(atBytes: number, work: Promise<TranslatedTurnText>): void {
-    this.speculation.start(atBytes, work);
+  startSpeculation(
+    atBytes: number,
+    work: Promise<TranslatedTurnText>,
+    stages: readonly TimedStage[] = [],
+  ): void {
+    this.speculation.start(atBytes, work, stages);
   }
 
   /** Bytes the most recent guess was started at, or null before any guess. */
   get speculationAtBytes(): number | null {
     return this.speculation.currentAtBytes;
+  }
+
+  /**
+   * The stages the most recent guess's pipeline has reached, at the times it
+   * reached them, for the timeline of the turn that adopts it.
+   */
+  speculationStages(): readonly TimedStage[] {
+    return this.speculation.currentStages;
+  }
+
+  /** Whether the most recent guess is still running. */
+  speculationInFlight(): boolean {
+    return this.speculation.inFlight;
   }
 
   /** The guess the endpoint may still reuse, if there is one. */

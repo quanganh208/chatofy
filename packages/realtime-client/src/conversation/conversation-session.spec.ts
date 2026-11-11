@@ -142,6 +142,7 @@ function harness(options: HarnessOptions = {}) {
   const stream = new FakeMediaStream();
   const node = new FakeWorkletNode();
   const sockets: FakeTranslateSocket[] = [];
+  const connections: ({ resumeKey: string } | undefined)[] = [];
   const statuses: ConversationStatus[] = [];
   const errors: (string | null)[] = [];
 
@@ -173,9 +174,10 @@ function harness(options: HarnessOptions = {}) {
       openMicrophone: openMicrophone as unknown as () => Promise<MediaStream>,
       createAudioContext: () => context as unknown as AudioContext,
       createWorkletNode: () => node as unknown as AudioWorkletNode,
-      createSocket: (handlers: TranslateSocketHandlers) => {
+      createSocket: (handlers: TranslateSocketHandlers, connection?: { resumeKey: string }) => {
         const socket = options.createSocket?.(handlers) ?? new FakeTranslateSocket(handlers);
         sockets.push(socket);
+        connections.push(connection);
         return socket as unknown as TranslateSocket;
       },
       createPlaybackSink: options.sink
@@ -210,6 +212,7 @@ function harness(options: HarnessOptions = {}) {
     hush,
     socket: () => sockets[sockets.length - 1]!,
     sockets,
+    connections,
   };
 }
 
@@ -1698,6 +1701,264 @@ describe('ConversationSession', () => {
 
       expect(h.errors[h.errors.length - 1]).toBe('Connection to the translator dropped');
       expect(h.statuses[h.statuses.length - 1]).toBe('idle');
+    });
+  });
+
+  /**
+   * With `reconnectOnDrop`, a dropped socket is replaced rather than ending the
+   * conversation, and the turns it never answered are sent again on the new
+   * one. On 2026-11-11 a drop between the browser and the edge ended a
+   * conversation mid-sentence and lost the turn being translated.
+   */
+  describe('reconnecting after a drop', () => {
+    const reconnecting = () => harness({ runtime: { reconnectOnDrop: true } });
+    const reportsOn = (socket: FakeTranslateSocket) =>
+      socket.sent.filter((e) => e.type === 'client.connection.report').map((e) => e.event);
+    const startsOn = (socket: FakeTranslateSocket) =>
+      socket.sent.filter((e) => e.type === 'client.session.start');
+
+    /** Fake timers from here, and the schedule's midpoint: 500, 1500, 4000 ms. */
+    function freezeClock(): void {
+      vi.useFakeTimers();
+      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    }
+    afterEach(() => vi.restoreAllMocks());
+
+    it('without reconnectOnDrop a drop still ends the conversation with the same message', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().drop();
+      expect(h.errors.at(-1)).toBe('Connection to the translator dropped');
+      expect(h.statuses.at(-1)).toBe('idle');
+      expect(h.connections).toEqual([undefined]);
+    });
+
+    it('reconnects after a drop and returns to listening', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+
+      h.socket().drop();
+      expect(h.statuses.at(-1)).toBe('reconnecting');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(h.sockets).toHaveLength(2);
+      expect(h.connections[0]?.resumeKey).toMatch(/^[A-Za-z0-9-]{8,64}$/);
+      expect(h.connections[1]?.resumeKey).toBe(h.connections[0]?.resumeKey);
+      expect(h.statuses.at(-1)).toBe('listening');
+      expect(h.errors.filter(Boolean)).toEqual([]);
+      expect(h.session.isRunning).toBe(true);
+    });
+
+    it('a new conversation gets a new resume key', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      h.session.stop();
+      await h.session.start(startOptions);
+      expect(h.connections[1]?.resumeKey).not.toBe(h.connections[0]?.resumeKey);
+    });
+
+    it('resubmits the unanswered turn on the new socket and clears its old live line', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+      h.hush();
+      const first = h.socket();
+      const [start] = startsOn(first);
+      const sentBeforeDrop = first.audioFrames.length;
+      freezeClock();
+
+      first.drop();
+      await vi.advanceTimersByTimeAsync(500);
+
+      const second = h.socket();
+      const restarts = startsOn(second);
+      expect(restarts).toHaveLength(1);
+      expect(restarts[0]?.turnId).toBe(start?.turnId);
+      expect(restarts[0]?.options).toMatchObject({ resubmit: true });
+      expect(h.listeners.onTurnAbandoned).toHaveBeenCalledWith('s1', 'resubmitted');
+
+      second.emit(readyEvent('s2'));
+      expect(second.audioFrames.length).toBe(sentBeforeDrop);
+      expect(second.audioFrames.every((f) => f.sessionId === 's2')).toBe(true);
+    });
+
+    it('does not resubmit a turn whose final already arrived', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      openTurnAndPlay(h, 's1');
+      freezeClock();
+
+      h.socket().drop();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(startsOn(h.socket())).toEqual([]);
+    });
+
+    it('sends a connection report after reconnecting', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop();
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(reportsOn(h.socket())).toEqual([
+        expect.objectContaining({
+          type: 'client.connection.report',
+          cause: 'closed',
+          closeCode: 1006,
+          wasClean: false,
+          attempt: 1,
+          resubmittedTurns: 0,
+        }),
+      ]);
+    });
+
+    it('a late close from the old socket does not tear down the new one', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      const first = h.socket();
+      first.drop();
+      await vi.advanceTimersByTimeAsync(500);
+
+      first.drop();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(h.sockets).toHaveLength(2);
+      expect(h.statuses.at(-1)).toBe('listening');
+      expect(h.session.isRunning).toBe(true);
+    });
+
+    it("gives up after three failed attempts with today's error and stops", async () => {
+      let built = 0;
+      const h = harness({
+        runtime: { reconnectOnDrop: true },
+        createSocket: (handlers) => {
+          const socket = new FakeTranslateSocket(handlers);
+          built += 1;
+          if (built > 1)
+            socket.connect = () => Promise.reject(new Error('Cannot reach the translator'));
+          return socket;
+        },
+      });
+      await h.session.start(startOptions);
+      freezeClock();
+
+      h.socket().drop();
+      await vi.advanceTimersByTimeAsync(500 + 1500 + 4000);
+
+      expect(h.sockets).toHaveLength(4);
+      expect(h.errors.at(-1)).toBe('Connection to the translator dropped');
+      expect(h.statuses.at(-1)).toBe('idle');
+      expect(h.session.isRunning).toBe(false);
+    });
+
+    it('gives up on a reconnect handshake that stalls and tries again', async () => {
+      let built = 0;
+      const h = harness({
+        runtime: { reconnectOnDrop: true },
+        createSocket: (handlers) => {
+          const socket = new FakeTranslateSocket(handlers);
+          built += 1;
+          if (built === 2) socket.connect = () => new Promise<void>(() => undefined);
+          return socket;
+        },
+      });
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop();
+      await vi.advanceTimersByTimeAsync(500 + 5_000);
+      expect(h.sockets[1]?.closed).toBeGreaterThan(0);
+      await vi.advanceTimersByTimeAsync(1_500);
+      expect(h.sockets).toHaveLength(3);
+      expect(h.statuses.at(-1)).toBe('listening');
+    });
+
+    it('stop while waiting to reconnect makes no further attempt', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop();
+      h.session.stop();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(h.sockets).toHaveLength(1);
+      expect(h.statuses.at(-1)).toBe('idle');
+    });
+
+    it('the watchdog reconnects when an ended turn gets no server frame for 15 s', async () => {
+      const h = reconnecting();
+      // Before start: the watchdog's interval is created there, and a real
+      // timer would never fire under the fake clock.
+      freezeClock();
+      await h.session.start(startOptions);
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+      h.hush();
+      const first = h.socket();
+
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(h.sockets).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      expect(h.sockets).toHaveLength(2);
+      expect(first.closed).toBeGreaterThan(0);
+      expect(reportsOn(h.socket())).toEqual([
+        expect.objectContaining({ cause: 'watchdog', resubmittedTurns: 1 }),
+      ]);
+    });
+
+    it('the watchdog does not trip while only listening', async () => {
+      const h = reconnecting();
+      // Before start: the watchdog's interval is created there, and a real
+      // timer would never fire under the fake clock.
+      freezeClock();
+      await h.session.start(startOptions);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(h.sockets).toHaveLength(1);
+    });
+
+    it('speech while reconnecting keeps the status at reconnecting', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop();
+      h.talk();
+      expect(h.statuses.at(-1)).toBe('reconnecting');
+      await vi.advanceTimersByTimeAsync(500);
+      expect(h.statuses.at(-1)).toBe('listening');
+    });
+
+    it('a recovered drop leaves no error banner, though the browser reported an error first', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().error();
+      h.socket().drop();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(h.errors.filter(Boolean)).toEqual([]);
+      expect(h.session.isRunning).toBe(true);
+    });
+
+    it('a credentials close (1008) ends the conversation rather than reconnecting', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop(1008, 'Credentials changed');
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(h.sockets).toHaveLength(1);
+      expect(h.statuses.at(-1)).toBe('idle');
+    });
+
+    it('finish during reconnecting stops', async () => {
+      const h = reconnecting();
+      await h.session.start(startOptions);
+      freezeClock();
+      h.socket().drop();
+      h.session.finish();
+
+      expect(h.statuses.at(-1)).toBe('idle');
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(h.sockets).toHaveLength(1);
     });
   });
 

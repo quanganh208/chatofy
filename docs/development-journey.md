@@ -2784,3 +2784,59 @@ The feature had never been measured on production, so everything before this was
 - **Not measured.** Echo on real speakers and a call across two networks. TURN connected on Cloudflare for the first time.
 
 Ruler: `benchmarks/conference/`.
+
+## The latency baseline: speech, not the display, is the wait (10/11/2026)
+
+Each turn's log line now records how long it spent in each stage, counted from the endpoint (PR #323). The latency baseline was a replay of 5 recordings against production, 81 turns with voice on and 81 with it off, all translated by `deepseek-v4-flash-fast` with no fallback.
+
+- **The display waits are nearly free.** The plan was to stop speech waiting on display restore and corrections, on the recognizer-fusion alternate, and on the speaker embedding. Measured, they cost 0–65 ms p50. A reused speculation hides them, and the embedding finishes about a second before the line. All three phases closed on their gates.
+- **The two large terms are not ours to shorten in code.** The time from the end of STT to the first translation token is about 500 ms p50, and that is the provider's response. The rest of the translation streams in about 250 ms, under the 400 ms that clause-streaming would need to pay off.
+- **Local TTS to first audio is 730 ms p50 (p95 1.7 s) for English.** The 231 ms on record was VieNeu streaming frames on en→vi turns, and the baseline's en→vi turns agree (255–423 ms). Kokoro synthesizes the whole first clause before any audio. On isolated turns the wait grows with text length (r=0.95, about 14.6 ms per source character). Queueing on the shared lock touched only 8 of 79 turns, and it explains the extreme tail: one 3.76 s stall ended 2 ms after the previous turn's stream finished.
+- **End of speech to first audio, vi→en:** 2.16 s p50 when the speculation missed, 1.54 s when it hit. With voice off, the line arrives at 0.48 s (hit) and 1.29 s (miss).
+- 59% of turns are speaker-split candidates. Any change that leaves the split path untouched reaches at most the other 41%.
+
+Ruler: `benchmarks/latency/`.
+
+## English speech waits on its first clause; Vietnamese has room (11/11/2026)
+
+Two follow-ups to the latency baseline, both replayed against production.
+
+- **Local Kokoro's first audio is the first clause's synthesis time.** Each replay row now keeps the translation each final carried. Over 67 vi→en turns that were not queued behind earlier audio, request → first audio fits 201 ms + 15 ms per character of the first clause, with r = 0.96. Against the whole line's length, r is 0.22. The median first clause is 42 characters, and the p50 wait is 0.8 s. Kokoro, through sherpa-onnx, makes a clause's audio in one piece, and the sidecar cuts clauses only at punctuation. A shorter first clause is the lever. The fit says a 20-character cap would bring p50 to about 0.5 s.
+- **A second Vietnamese TTS process is not needed for one speaker.** Two English recordings replayed en→vi with voice on (45 turns) held VieNeu about half the speech time, and no turn ended `engine_busy`. The 0.94–0.97 occupancy on record came from the dev stack with fake-audio peers. Three turns (7%) waited 2.3–3.5 s behind the previous turn's synthesis, where earlier audio was usually still playing. The phase closed on its gate.
+
+Ruler: `benchmarks/latency/` (`--run-tag baseline-capacity`, `clause-voice`).
+
+## Cutting Kokoro's first clause where a speaker would pause (11/11/2026)
+
+Kokoro synthesizes each clause whole, so English first audio waits on the first clause: 201 ms + 15 ms per character on production (r = 0.96).
+
+- **A word-boundary cap was rejected.** Cutting at 20 chars brought synthesis of the head from 711 to 409 ms offline. It also produced cuts like "Principle single | origin" that the owner found unnatural.
+- **What shipped (PR #326):** a cut only in front of a subordinator, a coordinator or a phrase-level word, with guards for names, pronoun objects and spelled-out ranges. A clause with no such place stays whole. At seams the sidecar made, Kokoro's padding (about 95 ms before and 150 ms after each `generate`) is trimmed to 80 ms.
+- **Automatic judges could not see the cut.** ElevenLabs used as a reference reader pauses 35–80 ms between almost every word, so its pause at our cut points did not separate bad cuts from good ones (gap percentile 0.53 vs 0.55). UTMOS scored every version about 4.4, cut or whole. The owner could not hear trimmed from untrimmed seams either.
+- **Production:** about 17% of turns get cut. On a quieter host, those turns reached first audio in 549 ms p50, against 924 ms before. Uncut turns stayed within noise of the pre-deploy fit (+15 ms). vi→en TTS request → first audio p50 went from 801 to 720 ms. Two earlier after-runs, on a host loaded by another project, showed about −190 ms on cut turns and slower uncut turns. A translation-prompt nudge for an earlier comma moved the median first clause only from 24.5 to 22 chars, and was dropped before judging.
+
+Ruler: `benchmarks/latency/` (`clause-voice`, `clause-natural`, `clause-natural-warm`, `clause-natural-quiet`).
+
+## A dropped socket no longer ends a conversation (11/11/2026)
+
+Prod conversation `09ddb1a2` (one-way en→vi, 163 s) ended with "Connection to the translator dropped".
+
+- **What broke.** The browser's socket died between the browser and the Cloudflare edge. cloudflared logged no edge reconnect that day, and HTTP through the tunnel 1 s later succeeded. The API never saw the close: the open turn waited 32 s for the idle sweep, and the last finished turn (154.4–163.6 s, 35 words) was translated and voiced into a dead socket and is missing from history.
+- **Why it hurt.** Nothing pinged `/ws/translate`. The client stopped on any close. Conversation state (context, voices, priors) was keyed by socket. The per-user ceiling of 3 turns still counted the dead socket's turns, so a fast reconnect would have earned `too_many_turns`.
+- **What shipped.**
+  - The client reconnects and re-sends the turns the dead socket never answered.
+  - The server joins the new socket to the conversation through a `resume` key, frees the dead socket at once, and keeps a cleanly closed socket's history for 30 s.
+  - A 15 s heartbeat.
+  - A client watchdog.
+  - A `client.connection.report` line, so the next drop can be attributed.
+
+  Details are in [data flow](architecture/data-flow.md#dropped-connections).
+
+- **Measured locally** against the branch API, with a proxy that kills the client leg and leaves the API's end open:
+  - The forced drop at 45 s kept 19 of 19 turns, the same as the undisturbed run, with 1 reconnect, 1 re-submit, `down=509ms` and no server errors.
+  - With reconnect off, the heartbeat freed the half-open socket 30 s after the drop.
+- **Measured on production** after the deploy, on the same recording:
+  - The forced drop kept 19 of 19 turns, with 1 reconnect, 1 re-submit and `down=593ms`. The API logged `socket.superseded previous=open` and the `connection.report` line, and no `too_many_turns` or `idle for`.
+  - Through the Cloudflare tunnel, a socket that never answers pings received the API's ping and was terminated after 28 s, so the edge forwards pings end to end. The heartbeat therefore also catches a dead browser leg.
+
+Ruler: `benchmarks/socket-drop/`.

@@ -95,6 +95,20 @@ describe('LocalSpeechSttProvider alternates', () => {
     answering({ text: 'Xin chào', language: 'vi', alternates: 'Xin chào' });
     expect(await transcribe()).not.toHaveProperty('alternates');
   });
+
+  it('passes on how long the sidecar waited for the alternate', async () => {
+    answering({ text: 'Xin chào', language: 'vi', alternates: ['Xin chào'], alternateWaitMs: 0 });
+    await expect(transcribe()).resolves.toMatchObject({ alternateWaitMs: 0 });
+    answering({ text: 'Xin chào', language: 'vi', alternateWaitMs: 87 });
+    await expect(transcribe()).resolves.toMatchObject({ alternateWaitMs: 87 });
+  });
+
+  it('leaves the wait unmeasured when it is missing, negative or not a number', async () => {
+    for (const alternateWaitMs of [undefined, -1, '87', Number.NaN, null]) {
+      answering({ text: 'Xin chào', language: 'vi', alternateWaitMs });
+      expect(await transcribe()).not.toHaveProperty('alternateWaitMs');
+    }
+  });
 });
 
 describe('LocalSpeechSttProvider candidates', () => {

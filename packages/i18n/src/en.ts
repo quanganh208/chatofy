@@ -312,6 +312,7 @@ export const en = {
   'web.translate.resume': 'Resume',
   'web.translate.notListening': 'Not listening',
   'web.translate.connecting': 'Connecting…',
+  'web.translate.reconnecting': 'Reconnecting…',
   'web.translate.listening': 'Listening — just start talking',
   'web.translate.hearingYou': 'Hearing you…',
   'web.translate.translating': 'Translating…',

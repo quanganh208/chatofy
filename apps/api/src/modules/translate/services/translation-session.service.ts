@@ -120,7 +120,12 @@ import {
 } from '../../credits/translation-meter';
 import { creditMultiplier } from '../../credits/credit-pricing';
 import { resolveLanguageVoice } from '../session/language-voice';
-import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
+import {
+  bufferStages,
+  TurnTimeline,
+  type ClauseDelivery,
+  type TimedStage,
+} from '../session/turn-timeline';
 import {
   LIVE_TRANSLATION_COMMIT_CHARS,
   LIVE_TRANSLATION_RPM,
@@ -706,6 +711,9 @@ export class TranslationSessionService implements OnModuleDestroy {
     const audio = session?.buffered;
     if (!session || !audio || !session.canSpeculate()) return;
 
+    // The guess runs before `end()` has a timeline to mark, so its stages are
+    // kept here, with their own times, and replayed only if it is adopted.
+    const stages: TimedStage[] = [];
     const launch = (continuation: Continuation) => {
       // A launch deferred behind the predecessor's wait can find the client
       // gone or the turn closed. Nobody would read the answer, and it would
@@ -751,6 +759,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             this.context.learnedTerms(socket),
           ),
           onIdentifyUnavailable: this.identifyUnavailable,
+          onStage: bufferStages(stages),
         },
         this.languagesFor(
           socket,
@@ -764,6 +773,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     session.startSpeculation(
       audio.byteLength,
       afterContinuation(this.continuationFor(socket, session), launch),
+      stages,
     );
   }
 
@@ -942,8 +952,14 @@ export class TranslationSessionService implements OnModuleDestroy {
     reusable: Promise<TranslatedTurnText>,
     timeline: TurnTimeline,
   ): Promise<TranslatedTurnText | null> {
+    // Read before the await: they belong to the guess `reusable` is.
+    const stages = session.speculationStages();
     const adopted = await this.adoptIfAgreed(socket, session, reusable);
     if (adopted === null) timeline.markSpeculationReused(false);
+    // An adopted guess's stages ARE this turn's; they ran before the
+    // endpoint, so they come out negative. A rejected one's never happened
+    // for this turn, which is timed by the pipeline it runs instead.
+    else timeline.replay(stages);
     return adopted;
   }
 
@@ -1039,10 +1055,20 @@ export class TranslationSessionService implements OnModuleDestroy {
           mimeType: 'audio/wav',
         })
       : null;
+    // Observed, never awaited here: the turn waits for it exactly where it
+    // always did. A failed embedding resolves null, but a rejection must not
+    // go unhandled on this side branch either.
+    void embedding?.then(
+      () => timeline.markStage('embeddingDone'),
+      () => undefined,
+    );
 
     try {
       const reusable = session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
+      if (reusable !== null) {
+        timeline.markSpeculationInFlight(session.speculationInFlight());
+      }
       // Whether this turn could hold a change of voice — decided from the audio
       // alone, synchronously, before anything is spent. A turn that could not
       // takes exactly the path it always took.
@@ -1052,6 +1078,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               hasPreviousVoice: this.lastVoices.has(socket),
             })
           : null;
+      timeline.markSplitCandidate(candidate !== null);
       // The earlier speech this turn is translated against, resolved only by
       // the paths that send a request. For a continuation that may mean waiting
       // up to PREDECESSOR_WAIT_MS on the cut turn by name (`continuationFor`);
@@ -1104,6 +1131,8 @@ export class TranslationSessionService implements OnModuleDestroy {
                     ),
                     scriptRetry: this.scriptRetryFor(session),
                     onIdentifyUnavailable: this.identifyUnavailable,
+                    onStage: timeline.onStage,
+                    onCorrectionsLate: () => timeline.markCorrectionsLate(),
                   },
                   this.languagesFor(
                     socket,
@@ -1213,6 +1242,7 @@ export class TranslationSessionService implements OnModuleDestroy {
 
         if (split) {
           await this.emitPieces(socket, session, split, respellings, earlier);
+          timeline.markStage('lineSent');
         } else {
           // Computed BEFORE the emit so the finished line arrives already typeset.
           // Reached only from this point — after a FINAL transcript, on the turn's
@@ -1223,6 +1253,14 @@ export class TranslationSessionService implements OnModuleDestroy {
             translated.corrections,
             translated.translations,
           );
+          // The fusion's share of what the line carries, by identity: the
+          // guards above only ever drop corrections, never rebuild them.
+          const fused = translated.fusedCorrections;
+          if (fused !== undefined) {
+            timeline.markFused(
+              corrections?.filter((c) => fused.includes(c)).length ?? 0,
+            );
+          }
           const display = this.displayFor(
             session,
             translated.sourceText,
@@ -1241,6 +1279,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             ),
             ...(display === undefined ? {} : { display }),
           });
+          timeline.markStage('lineSent');
           // After the line is out and never awaited: the draft is what the
           // listener hears, and the edit only replaces what they read. The
           // server's own record (`rememberSegment`) keeps the draft; it holds
@@ -1582,7 +1621,14 @@ export class TranslationSessionService implements OnModuleDestroy {
       pauses,
       leadPause,
       alternates,
+      alternateWaitMs,
     } = await wholeSource!;
+    // The same stages `transcribeAndTranslate` reports, for the whole turn
+    // this path reads itself. Stamped when awaited, so `sttDone` is when the
+    // turn could go on, not when the decode beside the split plan finished.
+    timeline.markStage('sttDone');
+    if (alternateWaitMs !== undefined)
+      timeline.markDuration('alternateWait', alternateWaitMs);
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -1605,6 +1651,8 @@ export class TranslationSessionService implements OnModuleDestroy {
               plan.recognition,
             ),
             scriptRetry: this.scriptRetryFor(session),
+            onStage: timeline.onStage,
+            onCorrectionsLate: () => timeline.markCorrectionsLate(),
           },
           plan,
         ),
@@ -1623,6 +1671,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           ...(pauses === undefined ? {} : { pauses }),
         })
       : undefined;
+    let fusing: Promise<readonly TranscriptCorrection[]> | undefined;
     const correcting = display
       ? this.pipeline.correctTranscript(
           sourceText,
@@ -1630,6 +1679,10 @@ export class TranslationSessionService implements OnModuleDestroy {
           turn.context,
           alternates,
           mergeHotwords(hints?.hotwords, learnedTerms),
+          undefined,
+          (accepted) => {
+            fusing = accepted;
+          },
         )
       : undefined;
     const translations = await this.pipeline.translateAll({
@@ -1642,17 +1695,28 @@ export class TranslationSessionService implements OnModuleDestroy {
       context: turn.context,
       continuesCut: turn.continuesCut,
       scriptRetry: this.scriptRetryFor(session),
+      onFirstToken: () => timeline.markStage('mtFirstToken'),
     });
+    timeline.markStage('mtDone');
     const restored = await restoring;
-    const corrections = await settleCorrections(correcting, () =>
-      this.logger.log('correction late, dropped'),
-    );
+    if (restoring) timeline.markStage('restoreDone');
+    const corrections = await settleCorrections(correcting, () => {
+      this.logger.log('correction late, dropped');
+      timeline.markCorrectionsLate();
+    });
+    if (correcting) timeline.markStage('correctionsDone');
+    timeline.markStage('translationsReady');
     return {
       translated: {
         sourceText,
         translations,
         ...(restored === undefined ? {} : { restored }),
         ...(corrections === undefined ? {} : { corrections }),
+        ...(fusing === undefined
+          ? {}
+          : {
+              fusedCorrections: corrections === undefined ? [] : await fusing,
+            }),
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
       },
@@ -2245,8 +2309,53 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
   }
 
-  /** Drop state for a socket that went away without ending its turns. */
-  disconnect(socket: StreamSocket): void {
+  /**
+   * Hand a dropped socket's conversation to the socket that replaced it.
+   *
+   * A client reconnecting after a drop is the same conversation on a new
+   * connection, and everything here that is about the CONVERSATION is keyed by
+   * the socket that carried it: earlier turns for context, learned spellings,
+   * decided languages, finished segments for a block retranslation, the last
+   * voice heard and the source prior. Without this, every reconnect started a
+   * conversation with no past, which on vi→en is the context the polisher was
+   * measured to need.
+   *
+   * What is about the old socket's TURNS or its transport stays behind —
+   * the registry, `latestOpened`, held closings, the LID slot — and the
+   * disconnect that follows settles it. Only this process's own state moves;
+   * nothing is sent to either socket.
+   */
+  adoptConversation(from: StreamSocket, to: StreamSocket): void {
+    this.context.adopt(from, to);
+    this.finished.adopt(from, to);
+    const voice = this.lastVoices.get(from);
+    if (voice && !this.lastVoices.has(to)) this.lastVoices.set(to, [...voice]);
+    // The entry is copied; the `SourcePrior` inside it is shared. The old
+    // socket is gone and never consults it again, so nothing can diverge.
+    const prior = this.priors.get(from);
+    if (prior && !this.priors.has(to)) this.priors.set(to, { ...prior });
+  }
+
+  /**
+   * Drop the conversation history a disconnect kept, for a socket whose
+   * reconnect window ran out (see `disconnect`'s `keepConversation`).
+   */
+  forgetConversation(socket: StreamSocket): void {
+    this.context.forget(socket);
+  }
+
+  /**
+   * Drop state for a socket that went away without ending its turns.
+   *
+   * `keepConversation` leaves the transcript history in place for a socket
+   * that may yet be replaced by a reconnect; its turns are closed exactly as
+   * they would be otherwise. The caller owns calling `forgetConversation`
+   * once the window for a reconnect has passed.
+   */
+  disconnect(
+    socket: StreamSocket,
+    options?: { keepConversation?: boolean },
+  ): void {
     // Recorded before the early return below, because a socket that left with no
     // turns open is exactly the one a late display repair is most likely to be
     // addressed to — the turn finished, the client closed the tab, and the model
@@ -2257,7 +2366,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // The conversation is over, so its transcript history has no reader left.
     // The `WeakMap` would release it anyway once the socket became garbage; this
     // is what makes the release prompt rather than eventual, and it is speech.
-    this.context.forget(socket);
+    if (!options?.keepConversation) this.context.forget(socket);
     // Every turn, not just one: a socket that drops mid-conversation may have
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.
@@ -2374,6 +2483,9 @@ export class TranslationSessionService implements OnModuleDestroy {
     how: SpeechLanguageOptions,
   ): Promise<ClauseDelivery> {
     const { timeline, lang, onFirstAudio } = how;
+    // Only the primary carries a timeline. Only a turn that is voiced asks for
+    // speech, so a voice-off turn reports no such stage.
+    if (session.voiceOutput) timeline?.markStage('ttsRequested');
     const spokenText = translated.translations[language] ?? '';
     // This language's own setting where the client chose per language. The
     // declared target may still fall back to the session's single voice; any

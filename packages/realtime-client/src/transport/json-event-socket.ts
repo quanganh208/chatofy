@@ -20,7 +20,8 @@ export interface JsonSocketHandlers<TEvent> {
    * tells an expired session from a network fault with a `GET /auth/me` probe
    * rather than from anything read here.
    */
-  onClosed?: (code: number, reason: string) => void;
+  /** `wasClean` is false for a close with no closing handshake, such as a 1006 drop. */
+  onClosed?: (code: number, reason: string, wasClean?: boolean) => void;
   onError?: (message: string) => void;
 }
 
@@ -123,7 +124,7 @@ export function connectJsonSocket<TEvent>(
 
   socket.onclose = (event) => {
     notifyClosed(socket, event.code, event.reason);
-    handlers.onClosed?.(event.code, event.reason);
+    handlers.onClosed?.(event.code, event.reason, event.wasClean);
   };
 
   const ready = new Promise<void>((resolve, reject) => {

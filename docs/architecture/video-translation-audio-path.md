@@ -305,7 +305,11 @@ adds when a zh listener is present.
   turns fail `engine_busy` after the 15 s lock wait
   (`ENGINE_LOCK_WAIT_S`, `services/local-tts/engines/base.py`). This is the engine's
   whole-turn lock, not the meeting path, and it is a known limit: /translate vi users
-  share that engine.
+  share that engine. These numbers come from the dev stack with fake-audio peers. On
+  production on 2026-11-11, replaying two real English recordings en→vi with voice on
+  (45 turns, `benchmarks/latency/`), the engine was held about half the speech time
+  and no turn ended `engine_busy`. Three turns (7 %) queued 2.3–3.5 s behind the
+  previous turn's synthesis.
 - **/translate during a busy meeting.** Before the meeting ceiling, a /translate user
   got 0 of 112 starts admitted in 5 of 6 runs while two continuous meeting speakers ran.
   With it, 4 of 4 /translate turns were admitted and finished in all 5 runs.

@@ -152,6 +152,40 @@ describe('learned spellings', () => {
   });
 });
 
+describe('adopt', () => {
+  it('adopt carries recall and learned terms to the new socket and survives forget of the old', () => {
+    const context = new ConversationContext();
+    const dropped = { send: () => {} } as StreamSocket;
+    const replacement = { send: () => {} } as StreamSocket;
+    context.remember(dropped, 'Tôi đang pha cà phê', 's1', 'vi');
+    context.noteLanguage(dropped, 's1', 'vi');
+    context.learnSpellings(dropped, { 'deep fred': 'deepfake' });
+
+    context.adopt(dropped, replacement);
+    context.forget(dropped);
+
+    expect(context.recall(replacement, 'vi')).toEqual(['Tôi đang pha cà phê']);
+    expect(context.languageOf(replacement, 's1')).toBe('vi');
+    expect(context.learnedTerms(replacement)).toEqual(['deepfake']);
+    expect(context.recall(dropped)).toEqual([]);
+  });
+
+  it('copies rather than shares, and never overwrites history the new socket already has', () => {
+    const context = new ConversationContext();
+    const dropped = { send: () => {} } as StreamSocket;
+    const replacement = { send: () => {} } as StreamSocket;
+    context.remember(dropped, 'cũ', 's1', 'vi');
+    context.adopt(dropped, replacement);
+    context.remember(dropped, 'chỉ trên socket cũ', 's2', 'vi');
+    expect(context.recall(replacement)).toEqual(['cũ']);
+
+    const fresh = { send: () => {} } as StreamSocket;
+    context.remember(fresh, 'mới', 's3', 'vi');
+    context.adopt(dropped, fresh);
+    expect(context.recall(fresh)).toEqual(['mới']);
+  });
+});
+
 describe('mergeHotwords', () => {
   const terms = (prefix: string, count: number) =>
     Array.from({ length: count }, (_, i) => `${prefix}${i}`);
