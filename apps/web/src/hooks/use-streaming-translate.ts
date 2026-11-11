@@ -486,12 +486,14 @@ export function useStreamingTranslate(
       },
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
-      createSocket: (handlers) =>
+      createSocket: (handlers, connection) =>
         new TranslateSocket(
           translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
           handlers,
-          // Read HERE, when the socket is actually opened.
+          // Read HERE, when the socket is actually opened — which after a drop
+          // is the reconnect, so it carries the token current at that moment.
           token.current(),
+          connection?.resumeKey,
         ),
       workletUrl: WORKLET_URL,
       /**
@@ -631,8 +633,15 @@ export function useStreamingTranslate(
     // per-turn metrics: the tuning every cascade client shares.
     // The conversation id rides on the runtime because the session reads it once
     // per start and sends it on every turn start of that run.
+    //
+    // This page reconnects after a dropped socket rather than ending the
+    // conversation: on 2026-11-11 a drop between the browser and the edge ended
+    // one mid-sentence and lost the turn being translated.
     () => {
-      const runtime = cascadeRuntimeFor(getMicProcessingRef.current());
+      const runtime = {
+        ...cascadeRuntimeFor(getMicProcessingRef.current()),
+        reconnectOnDrop: true,
+      };
       const conversationId = conversationIdRef.current;
       return conversationId === undefined ? runtime : { ...runtime, conversationId };
     },

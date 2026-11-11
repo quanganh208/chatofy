@@ -28,6 +28,10 @@ import {
 } from './ws-auth';
 import { TranslationSessionService } from './services/translation-session.service';
 import type { StreamSocket } from './session/stream-socket';
+import {
+  SocketResumeRegistry,
+  resumeKeyFrom,
+} from './session/socket-resume-registry';
 import { llmCallScope } from '../usage/llm-call-scope';
 import { creditMultiplier } from '../credits/credit-pricing';
 import {
@@ -47,7 +51,26 @@ import {
 type CloseableSocket = StreamSocket & {
   close?: (code?: number, reason?: string) => void;
   terminate?: () => void;
+  ping?: () => void;
+  on?: (event: 'pong', listener: () => void) => void;
 };
+
+/**
+ * How often every socket is pinged; one missed pong ends it at the next tick.
+ *
+ * Half of the conference gateway's 30 s: detection takes up to two intervals,
+ * and a socket that died without a close (2026-11-11, browser↔edge) otherwise
+ * keeps translating into nothing, holding its turns and its credit lease until
+ * the 30 s idle sweep reaches each turn.
+ */
+const PING_INTERVAL_MS = 15_000;
+
+/**
+ * How long a cleanly closed socket's conversation history waits for the client
+ * to reconnect with the same `resume` key. Covers the client's whole retry
+ * schedule (about 6 s) with room for a slow handshake.
+ */
+const RESUME_PARK_MS = 30_000;
 
 /**
  * WebSocket gateway for real-time translation.
@@ -96,6 +119,27 @@ export class TranslateGateway
    * a turn's predecessor by that order.
    */
   private readonly startChains = new WeakMap<StreamSocket, Promise<void>>();
+  /** Whether each socket answered the last ping; see `PING_INTERVAL_MS`. */
+  private readonly alive = new WeakMap<CloseableSocket, boolean>();
+  /**
+   * Sockets whose disconnect has already run. A supersede runs it early and
+   * then ends the socket, and `ws` reports that end as a second disconnect.
+   */
+  private readonly disconnected = new WeakSet<CloseableSocket>();
+  /** Sockets that already sent their `client.connection.report`. */
+  private readonly reported = new WeakSet<StreamSocket>();
+  /**
+   * Each disconnected socket's lease close, still settling. A reconnect's
+   * starts wait on its predecessor's: the reservation the old lease holds is
+   * only returned once this settles, and a low balance would otherwise refuse
+   * the first start on the new socket.
+   */
+  private readonly leaseClosing = new WeakMap<CloseableSocket, Promise<void>>();
+  /** Which socket carries each resumable conversation; see the class. */
+  private readonly resumable = new SocketResumeRegistry<CloseableSocket>(
+    RESUME_PARK_MS,
+    (socket) => this.sessions.forgetConversation(socket),
+  );
 
   constructor(
     private readonly sessions: TranslationSessionService,
@@ -123,12 +167,44 @@ export class TranslateGateway
       verifyClient?: unknown;
       handleProtocols?: unknown;
     };
+    clients?: Set<CloseableSocket>;
+    on?: (event: 'close', listener: () => void) => void;
   }): void {
     server.options.verifyClient = createVerifyClient(
       (token) => this.auth.verifyToken(token),
       this.logger,
     );
     server.options.handleProtocols = handleProtocols;
+
+    // Heartbeat. A socket that missed a pong is ended with `terminate()`: a
+    // dead peer never completes a closing handshake, so `close()` would leave
+    // it holding its turns for ws's whole close timeout. Its disconnect then
+    // frees the turns, the user's turn ceiling and the credit lease.
+    const clients = server.clients;
+    if (!clients) return;
+    const ping = setInterval(() => {
+      clients.forEach((socket) => {
+        // A socket that cannot report a pong is never judged by one: ending it
+        // for silence it had no way to break would cut a healthy connection.
+        const answered = this.alive.get(socket);
+        if (answered === undefined) return;
+        try {
+          if (answered === false) {
+            socket.terminate?.();
+            return;
+          }
+          this.alive.set(socket, false);
+          socket.ping?.();
+        } catch (err) {
+          // One socket's failure must not skip the rest of the sweep.
+          this.logger.warn(
+            `heartbeat failed on a socket: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      });
+    }, PING_INTERVAL_MS);
+    ping.unref?.();
+    server.on?.('close', () => clearInterval(ping));
   }
 
   /**
@@ -223,8 +299,14 @@ export class TranslateGateway
       type: _type,
       turnId,
       conversationId,
+      resubmit,
       ...options
     } = this.parseEvent(payload, 'client.session.start');
+    if (resubmit === true) {
+      this.logger.log(
+        `turn ${turnId ?? 'unnamed'} resubmitted after a dropped connection`,
+      );
+    }
     const voiceOutput = options.voiceOutput ?? true;
     // An upper bound for admission: extras count only on a declared one-way
     // turn, which `start()` decides; the turn itself is priced by what it ran.
@@ -351,6 +433,29 @@ export class TranslateGateway
   }
 
   /**
+   * How this conversation's previous socket died, reported by the client on
+   * the socket that replaced it. Logged only: it is the one view of a drop the
+   * server cannot see for itself.
+   */
+  @SubscribeMessage('client.connection.report')
+  handleConnectionReport(
+    @MessageBody() payload: unknown,
+    @ConnectedSocket() client: StreamSocket,
+  ): void {
+    const report = this.parseEvent(payload, 'client.connection.report');
+    // One per socket: a reconnect sends exactly one, and a client repeating it
+    // must not be able to fill the log.
+    if (this.reported.has(client)) return;
+    this.reported.add(client);
+    this.logger.log(
+      `connection.report cause=${report.cause} code=${report.closeCode} ` +
+        `clean=${report.wasClean} sinceLastFrame=${report.sinceLastServerFrameMs}ms ` +
+        `down=${report.downMs}ms inFlight=${report.turnsInFlight} ` +
+        `resubmitted=${report.resubmittedTurns} attempt=${report.attempt}`,
+    );
+  }
+
+  /**
    * Translate a run of this connection's finished segments again as one text.
    * Fire-and-forget: the answer, if any, is `server.block.translated`.
    */
@@ -391,6 +496,13 @@ export class TranslateGateway
     if (held) held.add(client);
     else this.socketsByUser.set(userId, new Set([client]));
     this.userBySocket.set(client, userId);
+    if (client.on) {
+      this.alive.set(client, true);
+      client.on('pong', () => this.alive.set(client, true));
+    }
+    // Before the lease opens, so a superseded socket's turns, ceiling slots and
+    // lease are already free when this socket's first start is admitted.
+    this.resumeIfReconnect(client, userId, args[0]);
     this.meter.attach(client, userId, (reason) =>
       this.stopForCredits(client, reason),
     );
@@ -477,22 +589,79 @@ export class TranslateGateway
     return closed;
   }
 
+  /**
+   * Join a reconnecting client back to the conversation its previous socket
+   * carried, when the upgrade URL names one with `resume`.
+   *
+   * The previous socket is either still open — it died without a close, the
+   * 2026-11-11 case, and is ended here — or already disconnected and parked
+   * with only its history left. Either way its conversation history moves to
+   * this socket before the history is let go.
+   */
+  private resumeIfReconnect(
+    client: CloseableSocket,
+    userId: string,
+    req: unknown,
+  ): void {
+    const key = resumeKeyFrom(req);
+    if (key === undefined) return;
+    const replaced = this.resumable.claim(userId, key, client);
+    if (!replaced) return;
+    const { previous, parked } = replaced;
+
+    this.sessions.adoptConversation(previous, client);
+    if (parked) {
+      this.sessions.forgetConversation(previous);
+    } else {
+      // Now, not when `ws` reports the end below: that report is a tick away,
+      // and this client's first start must not find the old turns still
+      // holding the user's ceiling. The lease close it starts is async, which
+      // is what `leaseClosing` below waits for.
+      this.handleDisconnect(previous);
+      try {
+        if (previous.terminate) previous.terminate();
+        else previous.close?.(4001, 'Superseded by a reconnect');
+      } catch (err) {
+        this.logger.error(
+          `failed to end a superseded socket: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    // This socket's starts queue behind the old lease closing; see `leaseClosing`.
+    const closing = this.leaseClosing.get(previous);
+    if (closing) this.startChains.set(client, closing);
+    this.logger.log(
+      `socket.superseded user=${userId.slice(0, 8)} previous=${parked ? 'parked' : 'open'}`,
+    );
+  }
+
   /** Free everything a dropped socket was holding. */
   handleDisconnect(client: CloseableSocket): void {
+    if (this.disconnected.has(client)) return;
+    this.disconnected.add(client);
     try {
       // Settles every turn still open, so the detach below can close the lease.
-      this.sessions.disconnect(client);
+      // A socket that may yet be resumed keeps its conversation history for
+      // the reconnect window; its turns close all the same.
+      if (this.resumable.release(client)) {
+        this.sessions.disconnect(client, { keepConversation: true });
+      } else {
+        this.sessions.disconnect(client);
+      }
     } finally {
       this.unregisterSocket(client);
       // Never awaited and never unhandled: a ledger outage at disconnect is
       // logged, and the reaper gives the lease back if the close did not land.
-      void this.meter
+      const detached = this.meter
         .detach(client)
         .catch((err: unknown) =>
           this.logger.warn(
             `closing the credit lease failed: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
+      this.leaseClosing.set(client, detached);
     }
   }
 

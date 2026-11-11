@@ -315,6 +315,35 @@ export class ConversationContext {
     return terms;
   }
 
+  /**
+   * Carry a conversation's history from a dropped socket to the one that
+   * replaced it.
+   *
+   * A client that reconnects mid-conversation is still in the same
+   * conversation: the next turn's translation needs the earlier turns, and the
+   * learned spellings and decided languages are as true as they were. Copies,
+   * never shared references, so the `forget` of the old socket that follows
+   * cannot reach into what the new one holds.
+   *
+   * `lastOpened` and `waiters` stay behind. Both are about turns opened on the
+   * OLD socket, which its disconnect settles; a waiter moved here would wait on
+   * a turn the new socket will never open.
+   *
+   * Never overwrites: a new socket that already has history of its own keeps it.
+   */
+  adopt(from: StreamSocket, to: StreamSocket): void {
+    const recent = this.recent.get(from);
+    if (recent && !this.recent.has(to)) this.recent.set(to, [...recent]);
+    const learned = this.learned.get(from);
+    if (learned && !this.learned.has(to))
+      this.learned.set(to, new Map(learned));
+    const decided = this.decided.get(from);
+    if (decided && !this.decided.has(to))
+      this.decided.set(to, new Map(decided));
+    const silent = this.silent.get(from);
+    if (silent && !this.silent.has(to)) this.silent.set(to, new Set(silent));
+  }
+
   /** Drop a connection's history, for a socket that went away. */
   forget(socket: StreamSocket): void {
     this.recent.delete(socket);

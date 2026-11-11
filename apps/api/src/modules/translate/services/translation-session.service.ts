@@ -2304,8 +2304,53 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
   }
 
-  /** Drop state for a socket that went away without ending its turns. */
-  disconnect(socket: StreamSocket): void {
+  /**
+   * Hand a dropped socket's conversation to the socket that replaced it.
+   *
+   * A client reconnecting after a drop is the same conversation on a new
+   * connection, and everything here that is about the CONVERSATION is keyed by
+   * the socket that carried it: earlier turns for context, learned spellings,
+   * decided languages, finished segments for a block retranslation, the last
+   * voice heard and the source prior. Without this, every reconnect started a
+   * conversation with no past, which on vi→en is the context the polisher was
+   * measured to need.
+   *
+   * What is about the old socket's TURNS or its transport stays behind —
+   * the registry, `latestOpened`, held closings, the LID slot — and the
+   * disconnect that follows settles it. Only this process's own state moves;
+   * nothing is sent to either socket.
+   */
+  adoptConversation(from: StreamSocket, to: StreamSocket): void {
+    this.context.adopt(from, to);
+    this.finished.adopt(from, to);
+    const voice = this.lastVoices.get(from);
+    if (voice && !this.lastVoices.has(to)) this.lastVoices.set(to, [...voice]);
+    // The entry is copied; the `SourcePrior` inside it is shared. The old
+    // socket is gone and never consults it again, so nothing can diverge.
+    const prior = this.priors.get(from);
+    if (prior && !this.priors.has(to)) this.priors.set(to, { ...prior });
+  }
+
+  /**
+   * Drop the conversation history a disconnect kept, for a socket whose
+   * reconnect window ran out (see `disconnect`'s `keepConversation`).
+   */
+  forgetConversation(socket: StreamSocket): void {
+    this.context.forget(socket);
+  }
+
+  /**
+   * Drop state for a socket that went away without ending its turns.
+   *
+   * `keepConversation` leaves the transcript history in place for a socket
+   * that may yet be replaced by a reconnect; its turns are closed exactly as
+   * they would be otherwise. The caller owns calling `forgetConversation`
+   * once the window for a reconnect has passed.
+   */
+  disconnect(
+    socket: StreamSocket,
+    options?: { keepConversation?: boolean },
+  ): void {
     // Recorded before the early return below, because a socket that left with no
     // turns open is exactly the one a late display repair is most likely to be
     // addressed to — the turn finished, the client closed the tab, and the model
@@ -2316,7 +2361,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // The conversation is over, so its transcript history has no reader left.
     // The `WeakMap` would release it anyway once the socket became garbage; this
     // is what makes the release prompt rather than eventual, and it is speech.
-    this.context.forget(socket);
+    if (!options?.keepConversation) this.context.forget(socket);
     // Every turn, not just one: a socket that drops mid-conversation may have
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.

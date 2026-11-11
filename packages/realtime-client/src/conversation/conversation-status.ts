@@ -39,4 +39,12 @@ export type ConversationStatus =
    * Ends at `idle` on its own, once nothing is left to play. Asking to end a
    * second time from here cuts it short deliberately.
    */
-  | 'finishing';
+  | 'finishing'
+  /**
+   * The socket dropped and a new one is being opened.
+   *
+   * Capture continues and its audio is held, so nothing said now is lost. Not
+   * `idle`, for the same reason as `paused`: the conversation save fires on
+   * the falling edge of "running", and a reconnect is not the end of one.
+   */
+  | 'reconnecting';
