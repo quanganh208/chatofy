@@ -13,7 +13,11 @@ import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event
  * the turn belongs to when the caller knows one. The server only labels the
  * turn's credit usage with that id, so history can link back to it.
  */
-export type TurnStartOptions = SessionOptions & { conversationId?: string };
+export type TurnStartOptions = SessionOptions & {
+  conversationId?: string;
+  /** Set on a turn sent again after the socket that carried it dropped. */
+  resubmit?: boolean;
+};
 
 /**
  * Typed client for `/ws/translate`.
@@ -69,7 +73,7 @@ export interface TranslateSocketHandlers {
    * tells an expired session from a network fault with a `GET /auth/me` probe
    * rather than from anything read here.
    */
-  onClosed?: (code: number, reason: string) => void;
+  onClosed?: (code: number, reason: string, wasClean?: boolean) => void;
   onError?: (message: string) => void;
 }
 
@@ -89,6 +93,12 @@ export class TranslateSocket {
      * identical two-argument form — so every client authenticates the same way.
      */
     private readonly accessToken: string,
+    /**
+     * Names the conversation this socket carries, so the server can join a
+     * socket that replaces a dropped one back to it. Sent as the `resume` query
+     * parameter; omitted, the server treats every socket as a new conversation.
+     */
+    private readonly resumeKey?: string,
   ) {}
 
   /** Connect and resolve once the socket is usable. */
@@ -100,7 +110,7 @@ export class TranslateSocket {
     // still pending must find this socket in `this.socket`, or it closes
     // nothing and the pending connection goes on to open unattended.
     const { socket, ready } = connectJsonSocket(
-      this.url,
+      this.connectUrl(),
       this.accessToken,
       serverEventSchema,
       this.handlers,
@@ -110,6 +120,14 @@ export class TranslateSocket {
     );
     this.socket = socket;
     await ready;
+  }
+
+  /** The upgrade URL, carrying the resume key when this socket has one. */
+  private connectUrl(): string {
+    if (!this.resumeKey) return this.url;
+    const url = new URL(this.url);
+    url.searchParams.set('resume', this.resumeKey);
+    return url.toString();
   }
 
   /**

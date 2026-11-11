@@ -458,6 +458,15 @@ const clientSessionStartSchema = sessionOptionsSchema.extend({
    * used to authorise anything.
    */
   conversationId: z.string().min(1).max(64).optional(),
+  /**
+   * True when the client is sending this turn again because the socket that
+   * carried it dropped before its final arrived.
+   *
+   * The server only logs it. The audio is metered again: the first copy went to
+   * a socket nobody was reading, and there is no way to know how much of it the
+   * server had already billed.
+   */
+  resubmit: z.boolean().optional(),
 });
 
 const clientAudioFrameSchema = z.object({
@@ -563,6 +572,30 @@ const clientBlockRetranslateSchema = z.object({
   segmentIds: z.array(z.string().min(1).max(80)).min(2).max(MAX_BLOCK_SEGMENTS),
 });
 
+/**
+ * How the previous socket of this conversation died, sent once on the socket
+ * that replaced it.
+ *
+ * Exists because a drop is invisible from the server side: on 2026-11-11 a
+ * browser's socket closed and the API never saw it, so nothing in the server
+ * log could say whether the client's network or the edge cut it. The report is
+ * logged and nothing else reads it.
+ */
+const clientConnectionReportSchema = z.object({
+  type: z.literal('client.connection.report'),
+  closeCode: z.number().int().min(0).max(4999),
+  wasClean: z.boolean(),
+  /** ms between the last server frame and the close (or the watchdog trip). */
+  sinceLastServerFrameMs: z.number().int().min(0).max(3_600_000),
+  /** ms from the close to this socket opening. */
+  downMs: z.number().int().min(0).max(3_600_000),
+  turnsInFlight: z.number().int().min(0).max(16),
+  resubmittedTurns: z.number().int().min(0).max(16),
+  attempt: z.number().int().min(1).max(16),
+  /** `closed`: the browser reported a close. `watchdog`: the client gave up waiting. */
+  cause: z.enum(['closed', 'watchdog']),
+});
+
 export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionStartSchema,
   clientAudioFrameSchema,
@@ -570,6 +603,7 @@ export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionEndSchema,
   clientTurnMetricsSchema,
   clientBlockRetranslateSchema,
+  clientConnectionReportSchema,
 ]);
 
 /** The client-reported half of one turn's measurements. */

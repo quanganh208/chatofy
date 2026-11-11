@@ -142,12 +142,16 @@ export interface SentEvent {
   segmentIds?: string[];
   /** The whole row, for the one event that carries measurements. */
   metrics?: ClientTurnMetrics;
+  /** The whole event, for one sent through the generic `send`. */
+  event?: { type: string };
 }
 
 export class FakeTranslateSocket {
   readonly sent: SentEvent[] = [];
   closed = 0;
   connectCalls = 0;
+  /** Set by `drop()`: like the real socket, a dead one carries nothing. */
+  dropped = false;
 
   constructor(readonly handlers: TranslateSocketHandlers) {}
 
@@ -181,7 +185,15 @@ export class FakeTranslateSocket {
   }
 
   sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): boolean {
+    if (this.dropped || this.closed > 0) return false;
     this.sent.push({ type: 'client.audio.frame', sessionId, sequence, payload });
+    return true;
+  }
+
+  /** The generic send, for events without a method of their own. */
+  send(event: { type: string }): boolean {
+    if (this.dropped || this.closed > 0) return false;
+    this.sent.push({ type: event.type, event });
     return true;
   }
 
@@ -217,8 +229,14 @@ export class FakeTranslateSocket {
    * the ordinary network drop, below the 4000 threshold that marks a
    * deliberate server-side close.
    */
+  /** Report a transport error, as a browser does just before an abnormal close. */
+  error(message = 'Connection error'): void {
+    this.handlers.onError?.(message);
+  }
+
   drop(code = 1006, reason = ''): void {
-    this.handlers.onClosed?.(code, reason);
+    this.dropped = true;
+    this.handlers.onClosed?.(code, reason, false);
   }
 
   get audioFrames(): SentEvent[] {

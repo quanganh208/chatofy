@@ -19,6 +19,11 @@ import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline, type CapturedTurnMetrics } from '.
 import { blockKey } from '../state/turn-keyed-transcript.js';
 import type { ConversationStatus } from './conversation-status.js';
 import { pausedMsBefore, type PauseInterval } from './pause-intervals.js';
+import {
+  AWAITING_ANSWER_WATCHDOG_MS,
+  RECONNECT_ATTEMPT_TIMEOUT_MS,
+  reconnectDelay,
+} from './socket-reconnect-policy.js';
 
 /** Samples the worklet posts per block, at the audio context's own rate. */
 const WORKLET_BLOCK_SAMPLES = 1024;
@@ -62,7 +67,14 @@ const BLOCK_ANSWER_GRACE_MS = 3_000;
 
 /** Everything one run of the conversation owns and must give back. */
 interface LiveResources {
+  /**
+   * The socket this run is talking through. Replaced after a drop when the run
+   * reconnects, and `undefined` while it is between sockets — which is also
+   * what tells a late close from an abandoned socket to stay quiet.
+   */
   socket?: TranslateSocket;
+  /** Ticks while the run may reconnect; see `AWAITING_ANSWER_WATCHDOG_MS`. */
+  watchdog?: ReturnType<typeof setInterval>;
   stream?: MediaStream;
   context?: AudioContext;
   node?: AudioWorkletNode;
@@ -87,7 +99,15 @@ export interface ConversationSessionDeps {
   createAudioContext: () => AudioContext;
   /** `AudioWorkletNode` is a global, so it has to arrive from outside to be faked. */
   createWorkletNode: (context: AudioContext) => AudioWorkletNode;
-  createSocket: (handlers: TranslateSocketHandlers) => TranslateSocket;
+  /**
+   * Called once per socket, so a reconnect gets a socket built at that moment —
+   * with whatever access token is current then. `connection` names the
+   * conversation for the server to resume, when this run can reconnect.
+   */
+  createSocket: (
+    handlers: TranslateSocketHandlers,
+    connection?: { resumeKey: string },
+  ) => TranslateSocket;
   /**
    * Where translated audio goes. Defaults to the loudspeakers of the machine
    * running this session.
@@ -140,6 +160,15 @@ export interface ConversationSessionDeps {
  * for that to keep working.
  */
 export interface ConversationRuntimeOptions {
+  /**
+   * Reconnect after an unexpected socket close instead of ending the
+   * conversation, and re-send the turns the dropped socket never answered.
+   *
+   * Off by default. The web /translate page turns it on. The extension keeps it
+   * off because its access token is fixed for the whole run, and the conference
+   * cascade leg has its own restart policy.
+   */
+  reconnectOnDrop?: boolean;
   /** Keep listening while our own translation plays. */
   fullDuplex?: boolean;
   /** End a turn straight back to listening rather than waiting to be re-armed. */
@@ -431,6 +460,18 @@ export class ConversationSession {
    * Bounded, like every other retention map here.
    */
   private readonly playbackDrops = new Map<string, string>();
+  /** This run's `runtime.reconnectOnDrop`. */
+  private reconnectOnDrop = false;
+  /**
+   * Names this run's conversation to the server, so a replacement socket is
+   * joined back to it. Fresh per run: a new conversation must never inherit
+   * the last one's context.
+   */
+  private resumeKey: string | null = null;
+  /** When any server frame last arrived; what a drop report and the watchdog read. */
+  private lastServerFrameAt = 0;
+  /** The reconnect in progress, if any; there is only ever one. */
+  private reconnecting: Promise<void> | null = null;
 
   constructor(
     private readonly deps: ConversationSessionDeps,
@@ -504,6 +545,9 @@ export class ConversationSession {
    */
   private emitStatus(next: ConversationStatus): void {
     if (this.paused || this.finishing) return;
+    // Between sockets the conversation is reconnecting, whatever capture or
+    // playback reports: someone speaking now must not read as being heard.
+    if (this.live && !this.live.socket && next !== 'reconnecting') return;
     this.listeners.onStatus(next);
   }
 
@@ -561,7 +605,7 @@ export class ConversationSession {
     this.paused = false;
     this.closePause(Date.now());
     this.live.pump?.armNextTurn();
-    this.listeners.onStatus('listening');
+    this.listeners.onStatus(this.live.socket ? 'listening' : 'reconnecting');
   }
 
   /**
@@ -597,6 +641,12 @@ export class ConversationSession {
    */
   finish(): void {
     if (!this.live) {
+      this.stop();
+      return;
+    }
+    // Between sockets there is nothing to drain through: what the server was
+    // translating went with the dropped socket.
+    if (this.reconnecting) {
       this.stop();
       return;
     }
@@ -711,6 +761,9 @@ export class ConversationSession {
 
     const runtime = this.runtimeOptions();
     this.conversationId = runtime.conversationId;
+    this.reconnectOnDrop = runtime.reconnectOnDrop === true;
+    this.resumeKey = this.reconnectOnDrop ? crypto.randomUUID() : null;
+    this.lastServerFrameAt = Date.now();
     const maxInFlight = runtime.maxInFlight ?? DEFAULT_MAX_IN_FLIGHT;
     const singleTurn = maxInFlight <= 1;
     // Not independent, though they read as two free settings. `armNextTurn()` is
@@ -816,26 +869,7 @@ export class ConversationSession {
       local.source = context.createMediaStreamSource(local.stream);
       local.source.connect(node);
 
-      local.socket = this.deps.createSocket({
-        onEvent: (event) => this.handleServerEvent(event),
-        onError: (message) => this.listeners.onError(message),
-        onClosed: (code, reason) => {
-          // Without a socket the conversation cannot continue, and leaving it
-          // "listening" would strand the microphone muted mid-turn.
-          //
-          // The code is reported rather than swallowed so a deliberate
-          // server-side close (4000-4999) is distinguishable from a network
-          // drop. Nothing on the server emits one today — the token is checked
-          // at the upgrade and not re-checked mid-stream — so this reads as a
-          // plain drop until something does.
-          this.listeners.onError(
-            code >= 4000
-              ? `Connection closed by the translator (${code}${reason ? `: ${reason}` : ''})`
-              : 'Connection to the translator dropped',
-          );
-          this.stop();
-        },
-      });
+      local.socket = this.openSocket(local);
       await local.socket.connect();
       if (isStale()) return this.releaseResources(local);
       const socket = local.socket;
@@ -883,7 +917,12 @@ export class ConversationSession {
             const sessionId = captured?.sessionId;
             if (runtime.reportMetrics && captured && sessionId) {
               const row = { ...captured, sessionId };
-              const file = () => this.reportTurnMetrics(socket, row, ordered, turnId, reason);
+              // The socket at filing time, not the one the run opened with: a
+              // turn can outlive a reconnect.
+              const file = () => {
+                if (local.socket)
+                  this.reportTurnMetrics(local.socket, row, ordered, turnId, reason);
+              };
               if (ordered.holds(turnId)) pendingMetrics.set(turnId, file);
               else file();
             }
@@ -915,6 +954,8 @@ export class ConversationSession {
       // `this.options`, not the argument: a `reconfigure` that landed during the
       // awaits above is newer than what this run was started with.
       pipeline.configure(this.turnStartOptions());
+      // Sent audio is kept for a re-submit only when this run can reconnect.
+      if (this.reconnectOnDrop) pipeline.retainForResubmit();
       local.pipeline = pipeline;
 
       const pump = new CapturePump(
@@ -1002,6 +1043,9 @@ export class ConversationSession {
       };
 
       this.live = local;
+      if (this.reconnectOnDrop) {
+        local.watchdog = setInterval(() => this.checkAnswerWatchdog(local, pipeline), 1000);
+      }
       this.emitStatus('listening');
     } catch (err) {
       this.releaseResources(local);
@@ -1105,6 +1149,7 @@ export class ConversationSession {
    * microphone open, the meter moving, and not one byte reaching the server.
    */
   private releaseResources(r: Partial<LiveResources>): void {
+    if (r.watchdog) clearInterval(r.watchdog);
     r.socket?.close();
     r.source?.disconnect();
     r.node?.disconnect();
@@ -1263,6 +1308,185 @@ export class ConversationSession {
     }
   }
 
+  /**
+   * Build this run's socket. Used for the first one and for every reconnect, so
+   * both report a close the same way.
+   *
+   * A close is acted on only while this socket is still the run's socket. A
+   * socket the run has already moved off — dropped and replaced, or a failed
+   * reconnect attempt that was never adopted — closes into silence.
+   */
+  private openSocket(local: LiveResources): TranslateSocket {
+    const socket: TranslateSocket = this.deps.createSocket(
+      {
+        onEvent: (event) => {
+          this.lastServerFrameAt = Date.now();
+          this.handleServerEvent(event);
+        },
+        // A browser fires `error` just before an abnormal close. While this run
+        // can reconnect, the close decides what the reader is told: a banner
+        // for a drop that was recovered from would stay up over a working
+        // conversation.
+        onError: (message) => {
+          if (this.reconnectOnDrop && this.live === local) {
+            this.listeners.onLog?.(`socket error: ${message}`);
+            return;
+          }
+          this.listeners.onError(message);
+        },
+        onClosed: (code, reason, wasClean) => {
+          if (local.socket !== socket) return;
+          // A drop mid-conversation is worth a reconnect; a deliberate close
+          // (4000-4999), a drop during startup or one while finishing is not.
+          // 1008 is the server ending a socket whose credentials changed: a
+          // reconnect with the same session would only be refused again.
+          if (
+            this.reconnectOnDrop &&
+            code < 4000 &&
+            code !== 1008 &&
+            this.live === local &&
+            !this.finishing
+          ) {
+            void this.reconnect(local, 'closed', code, wasClean ?? false);
+            return;
+          }
+          // Without a socket the conversation cannot continue, and leaving it
+          // "listening" would strand the microphone muted mid-turn.
+          //
+          // The code is reported rather than swallowed so a deliberate
+          // server-side close (4000-4999) is distinguishable from a network
+          // drop.
+          this.listeners.onError(
+            code >= 4000
+              ? `Connection closed by the translator (${code}${reason ? `: ${reason}` : ''})`
+              : 'Connection to the translator dropped',
+          );
+          this.stop();
+        },
+      },
+      this.resumeKey ? { resumeKey: this.resumeKey } : undefined,
+    );
+    return socket;
+  }
+
+  /**
+   * Trip a reconnect when a turn that finished capture has heard nothing from
+   * the server for {@link AWAITING_ANSWER_WATCHDOG_MS}.
+   *
+   * For the drop a browser never reports: a socket can die with no close
+   * event at all, and then the conversation simply stops answering. Measured
+   * from the later of the last frame and the moment the turn started waiting,
+   * so a turn that ends after a long quiet stretch is not judged by silence
+   * from before it existed.
+   */
+  private checkAnswerWatchdog(local: LiveResources, pipeline: TurnPipeline): void {
+    if (this.live !== local || this.reconnecting || this.paused) return;
+    const since = pipeline.awaitingAnswerSince();
+    if (since === null) return;
+    if (Date.now() - Math.max(since, this.lastServerFrameAt) <= AWAITING_ANSWER_WATCHDOG_MS) return;
+    void this.reconnect(local, 'watchdog', 0, false);
+  }
+
+  /** Start reconnecting, or join the reconnect already running. */
+  private reconnect(
+    local: LiveResources,
+    cause: 'closed' | 'watchdog',
+    closeCode: number,
+    wasClean: boolean,
+  ): Promise<void> {
+    this.reconnecting ??= this.runReconnect(local, cause, closeCode, wasClean).finally(() => {
+      this.reconnecting = null;
+    });
+    return this.reconnecting;
+  }
+
+  /**
+   * Replace a dropped socket and carry the conversation over to the new one.
+   *
+   * Capture keeps running throughout: frames that cannot be sent are held by
+   * the pipeline, exactly as before a handshake. On success the pipeline is
+   * pointed at the new socket and re-sends every turn the old one never
+   * answered, under the same turn ids; the server is told how the old socket
+   * died. After the last attempt fails the conversation ends the way it always
+   * has on a drop.
+   */
+  private async runReconnect(
+    local: LiveResources,
+    cause: 'closed' | 'watchdog',
+    closeCode: number,
+    wasClean: boolean,
+  ): Promise<void> {
+    const generation = this.generation;
+    const stale = () => this.generation !== generation || this.live !== local;
+    const closedAt = Date.now();
+    const sinceLastServerFrameMs = closedAt - this.lastServerFrameAt;
+    const turnsInFlight = local.pipeline?.inFlight ?? 0;
+
+    // Off the socket first, so nothing reports its close again. For a watchdog
+    // trip this is also what ends it: the server sees a clean close and keeps
+    // the conversation for the reconnect.
+    const dropped = local.socket;
+    local.socket = undefined;
+    dropped?.close();
+    this.emitStatus('reconnecting');
+    this.listeners.onLog?.(`socket lost (${cause}, code ${closeCode}); reconnecting`);
+
+    for (let attempt = 1; ; attempt += 1) {
+      const delay = reconnectDelay(attempt);
+      if (delay === null) break;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      if (stale()) return;
+
+      const next = this.openSocket(local);
+      try {
+        await withTimeout(next.connect(), RECONNECT_ATTEMPT_TIMEOUT_MS);
+      } catch {
+        next.close();
+        if (stale()) return;
+        this.listeners.onLog?.(`reconnect attempt ${attempt} failed`);
+        continue;
+      }
+      if (stale()) {
+        next.close();
+        return;
+      }
+
+      local.socket = next;
+      local.pipeline?.setTransport(next);
+      this.lastServerFrameAt = Date.now();
+      // Blocks asked for on the dropped socket will never be answered; waiting
+      // on them would only hold the end of the conversation for the grace.
+      local.pendingBlocks?.clear();
+      const result = local.pipeline?.resubmitAfterReconnect() ?? { resubmitted: [], closed: [] };
+      // The old server id of a re-sent turn will never speak again; its live
+      // line goes, and the turn's row comes from the new one.
+      for (const { oldSessionId } of result.resubmitted) {
+        if (oldSessionId) this.listeners.onTurnAbandoned?.(oldSessionId, 'resubmitted');
+      }
+      next.send({
+        type: 'client.connection.report',
+        cause,
+        closeCode: clamp(closeCode, 0, 4999),
+        wasClean,
+        sinceLastServerFrameMs: clamp(sinceLastServerFrameMs, 0, 3_600_000),
+        downMs: clamp(Date.now() - closedAt, 0, 3_600_000),
+        turnsInFlight: clamp(turnsInFlight, 0, 16),
+        resubmittedTurns: clamp(result.resubmitted.length, 0, 16),
+        attempt,
+      });
+      this.listeners.onLog?.(
+        `reconnected on attempt ${attempt}: resubmitted ${result.resubmitted.length}, ` +
+          `closed ${result.closed.length}`,
+      );
+      this.emitStatus('listening');
+      return;
+    }
+
+    if (stale()) return;
+    this.listeners.onError('Connection to the translator dropped');
+    this.stop();
+  }
+
   private handleServerEvent(event: ServerEvent): void {
     // Every event goes to the reducer; the switch below is transport and
     // playback, which the reducer deliberately knows nothing about.
@@ -1282,7 +1506,13 @@ export class ConversationSession {
         this.completeDrainIfDone();
         break;
 
+      case 'server.transcript.final':
+        // From here a reconnect closes this turn rather than sending it again.
+        pipeline?.noteAnswered(event.sessionId);
+        break;
+
       case 'server.audio.frame': {
+        pipeline?.noteAnswered(event.frame.sessionId);
         this.emitStatus('playing');
         // Frames carry the server's id; speaking order is keyed by the client's,
         // because order is fixed when capture opens the turn and the server id
@@ -1411,4 +1641,30 @@ function outcomeFor(reason: string, wasHeard: boolean): TurnOutcome {
   // Named, not defaulted: the server pairs this with a `turn_abandoned` failure.
   if (reason === 'idle_timeout') return 'error';
   return 'error';
+}
+
+/** `value` rounded and held inside the contract's bounds. */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
+ * `promise`, or a rejection once `ms` have passed. A reconnect handshake on the
+ * same path that just went half-open can stall far longer than the retry
+ * schedule; the caller closes the socket it gave up on.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('reconnect attempt timed out')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
 }

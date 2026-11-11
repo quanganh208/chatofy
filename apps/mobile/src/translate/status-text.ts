@@ -23,6 +23,7 @@ const STATUS_KEY: Record<ConversationStatus, MessageKey> = {
   playing: 'web.translate.speaking',
   paused: 'web.translate.paused',
   finishing: 'web.translate.finishing',
+  reconnecting: 'web.translate.reconnecting',
 };
 
 export function statusKey(status: ConversationStatus): MessageKey {

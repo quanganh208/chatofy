@@ -33,6 +33,7 @@ const STATUS_KEY = {
   playing: 'web.translate.speaking',
   paused: 'web.translate.paused',
   finishing: 'web.translate.finishing',
+  reconnecting: 'web.translate.reconnecting',
 } as const;
 
 /**
@@ -55,6 +56,8 @@ const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   // Still speaking, so it keeps the speaking tone: the loudspeaker is the one
   // thing still happening, and this is the same green it had a moment ago.
   finishing: 'speaking',
+  // Working to get back, like connecting; capture is still running.
+  reconnecting: 'busy',
 };
 
 /** Status, level, and — while running — the elapsed time. Readouts only. */

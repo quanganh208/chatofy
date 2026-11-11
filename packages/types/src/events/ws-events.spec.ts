@@ -400,6 +400,36 @@ describe('server.transcript.final segment', () => {
   });
 });
 
+describe('reconnect contract', () => {
+  const report = {
+    type: 'client.connection.report',
+    closeCode: 1006,
+    wasClean: false,
+    sinceLastServerFrameMs: 420,
+    downMs: 900,
+    turnsInFlight: 2,
+    resubmittedTurns: 1,
+    attempt: 1,
+    cause: 'closed',
+  };
+
+  it('accepts a valid client.connection.report and a session start with resubmit', () => {
+    expect(clientEventSchema.safeParse(report).success).toBe(true);
+    const start = clientEventSchema.safeParse({
+      type: 'client.session.start',
+      languagePair: { source: 'en', target: 'vi' },
+      resubmit: true,
+    });
+    expect(
+      start.success && start.data.type === 'client.session.start' ? start.data.resubmit : null,
+    ).toBe(true);
+  });
+
+  it('rejects a report with a cause outside the contract', () => {
+    expect(clientEventSchema.safeParse({ ...report, cause: 'other' }).success).toBe(false);
+  });
+});
+
 describe('client.session.start conversationId', () => {
   const start = (over: Record<string, unknown> = {}) =>
     clientEventSchema.safeParse({

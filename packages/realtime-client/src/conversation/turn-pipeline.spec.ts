@@ -16,17 +16,20 @@ interface Sent {
   tag?: number;
   /** What a start told the server about continuing a forced cut. */
   continuesCut?: boolean;
+  /** Whether a start repeats a turn lost to a dropped socket. */
+  resubmit?: boolean;
 }
 
 class RecordingTransport implements TurnPipelineTransport {
   readonly sent: Sent[] = [];
 
-  startSession(options: SessionOptions, turnId: string): void {
-    this.sent.push(
-      'continuesCut' in options
-        ? { type: 'start', turnId, continuesCut: options.continuesCut }
-        : { type: 'start', turnId },
-    );
+  startSession(options: SessionOptions & { resubmit?: boolean }, turnId: string): void {
+    this.sent.push({
+      type: 'start',
+      turnId,
+      ...('continuesCut' in options ? { continuesCut: options.continuesCut } : {}),
+      ...('resubmit' in options ? { resubmit: options.resubmit } : {}),
+    });
   }
 
   /**
@@ -716,6 +719,206 @@ describe('TurnPipeline', () => {
 
       // Guessing would route one turn's audio into another and corrupt it.
       expect(h.ready).toEqual([]);
+    });
+  });
+  /**
+   * After the socket carrying them drops, turns go back through the normal
+   * start path on the new socket under the same turn id, with all the audio
+   * they had sent. A turn the server already answered is closed instead, so
+   * the reader never hears it twice.
+   */
+  describe('resubmit after a reconnect', () => {
+    /** A pipeline that keeps sent audio, as a session that can reconnect sets it up. */
+    function resumable(...args: Parameters<typeof harness>) {
+      const h = harness(...args);
+      h.pipeline.retainForResubmit();
+      return h;
+    }
+
+    /** Three blocks sent on 's1', capture closed, the socket then lost. */
+    function sentTurn(h: ReturnType<typeof harness>) {
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+      for (const tag of [1, 2, 3]) h.pipeline.pushAudio(block(tag));
+      h.pipeline.closeCapturedTurn();
+      return turnId;
+    }
+
+    it('resubmits an unanswered turn with its full audio under the same turnId', () => {
+      const h = resumable();
+      const turnId = sentTurn(h);
+      h.transport.sent.length = 0;
+
+      const result = h.pipeline.resubmitAfterReconnect();
+      expect(result).toEqual({ resubmitted: [{ turnId, oldSessionId: 's1' }], closed: [] });
+      expect(h.pipeline.turnIdFor('s1')).toBeUndefined();
+      expect(h.transport.ofType('start')).toEqual([{ type: 'start', turnId, resubmit: true }]);
+
+      h.pipeline.onReady(turnId, 'new');
+      expect(h.transport.audio.map((a) => [a.tag, a.sequence, a.sessionId])).toEqual([
+        [1, 0, 'new'],
+        [2, 1, 'new'],
+        [3, 2, 'new'],
+      ]);
+      expect(h.transport.ofType('end')).toEqual([{ type: 'end', sessionId: 'new' }]);
+      expect(h.pipeline.metricsFor(turnId)?.capturedMs).toBe(300);
+    });
+
+    it('closes an answered turn instead of resubmitting it', () => {
+      const h = resumable();
+      const turnId = sentTurn(h);
+      h.pipeline.noteAnswered('s1');
+      h.transport.sent.length = 0;
+
+      expect(h.pipeline.resubmitAfterReconnect()).toEqual({ resubmitted: [], closed: [turnId] });
+      expect(h.closed).toContainEqual({ turnId, reason: 'connection_lost' });
+      expect(h.transport.ofType('start')).toEqual([]);
+    });
+
+    it('does not shed resubmitted audio at the pending ceiling', () => {
+      const h = resumable(3);
+      const ids: string[] = [];
+      for (let t = 0; t < 3; t += 1) {
+        const turnId = h.pipeline.openTurn([]);
+        h.pipeline.onReady(turnId, `s${t}`);
+        // 8 s each: 80 blocks of 100 ms, 24 s in all against a 20 s ceiling.
+        for (let i = 0; i < 80; i += 1) h.pipeline.pushAudio(block(t * 100 + 1));
+        h.pipeline.closeCapturedTurn();
+        ids.push(turnId);
+      }
+      h.transport.sent.length = 0;
+      h.transport.sendAudioResult = false;
+      h.pipeline.resubmitAfterReconnect();
+      expect(h.closed).toEqual([]);
+      expect(h.logs.some((l) => l.includes('pending ceiling'))).toBe(false);
+
+      h.transport.sendAudioResult = true;
+      ids.forEach((turnId, t) => h.pipeline.onReady(turnId, `new${t}`));
+      expect(h.transport.audio).toHaveLength(240);
+    });
+
+    it('leaves a turn that never reached the server out of the resubmit', () => {
+      const h = resumable(1);
+      const first = sentTurn(h);
+      // Held by the in-flight ceiling: never started, so nothing to resubmit.
+      h.pipeline.openTurn([block(9)]);
+      const result = h.pipeline.resubmitAfterReconnect();
+      expect(result.resubmitted.map((r) => r.turnId)).toEqual([first]);
+    });
+
+    it('a refused resubmit is retried, not dropped, even when the turn is old', () => {
+      let clock = 0;
+      const h = resumable(1, () => clock);
+      const turnId = sentTurn(h);
+      clock = 25_000;
+      h.transport.sent.length = 0;
+      h.pipeline.resubmitAfterReconnect();
+
+      expect(h.pipeline.onError('too_many_turns', { turnId })).toBe(true);
+      expect(h.closed).toEqual([]);
+      clock = 26_000;
+      vi.useFakeTimers();
+      h.pipeline.onError('too_many_turns', { turnId });
+      vi.advanceTimersByTime(1_000);
+      expect(h.transport.ofType('start').every((s) => s.resubmit === true)).toBe(true);
+      expect(h.closed).toEqual([]);
+    });
+
+    it('drops the continuation flag when the turn it continued closes on reconnect', () => {
+      const h = resumable(3);
+      const cut = h.pipeline.openTurn([]);
+      h.pipeline.onReady(cut, 's1');
+      h.pipeline.pushAudio(block(1));
+      h.pipeline.closeCapturedTurn(true);
+      const rest = h.pipeline.openTurn([]);
+      h.pipeline.onReady(rest, 's2');
+      h.pipeline.pushAudio(block(2));
+      h.pipeline.closeCapturedTurn();
+      h.pipeline.noteAnswered('s1');
+      h.transport.sent.length = 0;
+
+      h.pipeline.resubmitAfterReconnect();
+      expect(h.transport.ofType('start')).toEqual([
+        { type: 'start', turnId: rest, resubmit: true },
+      ]);
+    });
+
+    it('keeps the continuation flag when the cut turn is resubmitted too', () => {
+      const h = resumable(3);
+      const cut = h.pipeline.openTurn([]);
+      h.pipeline.onReady(cut, 's1');
+      h.pipeline.pushAudio(block(1));
+      h.pipeline.closeCapturedTurn(true);
+      const rest = h.pipeline.openTurn([]);
+      h.pipeline.onReady(rest, 's2');
+      h.pipeline.closeCapturedTurn();
+      h.transport.sent.length = 0;
+
+      h.pipeline.resubmitAfterReconnect();
+      expect(h.transport.ofType('start')).toEqual([
+        { type: 'start', turnId: cut, resubmit: true },
+        { type: 'start', turnId: rest, continuesCut: true, resubmit: true },
+      ]);
+    });
+
+    it('keeps no sent audio when the session cannot reconnect', () => {
+      const h = harness();
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+      h.pipeline.pushAudio(block(1));
+      h.pipeline.closeCapturedTurn();
+      h.transport.sent.length = 0;
+      h.pipeline.resubmitAfterReconnect();
+      h.pipeline.onReady(turnId, 'new');
+      expect(h.transport.audio).toEqual([]);
+    });
+
+    it('gives a turn up rather than re-sending it a second time', () => {
+      const h = resumable();
+      const turnId = sentTurn(h);
+      h.pipeline.resubmitAfterReconnect();
+      h.pipeline.onReady(turnId, 'second');
+      h.transport.sent.length = 0;
+
+      expect(h.pipeline.resubmitAfterReconnect()).toEqual({ resubmitted: [], closed: [turnId] });
+      expect(h.closed).toContainEqual({ turnId, reason: 'connection_lost' });
+      expect(h.transport.ofType('start')).toEqual([]);
+    });
+
+    it('caps retained audio at MAX_RETAINED_MS', () => {
+      const h = resumable();
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+      // 15 s sent; only the newest 12 s can come back.
+      for (let i = 0; i < 150; i += 1) h.pipeline.pushAudio(block(i));
+      h.pipeline.closeCapturedTurn();
+      h.transport.sent.length = 0;
+
+      h.pipeline.resubmitAfterReconnect();
+      h.pipeline.onReady(turnId, 'new');
+      expect(h.transport.audio).toHaveLength(120);
+      expect(h.transport.audio[0]?.tag).toBe(30);
+      expect(h.logs.some((l) => l.includes('retain cap'))).toBe(true);
+    });
+
+    it('a turn still being captured keeps streaming after resubmit', () => {
+      const h = resumable();
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+      h.pipeline.pushAudio(block(1));
+      h.transport.sent.length = 0;
+
+      h.pipeline.resubmitAfterReconnect();
+      h.pipeline.onReady(turnId, 'new');
+      h.pipeline.pushAudio(block(2));
+      expect(h.transport.audio.map((a) => [a.tag, a.sequence])).toEqual([
+        [1, 0],
+        [2, 1],
+      ]);
+      expect(h.transport.ofType('end')).toEqual([]);
+      expect(h.pipeline.awaitingAnswerSince()).toBeNull();
+      h.pipeline.closeCapturedTurn();
+      expect(h.pipeline.awaitingAnswerSince()).not.toBeNull();
     });
   });
 });

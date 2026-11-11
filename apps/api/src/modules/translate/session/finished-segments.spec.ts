@@ -15,6 +15,23 @@ const segment = (
   ...(leadPause === undefined ? {} : { leadPause }),
 });
 
+describe('FinishedSegments adopt', () => {
+  it('lets a block on the replacement socket reach segments finished before the drop', () => {
+    const finished = new FinishedSegments();
+    const dropped = {} as StreamSocket;
+    const replacement = {} as StreamSocket;
+    finished.record(dropped, 'a', segment('xin chào'));
+    finished.record(dropped, 'b', segment('anh'));
+
+    finished.adopt(dropped, replacement);
+    finished.record(dropped, 'c', segment('chỉ trên socket cũ'));
+
+    expect(finished.block(replacement, ['a', 'b'])).not.toBeNull();
+    expect(finished.before(replacement, 'b')).toEqual(['xin chào']);
+    expect(finished.before(replacement, 'c')).toEqual([]);
+  });
+});
+
 describe('FinishedSegments block pauses', () => {
   it("joins the pieces' pauses end to end, each seam's two halves added", () => {
     const finished = new FinishedSegments();
