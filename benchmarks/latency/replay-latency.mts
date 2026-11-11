@@ -312,7 +312,7 @@ async function replayRecording(
       row.error = event.code;
     } else if (event.type === 'server.transcript.final') {
       // The first piece's language is the turn's: a split turn is decided once.
-      row.language ??= pair?.source ?? event.segment.sourceLanguage;
+      row.language ??= pair?.source ?? event.segment.sourceLanguages[0] ?? null;
       if (event.split) row.split = true;
     }
   };
