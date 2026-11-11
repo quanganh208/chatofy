@@ -20,6 +20,11 @@ class KokoroEn(SharedKokoroEngine):
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.
     VOICES = {"female": 9, "male": 11}
+    #: First audio waits on the whole first clause: 201 ms + 15 ms per character
+    #: on production (docs/development-journey.md, 11/11/2026). A first clause
+    #: longer than this is cut where a speaker would pause, if it has such a
+    #: place; see `cap_first_clause`.
+    FIRST_CLAUSE_CAP_CHARS = 30
     #: The US English block, ids 0-19.
     #:
     #: sherpa-onnx exposes speakers as bare integers, so these names come from
