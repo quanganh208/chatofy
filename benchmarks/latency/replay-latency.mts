@@ -213,6 +213,12 @@ interface Row {
   language: string | null;
   /** Whether the server split the turn between two voices. */
   split: boolean;
+  /**
+   * The translation each final carried, in arrival order (one per split piece),
+   * in the turn's target language. The first one's first clause is what the
+   * engine synthesizes before any audio.
+   */
+  translations: string[];
   /** Whether the session asked for speech. */
   voice: boolean;
   index: number;
@@ -285,6 +291,7 @@ async function replayRecording(
         closedMs: null,
         closeReason: null,
         error: null,
+        translations: [],
       });
       super.startSession(options, turnId);
     }
@@ -314,6 +321,11 @@ async function replayRecording(
       // The first piece's language is the turn's: a split turn is decided once.
       row.language ??= pair?.source ?? event.segment.sourceLanguages[0] ?? null;
       if (event.split) row.split = true;
+      const source = event.segment.sourceLanguages[0];
+      const target =
+        pair?.target ?? Object.keys(event.segment.translations).find((code) => code !== source);
+      const text = target === undefined ? undefined : event.segment.translations[target];
+      if (text) row.translations.push(text);
     }
   };
 

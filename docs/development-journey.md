@@ -2796,3 +2796,12 @@ Each turn's log line now records how long it spent in each stage, counted from t
 - 59% of turns are speaker-split candidates. Any change that leaves the split path untouched reaches at most the other 41%.
 
 Ruler: `benchmarks/latency/`.
+
+## English speech waits on its first clause; Vietnamese has room (11/11/2026)
+
+Two follow-ups to the latency baseline, both replayed against production.
+
+- **Local Kokoro's first audio is the first clause's synthesis time.** Each replay row now keeps the translation each final carried. Over 67 vi→en turns that were not queued behind earlier audio, request → first audio fits 201 ms + 15 ms per character of the first clause, with r = 0.96. Against the whole line's length, r is 0.22. The median first clause is 42 characters, and the p50 wait is 0.8 s. Kokoro, through sherpa-onnx, makes a clause's audio in one piece, and the sidecar cuts clauses only at punctuation. A shorter first clause is the lever. The fit says a 20-character cap would bring p50 to about 0.5 s.
+- **A second Vietnamese TTS process is not needed for one speaker.** Two English recordings replayed en→vi with voice on (45 turns) held VieNeu about half the speech time, and no turn ended `engine_busy`. The 0.94–0.97 occupancy on record came from the dev stack with fake-audio peers. Three turns (7%) waited 2.3–3.5 s behind the previous turn's synthesis, where earlier audio was usually still playing. The phase closed on its gate.
+
+Ruler: `benchmarks/latency/` (`--run-tag baseline-capacity`, `clause-voice`).
