@@ -14,7 +14,7 @@ import { GlossaryTermList } from './glossary-term-list';
 
 interface Props {
   glossary: Glossary | null;
-  /** Back to the list — drawn on a phone only, where the list gives way to this. */
+  /** Back to the list — drawn only where the list gives way to this (one pane). */
   onBack: () => void;
   onToggleActive: (active: boolean) => void;
   onDelete: () => Promise<void>;
@@ -49,7 +49,7 @@ export function GlossaryDetailPanel({
   if (glossary === null) {
     return (
       <div className={className}>
-        <p className="text-body text-muted-foreground pt-6 text-center md:pt-16">
+        <p className="text-body text-muted-foreground pt-6 text-center @3xl:pt-16">
           {t('web.glossary.selectGlossary')}
         </p>
       </div>
@@ -92,7 +92,7 @@ export function GlossaryDetailPanel({
     <section aria-label={glossary.name} className={className}>
       <TopbarCrumb>{glossary.name}</TopbarCrumb>
       <div className="flex flex-col gap-6">
-        <Button variant="ghost" size="sm" className="self-start md:hidden" onClick={onBack}>
+        <Button variant="ghost" size="sm" className="self-start @3xl:hidden" onClick={onBack}>
           <ArrowLeft aria-hidden />
           {t('web.glossary.back')}
         </Button>

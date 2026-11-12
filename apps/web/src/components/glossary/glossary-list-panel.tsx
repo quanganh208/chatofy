@@ -97,8 +97,13 @@ export function GlossaryListPanel({
                   ) : null}
                   <span className="text-body truncate font-medium">{glossary.name}</span>
                   <span className="text-hint text-muted-foreground truncate">
-                    {lang} · {t('web.glossary.termCount', { count: glossary.itemCount })}
-                    {glossary.isActive ? null : ` · ${t('web.glossary.badgeInactive')}`}
+                    {[
+                      lang,
+                      t('web.glossary.termCount', { count: glossary.itemCount }),
+                      glossary.isActive ? null : t('web.glossary.badgeInactive'),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </span>
                 </button>
               </li>
