@@ -639,7 +639,7 @@ interface ScreenState {
  * card per settings concern, a card around a loading sentence. Counted here so the
  * grammar cannot creep back one card at a time.
  *
- * Zero is normal and correct. `/translate` is the whole screen, `/history` is a
+ * Zero is normal and correct. `/translate` is two hairline sheets on the page ground, not cards; `/history` is a
  * list on the page ground, and the minutes are a region on that ground wherever
  * they render; a meeting's summary card, the settings and account panels, and an
  * open popover are what earn one.

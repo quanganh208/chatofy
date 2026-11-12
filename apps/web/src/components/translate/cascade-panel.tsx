@@ -59,13 +59,18 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  *
  * ## The shape of the screen
  *
- * Two flat regions split by a hairline, each naming its language, and a dock along
- * the bottom under one more hairline: status and level at one end, the single
- * action in the middle, the display gear at the other.
+ * Two hairline sheets inset on the page ground, each naming and picking its own
+ * language, and a dock along the bottom under one hairline: status and level at one
+ * end, the single action in the middle, the display gear at the other.
+ *
+ * **Sheets, not flat regions.** They were briefly flat regions with the pickers in
+ * the topbar; the swap then had nothing to fly, because two halves of one surface
+ * trading places reads as text jumping, not as the sides trading. Two objects with
+ * their own edges is what lets `language-shuffle.ts` show the reversal. No shadow,
+ * so neither is an elevated surface.
  *
  * **Settings are split by what they are about, not by what they cost.** The voice
- * opens beside the language it speaks — in the topbar from `md`, in that pane's
- * header below it — because that is where a reader asks why they are or are not
+ * opens beside the language it speaks, in that pane's header, because that is where a reader asks why they are or are not
  * hearing anything; the gear keeps the page. They were one popover, which meant the
  * speaker mark configured nothing and the gear configured sound — see
  * `voice-settings-popover.tsx`.
@@ -91,11 +96,11 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  * bound is what stops it growing the column), and anything new added under the
  * dock has to be gated the same way.
  *
- * **The pair is a page action; the gear is the dock's.** From `md` the language
- * pickers, the swap and the voices sit in the topbar through `TopbarActions`
- * (`transcript-panes.tsx` renders them, because it owns the swap animation), the way
- * a workspace's toolbar holds what the whole screen is about. The gear, fullscreen
- * and the caption window stay at the end of this screen's own dock, beside Start.
+ * **The pair belongs to the sheets; the gear is the dock's.** Each sheet's header
+ * holds its own picker and voice, and the swap sits on the seam between them
+ * (`transcript-panes.tsx` renders them, because it owns the swap animation). The
+ * gear, fullscreen and the caption window stay at the end of this screen's own dock,
+ * beside Start.
  *
  * It still decides where both popovers go, because `running` and the live volume
  * write originate here; the settings VALUES belong to the page, which is the only
@@ -457,9 +462,8 @@ export function CascadePanel({
 
   return (
     // Edge to edge: the column's padding is taken back (`-mx-6 -my-8`, the chrome's
-    // `px-6 py-8`), so the panes meet the topbar's hairline and the dock's hairline
-    // runs the full width, the way a workspace reads — not a box inset on the page.
-    // Everything that is text rather than a region puts the padding back itself.
+    // `px-6 py-8`), so the dock's hairline runs the full width. Everything else puts
+    // the padding back itself — the sheets included, which sit inset on the ground.
     //
     // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
     // leaves. This chain is what makes the transcript FILL; it is not what bounds
@@ -531,36 +535,41 @@ export function CascadePanel({
             onExit={exitFullscreen}
           />
         ) : (
-          <TranscriptPanes
-            settings={settings}
-            running={running}
-            // Same capture as the save above, and for the same reason: a stop-then
-            // -swap must not flip which language a finished turn's translation
-            // line reads from.
-            conversationLanguagePair={conversation.languagePair ?? languagePair}
-            onSwap={() => {
-              // The swap is disabled for an auto-detected source; this keeps the
-              // handler honest about the one pair it cannot reverse.
-              const { source, target } = languagePair;
-              if (source === AUTO_DETECT) return;
-              setLanguagePair(reversePair(languagePairOf(source, target)));
-            }}
-            languageMode={conversation.languageMode?.mode ?? null}
-            conversationMode={conversationMode}
-            onLanguagePair={setLanguagePair}
-            // The voice belongs beside the language it speaks for — in the topbar
-            // from `md`, in that pane's header below it — not behind the gear.
-            voiceControlFor={(language) => (
-              <VoiceSettingsPopover
-                settings={settings}
-                language={language}
-                running={running}
-                onChange={onChange}
-                onVolumeChange={setLanguageVolume}
-              />
-            )}
-            stream={stream}
-          />
+          // The panes are two sheets with their own edges, so they sit inset on the
+          // page ground — the padding the column above gave back is put back here —
+          // and the swap can fly one sheet into the other's place.
+          <div className="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-4">
+            <TranscriptPanes
+              settings={settings}
+              running={running}
+              // Same capture as the save above, and for the same reason: a stop-then
+              // -swap must not flip which language a finished turn's translation
+              // line reads from.
+              conversationLanguagePair={conversation.languagePair ?? languagePair}
+              onSwap={() => {
+                // The swap is disabled for an auto-detected source; this keeps the
+                // handler honest about the one pair it cannot reverse.
+                const { source, target } = languagePair;
+                if (source === AUTO_DETECT) return;
+                setLanguagePair(reversePair(languagePairOf(source, target)));
+              }}
+              languageMode={conversation.languageMode?.mode ?? null}
+              conversationMode={conversationMode}
+              onLanguagePair={setLanguagePair}
+              // The voice belongs beside the language it speaks for — in that pane's
+              // header — not behind the gear.
+              voiceControlFor={(language) => (
+                <VoiceSettingsPopover
+                  settings={settings}
+                  language={language}
+                  running={running}
+                  onChange={onChange}
+                  onVolumeChange={setLanguageVolume}
+                />
+              )}
+              stream={stream}
+            />
+          </div>
         )}
       </section>
 
