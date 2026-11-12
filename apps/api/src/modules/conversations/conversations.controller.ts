@@ -117,7 +117,8 @@ export class ConversationsController {
       'Sets the title the history list and the detail show, trimmed, 1 to 120 characters. A title the owner chose is never replaced by the generated one: that pass writes only where no title is stored. Answers the stored summary, the same shape a save answers. 404 for an id the caller does not own, identically to one that does not exist.',
   })
   @ApiEnvelopeResponse(ConversationSummaryResponseDto)
-  @ApiErrorResponses(400, 401, 404, 429)
+  // 413 from the `/conversations` JSON parser in `narrow-body-limits.ts`, before the route runs.
+  @ApiErrorResponses(400, 401, 404, 413, 429)
   async rename(
     @Req() req: Request,
     @Param() params: ConversationIdParamDto,

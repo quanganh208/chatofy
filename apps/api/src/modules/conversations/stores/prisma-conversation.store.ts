@@ -620,7 +620,8 @@ export class PrismaConversationStore implements ConversationStore {
     } catch (err) {
       // A `languages` column this registry cannot read — the row `list` drops
       // and `get` answers not-found for. Same answer here, so the three routes
-      // agree about whether it exists.
+      // agree about whether it exists. The UPDATE above has already committed,
+      // so the title IS written; only the reply cannot describe the row.
       this.logger.warn(
         `answering not-found for renamed conversation ${row.clientId}: ${String(err)}`,
       );
