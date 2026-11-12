@@ -91,14 +91,19 @@ export function ConversationTitleEditor({ title, onSave, onCancel }: Conversatio
             event.preventDefault();
             onCancel();
           }}
-          className="font-display text-heading h-auto min-w-0 flex-[1_1_16rem] py-1"
+          className="font-display text-heading h-auto min-w-0 flex-[1_1_12rem] py-1"
         />
-        <Button type="submit" variant="outline" size="sm" disabled={saving}>
-          {saving ? t('web.history.renameSaving') : t('web.history.renameSave')}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancel}>
-          {t('web.history.cancel')}
-        </Button>
+        {/* One unit that never splits: when the field and both buttons do not fit
+            on a line, the PAIR wraps under the field, which then takes the whole
+            line — never Save beside it and Cancel stranded below. */}
+        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <Button type="submit" variant="outline" size="sm" disabled={saving}>
+            {saving ? t('web.history.renameSaving') : t('web.history.renameSave')}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancel}>
+            {t('web.history.cancel')}
+          </Button>
+        </div>
       </div>
       {error ? (
         <p id={problem} role="alert" className="text-destructive text-hint">

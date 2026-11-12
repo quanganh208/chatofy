@@ -11,6 +11,7 @@ import { deleteConversation, getConversation, renameConversation } from '@/clien
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { cn } from '@/lib/utils';
 import { activeDurationMs } from './conversation-formatting';
 import { ConversationActions } from './conversation-actions-menu';
 import { ConversationDetailLoading, ConversationDetailMissing } from './conversation-detail-states';
@@ -187,7 +188,16 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               confirms WHICH conversation opened. An `h2`, because the topbar holds
               the screen's `h1`. */}
           <header className="flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3">
-            <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-1.5">
+            {/* While renaming, the title block takes the header's whole first row:
+                beside the player its 12rem basis squeezed the field until Cancel
+                wrapped alone. The player and `⋯` move to the row below, still in
+                reach and in the same tab order. */}
+            <div
+              className={cn(
+                'flex min-w-0 flex-col gap-1.5',
+                editing ? 'basis-full' : 'flex-[1_1_12rem]',
+              )}
+            >
               {editing ? (
                 <ConversationTitleEditor
                   title={conversation.title}

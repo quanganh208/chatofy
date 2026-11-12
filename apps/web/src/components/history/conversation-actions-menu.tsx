@@ -121,7 +121,15 @@ export function ConversationActions({
           ref={trigger}
           variant={row ? 'ghost' : 'outline'}
           size="icon"
-          className={row ? 'size-8' : undefined}
+          // 32px drawn on every pointer, so it stays within the row's first line;
+          // under `pointer-coarse` an invisible 6px rim widens what a finger can hit
+          // to the 44px every touch target gets, without the button growing into
+          // the preview line below it.
+          className={
+            row
+              ? "relative size-8 pointer-coarse:size-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 pointer-coarse:after:content-['']"
+              : undefined
+          }
           aria-label={
             row && name
               ? t('web.history.rowActions', { title: name })

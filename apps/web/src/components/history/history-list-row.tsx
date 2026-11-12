@@ -39,7 +39,7 @@ interface HistoryListRowProps {
  * The same actions menu as the open conversation's header, drawn beside the time
  * as the link's SIBLING — rendered into the parent `<li>`, which positions it. Inside
  * the link it would be invalid markup and every press on it would also open the
- * row. The link reserves room on its right so the time never runs under it. Only
+ * row. The first line reserves room on its right so the time never runs under it. Only
  * inside the History layout, which is what carries out a row's rename and delete.
  */
 export function HistoryListRow({
@@ -74,8 +74,7 @@ export function HistoryListRow({
         }}
         className={cn(
           'animate-in fade-in fill-mode-both duration-300 motion-reduce:animate-none',
-          'relative flex flex-col gap-0.5 rounded-md py-2.5 pl-3',
-          panes ? 'pr-10' : 'pr-3',
+          'relative flex flex-col gap-0.5 rounded-md px-3 py-2.5',
           'hover:bg-muted focus-visible:bg-muted focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none',
           'duration-fast ease-standard transition-colors motion-reduce:transition-none',
           selected && 'bg-muted',
@@ -92,7 +91,12 @@ export function HistoryListRow({
           />
         ) : null}
 
-        <div className="flex min-w-0 items-baseline gap-3">
+        {/* Only this line shares the row with the `⋯`, which is pinned beside the
+            time, so only this line makes room for it: 32px of button from 4px in,
+            less the row's own 12px of padding. The preview and the meta line keep
+            the full width — reserved on every line, the meta line ran out of room
+            two facts early and its Minutes badge sat against the cut-off text. */}
+        <div className={cn('flex min-w-0 items-baseline gap-3', panes && 'pr-7')}>
           {/* The title is what IDENTIFIES a conversation, so it is the ink line; the
             time only orders them. Until a title exists the first line stands in,
             at regular weight, so a guess at the topic reads differently from one. */}
