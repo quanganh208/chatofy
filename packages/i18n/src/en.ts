@@ -210,7 +210,7 @@ export const en = {
   // Two items, one per conversation mode: each is its own page.
   'web.chrome.navTranslate': 'One-way translation',
   'web.chrome.navTranslateTwoWay': 'Two-way translation',
-  'web.chrome.navConference': 'Conference',
+  'web.chrome.navConference': 'Meetings',
   'web.chrome.navHistory': 'History',
   'web.chrome.navGlossary': 'Glossary',
   'web.chrome.navPreferences': 'Preferences',
@@ -231,7 +231,6 @@ export const en = {
   // The bottom tab bar below 768px. Short on purpose: four fit across a phone.
   'web.chrome.tabBar': 'Main',
   'web.chrome.tabTranslate': 'Translate',
-  'web.chrome.tabMeetings': 'Meetings',
   'web.chrome.tabHistory': 'History',
   'web.chrome.tabMore': 'More',
   'web.chrome.close': 'Close',

@@ -53,7 +53,7 @@ export function MobileTabBar() {
     {
       key: 'meetings',
       href: '/conference',
-      labelKey: 'web.chrome.tabMeetings',
+      labelKey: 'web.chrome.navConference',
       icon: Video,
       active: (path) => navItemFor(path)?.href === '/conference',
     },
