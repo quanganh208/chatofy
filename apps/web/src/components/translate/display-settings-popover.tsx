@@ -63,11 +63,10 @@ export function DisplaySettingsPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        {/* Outline, not ghost: it sits on the page ground at the end of the dock
-            rather than among the topbar's other icons, and a control with no edge
-            there reads as an icon someone forgot to finish. Still not accent — the
-            screen's one filled control is Start. */}
-        <Button variant="outline" size="icon" aria-label={label}>
+        {/* Ghost: the dock is a bar under a hairline, and its secondary controls are
+            icons in it rather than boxes on the page. Never accent — the screen's
+            one filled control is Start. */}
+        <Button variant="ghost" size="icon" aria-label={label}>
           <Settings2 aria-hidden />
         </Button>
       </PopoverTrigger>
