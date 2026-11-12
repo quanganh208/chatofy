@@ -2,98 +2,77 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { Conversation } from '@chatofy/types';
-import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
-import { HistoryTranscript } from '@/components/history/history-transcript';
-import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
-import { MinutesPanel } from '@/components/translate/minutes-panel';
+import { Button } from '@chatofy/ui/react';
 import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { activeDurationMs } from './conversation-formatting';
-import { formatOffset } from '@/lib/transcript-time';
+import { ConversationActions } from './conversation-actions-menu';
+import { ConversationDetailLoading, ConversationDetailMissing } from './conversation-detail-states';
+import { ConversationDetailTabs } from './conversation-detail-tabs';
 import { ConversationMetaLine } from './conversation-meta-line';
+import { ConversationRecordingControls } from './conversation-recording-controls';
+import { useHistoryPanes } from './history-panes-context';
 
 interface ConversationDetailProps {
   conversationId: string;
 }
 
 /**
- * One stored conversation: its transcript, its minutes, and a delete.
+ * One stored conversation: a header that names it and holds its controls, then its
+ * transcript and its minutes as two tabs.
  *
- * ## Two elevated surfaces, and they earn it
+ * The reading pane beside the list on a wide screen, and the whole page on a narrow
+ * one. The back link is drawn only in the second case — it hides itself from the
+ * `@5xl` container width the History layout switches at, because beside the list it
+ * would be a link to the list you can already see.
  *
- * The transcript and the minutes are each a thing you act on as a unit — read,
- * copy, regenerate — so each is a card. That is the ceiling for a screen,
- * exactly spent, which is why nothing else here is one: the header facts are a
- * line, the not-found state is a region on the page ground, and the delete sits
- * under a hairline.
+ * ## Surfaces and the accent budget
  *
- * ## The accent budget
- *
- * Exactly one accent-filled control, and it is `MinutesPanel`'s generate button,
- * which is default-variant. So the budget is already spent before this component
- * adds anything: back is ghost, and delete is outline until it is confirmed and
- * `destructive` after — a variant that fills with `live-fill`, not the accent.
- * That is why they are the variants they are, rather than a styling preference.
- * The loading and not-found states carry no accent at all, which is under the
- * ceiling rather than over it.
- *
- * ## Delete comes after the thing it destroys
- *
- * It used to sit second on the screen, in the header row opposite "back" — above
- * the transcript the reader opened the page for. It is now below both records,
- * past the point where you have finished reading, and the consequence sentence
- * is shown BEFORE the first press rather than only after it. That sentence lives
- * here rather than inside the button so it does not appear and disappear with
- * the two-step; the button keeps the failure alert, which has to be inserted to
- * be spoken.
- *
- * `MinutesPanel` is reused unchanged — it was already presentational. Its strings
- * stay under `web.translate.*`: the keys are about minutes, not about the route,
- * and moving them would touch existing keys for no behavioural gain.
+ * Nothing here is a card. The header is text on the page ground, the transcript is
+ * the pane's content, and the only elevated surface is the minutes panel — on the
+ * Minutes tab, where its Generate is also the screen's one accent-filled control.
+ * Play and `⋯` are outline; Delete's second press is `destructive`, which fills with
+ * `live-fill`, not the accent. The open menu is the one other surface, and only
+ * while it is open.
  */
 export function ConversationDetail({ conversationId }: ConversationDetailProps) {
   const t = useTranslate();
   const locale = useLocale();
   const router = useRouter();
+  const panes = useHistoryPanes();
+  const listHref = (panes?.listHref ?? '/history') as Route;
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
 
-  // Opt-in: on a history screen an existing summary is exactly what the reader
-  // came for. The translate panel passes nothing and still fetches nothing.
+  // Opt-in: on a history screen an existing summary is exactly what the reader came
+  // for. The translate panel passes nothing and still fetches nothing.
   const minutes = useMinutes(conversationId);
-  // The element's ref lives HERE, with the component that renders it, and is
-  // handed to the hook. See `useConversationPlayer` for why neither a
-  // hook-returned ref nor element-in-state survives the React Compiler rules.
+  // The element's ref lives HERE, with the component that owns the player, and is
+  // handed to the hook. See `useConversationPlayer` for why neither a hook-returned
+  // ref nor element-in-state survives the React Compiler rules.
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const player = useConversationPlayer(conversationId, audioRef);
 
   // The scrubber's span, from the STORED duration rather than the media element:
   // `MediaRecorder` writes no Duration into the WebM header, so `audio.duration`
-  // commonly reads `Infinity` and a slider built on it would have no range at all.
-  // The fallback to the conversation's own length is defensive rather than
-  // reachable through the bar: `hasRecording` is itself derived from
-  // `audioDurationMs`, so a null one means no bar is drawn. It keeps `totalMs`
-  // meaningful for any other reader of this value.
-  // Active time, not wall time, because the recording paused with the
-  // conversation and holds none of the paused stretch.
+  // commonly reads `Infinity`. Active time, not wall time, for the fallback, because
+  // the recording paused with the conversation.
   const totalMs =
     conversation?.audioDurationMs ?? (conversation ? activeDurationMs(conversation) : 0);
 
-  // Reset all three when the id changes, or a second `conversationId` inherits
-  // the first one's verdict: a conversation that loads fine renders as "no longer
-  // here" after one that did not, with the previous conversation's date and counts
-  // in the header, which is now a worse lie than it was before those facts were
-  // shown. No UI links one detail page to another today, so every arrival
-  // remounts and this is unreachable — it is a few lines, and the day a link is
-  // added it is silent. Adjusted during render rather than in the effect, so the
-  // stale verdict is never committed even for a frame.
+  // Reset all three when the id changes, or a second `conversationId` inherits the
+  // first one's verdict — a conversation that loads fine drawn as "no longer here",
+  // under the previous one's title. The History layout keys this component by id,
+  // so a switch remounts it; this keeps the guarantee for any caller that does not.
+  // Adjusted during render, so the stale verdict is never committed even for a frame.
   const [shownFor, setShownFor] = useState(conversationId);
   if (shownFor !== conversationId) {
     setShownFor(conversationId);
@@ -102,6 +81,23 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     setConversation(null);
   }
 
+  // Opened in the place of one just deleted: the delete removed the control that
+  // had focus, so the next conversation's title takes it, where a reader expects
+  // to be — not `<body>`.
+  //
+  // Taken by the not-found state too. Left pending there, the request would be
+  // served by whichever conversation loads NEXT — one opened much later, by a
+  // reader who is somewhere else entirely.
+  const heading = useRef<HTMLHeadingElement>(null);
+  const gone = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Settled first: the loading branch has neither element to focus, and
+    // `missing` and `loading` are set from different callbacks.
+    if (loading || (!conversation && !missing)) return;
+    if (!panes?.takeFocusRequest()) return;
+    (conversation ? heading : gone).current?.focus();
+  }, [conversation, missing, loading, panes]);
+
   useEffect(() => {
     let cancelled = false;
     getConversation(conversationId)
@@ -109,8 +105,6 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
         if (!cancelled) setConversation(loaded);
       })
       .catch(() => {
-        // One message for every failure: a foreign id and an absent one answer
-        // identically by design, so the screen must not claim to tell them apart.
         if (!cancelled) setMissing(true);
       })
       .finally(() => {
@@ -121,197 +115,79 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     };
   }, [conversationId]);
 
+  const remove = async () => {
+    await deleteConversation(conversationId);
+    // Out of the list first, so the screen landed on is not still offering it — on
+    // a wide `/history` the newest REMAINING conversation is what opens next.
+    panes?.forget(conversationId);
+    // `replace`: Back must not return to a conversation that no longer exists, and
+    // a delete on `/history` must not stack a second `/history` on the first.
+    router.replace(listHref);
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/history">
-            <ArrowLeft aria-hidden /> {t('web.history.back')}
-          </Link>
-        </Button>
-      </div>
-
-      {/* The row's own title and facts, following the reader in: arriving from a
-          list of topics, this is what confirms WHICH conversation opened. An
-          `h2`, because the topbar holds the screen's `h1`. Text on the page
-          ground, not a card — the two cards below are this screen's whole
-          budget of elevated surfaces. */}
-      {conversation ? (
-        <header className="flex min-w-0 flex-col gap-1.5">
-          <h2
-            className={
-              conversation.title
-                ? 'text-heading font-display font-normal tracking-tight text-balance'
-                : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance'
-            }
-          >
-            {conversation.title ?? (conversation.preview || t('web.history.untitled'))}
-          </h2>
-          <ConversationMetaLine
-            conversation={conversation}
-            showTimeRange
-            leading={new Date(conversation.startedAt).toLocaleDateString(locale, {
-              dateStyle: 'medium',
-            })}
-          />
-        </header>
-      ) : null}
+      <Button asChild variant="ghost" size="sm" className="self-start @5xl:hidden">
+        <Link href={listHref}>
+          <ArrowLeft aria-hidden /> {t('web.history.back')}
+        </Link>
+      </Button>
 
       {loading ? (
-        <LoadingRecords label={t('web.history.loading')} />
+        <ConversationDetailLoading />
       ) : missing || !conversation ? (
-        // A state of the page, not an object on it — so it is drawn on the
-        // ground, and it no longer shares one plain-paragraph card with the
-        // loading state, which made the two failures look identical.
-        <div className="flex flex-col items-center gap-3 px-2 pt-8 pb-6 text-center">
-          <FileX2 aria-hidden className="text-border-strong size-16" strokeWidth={1.25} />
-          <p className="text-body font-semibold">{t('web.history.notFound')}</p>
-          <p className="text-muted-foreground text-prose max-w-[46ch]">
-            {t('web.history.notFoundBody')}
-          </p>
+        <div ref={gone} tabIndex={-1} className="outline-none">
+          <ConversationDetailMissing />
         </div>
       ) : (
         <>
-          {/* The recording bar.
-
-              **On the page ground, and NOT a card — that is a budget fact, not a
-              taste one.** This screen already spends both elevated surfaces on
-              the transcript and the minutes, and `accent-budget-app.spec.tsx`
-              asserts `surfaces: 2` exactly rather than as a ceiling, so a third
-              card fails the suite. It reads correctly that way too: a recording is
-              something you scrub, not a record you act on as a unit.
-
-              Play is `outline` for the same kind of reason. The one accent on this
-              screen is MinutesPanel's Generate, and `accent-count.ts` counts
-              `bg-primary` on `button, a, [role="button"]` — so a filled Play would
-              be a second. The `Slider`'s filled range is a `div` and is exempt,
-              which its own docblock names as exactly this case. */}
-          {conversation.hasRecording ? (
-            <div className="border-hairline flex flex-wrap items-center gap-3 border-t border-b py-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={player.toggle}
-                disabled={player.loading}
-                aria-label={t(
-                  player.playing ? 'web.history.pauseRecording' : 'web.history.playRecording',
-                )}
+          {/* The row's own title and facts, following the reader in: this is what
+              confirms WHICH conversation opened. An `h2`, because the topbar holds
+              the screen's `h1`. */}
+          <header className="flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3">
+            <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-1.5">
+              <h2
+                ref={heading}
+                tabIndex={-1}
+                className={
+                  conversation.title
+                    ? 'text-heading font-display font-normal tracking-tight text-balance outline-none'
+                    : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance outline-none'
+                }
               >
-                {player.playing ? <Pause aria-hidden /> : <Play aria-hidden />}
-              </Button>
-              <Slider
-                className="min-w-40 flex-1"
-                value={[Math.min(player.positionMs, totalMs)]}
-                // Never 0: `audioDurationMs` is schema-valid at zero — a capture
-                // that stopped the instant it started — and a Radix Slider built
-                // on `max={0}` has no range to drag at all.
-                max={Math.max(totalMs, 1)}
-                step={1000}
-                onValueChange={([ms]) => player.scrubTo(ms ?? 0)}
-                aria-label={t('web.history.recordingLabel')}
+                {conversation.title ?? (conversation.preview || t('web.history.untitled'))}
+              </h2>
+              <ConversationMetaLine
+                conversation={conversation}
+                showTimeRange
+                leading={new Date(conversation.startedAt).toLocaleDateString(locale, {
+                  dateStyle: 'medium',
+                })}
               />
-              <p className="text-muted-foreground text-hint tabular-nums">
-                {formatOffset(player.positionMs)} / {formatOffset(totalMs)}
-              </p>
-              {/* `preload="none"`: the source is a blob that only exists after the
-                  first press, and preloading a 32 MB recording for a reader who
-                  came to READ would spend the feature's bandwidth on the people
-                  not using it. */}
-              <audio ref={audioRef} src={player.src ?? undefined} preload="none" />
-              {/* `role="status"` so the failure is ANNOUNCED rather than only
-                  drawn: a reader who pressed play and cannot see the bar gets
-                  silence and no explanation otherwise. It is also what lets the
-                  accent spec prove its failure row actually reached this state,
-                  rather than counting an untouched player. */}
-              {player.failed ? (
-                <p role="status" className="text-muted-foreground text-hint">
-                  {t('web.history.recordingFailed')}
-                </p>
-              ) : null}
             </div>
-          ) : null}
+            <ConversationActions
+              onDelete={remove}
+              leading={
+                conversation.hasRecording ? (
+                  <ConversationRecordingControls
+                    player={player}
+                    audioRef={audioRef}
+                    totalMs={totalMs}
+                  />
+                ) : null
+              }
+            />
+          </header>
 
-          <HistoryTranscript
-            turns={conversation.turns}
-            languages={conversation.languages}
-            audioOffsetMs={conversation.audioOffsetMs}
+          <ConversationDetailTabs
+            conversation={conversation}
+            minutes={minutes}
             // Only when there is something to seek. Without a recording the gutter
             // renders as plain text rather than as a button that would do nothing.
             onSeek={conversation.hasRecording ? player.seekTo : undefined}
           />
-          {/* `canGenerate` is unconditional. A stored conversation has at least
-              one turn — the write schema refuses an empty one — so the panel's
-              "nothing to summarize" state is unreachable from this route. */}
-          <MinutesPanel
-            minutes={minutes.minutes}
-            loading={minutes.loading}
-            error={minutes.error}
-            canGenerate
-            onGenerate={() => void minutes.generate(conversationId, locale)}
-          />
-
-          <div className="border-hairline flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <p id="delete-consequence" className="text-muted-foreground text-hint max-w-[48ch]">
-              {t('web.history.deleteConfirm')}
-            </p>
-            {/* Named as the button's description, not merely placed beside it.
-                Moving the sentence out of the control gained a reader who can see
-                the layout and lost one who cannot: without this, tabbing to
-                Delete announces "Delete, button" and nothing about what it
-                destroys. */}
-            <ConfirmDeleteButton
-              describedBy="delete-consequence"
-              labels={{
-                action: t('web.history.delete'),
-                pending: t('web.history.deleting'),
-                cancel: t('web.history.cancel'),
-                failed: t('web.history.deleteFailed'),
-              }}
-              onConfirm={async () => {
-                await deleteConversation(conversationId);
-                router.push('/history');
-              }}
-            />
-          </div>
         </>
       )}
-    </div>
-  );
-}
-
-/**
- * The first load, in the shape of the two records it becomes.
- *
- * Not a sentence in a card: the loading and the not-found states used the same
- * paragraph two branches apart, so for the first frame a conversation that was
- * gone looked exactly like one that was arriving. The sentence is still said, to
- * screen readers, where `aria-busy` alone would leave a blank silence.
- */
-function LoadingRecords({ label }: { label: string }) {
-  return (
-    <div aria-busy className="flex flex-col gap-6">
-      <p role="status" className="sr-only">
-        {label}
-      </p>
-      <Card>
-        <CardContent>
-          <ul className="flex flex-col gap-4">
-            {[0, 1, 2].map((turn) => (
-              <li key={turn} className="border-hairline flex flex-col gap-1.5 border-l-2 pl-4">
-                <Skeleton className="h-2.5 w-20" />
-                <Skeleton className="h-3.5 w-full max-w-[40ch]" />
-                <Skeleton className="h-4 w-full max-w-[34ch]" />
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3.5 w-full max-w-[44ch]" />
-        </CardContent>
-      </Card>
     </div>
   );
 }

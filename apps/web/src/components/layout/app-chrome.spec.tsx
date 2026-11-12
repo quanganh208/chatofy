@@ -291,7 +291,6 @@ describe('the page header', () => {
   beforeEach(() => localStorage.clear());
 
   it.each([
-    ['/history', 'History'],
     ['/glossary', 'Glossary'],
     ['/preferences', 'Preferences'],
     ['/account', 'Account'],
@@ -308,24 +307,56 @@ describe('the page header', () => {
   });
 
   it('leaves the topbar title as plain text there, so the page has no second heading', () => {
-    pathname.mockReturnValue('/history');
+    pathname.mockReturnValue('/glossary');
     render();
     const topbar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
     expect(topbar?.querySelector('h1')).toBeNull();
-    expect(topbar?.textContent).toContain('History');
+    expect(topbar?.textContent).toContain('Glossary');
   });
 
-  it('keeps the topbar h1 on screens that own their layout', () => {
-    pathname.mockReturnValue('/translate/one-way');
-    render();
-    expect(h1s().length).toBe(1);
-    expect(h1s()[0]?.closest('header')).toBeNull();
-  });
+  it.each(['/translate/one-way', '/history'])(
+    'keeps the topbar h1 on %s, which owns its layout',
+    (route) => {
+      pathname.mockReturnValue(route);
+      render();
+      expect(h1s().length).toBe(1);
+      expect(h1s()[0]?.closest('header')).toBeNull();
+    },
+  );
 
   it('opens a nested route (a stored conversation) without a second header', () => {
     pathname.mockReturnValue('/history/abc');
     render();
     expect(h1s().length).toBe(1);
     expect(container.querySelector('main header')).toBeNull();
+  });
+});
+
+describe('the paned History frame', () => {
+  const main = () => container.querySelector<HTMLElement>('#main');
+
+  it.each(['/history', '/history/abc'])(
+    'pins %s to the viewport from lg, so its panes scroll and the page does not',
+    (route) => {
+      pathname.mockReturnValue(route);
+      render();
+      expect(main()?.className).toContain('lg:h-svh');
+      expect(main()?.className).toContain('lg:overflow-hidden');
+      // The panes draw their own padding and measure; the content column's would
+      // inset the list from the sidebar it sits against.
+      expect(container.querySelector('main .max-w-6xl, main .max-w-2xl')).toBeNull();
+    },
+  );
+
+  it('leaves every other route to scroll as a page', () => {
+    pathname.mockReturnValue('/glossary');
+    render();
+    expect(main()?.className).not.toContain('lg:h-svh');
+  });
+
+  it('does not let a sibling path borrow the frame', () => {
+    pathname.mockReturnValue('/historyx');
+    render();
+    expect(main()?.className).not.toContain('lg:h-svh');
   });
 });

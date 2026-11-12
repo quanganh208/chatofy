@@ -81,6 +81,22 @@ const FLUSH_PREFIXES: readonly string[] = ['/conference/'];
 
 const isFlush = (pathname: string) => FLUSH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
+/**
+ * Routes that lay themselves out as panes which scroll on their own: History's list
+ * beside the conversation it opened. Matched as the route and everything under it,
+ * because the list and the conversation are one screen.
+ *
+ * Like the flush routes they get the whole content area with no padding or measure —
+ * the panes draw their own. Unlike them the frame is pinned to the viewport only from
+ * `lg`: below it the content is always narrower than the two-pane layout needs, the
+ * screen is a single page, and the BODY should scroll so a phone's browser chrome can
+ * collapse as it does everywhere else.
+ */
+const PANED_ROUTES: readonly Route[] = ['/history'];
+
+const isPaned = (pathname: string) =>
+  PANED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+
 const SIDEBAR_WIDTH_KEY = 'chatofy.sidebar-width';
 const SIDEBAR_WIDTH_DEFAULT = 256; // 16rem, the primitive's own default
 
@@ -141,7 +157,13 @@ export function AppChrome({
       <SidebarInset
         id="main"
         tabIndex={-1}
-        className={isFlush(pathname) ? 'h-svh overflow-hidden' : undefined}
+        className={
+          isFlush(pathname)
+            ? 'h-svh overflow-hidden'
+            : isPaned(pathname)
+              ? 'lg:h-svh lg:overflow-hidden'
+              : undefined
+        }
       >
         <AppTopbar />
         {/* `min-h-0` so a screen that wants to fill the viewport can: without it
@@ -149,6 +171,8 @@ export function AppChrome({
             asking for the leftover space gets its own height back instead. */}
         {isFlush(pathname) ? (
           <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+        ) : isPaned(pathname) ? (
+          <div className="flex w-full min-h-0 flex-1 flex-col">{children}</div>
         ) : (
           <div
             className={cn(

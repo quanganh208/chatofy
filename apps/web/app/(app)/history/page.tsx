@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { HistoryScreen } from '@/components/history/history-screen';
 import { getT } from '@/i18n/server';
 
 /**
@@ -15,14 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Conversations this account has finished and kept.
  *
- * A server component so it can export metadata; the screen below is a client
- * because the list is fetched with the caller's bearer token. Session-gated by
- * `proxy.ts`, which allows only an explicit list of public paths, so this route
- * needs no check of its own.
- *
- * No heading — the topbar already says "History", and a page that repeats its own
- * title in the body makes the second one look like a different fact.
+ * Renders nothing: the list AND the open conversation are the History layout's
+ * (`layout.tsx`), so the newest conversation opened here and the same conversation
+ * opened from its row are one mounted element. This page exists for its URL and
+ * its metadata. Session-gated by `proxy.ts`, which allows only an explicit list of
+ * public paths, so this route needs no check of its own.
  */
 export default function HistoryPage() {
-  return <HistoryScreen />;
+  return null;
 }

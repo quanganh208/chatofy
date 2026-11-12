@@ -9,8 +9,9 @@
  * panel is the same one `/translate` and history render.
  *
  * Design budget: Back to lobby is the ONE accent-filled control; Generate /
- * Regenerate is outline (`emphasis="quiet"`). Two elevated surfaces: the summary
- * card and the minutes panel. Every state is a row in accent-budget-app.spec.tsx.
+ * Regenerate is outline (`emphasis="quiet"`). One elevated surface, the summary
+ * card; the minutes sit on the page ground below it, titled with an `h3` under the
+ * screen's `h2`. Every state is a row in accent-budget-app.spec.tsx.
  */
 
 import { useEffect } from 'react';
@@ -74,6 +75,7 @@ function EndScreen({ roomId }: { roomId: string }) {
         canGenerate={end.conference._count.turns > 0}
         unavailableHint={t('common.minutes.nothingSaid')}
         emphasis="quiet"
+        titleAs="h3"
         onGenerate={() => void end.generate(locale)}
       />
     </div>

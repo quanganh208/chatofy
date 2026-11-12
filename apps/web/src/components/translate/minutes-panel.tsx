@@ -1,16 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { MinutesContent } from '@chatofy/types';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Separator,
-} from '@chatofy/ui/react';
+import { Badge, Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 
 interface MinutesPanelProps {
@@ -45,6 +37,22 @@ interface MinutesPanelProps {
    * controls at once was the single accent-budget violation this product had.
    */
   emphasis?: 'accent' | 'quiet';
+  /**
+   * Whether the panel names itself with a visible "Meeting minutes" heading.
+   *
+   * Defaults to true: on `/translate` and the meeting end screen nothing else on
+   * the page says what this region is. The History Minutes tab passes false — the
+   * selected tab already says it, and a second "Meeting minutes" directly under a
+   * tab reading "Minutes" is a stutter. The section keeps the same accessible name
+   * either way, so a screen reader landing on it hears what it is.
+   */
+  showTitle?: boolean;
+  /**
+   * The heading element for the visible title, so it slots into the page's
+   * outline: `h2` where the page's only other heading is the topbar's `h1`
+   * (`/translate`), `h3` under the end screen's own `h2`.
+   */
+  titleAs?: 'h2' | 'h3';
   /** Run (or re-run) a pass. The conversation is named by the parent. */
   onGenerate: () => void;
 }
@@ -52,6 +60,11 @@ interface MinutesPanelProps {
 /**
  * Meeting minutes for a finished conversation: summary, key points, decisions,
  * and action items, with a button to generate or regenerate.
+ *
+ * A region on the page ground, not a card: every screen that shows it already
+ * spends its elevation elsewhere or needs none, and the minutes are read, not
+ * acted on as a unit. Hairlines carry the structure instead — one above the
+ * header row where a title shows, one above each group.
  *
  * Presentational — it owns no request state. The parent holds {@link useMinutes}
  * and names the conversation to summarize, so this component renders the same
@@ -66,9 +79,12 @@ export function MinutesPanel({
   canGenerate,
   unavailableHint,
   emphasis = 'accent',
+  showTitle = true,
+  titleAs: Title = 'h2',
   onGenerate,
 }: MinutesPanelProps) {
   const t = useTranslate();
+  const titleId = useId();
   const [copied, setCopied] = useState(false);
 
   const ready = minutes?.status === 'ready';
@@ -80,49 +96,69 @@ export function MinutesPanel({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const actions = (
+    <div className="flex items-center gap-2">
+      {ready && (
+        <Button variant="ghost" size="sm" onClick={() => void copy()}>
+          {copied ? t('web.translate.minutesCopied') : t('web.translate.minutesCopy')}
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant={emphasis === 'accent' ? 'default' : 'outline'}
+        onClick={onGenerate}
+        disabled={loading || !canGenerate}
+      >
+        {minutes ? t('common.minutes.regenerate') : t('common.minutes.generate')}
+      </Button>
+    </div>
+  );
+
   return (
-    <Card>
-      {/* Wraps rather than squeezes: at phone width the title broke over two lines
-          beside its buttons. The title stays whole and the actions drop below it. */}
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-3">
-        <CardTitle className="whitespace-nowrap">{t('common.minutes.title')}</CardTitle>
-        <div className="flex items-center gap-2">
-          {ready && (
-            <Button variant="ghost" size="sm" onClick={() => void copy()}>
-              {copied ? t('web.translate.minutesCopied') : t('web.translate.minutesCopy')}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant={emphasis === 'accent' ? 'default' : 'outline'}
-            onClick={onGenerate}
-            disabled={loading || !canGenerate}
-          >
-            {minutes ? t('common.minutes.regenerate') : t('common.minutes.generate')}
-          </Button>
+    <section
+      // A hook for the accent-budget gate, which has to prove the panel mounted:
+      // with no card, its surface count is the same whether it renders or not.
+      data-minutes-panel=""
+      // Named by the visible heading when there is one, and by the same string
+      // otherwise, so the region is announced identically on every screen.
+      {...(showTitle
+        ? { 'aria-labelledby': titleId }
+        : { 'aria-label': t('common.minutes.title') })}
+      className={
+        showTitle ? 'border-hairline flex flex-col gap-4 border-t pt-4' : 'flex flex-col gap-4'
+      }
+    >
+      {showTitle ? (
+        // Wraps rather than squeezes: at phone width the title broke over two lines
+        // beside its buttons. The title stays whole and the actions drop below it.
+        <div className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-3">
+          <Title id={titleId} className="text-body font-semibold whitespace-nowrap">
+            {t('common.minutes.title')}
+          </Title>
+          {actions}
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {loading ? (
-          <p className="text-muted-foreground">{t('web.translate.minutesGenerating')}</p>
-        ) : (
-          <>
-            {/* A failed regenerate leaves the stored ready copy readable (the
-                server keeps it), so the failure is a line above it, not instead. */}
-            {error && <p className="text-destructive">{t('common.minutes.failed')}</p>}
-            {ready ? (
-              <MinutesBody minutes={minutes} />
-            ) : error ? null : (
-              <p className="text-muted-foreground">
-                {canGenerate
-                  ? t('web.translate.minutesEmpty')
-                  : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
-              </p>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+      ) : (
+        <div className="flex justify-end">{actions}</div>
+      )}
+      {loading ? (
+        <p className="text-muted-foreground">{t('web.translate.minutesGenerating')}</p>
+      ) : (
+        <>
+          {/* A failed regenerate leaves the stored ready copy readable (the
+              server keeps it), so the failure is a line above it, not instead. */}
+          {error && <p className="text-destructive">{t('common.minutes.failed')}</p>}
+          {ready ? (
+            <MinutesBody minutes={minutes} />
+          ) : error ? null : (
+            <p className="text-muted-foreground">
+              {canGenerate
+                ? t('web.translate.minutesEmpty')
+                : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -183,9 +219,8 @@ function MinutesBody({ minutes }: { minutes: MinutesContent }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="border-hairline flex flex-col gap-1 border-t pt-3">
       <p className="text-label text-muted-foreground uppercase">{title}</p>
-      <Separator />
       {children}
     </div>
   );

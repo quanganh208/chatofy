@@ -61,12 +61,9 @@ const GROUPS: readonly (readonly NavItem[])[] = [
     { href: '/translate/one-way', labelKey: 'web.chrome.navTranslate', icon: Mic },
     { href: '/translate/two-way', labelKey: 'web.chrome.navTranslateTwoWay', icon: ArrowLeftRight },
     { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
-    {
-      href: '/history',
-      labelKey: 'web.chrome.navHistory',
-      icon: History,
-      descriptionKey: 'web.chrome.descHistory',
-    },
+    // Not headed: History is a full-height list beside a reading pane, and a page
+    // header above both would spend the height the two panes scroll in.
+    { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
     {
       href: '/glossary',
       labelKey: 'web.chrome.navGlossary',

@@ -189,8 +189,6 @@ export const vi: Messages = {
   'web.chrome.navAccount': 'Tài khoản',
   'web.chrome.toggleSidebar': 'Đóng mở thanh bên',
   'web.chrome.sidebarWidth': 'Độ rộng thanh bên',
-  'web.chrome.descHistory':
-    'Mọi cuộc hội thoại bạn đã kết thúc, sẵn sàng để đọc lại, tìm kiếm và tóm tắt.',
   'web.chrome.descGlossary': 'Tên riêng và thuật ngữ bạn muốn dịch đúng ý, gom về một chỗ.',
   'web.chrome.descPreferences':
     'Micrô, trình dịch và màn hình sẽ hoạt động thế nào ở lần bắt đầu tiếp theo.',
@@ -485,6 +483,13 @@ export const vi: Messages = {
   'web.history.searchNoResults': 'Không có cuộc hội thoại nào khớp.',
   'web.history.clearSearch': 'Xoá tìm kiếm',
   'web.history.back': 'Quay lại lịch sử',
+  // The detail's overflow menu; Delete is its one item, and the second step
+  // happens under the header, beside the sentence saying what it costs.
+  'web.history.moreActions': 'Thao tác khác',
+  'web.history.tabMinutes': 'Biên bản',
+  // Read after the tab's name when minutes exist; the dot beside it is decoration.
+  'web.history.tabMinutesReady': '(đã có)',
+  'web.history.listWidth': 'Độ rộng danh sách hội thoại',
   'web.history.turnCount': '{count} dòng',
   'web.history.turnCountOne': '1 dòng',
   'web.history.duration': '{minutes} phút',

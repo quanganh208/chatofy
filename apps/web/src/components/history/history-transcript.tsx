@@ -1,7 +1,6 @@
 'use client';
 
 import { primaryTranslation, type ConversationTurn, type LanguageCode } from '@chatofy/types';
-import { Card, CardContent } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 
@@ -32,6 +31,10 @@ interface HistoryTranscriptProps {
 /**
  * A stored conversation, read back exactly as it was on screen.
  *
+ * On the page ground, not in a card: it is the reading pane's whole content, and a
+ * card around the only thing on a surface is a frame with nothing to separate. Each
+ * block's text column stops at 68ch, so a wide pane still reads at a prose measure.
+ *
  * Trivial on purpose, and that is the payoff of grouping at SAVE time: a stored
  * row is already one displayed block carrying the repaired text, so rendering is
  * `displayText ?? sourceText` and nothing else.
@@ -60,79 +63,75 @@ export function HistoryTranscript({
   const t = useTranslate();
 
   return (
-    <Card>
-      <CardContent>
-        <ul className="flex flex-col gap-4">
-          {turns.map((turn) => {
-            const at = mediaOffset(turn.offsetMs, audioOffsetMs);
-            const stamp =
-              at === null ? null : onSeek ? (
-                <button
-                  type="button"
-                  onClick={() => onSeek(at)}
-                  className="text-label text-muted-foreground hover:text-foreground tabular-nums"
-                  aria-label={t('web.history.playFrom', { time: formatOffset(at) })}
-                >
-                  <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
-                </button>
-              ) : (
-                <span className="text-label text-muted-foreground tabular-nums">
-                  <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
-                </span>
-              );
-            return (
-              <li key={turn.position} className="relative flex gap-3">
-                {/* The gutter. Fixed width so every line of the transcript starts
-                    at the same x — a column that resized per row would make the
-                    left rule ragged, which is the one thing it exists to keep
-                    straight. A row with no time renders an empty cell rather than
-                    collapsing, for the same reason.
+    <ul className="flex flex-col gap-4">
+      {turns.map((turn) => {
+        const at = mediaOffset(turn.offsetMs, audioOffsetMs);
+        const stamp =
+          at === null ? null : onSeek ? (
+            <button
+              type="button"
+              onClick={() => onSeek(at)}
+              className="text-label text-muted-foreground hover:text-foreground tabular-nums"
+              aria-label={t('web.history.playFrom', { time: formatOffset(at) })}
+            >
+              <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+            </button>
+          ) : (
+            <span className="text-label text-muted-foreground tabular-nums">
+              <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+            </span>
+          );
+        return (
+          <li key={turn.position} className="relative flex gap-3">
+            {/* The gutter. Fixed width so every line of the transcript starts
+                at the same x — a column that resized per row would make the
+                left rule ragged, which is the one thing it exists to keep
+                straight. A row with no time renders an empty cell rather than
+                collapsing, for the same reason.
 
-                    Wide enough for `formatOffset`'s longer form: past an hour it
-                    prints `h:mm:ss`, not `m:ss`, and a column sized only for the
-                    short form would wrap it.
+                Wide enough for `formatOffset`'s longer form: past an hour it
+                prints `h:mm:ss`, not `m:ss`, and a column sized only for the
+                short form would wrap it.
 
-                    `text-right` so the digits sit against the rule they belong to,
-                    and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
-                <div className="absolute top-0 right-0 flex sm:static sm:block sm:w-16 sm:shrink-0 sm:pt-0.5 sm:text-right">
-                  {stamp}
-                </div>
-                {/* The block, unchanged: the left rule and the larger translation
-                    are what `conversation-transcript.tsx` established and what
-                    makes reading a stored conversation the same act as reading a
-                    live one. */}
-                <div className="border-primary flex min-w-0 flex-1 flex-col gap-1 border-l-2 pl-3 sm:pl-4">
-                  {/* Below `sm` the gutter is lifted out of the row and pinned to the
-                      top right, on this label's line; the padding keeps a long label
-                      from running under it. A 64px gutter plus the rule left a 180px
-                      column at 375px — two or three words a line on a long turn. One
-                      element in both layouts, so it is focused and announced once. */}
-                  <p
-                    data-slot="speaker-label"
-                    className="text-hint text-muted-foreground wrap-anywhere font-semibold max-sm:pr-14"
-                  >
-                    {/* The label the reader confirmed, or a fallback composed HERE from
-                        the role and the dictionary. Storing the fallback would have put
-                        an English name permanently into a Vietnamese reader's rows. */}
-                    {turn.speakerLabel ??
-                      t(
-                        turn.speakerRole === 'speaker_a'
-                          ? 'web.history.speakerA'
-                          : 'web.history.speakerB',
-                      )}
-                  </p>
-                  <p className="text-prose text-body wrap-anywhere">
-                    {turn.displayText ?? turn.sourceText}
-                  </p>
-                  <p className="text-translation font-medium wrap-anywhere">
-                    {primaryTranslation(turn, languages)}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
+                `text-right` so the digits sit against the rule they belong to,
+                and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
+            <div className="absolute top-0 right-0 flex sm:static sm:block sm:w-16 sm:shrink-0 sm:pt-0.5 sm:text-right">
+              {stamp}
+            </div>
+            {/* The block, unchanged: the left rule and the larger translation
+                are what `conversation-transcript.tsx` established and what
+                makes reading a stored conversation the same act as reading a
+                live one. */}
+            <div className="border-primary flex max-w-[68ch] min-w-0 flex-1 flex-col gap-1 border-l-2 pl-3 sm:pl-4">
+              {/* Below `sm` the gutter is lifted out of the row and pinned to the
+                  top right, on this label's line; the padding keeps a long label
+                  from running under it. A 64px gutter plus the rule left a 180px
+                  column at 375px — two or three words a line on a long turn. One
+                  element in both layouts, so it is focused and announced once. */}
+              <p
+                data-slot="speaker-label"
+                className="text-hint text-muted-foreground wrap-anywhere font-semibold max-sm:pr-14"
+              >
+                {/* The label the reader confirmed, or a fallback composed HERE from
+                    the role and the dictionary. Storing the fallback would have put
+                    an English name permanently into a Vietnamese reader's rows. */}
+                {turn.speakerLabel ??
+                  t(
+                    turn.speakerRole === 'speaker_a'
+                      ? 'web.history.speakerA'
+                      : 'web.history.speakerB',
+                  )}
+              </p>
+              <p className="text-prose text-body wrap-anywhere">
+                {turn.displayText ?? turn.sourceText}
+              </p>
+              <p className="text-translation font-medium wrap-anywhere">
+                {primaryTranslation(turn, languages)}
+              </p>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
