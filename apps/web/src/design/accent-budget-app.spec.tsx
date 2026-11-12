@@ -1888,10 +1888,22 @@ async function show(screen: ScreenState): Promise<void> {
   }
 
   if (!screen.shows) return;
-  expect(
-    document.querySelector(screen.shows),
-    `${screen.name}: nothing matches ${screen.shows}, so the row is not mounting what it is named for`,
-  ).not.toBeNull();
+  // Polled rather than read once: a menu item such as Rename acts in the menu's
+  // `onCloseAutoFocus`, which fires when its close animation ends — after the fixed
+  // 20ms a step waits on a loaded CI runner. The demand is unchanged: the element
+  // must mount, within a second.
+  const shows = screen.shows;
+  await act(async () => {
+    await vi.waitFor(
+      () => {
+        expect(
+          document.querySelector(shows),
+          `${screen.name}: nothing matches ${shows}, so the row is not mounting what it is named for`,
+        ).not.toBeNull();
+      },
+      { timeout: 1000, interval: 20 },
+    );
+  });
 }
 
 describe('the accent counter', () => {
