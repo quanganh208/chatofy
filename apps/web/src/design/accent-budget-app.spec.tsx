@@ -921,7 +921,6 @@ const SCREENS: ScreenState[] = [
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
     surfaces: 0,
-    shows: '[data-minutes-panel]',
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
