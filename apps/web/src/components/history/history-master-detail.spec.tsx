@@ -503,7 +503,11 @@ describe('the search writes landing late, early or never', () => {
     expect(urlTerm()).toBe(field().value);
   });
 
-  it('ends with the URL and the box agreeing when writes land out of order', async () => {
+  // Next discards an older pending navigation when a newer one starts, so this
+  // order should not happen in the app. If it ever does, the late term is treated
+  // as a navigation and adopted: the box follows the URL back to it rather than
+  // the two disagreeing. Agreement is the guarantee; the typed term winning is not.
+  it('adopts an older write that lands after a newer one, keeping URL and box in step', async () => {
     await mount();
     type('a');
     await settle();
@@ -512,9 +516,9 @@ describe('the search writes landing late, early or never', () => {
 
     await land('/history?q=ab');
     await land('/history?q=a');
-    for (const [written] of nav.replace.mock.calls.slice(2)) await land(written);
 
-    expect(urlTerm()).toBe(field().value);
+    expect(field().value).toBe('a');
+    expect(urlTerm()).toBe('a');
   });
 });
 
