@@ -204,6 +204,9 @@ describe('AiContextSection', () => {
     expect(container.textContent).toContain(en['web.preferences.aiContext.loadFailed']);
   });
 
+  // The confirmation is a dialog portalled to `document.body`, so its buttons and its
+  // failure line are looked up there rather than in this section's container — and
+  // inside the dialog, because the trigger behind it reads the same word.
   it('requires a second press before a context is deleted', async () => {
     listTranslationContexts.mockResolvedValue({ contexts: [context()] });
     await mount();
@@ -213,9 +216,9 @@ describe('AiContextSection', () => {
     // The row is still here: the first press only asked, it did not act.
     expect(container.textContent).toContain('Thesis defense');
 
-    const confirm = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === en['web.preferences.aiContext.delete'],
-    );
+    const confirm = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+    ).find((button) => button.textContent === en['web.preferences.aiContext.delete']);
     await click(confirm);
     expect(deleteTranslationContext).toHaveBeenCalledTimes(1);
   });
@@ -238,7 +241,9 @@ describe('AiContextSection', () => {
     );
     await click(trigger);
 
-    const confirm = Array.from(container.querySelectorAll('button')).find(
+    const confirm = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+    ).find(
       (button) =>
         button.getAttribute('aria-label') === label &&
         button.textContent === en['web.preferences.aiContext.delete'],
@@ -257,12 +262,14 @@ describe('AiContextSection', () => {
     await mount();
 
     await click(buttonSaying(en['web.preferences.aiContext.delete']));
-    const cancel = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === en['web.preferences.aiContext.cancel'],
-    );
+    const cancel = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+    ).find((button) => button.textContent === en['web.preferences.aiContext.cancel']);
     expect(document.activeElement).toBe(cancel);
 
     await click(cancel);
+    // The dialog hands focus back to its trigger a task after it unmounts.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     const trigger = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent === en['web.preferences.aiContext.delete'],
     );
@@ -275,12 +282,12 @@ describe('AiContextSection', () => {
     await mount();
 
     await click(buttonSaying(en['web.preferences.aiContext.delete']));
-    const confirm = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === en['web.preferences.aiContext.delete'],
-    );
+    const confirm = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+    ).find((button) => button.textContent === en['web.preferences.aiContext.delete']);
     await click(confirm);
 
-    expect(container.textContent).toContain(en['web.preferences.aiContext.deleteFailed']);
+    expect(document.body.textContent).toContain(en['web.preferences.aiContext.deleteFailed']);
     expect(container.textContent).toContain('Thesis defense');
   });
 
