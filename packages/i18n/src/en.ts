@@ -596,7 +596,8 @@ export const en = {
   'web.translate.minutesNeedsTurns':
     'Have a conversation first — there is nothing to summarize yet.',
   'web.translate.minutesCopy': 'Copy',
-  'web.translate.minutesCopied': 'Copied',
+  'web.translate.minutesCopiedToast': 'Minutes copied',
+  'web.translate.minutesCopyFailed': 'The minutes could not be copied.',
 
   // ---- web.error: the boundaries every route group now has ----
   'web.error.title': 'Something went wrong',

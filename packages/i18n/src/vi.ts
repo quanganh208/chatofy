@@ -469,7 +469,8 @@ export const vi: Messages = {
     'Chưa có biên bản. Tạo biên bản để có phần tóm tắt, ý chính, quyết định và việc cần làm.',
   'web.translate.minutesNeedsTurns': 'Hãy trò chuyện trước đã — chưa có gì để tóm tắt.',
   'web.translate.minutesCopy': 'Sao chép',
-  'web.translate.minutesCopied': 'Đã sao chép',
+  'web.translate.minutesCopiedToast': 'Đã sao chép biên bản',
+  'web.translate.minutesCopyFailed': 'Không sao chép được biên bản.',
 
   'web.error.title': 'Có gì đó không ổn',
   'web.error.retry': 'Thử lại',

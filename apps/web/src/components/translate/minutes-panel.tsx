@@ -1,10 +1,11 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { MinutesContent } from '@chatofy/types';
 import { Badge, Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { minutesMarkdown } from '@/lib/minutes-markdown';
+import { notify } from '@/lib/notify';
 
 interface MinutesPanelProps {
   /**
@@ -86,22 +87,27 @@ export function MinutesPanel({
 }: MinutesPanelProps) {
   const t = useTranslate();
   const titleId = useId();
-  const [copied, setCopied] = useState(false);
 
   const ready = minutes?.status === 'ready';
 
+  // The outcome is a toast, not a label that flips to "Copied" for two seconds: the
+  // button keeps its name, and a refused clipboard (no permission, an insecure
+  // origin) is said instead of failing silently as an unhandled rejection.
   const copy = async (): Promise<void> => {
     if (!minutes) return;
-    await navigator.clipboard.writeText(minutesMarkdown(minutes, t));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(minutesMarkdown(minutes, t));
+      notify.success(t('web.translate.minutesCopiedToast'), { id: 'minutes-copy' });
+    } catch {
+      notify.error(t('web.translate.minutesCopyFailed'), { id: 'minutes-copy' });
+    }
   };
 
   const actions = (
     <div className="flex items-center gap-2">
       {ready && (
         <Button variant="ghost" size="sm" onClick={() => void copy()}>
-          {copied ? t('web.translate.minutesCopied') : t('web.translate.minutesCopy')}
+          {t('web.translate.minutesCopy')}
         </Button>
       )}
       <Button
