@@ -124,7 +124,7 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               confirms WHICH conversation opened. An `h2`, because the topbar holds
               the screen's `h1`. */}
           <header className="flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3">
-            <div className="flex min-w-0 flex-[1_1_18rem] flex-col gap-1.5">
+            <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-1.5">
               <h2
                 className={
                   conversation.title

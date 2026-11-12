@@ -5,6 +5,7 @@ import { ArrowLeftRight, ArrowRight, AudioLines } from 'lucide-react';
 import type { ConversationSummary, LanguageCode } from '@chatofy/types';
 import type { Translate } from '@chatofy/i18n';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { cn } from '@/lib/utils';
 import { durationMinutes, formatTimeRange } from './conversation-formatting';
 import { turnCountLabel } from './turn-count-label';
 
@@ -58,8 +59,9 @@ export function ConversationMetaLine({
           <Fragment key={fact.key}>
             {index > 0 ? (
               <>
-                {' '}
-                <Dot />{' '}
+                {/* The margin matches the `gap-1` the kind label puts around its
+                    own dot, so every separator on the line is the same width. */}{' '}
+                <Dot className="mx-1" />{' '}
               </>
             ) : null}
             {fact}
@@ -175,9 +177,9 @@ function speakersLabel(
     : t('web.history.speakersNamed', { count, names });
 }
 
-export function Dot() {
+export function Dot({ className }: { className?: string }) {
   return (
-    <span aria-hidden className="text-border-strong">
+    <span aria-hidden className={cn('text-border-strong', className)}>
       ·
     </span>
   );
