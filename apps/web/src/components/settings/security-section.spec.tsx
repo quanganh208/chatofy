@@ -156,6 +156,64 @@ describe('the change password dialog', () => {
   });
 });
 
+function pressEscape() {
+  return act(async () => {
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+  });
+}
+
+describe('closing while a request is in flight', () => {
+  it('holds the password dialog open, so a refusal still lands in it', async () => {
+    let answer: (result: SignInResult) => void = () => {};
+    signIn.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    await render();
+    await click('#change-password-open');
+    for (const id of ['current-password', 'new-password', 'confirm-password']) {
+      document.querySelector<HTMLInputElement>(`#${id}`)!.value = 'a-brand-new-password';
+    }
+    await act(async () => {
+      document
+        .querySelector('[role=dialog] form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    await pressEscape();
+    expect(document.querySelector('[role=dialog]')).not.toBeNull();
+
+    await act(async () => {
+      answer({ ok: false, error: 'CredentialsSignin', code: 'wrong-current' });
+      for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+    });
+    expect(document.querySelector('#change-password-error')?.textContent).toBe(
+      en['web.account.currentPasswordWrong'],
+    );
+
+    // Settled, it closes again as any dialog does.
+    await pressEscape();
+    expect(document.querySelector('[role=dialog]')).toBeNull();
+  });
+
+  it('holds the sign-out confirmation open while signing out', async () => {
+    signOut.mockReturnValue(new Promise(() => {}));
+    await render();
+    await click('#sign-out-account');
+    await click('#sign-out-confirm');
+    await pressEscape();
+    expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  });
+
+  it('lets the sign-out confirmation close before it is confirmed', async () => {
+    await render();
+    await click('#sign-out-account');
+    await pressEscape();
+    expect(document.querySelector('[role=alertdialog]')).toBeNull();
+  });
+});
+
 describe('sign out', () => {
   it('asks first, and signs out only on confirm', async () => {
     signOut.mockReturnValue(new Promise(() => {}));

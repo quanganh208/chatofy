@@ -47,6 +47,10 @@ import { SettingsSection, SettingsSectionRow } from './settings-section';
 export function SecuritySection() {
   const t = useTranslate();
   const [changing, setChanging] = useState(false);
+  // Both dialogs ignore a close (Esc, overlay, the X) while their request is in
+  // flight: the outcome — a refusal inline, a failed sign-out — needs them open.
+  const [changeBusy, setChangeBusy] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   return (
@@ -60,7 +64,12 @@ export function SecuritySection() {
         </Button>
       </SettingsSectionRow>
       <SettingsSectionRow label={t('web.account.thisBrowser')} note={t('web.account.signOutHint')}>
-        <AlertDialog>
+        <AlertDialog
+          open={confirmingSignOut}
+          onOpenChange={(next) => {
+            if (!signingOut) setConfirmingSignOut(next);
+          }}
+        >
           <AlertDialogTrigger asChild>
             <Button id="sign-out-account" variant="outline">
               <LogOut aria-hidden />
@@ -97,7 +106,12 @@ export function SecuritySection() {
         </AlertDialog>
       </SettingsSectionRow>
 
-      <Dialog open={changing} onOpenChange={setChanging}>
+      <Dialog
+        open={changing}
+        onOpenChange={(next) => {
+          if (!changeBusy) setChanging(next);
+        }}
+      >
         <DialogContent closeLabel={t('web.chrome.close')}>
           <DialogHeader>
             <DialogTitle>{t('web.account.changePassword')}</DialogTitle>
@@ -105,6 +119,7 @@ export function SecuritySection() {
           </DialogHeader>
           <ChangePasswordForm
             onCancel={() => setChanging(false)}
+            onBusyChange={setChangeBusy}
             onDone={() => {
               setChanging(false);
               notify.success(t('web.account.passwordChanged'), { id: 'password-change' });

@@ -48,15 +48,25 @@ function failureCopy(code: string | undefined): MessageKey {
 export function ChangePasswordForm({
   onDone,
   onCancel,
+  onBusyChange,
 }: {
   /** The change committed. The parent collapses the form and says so. */
   onDone: () => void;
   onCancel: () => void;
+  /**
+   * The request started or settled. A parent dialog holds itself open while it is in
+   * flight, so a refusal is never lost to an Esc that unmounted the form.
+   */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useTranslate();
   const accessToken = useAccessToken();
   const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmittingState] = useState(false);
+  const setSubmitting = (busy: boolean) => {
+    setSubmittingState(busy);
+    onBusyChange?.(busy);
+  };
 
   return (
     // `method="post"` for the reason `login-form.tsx` gives: a submit that lands
