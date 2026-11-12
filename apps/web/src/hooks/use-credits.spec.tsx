@@ -3,7 +3,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { balanceFixture, USAGE_PAGE } from '@/components/account/credits.fixture';
+import { balanceFixture, USAGE_PAGE } from '@/components/settings/credits.fixture';
 import {
   EXPIRED_ORDER_POLL_MS,
   EXPIRED_ORDER_POLLS,

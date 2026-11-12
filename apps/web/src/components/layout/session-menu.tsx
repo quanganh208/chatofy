@@ -84,7 +84,7 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/account">
+            <Link href="/settings/profile">
               <User aria-hidden />
               {t('web.chrome.navAccount')}
             </Link>

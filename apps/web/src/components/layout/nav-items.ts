@@ -1,16 +1,15 @@
-﻿import type { Route } from 'next';
+import type { Route } from 'next';
 import {
   ArrowLeftRight,
   BookOpen,
   History,
   Mic,
   Settings,
-  SlidersHorizontal,
-  User,
   Video,
   type LucideIcon,
 } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
+import { SETTINGS_SECTIONS } from '@/components/settings/settings-sections';
 
 /**
  * The product navigation, in one list, read by the sidebar, the topbar's breadcrumb
@@ -80,21 +79,20 @@ const GROUPS: readonly NavGroup[] = [
  *
  * Not a sidebar group: settings are reached from the footer beside who you are, the
  * way Linear and Notion place them. The group still exists for the breadcrumb and for
- * marking the footer entry active. `href` is `/preferences` until the settings routes
- * exist — `typedRoutes` refuses a link to a route that is not there yet.
+ * marking the footer entry active. `href` is the first section rather than `/settings`
+ * itself: that bare path is only a redirect, and `typedRoutes` knows pages, not redirects.
  */
 export const SETTINGS_ITEM: NavItem = {
-  href: '/preferences',
+  href: '/settings/appearance',
   labelKey: 'web.chrome.navSettings',
   icon: Settings,
 };
 
 const SETTINGS_GROUP: NavGroup = {
   labelKey: 'web.chrome.navSettings',
-  items: [
-    { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },
-    { href: '/account', labelKey: 'web.chrome.navAccount', icon: User },
-  ],
+  // The settings pages themselves, so the breadcrumb reads Settings › Appearance in the
+  // words the settings sub-navigation uses. `settings-sections.ts` owns the list.
+  items: SETTINGS_SECTIONS.map(({ href, labelKey, icon }) => ({ href, labelKey, icon })),
 };
 
 const ALL_GROUPS: readonly NavGroup[] = [...GROUPS, SETTINGS_GROUP];

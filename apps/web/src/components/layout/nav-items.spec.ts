@@ -33,8 +33,13 @@ describe('the conference entry', () => {
       '/conference',
       '/history',
       '/glossary',
-      '/preferences',
-      '/account',
+      '/settings/appearance',
+      '/settings/audio',
+      '/settings/defaults',
+      '/settings/ai-context',
+      '/settings/profile',
+      '/settings/billing',
+      '/settings/security',
     ]);
   });
 });
@@ -46,10 +51,12 @@ describe('navPlaceFor', () => {
     expect(place?.item.href).toBe('/history');
   });
 
-  it('files preferences and account under Settings, which the sidebar does not draw', () => {
-    expect(navPlaceFor('/account')?.group.labelKey).toBe('web.chrome.navSettings');
+  it('files every settings page under Settings, which the sidebar does not draw', () => {
+    expect(navPlaceFor('/settings/billing')?.group.labelKey).toBe('web.chrome.navSettings');
+    expect(navPlaceFor('/settings/billing')?.item.labelKey).toBe('web.settings.billing');
     expect(navGroups().map((group) => group.labelKey)).not.toContain('web.chrome.navSettings');
-    expect(isSettingsPath('/preferences')).toBe(true);
+    expect(isSettingsPath('/settings/appearance')).toBe(true);
+    expect(isSettingsPath('/preferences')).toBe(false);
     expect(isSettingsPath('/glossary')).toBe(false);
   });
 

@@ -61,12 +61,26 @@ const LABEL_KEY = {
  * theme control beside it shows its state, and a bare icon left "which language
  * is this set to?" answerable only by opening the menu.
  */
+/**
+ * What a caller hears after a switch: the choice, the one it replaced, a way back,
+ * and the write of `User.locale` (already settled when signed out). Settings ›
+ * Appearance turns it into a toast; the marketing header passes nothing.
+ */
+export interface LocaleChange {
+  next: Locale;
+  previous: Locale;
+  revert: () => void;
+  persisted: Promise<void>;
+}
+
 export function LocaleSwitcher({
   className,
   showValue = false,
+  onChange,
 }: {
   className?: string;
   showValue?: boolean;
+  onChange?: (change: LocaleChange) => void;
 }) {
   const router = useRouter();
   const active = useLocale();
@@ -106,9 +120,26 @@ export function LocaleSwitcher({
           value={active}
           onValueChange={(next) => {
             const locale = next as Locale;
-            document.cookie = localeCookie(locale);
-            router.refresh();
-            if (status === 'authenticated') void updateMe({ locale }).catch(() => {});
+            if (locale === active) return;
+            const apply = (to: Locale): Promise<void> => {
+              document.cookie = localeCookie(to);
+              router.refresh();
+              return status === 'authenticated'
+                ? updateMe({ locale: to }).then(() => undefined)
+                : Promise.resolve();
+            };
+            const persisted = apply(locale);
+            if (onChange) {
+              onChange({
+                next: locale,
+                previous: active,
+                revert: () => void apply(active).catch(() => {}),
+                persisted,
+              });
+            } else {
+              // Nobody to tell: the cookie already holds the choice for this browser.
+              persisted.catch(() => {});
+            }
           }}
         >
           {LOCALES.map((locale) => (
