@@ -92,13 +92,13 @@ All external integrations are hidden behind interfaces so impls can swap without
 **Web routes.** Three route groups, absent from the URLs and each carrying its own chrome
 (`apps/web/app/`):
 
-| Route                                                                                                                                               | Group         | Session  |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- |
-| `/`, `/pricing`                                                                                                                                     | `(marketing)` | public   |
-| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`                                                                       | `(auth)`      | public   |
-| `/locale`                                                                                                                                           | route handler | public   |
-| `/api/auth/*` (Auth.js)                                                                                                                             | route handler | public   |
-| `/translate/one-way`, `/translate/two-way` (`/translate` redirects to one-way), `/history`, `/history/[conversationId]`, `/preferences`, `/account` | `(app)`       | required |
+| Route                                                                                                                                                                                                                            | Group         | Session  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- |
+| `/`, `/pricing`                                                                                                                                                                                                                  | `(marketing)` | public   |
+| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`                                                                                                                                                    | `(auth)`      | public   |
+| `/locale`                                                                                                                                                                                                                        | route handler | public   |
+| `/api/auth/*` (Auth.js)                                                                                                                                                                                                          | route handler | public   |
+| `/translate/one-way`, `/translate/two-way` (`/translate` redirects to one-way), `/history`, `/history/[conversationId]`, `/glossary`, `/conference`, `/settings/*` (`/preferences`, `/account` and `/settings` redirect into it) | `(app)`       | required |
 
 Every route the app serves is in a group; there is no unlisted one. Two used to be —
 `/translate/live`, the continuous-mode experiment, and `/translate/baseline`, the

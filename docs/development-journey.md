@@ -2840,3 +2840,16 @@ Prod conversation `09ddb1a2` (one-way en→vi, 163 s) ended with "Connection to 
   - Through the Cloudflare tunnel, a socket that never answers pings received the API's ping and was terminated after 28 s, so the edge forwards pings end to end. The heartbeat therefore also catches a dead browser leg.
 
 Ruler: `benchmarks/socket-drop/`.
+
+## The app frame stops being a stack of cards (12/11/2026)
+
+The owner found the sidebar, the page headers, the notices and `/preferences` hard to use, and asked for no more screens built from plain cards.
+
+- **What shipped.** The frame now follows Linear. The sidebar has two captioned groups (Translate, Library), with Settings and a credit line in its footer. The topbar is a breadcrumb whose last crumb is the page's `<h1>`, and pages put their actions there. Below `md` a tab bar replaces the sidebar.
+  - Outcomes are toasts (`lib/notify.ts`). Short tasks open a `Dialog`, and deletes and sign-out go through an `AlertDialog`.
+  - App screens sit on the page ground with hairlines and draw no card at rest. History and Glossary are list-beside-detail, and the meetings lobby is one column.
+  - `/preferences` and `/account` became seven `/settings/*` pages, with 308 redirects. Polar now returns to `/settings/billing`.
+  - The rules are in [design guidelines → The app frame](design-guidelines.md#the-app-frame).
+- **Two bugs that predate the redesign.**
+  - The accent gate's rename row waited a fixed 20 ms for the menu's close animation, which was too short on a loaded CI runner. It now waits for the deferred screen.
+  - Glossary terms never load or delete, because the API issues cuid ids while both schemas demand a uuid. Filed as issue #339, outside this change.
