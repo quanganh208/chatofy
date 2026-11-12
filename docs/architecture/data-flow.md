@@ -391,7 +391,7 @@ confidence, which the decision treats as unsure; see the sidecar's
 
 A saved **AI Context** is what the translator is told about a KIND of
 conversation before it hears any of it: a name, a subject, terms to expect,
-preferred renderings, and a register. It is authored on `/preferences`, picked
+preferred renderings, and a register. It is authored on `/settings/ai-context`, picked
 per conversation on `/translate` and in the extension popup, and it reaches the
 model as fenced DATA, never as instruction.
 

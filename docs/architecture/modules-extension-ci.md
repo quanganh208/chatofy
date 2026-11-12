@@ -57,16 +57,17 @@ frame with them.
   locale is never resolved in the browser: it is the text content of the whole tree, so a
   client resolution means the server renders one language and hydration renders the other
 - `src/components/layout/` — the chrome. `app-chrome.tsx` decides sidebar collapse from
-  the route; `app-topbar.tsx` holds only what is true on every route — where you are, the
-  locale, the theme. A page cannot reach into it: the portal that let `/translate` put its
-  settings gear up there was removed when the gear moved into that screen's own dock
-- `app/(app)/translate/page.tsx` — The translator, under the app chrome. Reads the stored settings (`useTranslateSettings`; every consumer on the screen takes them as props — its only other caller is the conversation-defaults section on `/preferences`) and mounts `CascadePanel`
+  the route; `app-topbar.tsx` holds the breadcrumb, whose last crumb is the page's `<h1>`. A page adds
+  to it only through `chrome-slots.tsx`: `TopbarCrumb` appends a crumb (a conversation's or
+  glossary's name) and `TopbarActions` portals the page's actions into the bar's right side.
+  Locale and theme moved to `/settings/appearance`
+- `app/(app)/translate/page.tsx` — The translator, under the app chrome. Reads the stored settings (`useTranslateSettings`; every consumer on the screen takes them as props — its other callers are the defaults and audio sections on `/settings/defaults` and `/settings/audio`) and mounts `CascadePanel`
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
   - `ConversationSession` (`packages/realtime-client/src/conversation/conversation-session.ts`) — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
   - `packages/realtime-client/src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `ordered-playback`, `pcm-playback-queue`, `pcm-resampler`, `microphone-graph`
-  - `src/components/translate/` — Presentational pieces: `cascade-panel` (the screen), `panel-headers`, `transcript-panes`, `conversation-transcript`, and two settings groups that are each a panel plus the popover that opens it — `display-settings-*` from the gear in the dock, `voice-settings-*` from the speaker in the panel header
+  - `src/components/translate/` — Presentational pieces: `cascade-panel` (the screen), `panel-headers`, `transcript-panes`, `conversation-transcript`, and two settings groups that are each a panel plus the popover that opens it — `display-settings-*` from the gear in the dock, `voice-settings-*` from the speaker beside each language picker (in the topbar from `md`, in the pane header below it)
   - `src/hooks/use-translation-contexts.ts` — the AI Context library, plus `resolveContext` (a stored id against the fetched list) and `toHints` (a context as the wire's hints, `undefined` when nothing is selected). One GET per mount rather than a module cache, because unlike the voice catalog this list is a property of the USER and the editor changes it while they are looking at it
-  - `src/components/preferences/ai-context-section.tsx` — the library and its editor, the second and last elevated surface on `/preferences`. INLINE, never a `Dialog`: `design/surface-count.ts` queries `document.body` so portalled content counts, and a third surface fails the accent gate
+  - `src/components/settings/ai-context-section.tsx` — the library and its editor on `/settings/ai-context`, on the page ground. The editor stays INLINE rather than in a `Dialog`: it is a long authoring form of up to 100 terms, and `design/surface-count.ts` queries `document.body`, so a portalled editor would count as a surface
   - `src/components/translate/context-picker.tsx` — a `Select`, so it spends no accent; renders nothing at all for an empty library, mirroring `VoicePicker`, which is what leaves every existing accent-budget row unchanged
 - The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`), which is the only selector that means the same thing to both backends. A caller may also name a concrete voice, but only with an opaque token discovered at runtime from `GET /translate/voices` — never one a client hardcodes, and an unrecognised token falls back to the gender voice rather than failing the turn
 
