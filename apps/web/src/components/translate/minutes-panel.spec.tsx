@@ -102,4 +102,58 @@ describe('MinutesPanel', () => {
     render({ minutes: ready });
     expect(generateButton()?.textContent).toContain('Regenerate');
   });
+
+  it('is a region on the page ground, not a card, named by its heading', () => {
+    render({ minutes: ready });
+    expect(container.querySelector('[data-slot^="card"]')).toBeNull();
+    const section = container.querySelector('section');
+    const heading = section?.querySelector('h2');
+    expect(heading?.textContent).toBe('Meeting minutes');
+    expect(section?.getAttribute('aria-labelledby')).toBe(heading?.id);
+    // The header row is set off from whatever sits above by a hairline.
+    expect(section?.classList.contains('border-t')).toBe(true);
+  });
+
+  it('separates each group with a hairline and keeps its uppercase label', () => {
+    render({ minutes: ready });
+    const labels = Array.from(container.querySelectorAll('section p.uppercase'));
+    expect(labels.map((label) => label.textContent)).toEqual([
+      'Summary',
+      'Key points',
+      'Decisions',
+      'Action items',
+    ]);
+    for (const label of labels) {
+      expect(label.classList.contains('text-label')).toBe(true);
+      expect(label.classList.contains('text-muted-foreground')).toBe(true);
+      expect(label.parentElement?.classList.contains('border-t')).toBe(true);
+      expect(label.parentElement?.classList.contains('border-hairline')).toBe(true);
+    }
+  });
+
+  it('renders the title at the heading level the page asks for', () => {
+    render({ titleAs: 'h3' });
+    expect(container.querySelector('h2')).toBeNull();
+    expect(container.querySelector('h3')?.textContent).toBe('Meeting minutes');
+  });
+
+  it('drops the visible title but keeps the accessible name when asked', () => {
+    render({ minutes: ready, showTitle: false });
+    const section = container.querySelector('section');
+    expect(container.querySelector('h2, h3')).toBeNull();
+    expect(section?.getAttribute('aria-label')).toBe('Meeting minutes');
+    expect(section?.hasAttribute('aria-labelledby')).toBe(false);
+    // The actions stay, the copy control and Regenerate both.
+    expect(generateButton()?.textContent).toContain('Regenerate');
+    expect(container.textContent).toContain('Copy');
+    // Only the group labels and content remain as text; no "Meeting minutes".
+    expect(container.textContent).not.toContain('Meeting minutes');
+  });
+
+  it('fills Generate only at the default emphasis', () => {
+    render();
+    expect(generateButton()?.getAttribute('data-variant')).toBe('default');
+    render({ emphasis: 'quiet' });
+    expect(generateButton()?.getAttribute('data-variant')).toBe('outline');
+  });
 });

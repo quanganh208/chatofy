@@ -494,6 +494,8 @@ function openConversation(conversation: ReturnType<typeof stored>) {
 
 const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
 const MORE_ACTIONS = 'button[aria-label="More actions"]';
+/** The minutes region inside the open Minutes tab, named without a visible title. */
+const MINUTES_PANEL = '[role="tabpanel"] section[aria-label="Meeting minutes"]';
 
 /** One screen in one state: what it renders, and the two counts it is allowed. */
 interface ScreenState {
@@ -554,8 +556,9 @@ interface ScreenState {
  * grammar cannot creep back one card at a time.
  *
  * Zero is normal and correct. `/translate` is the whole screen, `/history` is a
- * list on the page ground; only the two records on a stored conversation and the
- * one settings panel each earn one.
+ * list on the page ground, and the minutes are a region on that ground wherever
+ * they render; a meeting's summary card, the settings and account panels, and an
+ * open popover are what earn one.
  */
 /**
  * The arrangements, added when `/translate` grew six display settings.
@@ -568,7 +571,7 @@ interface ScreenState {
  *
  * One turn in and stopped, so the counts are the ones the `ended` row above
  * already establishes: Start is back and spends the screen's one accent, and the
- * finished conversation earns its one surface below the dock. Identical in all
+ * minutes below the dock sit on the page ground, so no surface. Identical in all
  * three, and that is the assertion — an arrangement changes how the transcript is
  * laid out and nothing else, so a second card or a second filled control that
  * appears in ONE of them is exactly what these rows catch.
@@ -583,7 +586,7 @@ const ARRANGEMENTS = [
 ].map(({ name, settings }) => ({
   name,
   filled: 1,
-  surfaces: 1,
+  surfaces: 0,
   setup: idle,
   render: translate(settings),
 }));
@@ -895,7 +898,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/translate/one-way — ended, turns stored',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
@@ -915,7 +918,7 @@ const SCREENS: ScreenState[] = [
     // actually presses the code path that draws it.
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
@@ -1015,11 +1018,11 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // The same screen on its Minutes tab: Generate is the one accent and the
-    // minutes panel the one surface — with the whole list still beside it.
+    // The same screen on its Minutes tab: Generate is the one accent, and the
+    // minutes panel is on the page ground — with the whole list still beside it.
     name: '/history — wide, the newest conversation on its Minutes tab',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       historyBox.wide = true;
       listConversations.mockResolvedValue({
@@ -1029,7 +1032,7 @@ const SCREENS: ScreenState[] = [
       getConversation.mockResolvedValue({ conversation: stored() });
     },
     steps: [MINUTES_TAB],
-    shows: '[data-slot="card"]',
+    shows: MINUTES_PANEL,
     render: historyRoute,
   },
   {
@@ -1070,24 +1073,24 @@ const SCREENS: ScreenState[] = [
   },
   {
     // The Minutes tab before anything was generated: exactly one accent, and it is
-    // Generate; exactly one surface, and it is the minutes panel.
+    // Generate; no surface, because the minutes panel is not a card.
     name: '/history/[conversationId] — no minutes yet',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       openConversation(stored());
     },
     steps: [MINUTES_TAB],
-    shows: '[data-slot="card"]',
+    shows: MINUTES_PANEL,
     render: historyRoute,
   },
   {
     // Minutes exist, so the panel draws its body and gains a copy control beside
-    // the button. Still one accent and one surface: regenerate is the same
-    // default-variant control, copy is ghost, and the summary is inside the card.
+    // the button. Still one accent and no surface: regenerate is the same
+    // default-variant control, copy is ghost, and the body is on the page ground.
     name: '/history/[conversationId] — minutes generated',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       openConversation(stored({ hasMinutes: true }));
       useMinutes.mockReturnValue({
@@ -1099,7 +1102,7 @@ const SCREENS: ScreenState[] = [
       });
     },
     steps: [MINUTES_TAB],
-    shows: '[data-slot="card"]',
+    shows: MINUTES_PANEL,
     render: historyRoute,
   },
   {
@@ -1628,7 +1631,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — no minutes yet',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup: ended(),
     render: () => <ConferenceEndedPage />,
     shows: 'dl',
@@ -1636,7 +1639,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup: ended({ generating: true }),
     render: () => <ConferenceEndedPage />,
   },
@@ -1644,7 +1647,7 @@ const SCREENS: ScreenState[] = [
     // The body and its copy control appear; copy is ghost, Regenerate outline.
     name: '/conference/[roomId]/ended — minutes ready',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
       // The same content as the history rows, under a room instead of a conversation.
       const { summary, keyPoints, decisions, actionItems, generatedAt, model } = READY_MINUTES;
@@ -1667,7 +1670,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — the last pass failed',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup: ended({ generateFailed: true }),
     render: () => <ConferenceEndedPage />,
     shows: '.text-destructive',

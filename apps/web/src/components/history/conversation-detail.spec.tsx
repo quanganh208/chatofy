@@ -211,8 +211,8 @@ describe('ConversationDetail', () => {
     const tabs = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent);
     expect(tabs).toEqual(['Transcript', 'Minutes']);
     expect(container.textContent).toContain('hello');
-    // No card anywhere on the transcript view — the minutes panel is the screen's
-    // one surface, and it is not mounted until its tab is chosen.
+    // No card anywhere on the transcript view, and none on the Minutes tab either:
+    // both panels are on the page ground.
     expect(container.querySelectorAll('[data-slot="card"]').length).toBe(0);
 
     await act(async () => {
@@ -220,9 +220,28 @@ describe('ConversationDetail', () => {
       await Promise.resolve();
     });
     expect(tab('Minutes')?.getAttribute('aria-selected')).toBe('true');
-    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(1);
-    expect(container.textContent).toContain('Meeting minutes');
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(0);
+    expect(container.querySelector('[role="tabpanel"] section')).not.toBeNull();
     expect(container.textContent).not.toContain('hello');
+  });
+
+  it('names the Minutes tab panel for assistive tech without repeating the title', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    await act(async () => {
+      tab('Minutes')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      await Promise.resolve();
+    });
+
+    // The selected tab already reads "Minutes"; a visible "Meeting minutes"
+    // heading under it would say the same thing twice.
+    const panel = container.querySelector('[role="tabpanel"][data-state="active"]');
+    expect(panel?.textContent).not.toContain('Meeting minutes');
+    expect(panel?.querySelector('h2, h3')).toBeNull();
+    // The region still has a name, so a screen reader announces what it is.
+    expect(panel?.querySelector('section')?.getAttribute('aria-label')).toBe('Meeting minutes');
+    // Generate is still there, alone on its row.
+    expect(panel?.querySelector('button')?.textContent).toBe('Generate minutes');
   });
 
   it('marks the Minutes tab when minutes exist, in words as well as a dot', async () => {

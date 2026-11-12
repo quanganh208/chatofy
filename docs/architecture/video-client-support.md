@@ -383,7 +383,7 @@ app builds them, since shadcn exists only for web. No spec counts accents on mob
 | In-call                         | 0 — Leave is filled `destructive`, a state colour | 0 — the control bar is a bordered bar |
 | Chat, roster or transcript open | 0                                                 | 1 — the bottom sheet (`Modal`)        |
 | Error states                    | 1 — Back to lobby                                 | 0                                     |
-| End screen, loaded              | 1 — Back to lobby                                 | 2 — summary card, minutes card        |
+| End screen, loaded              | 1 — Back to lobby                                 | 1 — summary card (web; mobile: 2)     |
 
 Web and mobile differ on Leave: the accent on web, the destructive state colour on
 mobile. Both pass the budget.
@@ -396,8 +396,9 @@ Built on web as `apps/web/app/(app)/conference/[roomId]/ended/page.tsx`. In-call
 `conference:active` session key, so the lobby does not bounce back into the room.
 Error states still offer **Back to lobby**. Mobile mirrors it as
 `apps/mobile/app/(app)/conference/ended.tsx` (Leave and owner-ended both `replace` to it),
-with the same two cards and the one accent; it writes the minutes in the language the
-caller spoke in the call, since the mobile UI has no locale of its own yet.
+with the one accent but still two cards, since the minutes are a card there; it writes
+the minutes in the language the caller spoke in the call, since the mobile UI has no
+locale of its own yet.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -411,17 +412,18 @@ caller spoke in the call, since the mobile UI has no locale of its own yet.
 │                                           │
 │          [  Back to lobby   ]             │  ← the ONE accent
 │                                           │
-│   ┌ Minutes ──────────── [Generate] ┐    │  ← minutes panel (surface 2),
-│   │  summary · key points · ...      │    │     Generate/Regenerate is outline
-│   └──────────────────────────────────┘    │
+│   ─────────────────────────────────────   │  ← hairline, page ground
+│    Meeting minutes          [Generate]    │  ← minutes panel, no card;
+│    summary · key points · ...             │     Generate/Regenerate is outline
 └─────────────────────────────────────────┘
 ```
 
 - **Accent (1):** **Back to lobby** (`bg-primary`), the single next step.
-- **Elevated surfaces (2):** the **summary card**, and the **minutes panel**. The panel
-  is the same `MinutesPanel` that `/translate` and history render, with
-  `emphasis="quiet"`, so Generate is outline. It is a second card, not a section inside
-  the summary card. It carries an action, and the summary card holds only readouts.
+- **Elevated surfaces (1):** the **summary card**. The **minutes panel** below it is the
+  same `MinutesPanel` that `/translate` and history render, with `emphasis="quiet"`, so
+  Generate is outline. It sits on the page ground under a hairline, its groups divided
+  by hairlines, rather than being a second card: the minutes are read, not acted on as
+  a unit, and the summary card is what this screen elevates.
 - **Minutes are generated on demand.** One copy is stored per room
   (`ConferenceMinutes`), written in the language of whoever generates it. Any
   participant may regenerate it, which replaces the copy. The source is the room's
@@ -453,14 +455,14 @@ actionItems, generatedAt, model }`. That is the shared `minutesContentSchema` in
 
 Web, as built:
 
-| Screen state                             | Accent (≤1)       | Elevated surfaces (≤2)          | Verdict | Gated |
-| ---------------------------------------- | ----------------- | ------------------------------- | ------- | ----- |
-| Lobby                                    | 1 — Create a room | 0                               | PASS    | yes   |
-| In-call, connecting, reconnecting        | 1 — Leave         | 0                               | PASS    | yes   |
-| In-call with roster and chat             | 1 — Leave         | 0                               | PASS    | yes   |
-| Error and ended states                   | 1 — Back to lobby | 0                               | PASS    | yes   |
-| End screen, loading or refused           | 1 — Back to lobby | 0                               | PASS    | yes   |
-| End screen, loaded (every minutes state) | 1 — Back to lobby | 2 — summary card, minutes panel | PASS    | yes   |
+| Screen state                             | Accent (≤1)       | Elevated surfaces (≤2) | Verdict | Gated |
+| ---------------------------------------- | ----------------- | ---------------------- | ------- | ----- |
+| Lobby                                    | 1 — Create a room | 0                      | PASS    | yes   |
+| In-call, connecting, reconnecting        | 1 — Leave         | 0                      | PASS    | yes   |
+| In-call with roster and chat             | 1 — Leave         | 0                      | PASS    | yes   |
+| Error and ended states                   | 1 — Back to lobby | 0                      | PASS    | yes   |
+| End screen, loading or refused           | 1 — Back to lobby | 0                      | PASS    | yes   |
+| End screen, loaded (every minutes state) | 1 — Back to lobby | 1 — summary card       | PASS    | yes   |
 
 ---
 

@@ -26,8 +26,9 @@ interface ConversationDetailTabsProps {
  * minutes panel's Generate, and it exists only while the Minutes tab is open —
  * Radix mounts the active panel alone — so the transcript view spends none.
  *
- * `MinutesPanel` is reused unchanged and is its own card: one elevated surface, and
- * only on the Minutes tab. The transcript is on the page ground.
+ * Both panels are on the page ground, so this screen draws no elevated surface on
+ * either tab. `MinutesPanel` drops its visible title here: the selected tab already
+ * reads "Minutes", and the panel keeps the same accessible name without it.
  */
 export function ConversationDetailTabs({
   conversation,
@@ -76,6 +77,7 @@ export function ConversationDetailTabs({
           loading={minutes.loading}
           error={minutes.error}
           canGenerate
+          showTitle={false}
           onGenerate={() => void minutes.generate(conversation.conversationId, locale)}
         />
       </TabsContent>
