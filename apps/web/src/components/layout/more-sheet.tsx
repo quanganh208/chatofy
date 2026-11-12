@@ -26,6 +26,10 @@ import { TAB_CLASS } from './tab-bar-styles';
  * identity hook and the same sign-out action the sidebar footer uses, so the two never
  * disagree about either. A bottom sheet rather than a page: none of it is a place you
  * stay, and the sheet closes on any choice.
+ *
+ * On a route it covers (Glossary, any Settings page) the trigger carries
+ * `aria-current="page"` as the other tabs' links do, so a screen reader hears which tab
+ * is current there too; `data-active` alone only draws it.
  */
 const ROW =
   'flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-body text-foreground outline-none hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:text-muted-foreground';
@@ -36,7 +40,11 @@ export function MoreSheet({ active }: { active: boolean }) {
 
   return (
     <Sheet>
-      <SheetTrigger className={TAB_CLASS} data-active={active || undefined}>
+      <SheetTrigger
+        className={TAB_CLASS}
+        data-active={active || undefined}
+        aria-current={active ? 'page' : undefined}
+      >
         <MoreHorizontal aria-hidden />
         <span>{t('web.chrome.tabMore')}</span>
       </SheetTrigger>

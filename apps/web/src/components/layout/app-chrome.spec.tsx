@@ -387,6 +387,23 @@ describe('the mobile tab bar', () => {
     expect(container.querySelector('#main')?.className).toContain('max-md:pb-');
   });
 
+  it('marks More as current on the routes it covers, for assistive tech too', () => {
+    for (const path of ['/glossary', '/settings/profile']) {
+      pathname.mockReturnValue(path);
+      render();
+      const current = [...(bar()?.querySelectorAll('[aria-current="page"]') ?? [])];
+      expect(
+        current.map((el) => el.textContent),
+        path,
+      ).toEqual(['More']);
+      act(() => root?.unmount());
+      root = undefined;
+    }
+    pathname.mockReturnValue('/history');
+    render();
+    expect(tab('More')?.hasAttribute('aria-current')).toBe(false);
+  });
+
   it('opens one-way from Translate until the reader has used two-way', () => {
     pathname.mockReturnValue('/history');
     render();
