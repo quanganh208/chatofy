@@ -186,6 +186,13 @@ describe('ConferenceLobbyPage — the landing', () => {
     expect(document.querySelector('[data-slot="card"]')).toBeNull();
   });
 
+  it('heads the page with the task in the UI face, leaving the name to the breadcrumb', () => {
+    render();
+    const heading = container.querySelector('h2')!;
+    expect(heading.textContent).toBe('Start or join a meeting');
+    expect(heading.classList.contains('font-display')).toBe(false);
+  });
+
   it('sends an old ?room= link straight to the room', () => {
     url.query = `room=${ROOM}`;
     render();

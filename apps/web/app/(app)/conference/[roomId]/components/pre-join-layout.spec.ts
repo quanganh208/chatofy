@@ -23,4 +23,8 @@ describe('lobby layout on a phone', () => {
     expect(source).toContain('border-hairline divide-hairline flex flex-col divide-y border-y');
     expect(source).not.toMatch(/\bCard\b|DawnGlow|shadow-elev/);
   });
+
+  it('titles the settings in the UI face, not the display serif', () => {
+    expect(source).not.toContain('font-display');
+  });
 });

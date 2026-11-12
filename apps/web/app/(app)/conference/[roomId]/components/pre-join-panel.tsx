@@ -156,7 +156,7 @@ export function PreJoinPanel({
         {/* Not a <form>: the voice chip and the segmented controls are buttons, and
           any of them without an explicit type would submit it. */}
         <div className="flex w-full flex-col gap-4" data-pre-join-settings>
-          <h2 className="text-heading font-display">{t('web.conference.readyToJoin')}</h2>
+          <h2 className="text-heading font-semibold">{t('web.conference.readyToJoin')}</h2>
 
           <div className="border-hairline divide-hairline flex flex-col divide-y border-y">
             <div className="flex flex-col gap-2 py-3">

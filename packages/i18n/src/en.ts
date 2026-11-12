@@ -1056,6 +1056,7 @@ export const en = {
   'web.conference.originalVolumeAria': 'Original voices volume',
   'web.conference.originalVolumeHint': 'Lower this to hear the translation more clearly.',
   'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
+  'web.conference.lobbyHeading': 'Start or join a meeting',
   'web.conference.joinWithCode': 'Join with a code',
   'web.conference.joinDialogTitle': 'Join a meeting',
   'web.conference.joinDialogHint': 'Enter the meeting code, or paste the invite link.',

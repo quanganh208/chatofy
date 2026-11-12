@@ -817,6 +817,7 @@ export const vi: Messages = {
   'web.conference.originalVolumeAria': 'Âm lượng giọng gốc',
   'web.conference.originalVolumeHint': 'Hạ thấp để nghe bản dịch rõ hơn.',
   'web.conference.roomGoneHint': 'Kiểm tra lại link, hoặc nhờ người mời gửi link mới.',
+  'web.conference.lobbyHeading': 'Bắt đầu hoặc tham gia cuộc họp',
   'web.conference.joinWithCode': 'Tham gia bằng mã',
   'web.conference.joinDialogTitle': 'Tham gia cuộc họp',
   'web.conference.joinDialogHint': 'Nhập mã cuộc họp, hoặc dán link mời.',

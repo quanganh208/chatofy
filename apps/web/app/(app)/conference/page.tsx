@@ -93,8 +93,8 @@ function ConferenceLanding() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-8 lg:pt-8">
       <div className="flex flex-col gap-2">
-        <h2 className="text-title font-display font-light tracking-tight text-balance">
-          {t('common.conference.lobbyTitle')}
+        <h2 className="text-title font-semibold tracking-tight text-balance">
+          {t('web.conference.lobbyHeading')}
         </h2>
         <p className="text-body text-muted-foreground">{t('web.conference.landingLead')}</p>
       </div>

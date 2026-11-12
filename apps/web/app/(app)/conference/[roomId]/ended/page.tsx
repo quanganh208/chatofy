@@ -91,7 +91,7 @@ function EndScreen({ roomId }: { roomId: string }) {
     <div className="flex min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-8 lg:py-12">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-title font-display font-light tracking-tight">
+          <h2 className="text-title font-semibold tracking-tight">
             {t('common.conference.endedTitle')}
           </h2>
           <BackToLobby />

@@ -116,7 +116,9 @@ async function pressGenerate() {
 describe('ConferenceEndedPage', () => {
   it('lays the summary and the minutes on the page ground, with no card', async () => {
     await render();
-    expect(container.textContent).toContain('Meeting ended');
+    const heading = container.querySelector('h2')!;
+    expect(heading.textContent).toBe('Meeting ended');
+    expect(heading.classList.contains('font-display')).toBe(false);
     expect(container.querySelector('dl')).not.toBeNull();
     expect(container.querySelector('[data-slot="card"]')).toBeNull();
     expect(container.querySelector('[data-minutes-panel]')).not.toBeNull();
