@@ -15,9 +15,10 @@ export default function AppError({ reset }: { error: Error; reset: () => void })
 
   return (
     <div className="flex flex-col items-start gap-4">
-      <h1 className="text-heading font-display font-normal tracking-tight">
+      {/* h2: the topbar already names the page with the one h1. */}
+      <h2 className="text-heading font-display font-normal tracking-tight">
         {t('web.error.title')}
-      </h1>
+      </h2>
       <p className="text-prose text-body max-w-prose">{t('web.error.appBody')}</p>
       <Button onClick={reset}>{t('web.error.retry')}</Button>
     </div>
