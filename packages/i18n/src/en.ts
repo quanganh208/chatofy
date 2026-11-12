@@ -814,7 +814,6 @@ export const en = {
   'web.account.avatarUnavailable':
     "Couldn't save that photo — nothing was changed. Try again; if it keeps failing, tell whoever runs this server.",
   'web.account.security': 'Security',
-  'web.account.session': 'Session',
   'web.account.thisBrowser': 'This browser',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':

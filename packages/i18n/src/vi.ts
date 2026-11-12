@@ -631,7 +631,6 @@ export const vi: Messages = {
   'web.account.avatarUnavailable':
     'Chưa lưu được ảnh — không có gì bị thay đổi. Hãy thử lại; nếu vẫn lỗi, hãy báo cho người quản trị máy chủ.',
   'web.account.security': 'Bảo mật',
-  'web.account.session': 'Phiên đăng nhập',
   'web.account.thisBrowser': 'Trình duyệt này',
   'web.account.changePassword': 'Đổi mật khẩu',
   'web.account.changePasswordHint':
