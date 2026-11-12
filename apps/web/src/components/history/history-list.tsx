@@ -116,7 +116,9 @@ export function HistoryList({
             className="flex flex-col"
           >
             {group.conversations.map((conversation) => (
-              <li key={conversation.conversationId}>
+              // The positioning context and hover group for the row's `⋯`, which
+              // is the link's sibling rather than inside it.
+              <li key={conversation.conversationId} className="group/row relative">
                 <HistoryListRow
                   conversation={conversation}
                   selected={conversation.conversationId === selectedId}

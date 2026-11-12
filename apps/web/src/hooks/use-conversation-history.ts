@@ -27,6 +27,12 @@ export interface UseConversationHistory {
    * exists without refetching (and losing) every page read so far.
    */
   forget: (conversationId: string) => void;
+  /**
+   * Put a newer copy of one loaded row in place — what a rename calls with the
+   * summary the server stored, so the row reads the new title at once without a
+   * refetch. A row not loaded (paged out, filtered away) is left alone.
+   */
+  update: (conversation: ConversationSummary) => void;
   /** The term actually sent — empty while one is too short to be searched. */
   searching: boolean;
 }
@@ -152,6 +158,14 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     );
   }, []);
 
+  const update = useCallback((next: ConversationSummary) => {
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.conversationId === next.conversationId ? next : conversation,
+      ),
+    );
+  }, []);
+
   return {
     conversations,
     loading,
@@ -163,5 +177,6 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     loadMore,
     reload,
     forget,
+    update,
   };
 }

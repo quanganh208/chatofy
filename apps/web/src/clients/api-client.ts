@@ -31,6 +31,7 @@ import {
   type LanguageCode,
   type PatchGlossaryRequest,
   type RegisterRequest,
+  type RenameConversationRequest,
   type SaveConversationRequest,
   type SaveGlossaryItemRequest,
   type SaveGlossaryRequest,
@@ -296,6 +297,22 @@ export function getConversation(conversationId: string) {
   return authedFetch(
     `/conversations/${encodeURIComponent(conversationId)}`,
     conversationResponseSchema,
+  );
+}
+
+/**
+ * Rename a conversation. PATCH, because only the title changes — the full PUT
+ * would have to resend every turn to change one line.
+ *
+ * Answers with the stored summary: the list row's shape, so the caller can put
+ * it straight into the list without refetching. 404 when the conversation is not
+ * the caller's (or is gone); 400 when the title is empty or too long once trimmed.
+ */
+export function renameConversation(conversationId: string, body: RenameConversationRequest) {
+  return authedFetch(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    conversationSummaryResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(body) },
   );
 }
 

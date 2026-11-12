@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import type { Conversation } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
-import { deleteConversation, getConversation } from '@/clients/api-client';
+import { deleteConversation, getConversation, renameConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
@@ -17,6 +17,7 @@ import { ConversationDetailLoading, ConversationDetailMissing } from './conversa
 import { ConversationDetailTabs } from './conversation-detail-tabs';
 import { ConversationMetaLine } from './conversation-meta-line';
 import { ConversationRecordingControls } from './conversation-recording-controls';
+import { ConversationTitleEditor } from './conversation-title-editor';
 import { useHistoryPanes } from './history-panes-context';
 
 interface ConversationDetailProps {
@@ -39,7 +40,8 @@ interface ConversationDetailProps {
  * Minutes tab, where its Generate is also the screen's one accent-filled control.
  * Play and `⋯` are outline; Delete's second press is `destructive`, which fills with
  * `live-fill`, not the accent. The open menu is the one other surface, and only
- * while it is open.
+ * while it is open — two while its Download submenu is. Renaming swaps the title for
+ * a field whose Save is outline, so it spends nothing either.
  */
 export function ConversationDetail({ conversationId }: ConversationDetailProps) {
   const t = useTranslate();
@@ -47,10 +49,14 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   const router = useRouter();
   const panes = useHistoryPanes();
   const listHref = (panes?.listHref ?? '/history') as Route;
+  // Stable for the layout's life, unlike `panes` itself, which changes with the
+  // search term — so the fetch below can depend on it without refetching per keystroke.
+  const cache = panes?.cache;
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // Opt-in: on a history screen an existing summary is exactly what the reader came
   // for. The translate panel passes nothing and still fetches nothing.
@@ -79,6 +85,7 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     setLoading(true);
     setMissing(false);
     setConversation(null);
+    setEditing(false);
   }
 
   // Opened in the place of one just deleted: the delete removed the control that
@@ -98,11 +105,45 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     (conversation ? heading : gone).current?.focus();
   }, [conversation, missing, loading, panes]);
 
+  // Rename chosen on this conversation's list row: the row opened it, and its
+  // header does the editing. Adjusted during render, so the title never draws one
+  // frame before the field replaces it; the request is spent once editing is on.
+  const renameRequested = panes?.renameRequest === conversationId;
+  if (conversation && renameRequested && !editing) setEditing(true);
+  useEffect(() => {
+    if (editing && renameRequested) panes?.takeRenameRequest();
+  }, [editing, renameRequested, panes]);
+
+  // Back onto the title when the field goes, whichever way it went — the control
+  // that had focus is gone with it.
+  const returnToTitle = useRef(false);
+  useEffect(() => {
+    if (editing || !returnToTitle.current) return;
+    returnToTitle.current = false;
+    heading.current?.focus();
+  }, [editing]);
+
+  const stopEditing = () => {
+    returnToTitle.current = true;
+    setEditing(false);
+  };
+
+  const rename = async (title: string) => {
+    const { conversation: stored } = await renameConversation(conversationId, { title });
+    // The header from the stored summary, the turns from what is already here; the
+    // list row and the export cache take the same summary, so nothing refetches.
+    setConversation((current) => (current ? { ...current, ...stored } : current));
+    panes?.renamed(stored);
+    stopEditing();
+  };
+
   useEffect(() => {
     let cancelled = false;
     getConversation(conversationId)
       .then(({ conversation: loaded }) => {
-        if (!cancelled) setConversation(loaded);
+        if (cancelled) return;
+        setConversation(loaded);
+        cache?.remember(loaded);
       })
       .catch(() => {
         if (!cancelled) setMissing(true);
@@ -113,12 +154,13 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, cache]);
 
   const remove = async () => {
     await deleteConversation(conversationId);
     // Out of the list first, so the screen landed on is not still offering it — on
     // a wide `/history` the newest REMAINING conversation is what opens next.
+    panes?.cache.forget(conversationId);
     panes?.forget(conversationId);
     // `replace`: Back must not return to a conversation that no longer exists, and
     // a delete on `/history` must not stack a second `/history` on the first.
@@ -146,17 +188,25 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               the screen's `h1`. */}
           <header className="flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3">
             <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-1.5">
-              <h2
-                ref={heading}
-                tabIndex={-1}
-                className={
-                  conversation.title
-                    ? 'text-heading font-display font-normal tracking-tight text-balance outline-none'
-                    : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance outline-none'
-                }
-              >
-                {conversation.title ?? (conversation.preview || t('web.history.untitled'))}
-              </h2>
+              {editing ? (
+                <ConversationTitleEditor
+                  title={conversation.title}
+                  onSave={rename}
+                  onCancel={stopEditing}
+                />
+              ) : (
+                <h2
+                  ref={heading}
+                  tabIndex={-1}
+                  className={
+                    conversation.title
+                      ? 'text-heading font-display font-normal tracking-tight text-balance outline-none'
+                      : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance outline-none'
+                  }
+                >
+                  {conversation.title ?? (conversation.preview || t('web.history.untitled'))}
+                </h2>
+              )}
               <ConversationMetaLine
                 conversation={conversation}
                 showTimeRange
@@ -166,6 +216,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               />
             </div>
             <ConversationActions
+              conversation={conversation}
+              loaded={conversation}
+              minutes={minutes.loading ? undefined : minutes.minutes}
+              onRename={() => setEditing(true)}
               onDelete={remove}
               leading={
                 conversation.hasRecording ? (

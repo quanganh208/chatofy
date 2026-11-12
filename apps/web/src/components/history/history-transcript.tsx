@@ -3,6 +3,7 @@
 import { primaryTranslation, type ConversationTurn, type LanguageCode } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
+import { speakerName } from './conversation-formatting';
 
 interface HistoryTranscriptProps {
   turns: ConversationTurn[];
@@ -112,15 +113,7 @@ export function HistoryTranscript({
                 data-slot="speaker-label"
                 className="text-hint text-muted-foreground wrap-anywhere font-semibold max-sm:pr-14"
               >
-                {/* The label the reader confirmed, or a fallback composed HERE from
-                    the role and the dictionary. Storing the fallback would have put
-                    an English name permanently into a Vietnamese reader's rows. */}
-                {turn.speakerLabel ??
-                  t(
-                    turn.speakerRole === 'speaker_a'
-                      ? 'web.history.speakerA'
-                      : 'web.history.speakerB',
-                  )}
+                {speakerName(turn, t)}
               </p>
               <p className="text-prose text-body wrap-anywhere">
                 {turn.displayText ?? turn.sourceText}

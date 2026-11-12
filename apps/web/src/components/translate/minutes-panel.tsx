@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import type { MinutesContent } from '@chatofy/types';
 import { Badge, Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
+import { minutesMarkdown } from '@/lib/minutes-markdown';
 
 interface MinutesPanelProps {
   /**
@@ -91,7 +92,7 @@ export function MinutesPanel({
 
   const copy = async (): Promise<void> => {
     if (!minutes) return;
-    await navigator.clipboard.writeText(toMarkdown(minutes, t));
+    await navigator.clipboard.writeText(minutesMarkdown(minutes, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -224,32 +225,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </div>
   );
-}
-
-/** A copyable plain-markdown rendering of the minutes. */
-function toMarkdown(minutes: MinutesContent, t: ReturnType<typeof useTranslate>): string {
-  const lines: string[] = [`# ${t('common.minutes.title')}`, '', minutes.summary, ''];
-  if (minutes.keyPoints.length) {
-    lines.push(`## ${t('common.minutes.keyPoints')}`);
-    for (const point of minutes.keyPoints) lines.push(`- ${point}`);
-    lines.push('');
-  }
-  if (minutes.decisions.length) {
-    lines.push(`## ${t('common.minutes.decisions')}`);
-    for (const decision of minutes.decisions) lines.push(`- ${decision}`);
-    lines.push('');
-  }
-  lines.push(`## ${t('common.minutes.actionItems')}`);
-  if (minutes.actionItems.length === 0) {
-    lines.push(t('common.minutes.noActionItems'));
-  } else {
-    for (const item of minutes.actionItems) {
-      const suffix = [
-        item.owner ? `${t('common.minutes.owner')}: ${item.owner}` : null,
-        item.dueDate ? `${t('common.minutes.due')}: ${item.dueDate}` : null,
-      ].filter(Boolean);
-      lines.push(`- ${item.description}${suffix.length ? ` (${suffix.join(', ')})` : ''}`);
-    }
-  }
-  return lines.join('\n');
 }

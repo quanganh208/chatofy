@@ -483,9 +483,31 @@ export const vi: Messages = {
   'web.history.searchNoResults': 'Không có cuộc hội thoại nào khớp.',
   'web.history.clearSearch': 'Xoá tìm kiếm',
   'web.history.back': 'Quay lại lịch sử',
-  // The detail's overflow menu; Delete is its one item, and the second step
-  // happens under the header, beside the sentence saying what it costs.
+  // The detail's overflow menu. Delete's second step happens beside the sentence
+  // saying what it costs — under the header, or under the row it was chosen on.
   'web.history.moreActions': 'Thao tác khác',
+  'web.history.rowActions': 'Thao tác khác cho {title}',
+  'web.history.rename': 'Đổi tên',
+  'web.history.copyTranscript': 'Sao chép transcript',
+  'web.history.transcriptCopied': 'Đã sao chép transcript',
+  'web.history.copyFailed': 'Không sao chép được transcript.',
+  'web.history.downloadTranscript': 'Tải transcript',
+  'web.history.downloadText': 'Văn bản (.txt)',
+  'web.history.downloadMarkdown': 'Markdown (.md)',
+  'web.history.downloadMarkdownMinutes': 'kèm biên bản',
+  'web.history.downloadSubtitles': 'Phụ đề (.srt)',
+  'web.history.subtitlesNeedTimes': 'Cần mốc thời gian ở mọi dòng',
+  'web.history.downloadRecording': 'Tải bản ghi âm',
+  'web.history.preparingDownload': 'Đang chuẩn bị tệp…',
+  'web.history.downloadFailed': 'Không tải xuống được. Hãy thử lại.',
+  'web.history.deleteChoice': 'Xoá…',
+  'web.history.renameLabel': 'Tiêu đề cuộc hội thoại',
+  'web.history.renameSave': 'Lưu',
+  'web.history.renameSaving': 'Đang lưu…',
+  'web.history.renameHint': 'Enter để lưu, Esc để huỷ. Tối đa {max} ký tự.',
+  'web.history.renameEmpty': 'Tiêu đề không được để trống.',
+  'web.history.renameTooLong': 'Tiêu đề tối đa {max} ký tự.',
+  'web.history.renameFailed': 'Không đổi tên được cuộc hội thoại này. Hãy thử lại.',
   'web.history.tabMinutes': 'Biên bản',
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(đã có)',

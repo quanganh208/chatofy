@@ -494,6 +494,9 @@ function openConversation(conversation: ReturnType<typeof stored>) {
 
 const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
 const MORE_ACTIONS = 'button[aria-label="More actions"]';
+/** A list row's `⋯` — named for its conversation, so never the header's. */
+const ROW_ACTIONS = 'button[aria-label^="More actions for"]';
+const MENU_ITEM = (action: string) => `[role="menuitem"][data-action="${action}"]`;
 /** The minutes region inside the open Minutes tab, named without a visible title. */
 const MINUTES_PANEL = '[role="tabpanel"] section[aria-label="Meeting minutes"]';
 
@@ -1164,8 +1167,65 @@ const SCREENS: ScreenState[] = [
     setup() {
       openConversation(stored());
     },
-    steps: [MORE_ACTIONS, '[role="menuitem"]'],
+    steps: [MORE_ACTIONS, MENU_ITEM('delete')],
     shows: '[role="alertdialog"]',
+    render: historyRoute,
+  },
+  {
+    // Rename chosen: the title is a field with Save and Cancel. Save is OUTLINE —
+    // a rename is not the screen's action — and the field is on the page ground.
+    name: '/history/[conversationId] — renaming the title',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS, MENU_ITEM('rename')],
+    shows: 'header form input[aria-label="Conversation title"]',
+    render: historyRoute,
+  },
+  {
+    // The Download transcript submenu open beside the menu: two elevated surfaces,
+    // the ceiling, and the reason nothing else on this screen may be one.
+    name: '/history/[conversationId] — the download submenu open',
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      openConversation(stored({ hasRecording: true, audioOffsetMs: 0, audioDurationMs: 600_000 }));
+    },
+    steps: [MORE_ACTIONS, '[data-action="download-transcript"]'],
+    shows: MENU_ITEM('download-srt'),
+    render: historyRoute,
+  },
+  {
+    // A row's own `⋯` open on the list: the same menu, one surface, nothing filled.
+    name: "/history — a row's actions menu open",
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS],
+    shows: MENU_ITEM('download-transcript'),
+    render: historyRoute,
+  },
+  {
+    // Delete chosen on a row: the same strip as the header's, under the row, on the
+    // page ground. The destructive press fills with `live-fill`, not the accent.
+    name: '/history — confirming a delete from a row',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, MENU_ITEM('delete')],
+    shows: 'li [role="alertdialog"]',
     render: historyRoute,
   },
   {

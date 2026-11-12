@@ -613,9 +613,37 @@ export const en = {
   // back to the full list is selecting the field and deleting what you typed.
   'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
-  // The detail's overflow menu; Delete is its one item, and the second step
-  // happens under the header, beside the sentence saying what it costs.
+  // The detail's overflow menu. Delete's second step happens beside the sentence
+  // saying what it costs — under the header, or under the row it was chosen on.
   'web.history.moreActions': 'More actions',
+  // The actions menu, shared by the detail header and every list row. A row's
+  // trigger names its conversation: twenty identical "More actions" buttons in a
+  // list say nothing about which one is about to act.
+  'web.history.rowActions': 'More actions for {title}',
+  'web.history.rename': 'Rename',
+  'web.history.copyTranscript': 'Copy transcript',
+  'web.history.transcriptCopied': 'Transcript copied',
+  'web.history.copyFailed': 'Could not copy the transcript.',
+  'web.history.downloadTranscript': 'Download transcript',
+  'web.history.downloadText': 'Text (.txt)',
+  'web.history.downloadMarkdown': 'Markdown (.md)',
+  'web.history.downloadMarkdownMinutes': 'with minutes',
+  'web.history.downloadSubtitles': 'Subtitles (.srt)',
+  // Why Subtitles is unavailable: a cue needs a start, and some lines have none.
+  'web.history.subtitlesNeedTimes': 'Needs a time on every line',
+  'web.history.downloadRecording': 'Download recording',
+  'web.history.preparingDownload': 'Preparing the download…',
+  'web.history.downloadFailed': 'Could not download it. Try again.',
+  // The menu item: the ellipsis says another step follows before anything goes.
+  'web.history.deleteChoice': 'Delete…',
+  // Renaming, in place of the title.
+  'web.history.renameLabel': 'Conversation title',
+  'web.history.renameSave': 'Save',
+  'web.history.renameSaving': 'Saving…',
+  'web.history.renameHint': 'Enter to save, Esc to cancel. Up to {max} characters.',
+  'web.history.renameEmpty': 'A title cannot be empty.',
+  'web.history.renameTooLong': 'Keep the title to {max} characters.',
+  'web.history.renameFailed': 'Could not rename this conversation. Try again.',
   'web.history.tabMinutes': 'Minutes',
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(ready)',
