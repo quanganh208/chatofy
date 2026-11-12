@@ -25,9 +25,9 @@ export function TranslateSkeleton({ conversationMode }: { conversationMode: Conv
     // the viewport is a jump on every load — the larger of the two shifts, since it
     // moves the dock rather than a line of text.
     <div aria-hidden className="-mx-6 -my-8 flex min-h-0 flex-1 flex-col">
-      {/* The pair in the topbar, from `md` — see `TranslateTopbarControls`. */}
+      {/* The pair in the topbar, once the main column is 48rem wide — see `TranslateTopbarControls`. */}
       <TopbarActions>
-        <div className="flex items-center gap-2 max-md:hidden">
+        <div className="flex items-center gap-2 @max-3xl/main:hidden">
           {twoWay ? <Skeleton className="h-8 w-14" /> : null}
           <Skeleton className="h-8 w-28" />
           <Skeleton className="size-8 rounded-full" />
@@ -41,8 +41,8 @@ export function TranslateSkeleton({ conversationMode }: { conversationMode: Conv
       <div className="relative flex min-h-64 flex-1 flex-col sm:max-h-[calc(100svh-7.25rem)] max-sm:max-h-[calc(100svh-14rem-env(safe-area-inset-bottom))]">
         <div className="@container flex min-h-0 flex-1 flex-col">
           <div className="relative flex min-h-0 flex-1 flex-col @xl:flex-row">
-            {/* The swap on the seam, below `md` only. */}
-            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 md:hidden">
+            {/* The swap on the seam, while the main column is under 48rem. */}
+            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 @3xl/main:hidden">
               <Skeleton className="bg-background border-hairline size-11 rounded-full border" />
             </div>
             {/* The side you speak into carries a voice only on the two-way page, as
@@ -73,7 +73,7 @@ export function TranslateSkeleton({ conversationMode }: { conversationMode: Conv
 
 /**
  * One region: flat on the page ground, the second one behind the hairline seam.
- * Below `md` its header holds the side's picker (and voice); from `md` it is only
+ * Under a 48rem main column its header holds the side's picker (and voice); wider, it is only
  * the quiet "Source · Vietnamese" label, the pickers being the topbar's.
  */
 function SkeletonRegion({ voice, divided = false }: { voice: boolean; divided?: boolean }) {
@@ -84,7 +84,7 @@ function SkeletonRegion({ voice, divided = false }: { voice: boolean; divided?: 
         divided && 'border-hairline border-t @xl:border-t-0 @xl:border-l',
       )}
     >
-      <div className="border-hairline border-b px-8 md:hidden">
+      <div className="border-hairline border-b px-8 @3xl/main:hidden">
         <div className="flex min-h-[58px] items-center gap-2.5 py-2.5">
           <div className="flex min-w-0 flex-col gap-0.5">
             <Skeleton className="my-0.5 h-3.5 w-16" />
@@ -93,7 +93,7 @@ function SkeletonRegion({ voice, divided = false }: { voice: boolean; divided?: 
           {voice ? <Skeleton className="ml-auto h-9 w-16 pointer-coarse:h-11" /> : null}
         </div>
       </div>
-      <div className="px-8 pt-4 pb-1 max-md:hidden">
+      <div className="px-8 pt-4 pb-1 @max-3xl/main:hidden">
         <Skeleton className="h-4 w-36" />
       </div>
     </div>

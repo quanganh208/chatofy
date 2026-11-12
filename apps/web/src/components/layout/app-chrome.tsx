@@ -186,6 +186,9 @@ function ChromeContent({ pathname, children }: { pathname: string; children: Rea
         id="main"
         tabIndex={-1}
         className={cn(
+          // A named container, so a screen can place controls by the room its column
+          // actually has: the viewport says nothing about how wide the sidebar is.
+          '@container/main',
           isFlush(pathname)
             ? 'h-svh overflow-hidden'
             : isPaned(pathname)

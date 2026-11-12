@@ -115,11 +115,11 @@ interface TranscriptPanesProps {
  * same fault at a different breakpoint, so the exemption is now the rule for both
  * orientations rather than a special case for one.
  *
- * ## The pair is a page action from `md`
+ * ## The pair is a page action in a 48rem column
  *
- * From `md` the pickers, the swap and the voices sit in the topbar
+ * In a main column 48rem or wider the pickers, the swap and the voices sit in the topbar
  * (`TranslateTopbarControls`), and every header here is a quiet label naming its
- * side. Below `md` the phone's topbar has no room, so each pane keeps its picker and
+ * side. Until the main column is 48rem wide the topbar has no room, so each pane keeps its picker and
  * the swap sits on the seam between them. Both copies are rendered and CSS picks
  * one, so the server and the client agree on the markup.
  *
@@ -213,7 +213,7 @@ export function TranscriptPanes({
     </TranscriptScroller>
   );
 
-  // The pickers, the swap and the voices move to the topbar from `md`; the panes
+  // The pickers, the swap and the voices move to the topbar once the main column is 48rem wide; the panes
   // keep their own copy for the phone, where the topbar has no room. Never on the
   // stage, which changes nothing.
   const topbar =
@@ -325,11 +325,11 @@ export function TranscriptPanes({
           )}
           style={scale}
         >
-          {/* The swap on the seam, below `md` only — from `md` it is in the topbar.
+          {/* The swap on the seam, while the main column is under 48rem — wider, it is in the topbar.
             Side by side it points across, stacked it points up and down. Above both
             regions while they cross (`z-20` over their 11 and 12). */}
           {onSwap && controls ? (
-            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 md:hidden">
+            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 @3xl/main:hidden">
               <LanguagePairSwap
                 languagePair={languagePair}
                 running={running}

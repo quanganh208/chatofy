@@ -164,15 +164,15 @@ describe('TranscriptPanes arrangements', () => {
     render({ displayMode: 'split', paneLayout: 'row' });
     for (const pane of container.querySelectorAll('[role="region"]')) {
       // The region is the scroll area's viewport, so the pane's box is that area's root.
-      // From `md` the quiet label sits right above it; below `md` the picker header,
+      // In a 48rem main column the quiet label sits right above it; narrower, the picker header,
       // one sibling up — CSS shows one of the two.
       const box = pane.closest('[data-slot="scroll-area"]');
       const label = box?.previousElementSibling;
       expect(label?.querySelector('[data-slot="pane-label"]')).not.toBeNull();
-      expect(label?.className).toContain('max-md:hidden');
+      expect(label?.className).toContain('@max-3xl/main:hidden');
       const header = label?.previousElementSibling;
       expect(header?.querySelector('[data-slot="pane-role"]')).not.toBeNull();
-      expect(header?.className).toContain('md:hidden');
+      expect(header?.className).toContain('@3xl/main:hidden');
     }
   });
 
@@ -231,14 +231,14 @@ describe('TranscriptPanes arrangements', () => {
     expect(container.querySelectorAll('.rounded-xl').length).toBe(0);
   });
 
-  it('names each side with a quiet label from `md`, and keeps the pickers for the phone', () => {
+  it('names each side with a quiet label in a wide main column, and keeps the pickers for a narrow one', () => {
     render({ displayMode: 'split', paneLayout: 'row' });
     const labels = [...container.querySelectorAll('[data-slot="pane-label"]')].map(
       (label) => label.textContent,
     );
     expect(labels).toEqual(['Source · Vietnamese', 'Translation · English']);
     for (const picker of container.querySelectorAll('[data-slot="select-trigger"]')) {
-      expect(picker.closest('.md\\:hidden')).not.toBeNull();
+      expect(picker.closest('[class~="@3xl/main:hidden"]')).not.toBeNull();
     }
   });
 });
@@ -435,11 +435,11 @@ describe('TranscriptPanes and the reader appearance', () => {
 describe('the pair as a page action', () => {
   const topbar = () => container.querySelector('[data-testid="topbar"]');
 
-  it('puts source, swap, target and voice in the topbar, hidden below md', () => {
+  it('puts source, swap, target and voice in the topbar, hidden while the main column is under 48rem', () => {
     render({ displayMode: 'split', paneLayout: 'row' }, { chrome: true });
     act(() => {}); // the portal lands on the render after the host's ref
     const controls = topbar()?.querySelector('[data-slot="translate-topbar-controls"]');
-    expect(controls?.className).toContain('max-md:hidden');
+    expect(controls?.className).toContain('@max-3xl/main:hidden');
     expect(controls?.querySelectorAll('[data-slot="select-trigger"]')).toHaveLength(2);
     expect(controls?.querySelector('button[aria-label^="Swap languages"]')).not.toBeNull();
     expect(

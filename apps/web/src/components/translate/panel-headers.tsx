@@ -155,10 +155,10 @@ export function PanelHeaders({
 
   return (
     <>
-      {/* Below `md` the phone's topbar has no room for the pair, so the pickers stay
-          here, over the stream they name. From `md` they are the topbar's
+      {/* Until the main column is 48rem wide the topbar has no room for the pair, so the pickers stay
+          here, over the stream they name. From there they are the topbar's
           (`TranslateTopbarControls`) and this collapses to the quiet label. */}
-      <div className="border-hairline relative border-b px-8 md:hidden">
+      <div className="border-hairline relative border-b px-8 @3xl/main:hidden">
         <Side
           role={t('web.translate.languagePairSource')}
           hint={<LanguageModeHint mode={mode} />}
@@ -206,22 +206,22 @@ export function PanelHeaders({
           />
         ) : null}
       </div>
-      <div className="max-md:hidden">{label}</div>
+      <div className="@max-3xl/main:hidden">{label}</div>
     </>
   );
 }
 
 /**
  * The pair as a page action: source, swap, target, and each spoken language's
- * voice beside it, at the right of the topbar from `md` up.
+ * voice beside it, at the right of the topbar once the main column is 48rem wide.
  *
- * The same pickers and the same swap the pane headers draw below `md` — one
+ * The same pickers and the same swap the pane headers draw in a narrower column — one
  * component each, so the two places cannot offer different choices. Portalled
  * through `TopbarActions`, so it keeps this screen's state; outside the chrome (a
  * spec rendering the panel alone) it renders nothing and the pane headers are the
  * only copy.
  *
- * Hidden rather than unmounted below `md`, in CSS: a viewport check in JavaScript
+ * Hidden rather than unmounted in a narrower column, by a container query on the main column: a width check in JavaScript
  * would render one thing on the server and another on the client.
  */
 export function TranslateTopbarControls({
@@ -241,7 +241,10 @@ export function TranslateTopbarControls({
 }) {
   return (
     <TopbarActions>
-      <div data-slot="translate-topbar-controls" className="flex items-center gap-2 max-md:hidden">
+      <div
+        data-slot="translate-topbar-controls"
+        className="flex items-center gap-2 @max-3xl/main:hidden"
+      >
         {sourceVoiceControl(languagePair, conversationMode, voiceControlFor)}
         <SourceHeaderLanguage
           languagePair={languagePair}
@@ -304,10 +307,10 @@ export function sourceVoiceControl(
  *
  * A bar naming both at the top of the screen would sit above one pane and describe
  * the other once they stack, so each pane carries its own — the same `Side` the
- * pair uses below `md`, so the arrangements cannot drift into naming the languages
+ * pair uses in a narrower column, so the arrangements cannot drift into naming the languages
  * differently.
  *
- * From `md` the pickers live in the topbar and this is only a quiet label —
+ * In a main column 48rem or wider the pickers live in the topbar and this is only a quiet label —
  * "Source · Vietnamese" — on the region's own ground: the region is not a card,
  * so its header is not a bar.
  */
@@ -322,7 +325,7 @@ export function PanelHeader({
   languagePair: SessionLanguagePair;
   side: 'source' | 'target';
   /**
-   * The side's picker and its end slot, shown below `md` only: from `md` they sit in
+   * The side's picker and its end slot, shown while the main column is under 48rem: from there they sit in
    * the topbar. Absent on the fullscreen stage, which only names the language.
    */
   controls?: { language: React.ReactNode; end?: React.ReactNode };
@@ -342,10 +345,10 @@ export function PanelHeader({
   if (!controls) return label;
   return (
     <>
-      <div className="border-hairline border-b px-8 md:hidden">
+      <div className="border-hairline border-b px-8 @3xl/main:hidden">
         <Side role={role} language={controls.language} end={controls.end} hint={hint} />
       </div>
-      <div className="max-md:hidden">{label}</div>
+      <div className="@max-3xl/main:hidden">{label}</div>
     </>
   );
 }
