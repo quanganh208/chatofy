@@ -54,6 +54,12 @@ const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The banner's balance read. Never answering keeps it silent — a balance it has
 // not read is not a problem to report — without a promise settling outside `act`.
+// The shared balance's refresh, so a case can see the panel ask for it.
+const refreshCredits = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('@/hooks/use-credits', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/use-credits')>()),
+  useRefreshCreditBalance: () => refreshCredits,
+}));
 vi.mock('@/clients/api-client', () => ({
   getCreditBalance: () => new Promise(() => {}),
   checkHealth: () => checkHealth(),
@@ -1170,5 +1176,53 @@ describe('outcomes and the frame', () => {
     expect(immersive).toBe(true);
     await renderPanel({ status: 'idle' }, { saved: false, failure: null }, wrap);
     expect(immersive).toBe(false);
+  });
+});
+
+describe('CascadePanel and the shared credit balance', () => {
+  async function renderStatus(status: UseStreamingTranslate['status']) {
+    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            conversationMode="one-way"
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+  }
+
+  beforeEach(() => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useConversationSave.mockReturnValue({
+      saved: null,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    refreshCredits.mockClear();
+  });
+
+  it('reads the balance again when a conversation ends, because it spent credits', async () => {
+    await renderStatus('listening');
+    expect(refreshCredits).not.toHaveBeenCalled();
+    await renderStatus('idle');
+    expect(refreshCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read it on a screen that never ran a conversation', async () => {
+    await renderStatus('idle');
+    await renderStatus('idle');
+    expect(refreshCredits).not.toHaveBeenCalled();
   });
 });

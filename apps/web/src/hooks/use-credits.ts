@@ -49,7 +49,7 @@ export interface UseCreditBalance {
  * a number that was right a minute ago is more useful than a blank, and the
  * failure line beside it says it may be stale.
  */
-function useBalanceRead(enabled: boolean): UseCreditBalance & { inFlight: () => boolean } {
+function useBalanceRead(enabled: boolean): UseCreditBalance & { recentlyRead: () => boolean } {
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const alive = useRef(true);
@@ -57,6 +57,8 @@ function useBalanceRead(enabled: boolean): UseCreditBalance & { inFlight: () => 
   // refresh a payment just triggered.
   const seq = useRef(0);
   const pending = useRef(0);
+  // When the last read settled, either way; `0` until one has.
+  const settledAt = useRef(0);
 
   // State is only ever set in the read's own callbacks, never synchronously.
   const refresh = useCallback((): Promise<void> => {
@@ -76,6 +78,7 @@ function useBalanceRead(enabled: boolean): UseCreditBalance & { inFlight: () => 
       )
       .finally(() => {
         pending.current -= 1;
+        settledAt.current = Date.now();
       });
   }, []);
 
@@ -88,9 +91,22 @@ function useBalanceRead(enabled: boolean): UseCreditBalance & { inFlight: () => 
     };
   }, [refresh, enabled]);
 
-  const inFlight = useCallback(() => pending.current > 0, []);
-  return { balance, state, refresh, inFlight };
+  // In the air, or answered within the window: an automatic read would only repeat it.
+  const recentlyRead = useCallback(
+    () => pending.current > 0 || Date.now() - settledAt.current < AUTO_REFRESH_WINDOW_MS,
+    [],
+  );
+  return { balance, state, refresh, recentlyRead };
 }
+
+/**
+ * How long a balance read stays fresh for the reads nobody asked for — a route change
+ * or a return to the window. `GET /billing/me` allows 60 reads a minute per IP, and a
+ * reader clicking through the sidebar would otherwise spend one per click; a 429 would
+ * then turn the shared meter to `failed`. An explicit `refresh()` (a payment landed, a
+ * conversation ended) always reads.
+ */
+export const AUTO_REFRESH_WINDOW_MS = 15_000;
 
 const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
 
@@ -102,25 +118,28 @@ const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
  * Billing beside it the moment a payment landed. Here every reader shares one state,
  * and it is read again:
  *
- * - on every route change (the mount read covers the first route);
+ * - on a route change (the mount read covers the first route);
  * - when the window comes back into view — focus and `visibilitychange` both fire on a
- *   tab switch, so a return while a read is already in the air does not start another;
+ *   tab switch;
  * - whenever a reader calls `refresh()`.
+ *
+ * The first two skip a read while one is in the air or one settled within
+ * {@link AUTO_REFRESH_WINDOW_MS}; `refresh()` never skips.
  */
 export function CreditBalanceProvider({ children }: { children: ReactNode }) {
-  const { balance, state, refresh, inFlight } = useBalanceRead(true);
+  const { balance, state, refresh, recentlyRead } = useBalanceRead(true);
   const pathname = usePathname();
   const lastPath = useRef(pathname);
 
   useEffect(() => {
     if (lastPath.current === pathname) return;
     lastPath.current = pathname;
-    void refresh();
-  }, [pathname, refresh]);
+    if (!recentlyRead()) void refresh();
+  }, [pathname, refresh, recentlyRead]);
 
   useEffect(() => {
     const onReturn = () => {
-      if (document.visibilityState !== 'visible' || inFlight()) return;
+      if (document.visibilityState !== 'visible' || recentlyRead()) return;
       void refresh();
     };
     window.addEventListener('focus', onReturn);
@@ -129,7 +148,7 @@ export function CreditBalanceProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', onReturn);
       document.removeEventListener('visibilitychange', onReturn);
     };
-  }, [refresh, inFlight]);
+  }, [refresh, recentlyRead]);
 
   const value = useMemo(() => ({ balance, state, refresh }), [balance, state, refresh]);
   return createElement(CreditBalanceContext.Provider, { value }, children);

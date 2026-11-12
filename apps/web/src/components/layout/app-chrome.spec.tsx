@@ -229,6 +229,27 @@ describe('the product frame', () => {
     expect(elevatedSurfaces(container)).toEqual([]);
   });
 
+  it('shares one balance read between the sidebar meter and the page', async () => {
+    // The page below the frame reads the balance too (Billing, the readiness banner).
+    // Without the frame's provider each reader would fetch on its own and drift apart.
+    const { getCreditBalance } = await import('@/clients/api-client');
+    const { useCreditBalance } = await import('@/hooks/use-credits');
+    vi.mocked(getCreditBalance).mockClear();
+    // Signed in, so the footer draws the meter and the page is the second reader.
+    session.mockReturnValue({
+      data: { user: { name: 'An', email: 'an@example.test' } },
+      status: 'authenticated',
+    } as unknown as ReturnType<typeof session>);
+    function PageReader() {
+      useCreditBalance();
+      return null;
+    }
+    render(<PageReader />);
+    expect(container.querySelector('[data-slot="credit-line"]')).not.toBeNull();
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+    session.mockReturnValue({ data: undefined, status: 'loading' });
+  });
+
   it('holds the footer shape while the session resolves', () => {
     render();
     // Not `null` while loading: an identity that appears after a beat moves the

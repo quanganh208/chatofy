@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { balanceFixture, USAGE_PAGE } from '@/components/settings/credits.fixture';
 import {
+  AUTO_REFRESH_WINDOW_MS,
   CreditBalanceProvider,
   EXPIRED_ORDER_POLL_MS,
   EXPIRED_ORDER_POLLS,
@@ -150,8 +151,21 @@ describe('CreditBalanceProvider', () => {
     });
   }
 
+  // The clock the freshness window reads; a row moves it past the window when it
+  // wants an automatic read to happen.
+  let now = 1_000_000;
+  const pastTheWindow = () => {
+    now += AUTO_REFRESH_WINDOW_MS + 1;
+  };
+
   beforeEach(() => {
     pathname.mockReturnValue('/translate/one-way');
+    now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+  });
+
+  afterEach(() => {
+    vi.mocked(Date.now).mockRestore();
   });
 
   it('reads once for every reader under it', async () => {
@@ -181,14 +195,30 @@ describe('CreditBalanceProvider', () => {
     expect(getCreditBalance).toHaveBeenCalledTimes(1);
 
     getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 50 }));
+    pastTheWindow();
     pathname.mockReturnValue('/settings/billing');
     await mountShell();
     expect(getCreditBalance).toHaveBeenCalledTimes(2);
     expect(readers.sidebar?.balance?.totalCredits).toBe(50);
   });
 
+  it('skips the automatic reads while the last answer is fresh, but never a refresh', async () => {
+    await mountShell();
+    pathname.mockReturnValue('/settings/billing');
+    await mountShell();
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+
+    // A payment landing inside the window still reads.
+    await act(() => readers.billing!.refresh());
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+  });
+
   it('reads again when the window comes back, once for focus and visibility together', async () => {
     await mountShell();
+    pastTheWindow();
     let answer: (value: unknown) => void = () => {};
     getCreditBalance.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
     act(() => {
