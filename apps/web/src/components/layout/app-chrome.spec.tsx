@@ -52,6 +52,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   pathname.mockReturnValue('/translate/one-way');
+  // Still resolving by default; a case that signs in cannot leak into the next.
+  session.mockReturnValue({ data: undefined, status: 'loading' });
 });
 
 afterEach(() => {
@@ -247,7 +249,6 @@ describe('the product frame', () => {
     render(<PageReader />);
     expect(container.querySelector('[data-slot="credit-line"]')).not.toBeNull();
     expect(getCreditBalance).toHaveBeenCalledTimes(1);
-    session.mockReturnValue({ data: undefined, status: 'loading' });
   });
 
   it('holds the footer shape while the session resolves', () => {
