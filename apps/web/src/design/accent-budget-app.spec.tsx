@@ -91,6 +91,9 @@ const getCreditBalance = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listCreditUsage = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listPlans = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const createCheckout = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The glossary library and the open glossary's terms.
+const listGlossaries = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listGlossaryItems = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   getCreditBalance: () => getCreditBalance(),
   listCreditUsage: () => listCreditUsage(),
@@ -114,7 +117,9 @@ vi.mock('@/clients/api-client', () => ({
   listTranslationContexts: () => listTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
-  listGlossaries: vi.fn().mockResolvedValue({ glossaries: [] }),
+  // Empty unless a `/glossary` row seeds some; the translate screens read it too.
+  listGlossaries: () => listGlossaries(),
+  listGlossaryItems: () => listGlossaryItems(),
   createConference: () => createConference(),
 }));
 
@@ -187,6 +192,8 @@ const settings = (Page: () => React.ReactElement) => () => (
     <Page />
   </SettingsLayout>
 );
+const { ChromeSlotsTestHost } = await import('@/components/history/chrome-slots-test-host');
+const { default: GlossaryPage } = await import('../../app/(app)/glossary/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
 const { default: ConferenceLobbyPage } = await import('../../app/(app)/conference/page');
 const { default: ConferenceEndedPage } =
@@ -496,8 +503,65 @@ const VOICES = [
  * (the one in `url.params`, or the newest at `/history`); the pages render nothing.
  */
 function historyRoute() {
-  return <HistoryMasterDetail>{null}</HistoryMasterDetail>;
+  // In a host with the topbar's slots: the open conversation's crumb and its
+  // Rename, Download and `⋯` live there, and outside the chrome they render nothing.
+  return (
+    <ChromeSlotsTestHost>
+      <HistoryMasterDetail>{null}</HistoryMasterDetail>
+    </ChromeSlotsTestHost>
+  );
 }
+
+/** `/glossary` as its route renders it, with the topbar slot its New glossary uses. */
+function glossaryRoute() {
+  return (
+    <ChromeSlotsTestHost>
+      <GlossaryPage />
+    </ChromeSlotsTestHost>
+  );
+}
+
+const GLOSSARY = {
+  id: '6f1c2b1e-3a4d-4e5f-8a9b-0c1d2e3f4a5b',
+  name: 'Thesis defense',
+  description: 'Terms the committee uses',
+  sourceLang: 'vi',
+  isActive: true,
+  itemCount: 2,
+  createdAt: '2026-11-01T08:00:00.000Z',
+  updatedAt: '2026-11-01T08:00:00.000Z',
+};
+
+const GLOSSARY_TERMS = [
+  {
+    id: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    glossaryId: GLOSSARY.id,
+    original: 'hội đồng phản biện',
+    translation: 'thesis defense committee',
+    targetLang: 'en',
+    notes: null,
+    createdAt: '2026-11-01T08:01:00.000Z',
+  },
+  {
+    id: '1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e',
+    glossaryId: GLOSSARY.id,
+    original: 'đồ án',
+    translation: 'capstone project',
+    targetLang: 'en',
+    notes: 'Not "thesis" — the committee is strict about it',
+    createdAt: '2026-11-01T08:02:00.000Z',
+  },
+];
+
+/** One glossary with two terms, opened from its row. */
+function glossaryWithTerms() {
+  listGlossaries.mockResolvedValue({ glossaries: [GLOSSARY] });
+  listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
+}
+
+const GLOSSARY_ROW = '[data-slot="glossary-row"]';
+const NEW_GLOSSARY = '[data-slot="topbar-actions"] button';
+const ADD_TERM = '[data-slot="glossary-detail-header"] button:last-child';
 
 /** `/history/<id>` with the list loaded beside it and the conversation answering. */
 function openConversation(conversation: ReturnType<typeof stored>) {
@@ -508,6 +572,9 @@ function openConversation(conversation: ReturnType<typeof stored>) {
 
 const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
 const MORE_ACTIONS = 'button[aria-label="More actions"]';
+/** The open conversation's Rename and Download, in the topbar. */
+const RENAME = 'button[data-action="rename"]';
+const DOWNLOAD = 'button[data-action="download"]';
 /** A list row's `⋯` — named for its conversation, so never the header's. */
 const ROW_ACTIONS = 'button[aria-label^="More actions for"]';
 const MENU_ITEM = (action: string) => `[role="menuitem"][data-action="${action}"]`;
@@ -1039,9 +1106,9 @@ const SCREENS: ScreenState[] = [
       });
       getConversation.mockResolvedValue({ conversation: stored() });
     },
-    // Proof the pane is up: the detail's own title, which only a loaded
-    // conversation draws. No steps to press — the empty list lets both fetches land.
-    shows: 'header h2',
+    // Proof the pane is up: the detail's facts, which only a loaded conversation
+    // draws. No steps to press — the empty list lets both fetches land.
+    shows: '[data-slot="conversation-detail-header"]',
     steps: [],
     render: historyRoute,
   },
@@ -1182,11 +1249,11 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Delete chosen, confirmation showing. The destructive press fills with
-    // `live-fill`, not the accent, and the strip is a region between hairlines.
+    // Delete chosen: the AlertDialog is the one elevated surface. The destructive
+    // press fills with `live-fill`, not the accent.
     name: '/history/[conversationId] — confirming a delete',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       openConversation(stored());
     },
@@ -1195,29 +1262,42 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Rename chosen: the title is a field with Save and Cancel. Save is OUTLINE —
-    // a rename is not the screen's action — and the field is on the page ground.
+    // Rename pressed in the topbar: the dialog is the one surface, and its Save is
+    // OUTLINE — a rename is not the screen's action.
     name: '/history/[conversationId] — renaming the title',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       openConversation(stored());
     },
-    steps: [MORE_ACTIONS, MENU_ITEM('rename')],
-    shows: 'input[aria-label="Conversation title"]',
+    steps: [RENAME],
+    shows: '[role="dialog"] input',
     render: historyRoute,
   },
   {
-    // The Download transcript submenu open beside the menu: two elevated surfaces,
-    // the ceiling, and the reason nothing else on this screen may be one.
-    name: '/history/[conversationId] — the download submenu open',
+    // Why Save is outline: renaming from the Minutes tab keeps Generate mounted
+    // behind the dialog, and a filled Save would make two.
+    name: '/history/[conversationId] — renaming over the Minutes tab',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MINUTES_TAB, RENAME],
+    shows: '[role="dialog"] input',
+    render: historyRoute,
+  },
+  {
+    // The topbar's Download menu open, with the recording item under the formats:
+    // one surface.
+    name: '/history/[conversationId] — the download menu open',
     filled: 0,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
       openConversation(stored({ hasRecording: true, audioOffsetMs: 0, audioDurationMs: 600_000 }));
     },
-    steps: [MORE_ACTIONS, '[data-action="download-transcript"]'],
-    shows: MENU_ITEM('download-srt'),
+    steps: [DOWNLOAD],
+    shows: MENU_ITEM('download-recording'),
     render: historyRoute,
   },
   {
@@ -1236,11 +1316,41 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Delete chosen on a row: the same strip as the header's, under the row, on the
-    // page ground. The destructive press fills with `live-fill`, not the accent.
+    // A row's Download transcript submenu open beside its menu: two elevated
+    // surfaces, the ceiling, and the reason nothing else here may be one.
+    name: "/history — a row's download submenu open",
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, '[data-action="download-transcript"]'],
+    shows: MENU_ITEM('download-srt'),
+    render: historyRoute,
+  },
+  {
+    // Rename chosen on a row: the same dialog as the topbar's, one surface.
+    name: '/history — renaming from a row',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, MENU_ITEM('rename')],
+    shows: '[role="dialog"] input',
+    render: historyRoute,
+  },
+  {
+    // Delete chosen on a row: the same AlertDialog as the topbar's, one surface.
     name: '/history — confirming a delete from a row',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       listConversations.mockResolvedValue({
         conversations: STORED_CONVERSATIONS,
@@ -1248,7 +1358,7 @@ const SCREENS: ScreenState[] = [
       });
     },
     steps: [ROW_ACTIONS, MENU_ITEM('delete')],
-    shows: 'li [role="alertdialog"]',
+    shows: '[role="alertdialog"]',
     render: historyRoute,
   },
   {
@@ -1279,6 +1389,91 @@ const SCREENS: ScreenState[] = [
       getConversation.mockRejectedValue(new Error('not found'));
     },
     render: historyRoute,
+  },
+  {
+    // Nothing yet: the empty list, and New glossary in the topbar — outline, so
+    // the screen spends nothing until a dialog opens.
+    name: '/glossary — nothing yet',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockResolvedValue({ glossaries: [] });
+    },
+    shows: '[data-slot="glossary-empty"]',
+    render: glossaryRoute,
+  },
+  {
+    // The list failed: a notice and an outline retry, inline.
+    name: '/glossary — the list failed',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockRejectedValue(new Error('offline'));
+    },
+    shows: '[role="alert"]',
+    render: glossaryRoute,
+  },
+  {
+    // Rows on the page ground, none open: no box per row, nothing filled.
+    name: '/glossary — glossaries listed',
+    filled: 0,
+    surfaces: 0,
+    setup: glossaryWithTerms,
+    shows: GLOSSARY_ROW,
+    render: glossaryRoute,
+  },
+  {
+    // A glossary open beside the list with its terms: the switch's fill is a
+    // state, Add term is outline, the term rows sit between hairlines.
+    name: '/glossary — a glossary open, with terms',
+    filled: 0,
+    surfaces: 0,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW],
+    shows: '[data-slot="glossary-term"]',
+    render: glossaryRoute,
+  },
+  {
+    // New glossary pressed: the dialog is the one surface and Create the one
+    // accent — the topbar button under it is outline.
+    name: '/glossary — creating a glossary',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [NEW_GLOSSARY],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Add term pressed: the same arithmetic as creating.
+    name: '/glossary — adding a term',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, ADD_TERM],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Edit on a term: the same dialog, filled with the term.
+    name: '/glossary — editing a term',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, 'button[aria-label^="Edit "]'],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Deleting the open glossary: the AlertDialog, one surface, and its press is
+    // `destructive`, not the accent.
+    name: '/glossary — confirming a glossary delete',
+    filled: 0,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, '[data-slot="glossary-detail-header"] button[aria-label^="Delete"]'],
+    shows: '[role="alertdialog"]',
+    render: glossaryRoute,
   },
   // ---- Settings ----
   //
@@ -1870,6 +2065,8 @@ beforeEach(() => {
   listCreditUsage.mockResolvedValue(USAGE_PAGE);
   listPlans.mockResolvedValue({ plans: PLANS });
   createCheckout.mockRejectedValue(new Error('not checked out in this test'));
+  listGlossaries.mockResolvedValue({ glossaries: [] });
+  listGlossaryItems.mockResolvedValue({ items: [] });
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.
