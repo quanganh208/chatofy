@@ -126,6 +126,31 @@ interface AudioRow {
 type MinutesPresence = { id: string } | null;
 
 /**
+ * The columns a list card is built from — what `list` reads per row and what a
+ * rename reads back, so the two can never disagree about a summary.
+ */
+const SUMMARY_SELECT = {
+  id: true,
+  clientId: true,
+  languages: true,
+  startedAt: true,
+  endedAt: true,
+  pausedMs: true,
+  title: true,
+  mode: true,
+  audioDurationMs: true,
+  minutes: { select: { id: true } },
+  _count: { select: { turns: true } },
+  // Without the explicit orderBy Prisma returns an ARBITRARY row for a nested
+  // take, so the preview would not be the first line.
+  turns: {
+    take: 1,
+    orderBy: { position: 'asc' },
+    select: { sourceText: true, displayText: true },
+  },
+} as const satisfies Prisma.ConversationSelect;
+
+/**
  * Postgres-backed conversation history — the durable seam behind
  * CONVERSATION_STORE.
  *
@@ -470,26 +495,7 @@ export class PrismaConversationStore implements ConversationStore {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      select: {
-        id: true,
-        clientId: true,
-        languages: true,
-        startedAt: true,
-        endedAt: true,
-        pausedMs: true,
-        title: true,
-        mode: true,
-        audioDurationMs: true,
-        minutes: { select: { id: true } },
-        _count: { select: { turns: true } },
-        // Without the explicit orderBy Prisma returns an ARBITRARY row for a
-        // nested take, so the preview would not be the first line.
-        turns: {
-          take: 1,
-          orderBy: { position: 'asc' },
-          select: { sourceText: true, displayText: true },
-        },
-      },
+      select: SUMMARY_SELECT,
     });
 
     const page = rows.slice(0, query.limit);
@@ -577,6 +583,50 @@ export class PrismaConversationStore implements ConversationStore {
       data: { title, searchTitle: normalizeForSearch(title) },
     });
     return count === 1;
+  }
+
+  async rename(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<ConversationSummary | null> {
+    let row;
+    try {
+      // `update` on the compound `(ownerId, clientId)` key: the owner is part
+      // of the UPDATE's own WHERE, so a foreign id matches nothing and is
+      // refused exactly like an absent one — there is no read beforehand that
+      // could answer differently. `searchTitle` is the same fold
+      // `setTitleIfEmpty` writes, so a renamed conversation is found by its new
+      // name and no longer by the old one.
+      row = await this.prisma.conversation.update({
+        where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+        data: { title, searchTitle: normalizeForSearch(title) },
+        select: SUMMARY_SELECT,
+      });
+    } catch (err) {
+      if (isRecordNotFound(err)) return null;
+      throw err;
+    }
+
+    const speakers = await this.speakerEntriesByConversation([row.id]);
+    try {
+      return toSummary(
+        row,
+        row._count.turns,
+        previewOf(row.turns),
+        row.minutes,
+        speakers.get(row.id) ?? [],
+      );
+    } catch (err) {
+      // A `languages` column this registry cannot read — the row `list` drops
+      // and `get` answers not-found for. Same answer here, so the three routes
+      // agree about whether it exists. The UPDATE above has already committed,
+      // so the title IS written; only the reply cannot describe the row.
+      this.logger.warn(
+        `answering not-found for renamed conversation ${row.clientId}: ${String(err)}`,
+      );
+      return null;
+    }
   }
 
   async findAudioKey(

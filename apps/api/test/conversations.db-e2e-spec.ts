@@ -39,6 +39,10 @@ import {
   type ConversationAudioStorage,
   type ConversationAudioObject,
 } from '../src/modules/storage/interfaces/conversation-audio-storage.interface';
+import {
+  CONVERSATION_STORE,
+  type ConversationStore,
+} from '../src/modules/conversations/interfaces/conversation-store.interface';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -1007,6 +1011,83 @@ describe('Conversation history (db-e2e)', () => {
       // while the object survives, which makes it order-blind to the one
       // ordering that matters.
       expect(audioStorage.storedKeys).toEqual([]);
+    });
+  });
+
+  describe('rename', () => {
+    function patch(id: string, who: Identity, payload: unknown): request.Test {
+      return request(app.getHttpServer())
+        .patch(`/conversations/${id}`)
+        .set('authorization', who.bearer)
+        .send(payload as object);
+    }
+
+    it('renames, trims, re-indexes the title for search, and survives a later generated title', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const res = await patch(id, alice, {
+        title: '  Họp ngân sách quý  ',
+      }).expect(200);
+      expect(
+        successBody(res, conversationSummaryResponseSchema).data.conversation,
+      ).toMatchObject({
+        conversationId: id,
+        title: 'Họp ngân sách quý',
+        turnCount: 2,
+      });
+
+      const row = await prisma.conversation.findFirstOrThrow({
+        where: { ownerId: alice.userId, clientId: id },
+        select: { title: true, searchTitle: true },
+      });
+      expect(row).toEqual({
+        title: 'Họp ngân sách quý',
+        searchTitle: 'hop ngan sach quy',
+      });
+
+      // The background pass landing after the rename finds a title and writes
+      // nothing — against the real `title IS NULL` filter, not a double.
+      const store = app.get<ConversationStore>(CONVERSATION_STORE);
+      await expect(
+        store.setTitleIfEmpty(alice.userId, id, 'Generated'),
+      ).resolves.toBe(false);
+
+      const found = await request(app.getHttpServer())
+        .get('/conversations')
+        .query({ q: 'ngan sach quy' })
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(
+        pageOf(found).conversations.map((c) => [c.conversationId, c.title]),
+      ).toContainEqual([id, 'Họp ngân sách quý']);
+    });
+
+    it("answers 404 for another user's conversation, identically to an absent one, and leaves it untouched", async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const foreign = await patch(id, bob, { title: 'Mine now' }).expect(404);
+      const absent = await patch(randomUUID(), bob, {
+        title: 'Mine now',
+      }).expect(404);
+
+      expect(comparableError(foreign)).toEqual(comparableError(absent));
+      const row = await prisma.conversation.findFirstOrThrow({
+        where: { ownerId: alice.userId, clientId: id },
+        select: { title: true },
+      });
+      expect(row.title).toBeNull();
+    });
+
+    it('refuses a blank or over-long title with 400', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      await patch(id, alice, { title: '   ' }).expect(400);
+      await patch(id, alice, {
+        title: 'a'.repeat(HISTORY_LIMITS.MAX_TITLE_CHARS + 1),
+      }).expect(400);
     });
   });
 

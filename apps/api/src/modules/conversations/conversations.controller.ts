@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Put,
   Query,
   Req,
@@ -29,6 +30,7 @@ import {
   ConversationResponseDto,
   ConversationSummaryResponseDto,
   ListConversationsQueryDto,
+  RenameConversationRequestDto,
   SaveConversationRequestDto,
   UploadConversationAudioQueryDto,
 } from './dto/conversations.dto';
@@ -98,6 +100,33 @@ export class ConversationsController {
     // same anti-escalation discipline `PATCH /auth/me` documents.
     return {
       conversation: await this.conversations.save(
+        req.auth!.userId,
+        params.conversationId,
+        body,
+      ),
+    };
+  }
+
+  @Patch(':conversationId')
+  @ApiBearerAuth()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Rename a conversation',
+    description:
+      'Sets the title the history list and the detail show, trimmed, 1 to 120 characters. A title the owner chose is never replaced by the generated one: that pass writes only where no title is stored. Answers the stored summary, the same shape a save answers. 404 for an id the caller does not own, identically to one that does not exist.',
+  })
+  @ApiEnvelopeResponse(ConversationSummaryResponseDto)
+  // 413 from the `/conversations` JSON parser in `narrow-body-limits.ts`, before the route runs.
+  @ApiErrorResponses(400, 401, 404, 413, 429)
+  async rename(
+    @Req() req: Request,
+    @Param() params: ConversationIdParamDto,
+    @Body() body: RenameConversationRequestDto,
+  ): Promise<ConversationSummaryResponse> {
+    // The owner is the verified token's subject, as on the save.
+    return {
+      conversation: await this.conversations.rename(
         req.auth!.userId,
         params.conversationId,
         body,

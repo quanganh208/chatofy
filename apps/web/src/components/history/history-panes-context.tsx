@@ -1,13 +1,17 @@
 'use client';
 
 import { createContext, useContext } from 'react';
+import type { ConversationSummary } from '@chatofy/types';
+import type { ConversationCache } from './conversation-cache';
 
 /**
  * What the History layout shares with the conversation it renders in its pane.
  *
- * The layout owns the list and the selection; the detail needs only where to go
- * after a delete, how to take the deleted row out of the list, and whether the
- * layout asked it to take focus.
+ * The layout owns the list and the selection. The detail needs where to go after
+ * a delete, how to take the deleted row out of the list or put a renamed one back,
+ * and whether the layout asked it to take focus or to start a rename. The rows'
+ * menus need the actions that only the layout can carry out — opening another
+ * conversation, or deleting one that may be the one open.
  */
 export interface HistoryPanes {
   /** Where "back" and a finished delete go: the list, keeping the search term. */
@@ -22,6 +26,24 @@ export interface HistoryPanes {
    * conversation that opens after a delete calls this when it has loaded.
    */
   takeFocusRequest: () => boolean;
+  /** Full conversations already held, for copy and downloads from a row. */
+  cache: ConversationCache;
+  /** A rename landed: the list row and the cache take the stored summary. */
+  renamed: (conversation: ConversationSummary) => void;
+  /**
+   * Rename chosen on a ROW: open that conversation — navigating to it unless it is
+   * the one open — and have its header start editing. There is no row editor.
+   */
+  renameFromList: (conversationId: string) => void;
+  /** The conversation whose header should open its title editor, or null. */
+  renameRequest: string | null;
+  /** The header started editing, so the request is spent. */
+  takeRenameRequest: () => void;
+  /**
+   * Delete chosen on a row, after its confirmation. The open conversation goes the
+   * way the header's delete goes; any other row leaves focus on its neighbour.
+   */
+  deleteFromList: (conversationId: string) => Promise<void>;
 }
 
 const HistoryPanesContext = createContext<HistoryPanes | null>(null);

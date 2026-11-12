@@ -122,6 +122,20 @@ export interface ConversationStore {
     conversationId: string,
     title: string,
   ): Promise<boolean>;
+  /**
+   * Replace the title with one the owner chose, and its folded search form.
+   *
+   * Unconditional, unlike {@link ConversationStore.setTitleIfEmpty}: the owner's
+   * choice wins over whatever is stored. The reverse holds by construction —
+   * the background pass writes only where the title is null, so it can never
+   * overwrite a rename. Null when the caller has no such row, foreign or absent
+   * alike; otherwise the stored summary, in the shape a save returns.
+   */
+  rename(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<ConversationSummary | null>;
   /** One conversation with its turns, or null when the caller has no such row. */
   get(ownerId: string, conversationId: string): Promise<Conversation | null>;
   /** The caller's conversations, newest first. */

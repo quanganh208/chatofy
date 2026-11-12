@@ -12,6 +12,7 @@ import { HistoryListPane, LIST_WIDTH_MAX, LIST_WIDTH_MIN } from './history-list-
 import { HistoryPanesProvider, type HistoryPanes } from './history-panes-context';
 import { useContainerWide, WIDE_PROBE_CLASS } from './use-container-wide';
 import { useHistorySearch } from './use-history-search';
+import { useHistoryRowActions } from './use-history-row-actions';
 import { useHistorySelection } from './use-history-selection';
 
 const LIST_WIDTH_KEY = 'chatofy.history-list-width';
@@ -130,9 +131,24 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
     return requested;
   }, []);
 
+  const listHref = `/history${search.querySuffix}`;
+  const rows = useHistoryRowActions({
+    history,
+    search,
+    selectedId,
+    forget,
+    listHref,
+    listRegion,
+  });
+
   const panes = useMemo<HistoryPanes>(
-    () => ({ listHref: `/history${search.querySuffix}`, forget, takeFocusRequest }),
-    [search.querySuffix, forget, takeFocusRequest],
+    () => ({
+      listHref,
+      forget,
+      takeFocusRequest,
+      ...rows,
+    }),
+    [listHref, forget, takeFocusRequest, rows],
   );
 
   return (

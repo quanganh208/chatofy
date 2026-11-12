@@ -6,6 +6,7 @@ import {
   conversationSearchQuerySchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
+  renameConversationRequestSchema,
   saveConversationRequestSchema,
   uploadConversationAudioQuerySchema,
 } from '@chatofy/types';
@@ -50,6 +51,11 @@ const listConversationsQuerySchema = z.object({
 /** PUT /conversations/:conversationId body. */
 export class SaveConversationRequestDto extends createZodDto(
   saveConversationRequestSchema,
+) {}
+
+/** PATCH /conversations/:conversationId body. */
+export class RenameConversationRequestDto extends createZodDto(
+  renameConversationRequestSchema,
 ) {}
 
 /** :conversationId, for every route that carries one. */

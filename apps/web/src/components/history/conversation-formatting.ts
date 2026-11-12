@@ -1,5 +1,5 @@
 import type { Translate } from '@chatofy/i18n';
-import type { ConversationSummary } from '@chatofy/types';
+import type { ConversationSummary, ConversationTurn } from '@chatofy/types';
 
 /** One run of consecutive conversations that share a calendar day. */
 export interface DayGroup {
@@ -148,4 +148,21 @@ export function activeDurationMs(conversation: ConversationSummary): number {
  */
 export function durationMinutes(conversation: ConversationSummary): number {
   return Math.max(1, Math.round(activeDurationMs(conversation) / 60_000));
+}
+
+/**
+ * Who said a stored turn, as the transcript names them: the label the reader
+ * confirmed, or a fallback composed HERE from the role and the dictionary.
+ * Storing the fallback would have put an English name permanently into a
+ * Vietnamese reader's rows. Shared with the exports, so a downloaded transcript
+ * names every speaker the way the screen did.
+ */
+export function speakerName(
+  turn: Pick<ConversationTurn, 'speakerLabel' | 'speakerRole'>,
+  t: Translate,
+): string {
+  return (
+    turn.speakerLabel ??
+    t(turn.speakerRole === 'speaker_a' ? 'web.history.speakerA' : 'web.history.speakerB')
+  );
 }
