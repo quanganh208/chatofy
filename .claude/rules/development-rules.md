@@ -26,9 +26,10 @@ Use this file when editing code, tests, scripts, or configuration.
 
 **One accent-filled control per app screen**, and **at most two elevated surfaces**.
 `bg-primary` fills at most one control on `/translate/one-way`, `/translate/two-way`, `/history`,
-`/history/[conversationId]`, `/preferences`, `/account`; everything else is ghost,
-outline, or a readout. A card is for a thing you act on as a unit — everything else is a
-list, a bar, or a region on the page ground.
+`/history/[conversationId]`, `/glossary`, `/conference` (lobby, room and end screen) and every
+`/settings/*` page; everything else is ghost, outline, or a readout. A card is for a thing you
+act on as a unit — everything else is a list, a bar, or a region on the page ground. App screens
+draw no card at rest; what they spend a surface on is an open dialog, menu, popover or toast.
 
 **Both have a gate.** `apps/web/src/design/accent-budget-app.spec.tsx` counts them per
 screen-state, sharing its accent counter with the marketing spec via
