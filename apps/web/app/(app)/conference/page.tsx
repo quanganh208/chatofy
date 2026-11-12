@@ -1,30 +1,39 @@
 'use client';
 
 /**
- * Conference landing — start a meeting or join one, the way Meet opens.
+ * Conference landing — start a meeting or join one.
  *
  * "New meeting" asks the API for a room (`POST /conference`) and goes to its
- * URL; "Join" takes a code or a pasted invite link. Neither asks for a name or a
- * language: those are chosen on the room's pre-join screen, prefilled from the
- * account, so the URL anyone shares is the room and nothing else. No room id is
- * ever minted here — the conference socket only admits ids the API created.
+ * URL; "Join with a code" opens a dialog that takes a code or a pasted invite
+ * link. Neither asks for a name or a language: those are chosen on the room's
+ * pre-join screen, prefilled from the account, so the URL anyone shares is the
+ * room and nothing else. No room id is ever minted here — the conference socket
+ * only admits ids the API created.
  *
- * Design budget: "New meeting" is the one accent-filled control; Join is
- * outline beside the code field. No cards; the dawn band is decoration.
+ * The actions stay in the content rather than the topbar: they are the whole
+ * page, and moving them up would leave a heading over empty ground.
+ *
+ * Design budget: "New meeting" is the one accent-filled control; "Join with a
+ * code" is outline. While the join dialog is open its Join is the accent, so New
+ * meeting steps down to outline behind the scrim. No cards: a heading, a line and
+ * two buttons on the page ground.
  */
 
-import { Suspense, useEffect, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Video } from 'lucide-react';
-import { Button, Input, Label } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
 import { createConference } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
+import { notify } from '@/lib/notify';
 import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
 import { parseRoomInput } from './utils/parse-room-input';
-import { DAWN_GRADIENT } from './components/dawn-glow';
-import { LotusIllustration } from '@/components/marketing/lotus-illustration';
+import { JoinByCodeDialog } from './components/join-by-code-dialog';
+
+/** One toast for a failed create, so pressing Retry repeatedly never stacks them. */
+const CREATE_FAILED_TOAST = 'conference-create-failed';
 
 function roomPath(roomId: string): Route {
   // `as Route`: typedRoutes cannot validate a path built at runtime (same
@@ -63,94 +72,56 @@ function ConferenceLanding() {
     }
   }, [router, sharedRoom]);
 
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
 
   async function create() {
-    setError(null);
+    notify.dismiss(CREATE_FAILED_TOAST);
     setCreating(true);
     try {
       const room = await createConference();
       router.push(roomPath(room.id));
     } catch {
-      setError(t('common.conference.createFailed'));
       setCreating(false);
+      notify.error(t('web.conference.createFailedToast'), {
+        id: CREATE_FAILED_TOAST,
+        retry: () => void create(),
+      });
     }
-  }
-
-  function join(event: FormEvent) {
-    event.preventDefault();
-    const roomId = parseRoomInput(code);
-    if (!roomId) {
-      setError(t('common.conference.roomNotFound'));
-      return;
-    }
-    setError(null);
-    router.push(roomPath(roomId));
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-center lg:py-16">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          {/* The brand cue the pre-join screen carries as a glow: here a band,
-            because every part of this column is text and dawn never sits behind it. */}
-          <div
-            aria-hidden
-            className="mb-2 h-1.5 w-24 rounded-full"
-            style={{ backgroundImage: DAWN_GRADIENT }}
-          />
-          <h2 className="text-title lg:text-display font-display font-light tracking-tight text-balance">
-            {t('common.conference.lobbyTitle')}
-          </h2>
-          <p className="text-body text-muted-foreground">{t('web.conference.landingLead')}</p>
-        </div>
+    <div className="flex w-full max-w-2xl flex-col gap-8 lg:pt-8">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-title font-semibold tracking-tight text-balance">
+          {t('web.conference.lobbyHeading')}
+        </h2>
+        <p className="text-body text-muted-foreground">{t('web.conference.landingLead')}</p>
+      </div>
 
-        <Button onClick={() => void create()} disabled={creating}>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={joinOpen ? 'outline' : 'default'}
+          onClick={() => void create()}
+          disabled={creating}
+          data-new-meeting
+        >
           <Video aria-hidden />
           {creating ? t('common.conference.creating') : t('web.conference.newMeeting')}
         </Button>
-
-        <form className="flex flex-col gap-2" onSubmit={join}>
-          <Label htmlFor="conf-room">{t('web.conference.codeOrLink')}</Label>
-          <div className="flex gap-2">
-            <Input
-              id="conf-room"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder={t('web.conference.codeOrLinkPlaceholder')}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Button type="submit" variant="outline" disabled={creating || !code.trim()}>
-              {t('web.conference.joinAction')}
-            </Button>
-          </div>
-        </form>
-
-        {error && (
-          <p role="alert" className="text-destructive text-hint">
-            {error}
-          </p>
-        )}
-
-        {accountName && (
-          <p className="text-hint text-muted-foreground">
-            {t('web.conference.joiningAs', { name: accountName })}
-          </p>
-        )}
-      </div>
-
-      {/* The brand beside the actions, never behind a sentence. Decorative, and only where
-          there is room for it. */}
-      <div aria-hidden className="relative hidden lg:block">
-        <div
-          className="absolute inset-0 -z-0 rounded-[2rem] opacity-60 blur-3xl dark:opacity-30"
-          style={{ backgroundImage: DAWN_GRADIENT }}
+        <JoinByCodeDialog
+          open={joinOpen}
+          onOpenChange={setJoinOpen}
+          disabled={creating}
+          onJoin={(roomId) => router.push(roomPath(roomId))}
         />
-        <LotusIllustration className="relative mx-auto w-full max-w-lg" />
       </div>
+
+      {accountName && (
+        <p className="text-hint text-muted-foreground border-hairline border-t pt-4">
+          {t('web.conference.joiningAs', { name: accountName })}
+        </p>
+      )}
     </div>
   );
 }

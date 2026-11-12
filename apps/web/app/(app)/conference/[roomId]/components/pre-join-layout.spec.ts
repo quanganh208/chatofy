@@ -18,4 +18,13 @@ describe('lobby layout on a phone', () => {
   it('tightens padding and gap below lg and keeps the desktop spacing from lg', () => {
     expect(source).toContain('gap-6 px-6 py-4 lg:gap-10 lg:py-10');
   });
+
+  it('keeps the settings on the page ground as hairline rows, with no card or glow', () => {
+    expect(source).toContain('border-hairline divide-hairline flex flex-col divide-y border-y');
+    expect(source).not.toMatch(/\bCard\b|DawnGlow|shadow-elev/);
+  });
+
+  it('titles the settings in the UI face, not the display serif', () => {
+    expect(source).not.toContain('font-display');
+  });
 });

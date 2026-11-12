@@ -1496,14 +1496,17 @@ const SCREENS: ScreenState[] = [
 
   // ---- /conference landing ----
   //
-  // "New meeting" is the one accent; Join is outline beside the code field.
+  // "New meeting" is the one accent; "Join with a code" is outline. Its dialog
+  // holds the code field, and while it is open the dialog's Join is the accent and
+  // New meeting steps down to outline behind the scrim; the dialog is the one
+  // elevated surface.
   {
     name: '/conference — lobby',
     filled: 1,
     surfaces: 0,
     setup() {},
     render: () => <ConferenceLobbyPage />,
-    shows: '#conf-room',
+    shows: '[data-join-by-code]',
   },
   {
     name: '/conference — lobby, opened from a shared room link',
@@ -1513,7 +1516,16 @@ const SCREENS: ScreenState[] = [
       url.query = 'room=cl9ebqhxk00003b600tymydho&lang=en';
     },
     render: () => <ConferenceLobbyPage />,
-    shows: '#conf-room',
+    shows: '[data-join-by-code]',
+  },
+  {
+    name: '/conference — join with a code dialog open',
+    filled: 1,
+    surfaces: 1,
+    setup() {},
+    render: () => <ConferenceLobbyPage />,
+    steps: ['[data-join-by-code]'],
+    shows: '[role="dialog"] #conf-room',
   },
 
   // ---- /conference/[roomId] pre-join screen ----
@@ -1683,10 +1695,9 @@ const SCREENS: ScreenState[] = [
   },
 
   // ---- /conference/[roomId]/ended end screen ----
-  // Back to lobby is the one accent in every state. Loaded, the screen spends
-  // one surface, the summary card; the minutes panel sits on the page ground,
-  // and its Generate is outline here because the screen's action is leaving,
-  // not summarizing.
+  // Back to lobby is the one accent in every state. No elevated surface: the
+  // summary is hairline rows and the minutes panel sits on the page ground, its
+  // Generate outline because the screen's action is leaving, not summarizing.
   {
     name: '/conference/[roomId]/ended — loading',
     filled: 1,
@@ -1704,7 +1715,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — no minutes yet',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup: ended(),
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel]',
@@ -1712,7 +1723,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     // Generate is disabled only while a pass runs, since this fixture can generate.
     shows: '[data-minutes-panel] button:disabled',
     setup: ended({ generating: true }),
@@ -1722,7 +1733,7 @@ const SCREENS: ScreenState[] = [
     // The body and its copy control appear; copy is ghost, Regenerate outline.
     name: '/conference/[roomId]/ended — minutes ready',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       // The same content as the history rows, under a room instead of a conversation.
       const { summary, keyPoints, decisions, actionItems, generatedAt, model } = READY_MINUTES;
@@ -1745,7 +1756,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — the last pass failed',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup: ended({ generateFailed: true }),
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel] .text-destructive',

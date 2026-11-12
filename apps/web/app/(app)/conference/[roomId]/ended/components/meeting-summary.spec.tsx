@@ -4,11 +4,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ConferenceDetailResponse } from '@chatofy/types';
 import { LocaleProvider } from '@/i18n/provider';
-import { MeetingSummaryCard } from './meeting-summary-card';
+import { MeetingSummary } from './meeting-summary';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-/** What the summary card reads out, in the reader's language (English by default). */
+/** What the summary reads out, in the reader's language (English by default). */
 
 function room(over: Partial<ConferenceDetailResponse> = {}): ConferenceDetailResponse {
   return {
@@ -60,16 +60,22 @@ function readouts(conference: ConferenceDetailResponse): string[] {
   act(() => {
     root.render(
       <LocaleProvider>
-        <MeetingSummaryCard conference={conference} />
+        <MeetingSummary conference={conference} />
       </LocaleProvider>,
     );
   });
   return Array.from(container.querySelectorAll('dd')).map((dd) => dd.textContent ?? '');
 }
 
-describe('MeetingSummaryCard', () => {
+describe('MeetingSummary', () => {
   it('reads out the duration, everyone in the room, and the languages by name', () => {
     expect(readouts(room())).toEqual(['42 min', 'Alice, Guest', 'Vietnamese ↔ English']);
+  });
+
+  it('lays the readouts on the page ground as rows, not in a card', () => {
+    readouts(room());
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(container.querySelector('dl')?.classList.contains('divide-y')).toBe(true);
   });
 
   it('shows hours past the hour', () => {
