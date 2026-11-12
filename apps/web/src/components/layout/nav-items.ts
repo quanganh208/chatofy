@@ -4,6 +4,7 @@ import {
   BookOpen,
   History,
   Mic,
+  Settings,
   SlidersHorizontal,
   User,
   Video,
@@ -12,97 +13,104 @@ import {
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
- * The product navigation, in one list, read by both the sidebar and the topbar.
+ * The product navigation, in one list, read by the sidebar, the topbar's breadcrumb
+ * and the mobile tab bar.
  *
- * The topbar title comes from here rather than from the page, and that is the whole
+ * The breadcrumb comes from here rather than from the page, and that is the whole
  * reason this file exists rather than an array inside the sidebar. A layout receives
  * nothing from the page below it, so the alternative was every page announcing its own
- * title into a slot â€” a second list of route names, kept in sync by nobody.
+ * place into a slot — a second list of route names, kept in sync by nobody. A page
+ * still appends what only it knows (a conversation's title) through `TopbarCrumb`.
  *
  * ## Items land with their routes
  *
  * `typedRoutes: true` rejects an `href` to a route this app does not have, **at build**.
  * That is deliberate and it is the schedule for this list: an item joins with its route
  * and leaves with it. A stub page would satisfy the compiler and ship a nav item that
- * leads nowhere, which is worse than a shorter list â€” and the same rule ran in reverse
- * when `/dashboard` was deleted and its entry went in the same commit, then again when
- * the two unlisted lab routes under `/translate` went.
+ * leads nowhere, which is worse than a shorter list.
  */
 export interface NavItem {
   /** `Route`, so an address this app does not have is a compile error, not a 404. */
   href: Route;
   labelKey: MessageKey;
   icon: LucideIcon;
-  /**
-   * Set on a page that opens with a `PageHeader`: the line under its title. Its presence is
-   * what makes the page "headed", so the topbar stops being the page's `<h1>` there.
-   */
-  descriptionKey?: MessageKey;
+}
+
+export interface NavGroup {
+  /** The caption over the group in the sidebar, and the first crumb in the topbar. */
+  labelKey: MessageKey;
+  items: readonly NavItem[];
 }
 
 /**
- * Two groups, drawn with a separator between them and no caption over either.
+ * Two captioned groups, split by what the item acts on: a conversation you are about
+ * to have, or the record of ones you had.
  *
- * The caption question was left open in Phase 5 precisely until there were two groups
- * to tell apart, and now that there are, the answer is still no. `SidebarGroupLabel`
- * would put two words the reader skips above four items whose icons and labels already
- * say what they are â€” and collapsed to the rail the captions vanish while the separator
- * survives, so the separator is the part actually carrying the grouping. The mockup
- * draws it the same way.
- *
- * The split is by what the item acts on: the first group is the product, the second is
- * your settings. History was the reserved fifth item, and it arrived the way this file
- * says items arrive: with its route, at PDR milestone 6.
+ * Captions arrived with the Linear-style frame. With seven items in two groups the
+ * separator was enough; with Settings moved to the footer the captions are what tell
+ * "Translate" from "Library" at a glance, and they double as the breadcrumb's first
+ * crumb, so the topbar and the sidebar say where you are in the same words.
  */
-const GROUPS: readonly (readonly NavItem[])[] = [
-  [
-    // One-way and two-way are separate pages, so separate items: which kind of
-    // conversation this is gets chosen before the screen opens, not inside it.
-    { href: '/translate/one-way', labelKey: 'web.chrome.navTranslate', icon: Mic },
-    { href: '/translate/two-way', labelKey: 'web.chrome.navTranslateTwoWay', icon: ArrowLeftRight },
-    { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
-    // Not headed: History is a full-height list beside a reading pane, and a page
-    // header above both would spend the height the two panes scroll in.
-    { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
-    {
-      href: '/glossary',
-      labelKey: 'web.chrome.navGlossary',
-      icon: BookOpen,
-      descriptionKey: 'web.chrome.descGlossary',
-    },
-  ],
-  [
-    {
-      href: '/preferences',
-      labelKey: 'web.chrome.navPreferences',
-      icon: SlidersHorizontal,
-      descriptionKey: 'web.chrome.descPreferences',
-    },
-    {
-      href: '/account',
-      labelKey: 'web.chrome.navAccount',
-      icon: User,
-      descriptionKey: 'web.chrome.descAccount',
-    },
-  ],
+const GROUPS: readonly NavGroup[] = [
+  {
+    labelKey: 'web.chrome.navGroupTranslate',
+    items: [
+      // One-way and two-way are separate pages, so separate items: which kind of
+      // conversation this is gets chosen before the screen opens, not inside it.
+      { href: '/translate/one-way', labelKey: 'web.chrome.navTranslate', icon: Mic },
+      {
+        href: '/translate/two-way',
+        labelKey: 'web.chrome.navTranslateTwoWay',
+        icon: ArrowLeftRight,
+      },
+      { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
+    ],
+  },
+  {
+    labelKey: 'web.chrome.navGroupLibrary',
+    items: [
+      { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
+      { href: '/glossary', labelKey: 'web.chrome.navGlossary', icon: BookOpen },
+    ],
+  },
 ];
 
 /**
- * Built once. The sidebar marks the active item by IDENTITY against what
- * `navItemFor` returns, so both must hand out the same objects.
+ * Where the footer's Settings entry leads, and the routes it stands for.
+ *
+ * Not a sidebar group: settings are reached from the footer beside who you are, the
+ * way Linear and Notion place them. The group still exists for the breadcrumb and for
+ * marking the footer entry active. `href` is `/preferences` until the settings routes
+ * exist — `typedRoutes` refuses a link to a route that is not there yet.
  */
-const ITEMS = GROUPS.flat();
+export const SETTINGS_ITEM: NavItem = {
+  href: '/preferences',
+  labelKey: 'web.chrome.navSettings',
+  icon: Settings,
+};
 
-export function navGroups(): readonly (readonly NavItem[])[] {
+const SETTINGS_GROUP: NavGroup = {
+  labelKey: 'web.chrome.navSettings',
+  items: [
+    { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },
+    { href: '/account', labelKey: 'web.chrome.navAccount', icon: User },
+  ],
+};
+
+const ALL_GROUPS: readonly NavGroup[] = [...GROUPS, SETTINGS_GROUP];
+
+/** The groups the sidebar draws. Settings is not among them; see `SETTINGS_ITEM`. */
+export function navGroups(): readonly NavGroup[] {
   return GROUPS;
 }
 
 /**
- * The same items, flat â€” what the topbar looks a route title up in.
- *
- * Derived rather than written twice: a second literal list is a second thing to keep
- * in sync, and the failure would be a route with no title rather than anything loud.
+ * Every item a route can belong to, flat. Built once: the sidebar marks the active
+ * item by IDENTITY against what `navItemFor` returns, so both must hand out the same
+ * objects.
  */
+const ITEMS = ALL_GROUPS.flatMap((group) => group.items);
+
 export function navItems(): readonly NavItem[] {
   return ITEMS;
 }
@@ -110,9 +118,9 @@ export function navItems(): readonly NavItem[] {
 /**
  * The nav item a path belongs to: its own `href`, or any route nested under it.
  *
- * Exact matching left `/history/<id>` with no topbar title â€” so no `<h1>` on the
- * page â€” and no active item in the sidebar, although the reader is plainly still in
- * History. The `/` boundary keeps a sibling such as `/historyx` from matching.
+ * Exact matching left `/history/<id>` with no breadcrumb — so no `<h1>` on the page —
+ * and no active item in the sidebar, although the reader is plainly still in History.
+ * The `/` boundary keeps a sibling such as `/historyx` from matching.
  */
 export function navItemFor(
   pathname: string,
@@ -121,11 +129,16 @@ export function navItemFor(
   return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 }
 
-/**
- * The item whose page opens with a `PageHeader`, for exactly this path. Exact, so a
- * nested route (a stored conversation under History) keeps its own heading and the
- * topbar's, rather than inheriting a header it was never designed with.
- */
-export function headedItemFor(pathname: string): NavItem | undefined {
-  return navItems().find((item) => item.descriptionKey !== undefined && item.href === pathname);
+/** Where a path sits: its group and its item, or nothing for a route under no item. */
+export function navPlaceFor(pathname: string): { group: NavGroup; item: NavItem } | undefined {
+  for (const group of ALL_GROUPS) {
+    const item = navItemFor(pathname, group.items);
+    if (item) return { group, item };
+  }
+  return undefined;
+}
+
+/** True on any route the footer's Settings entry stands for. */
+export function isSettingsPath(pathname: string): boolean {
+  return navItemFor(pathname, SETTINGS_GROUP.items) !== undefined;
 }

@@ -220,10 +220,31 @@ export const en = {
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.sidebarWidth': 'Sidebar width',
-  'web.chrome.descGlossary': 'Names and terms you want translated your way, kept in one place.',
-  'web.chrome.descPreferences':
-    'How the microphone, the translator and the screen behave the next time you start.',
-  'web.chrome.descAccount': 'Who you are signed in as, and the settings that keep it safe.',
+  // The sidebar's two captions. Settings is not a group: it sits in the footer.
+  'web.chrome.navGroupTranslate': 'Translate',
+  'web.chrome.navGroupLibrary': 'Library',
+  'web.chrome.navSettings': 'Settings',
+  'web.chrome.breadcrumb': 'Breadcrumb',
+  // The credit line under the name in the sidebar footer and the More sheet.
+  // `{amount}` is already a counted phrase ("74 credits").
+  'web.chrome.creditsLeft': '{amount} left',
+  // The bottom tab bar below 768px. Short on purpose: four fit across a phone.
+  'web.chrome.tabBar': 'Main',
+  'web.chrome.tabTranslate': 'Translate',
+  'web.chrome.tabMeetings': 'Meetings',
+  'web.chrome.tabHistory': 'History',
+  'web.chrome.tabMore': 'More',
+  'web.chrome.close': 'Close',
+  // Toasts: the region's name, its close control, and the two actions a toast offers.
+  'web.chrome.notifications': 'Notifications',
+  'web.chrome.dismiss': 'Dismiss',
+  'web.chrome.undo': 'Undo',
+  'web.chrome.retry': 'Retry',
+  // A destructive confirmation's title and its fallback line. `{action}` is the
+  // caller's verb ("Delete"), `{name}` the thing it acts on.
+  'web.chrome.confirmTitle': '{action}?',
+  'web.chrome.confirmTitleNamed': '{action} “{name}”?',
+  'web.chrome.confirmIrreversible': 'This cannot be undone.',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',

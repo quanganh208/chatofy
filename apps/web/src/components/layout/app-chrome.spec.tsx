@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,9 +22,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const pathname = vi.fn(() => '/translate/one-way');
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname(),
-  // The topbar's language switcher asks the server to render again rather than
-  // flipping a value in the provider — see `locale-switcher.tsx`.
   useRouter: () => ({ refresh: vi.fn() }),
+}));
+
+// The footer's credit line reads the balance; a fixed answer keeps the frame's tests
+// off the network.
+vi.mock('@/clients/api-client', () => ({
+  getCreditBalance: vi.fn(() => new Promise(() => {})),
+  getCheckoutOrder: vi.fn(),
+  listCreditUsage: vi.fn(),
 }));
 
 const session = vi.fn(() => ({ data: undefined, status: 'loading' }));
@@ -33,7 +40,10 @@ vi.mock('next-auth/react', () => ({
 }));
 
 const { AppChrome } = await import('./app-chrome');
+const { TopbarActions, TopbarCrumb, useImmersiveChrome } = await import('./chrome-slots');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { accentFilledControls } = await import('@/design/accent-count');
+const { elevatedSurfaces } = await import('@/design/surface-count');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -67,11 +77,9 @@ function render(page: React.ReactNode = <p>page</p>, defaultOpen?: boolean) {
 describe('the product sidebar', () => {
   it('lists exactly the routes that exist, and only those', () => {
     const links = [...render().querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
-    // The brand is a link too, so the nav items are what remains after it.
+    // The brand is a link too, so the nav items are what remains after it. The last
+    // is the footer's Settings entry; Account moved into the session menu.
     const navLinks = links.filter((href) => href !== '/');
-    // The full set, in order. It is complete now, so this asserts against additions
-    // as much as omissions. History arrived at PDR milestone 6, with its route —
-    // which is the rule this assertion exists to hold anything else to.
     expect(navLinks).toEqual([
       '/translate/one-way',
       '/translate/two-way',
@@ -79,24 +87,25 @@ describe('the product sidebar', () => {
       '/history',
       '/glossary',
       '/preferences',
-      '/account',
     ]);
   });
 
-  it('separates the two groups without captioning either', () => {
+  it('captions its two groups, Translate and Library', () => {
     const sidebar = render();
-    // One separator, between the groups — never above the first, which would read as
-    // a rule under the brand.
-    expect(sidebar.querySelectorAll('[data-sidebar="separator"]').length).toBe(1);
-    // No `SidebarGroupLabel`: the separator is what carries the grouping, and it is
-    // the half that survives the rail collapsing the labels away.
-    expect(sidebar.querySelector('[data-sidebar="group-label"]')).toBeNull();
-
-    const first = sidebar.querySelector('[data-sidebar="separator"]');
-    const preferences = sidebar.querySelector('a[href="/preferences"]');
-    expect(first && preferences && first.compareDocumentPosition(preferences)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    const captions = [...sidebar.querySelectorAll('[data-sidebar="group-label"]')].map(
+      (label) => label.textContent,
     );
+    expect(captions).toEqual(['Translate', 'Library']);
+    // The captions carry the grouping now; a separator as well would draw it twice.
+    expect(sidebar.querySelector('[data-sidebar="separator"]')).toBeNull();
+  });
+
+  it('puts Settings in the footer, active on the routes it stands for', () => {
+    pathname.mockReturnValue('/account');
+    const footer = render().querySelector('[data-sidebar="footer"]');
+    const settings = footer?.querySelector('a[href="/preferences"]');
+    expect(settings?.getAttribute('aria-label')).toBe('Settings');
+    expect(settings?.getAttribute('aria-current')).toBe('page');
   });
 
   it('names its icon-only items without relying on the tooltip', () => {
@@ -193,49 +202,31 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
-  it('holds only what is true on every route', () => {
-    // There used to be a portal target here, and `/translate` put its settings
-    // gear through it: a control belonging to one surface, in a bar belonging to
-    // every surface. Asserting that a page's own markup is not in the topbar
-    // would be true by construction — children render where children render — so
-    // what is held instead is the topbar's CONTENTS. A new control appearing here
-    // is the regression; there is no mechanism left to add one from a page.
+  it('holds the sidebar toggle and the breadcrumb, and nothing else of its own', () => {
+    // Language and theme left for Settings; a page's actions arrive through
+    // `TopbarActions`. A new control appearing here unasked is the regression.
     render();
-    const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
-    expect(bar, 'the topbar row is gone').not.toBeNull();
-
+    const bar = container.querySelector('[data-slot="app-topbar"]');
     const named = [...(bar?.querySelectorAll('[aria-label]') ?? [])].map((el) =>
       el.getAttribute('aria-label'),
     );
-    // The whole inventory, including the theme control's three options — a new
-    // entry anywhere in this list is the regression this replaced a tautology to
-    // catch.
-    expect(named).toEqual([
-      'Toggle the sidebar',
-      'Language',
-      'Colour theme',
-      'Light',
-      'Dark',
-      'Match system',
-    ]);
+    expect(named).toEqual(['Toggle the sidebar', 'Breadcrumb']);
+    expect(bar?.querySelector('[data-slot="topbar-actions"]')?.childElementCount).toBe(0);
   });
 
-  it('gives the topbar controls a 44px hit area on touch screens', () => {
-    // Pointer-coarse only: on a desktop the compact header stays as designed. The
-    // controls measured 26px (theme), 28px (sidebar) and 32px (language) at 375px.
+  it('hides the sidebar toggle below md, where the tab bar navigates', () => {
     render();
-    const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
-    const controls = [
-      bar?.querySelector('[data-sidebar="trigger"]'),
-      bar?.querySelector('[aria-label="Language"]'),
-      ...(bar?.querySelectorAll('[data-slot="theme-toggle"] button') ?? []),
-    ];
-    expect(controls.length).toBe(5);
-    for (const control of controls) {
-      expect(control?.className, control?.getAttribute('aria-label') ?? 'sidebar').toContain(
-        'pointer-coarse:size-11',
-      );
-    }
+    const trigger = container.querySelector('[data-slot="app-topbar"] [data-sidebar="trigger"]');
+    expect(trigger?.className).toContain('max-md:hidden');
+    expect(trigger?.className).toContain('pointer-coarse:size-11');
+  });
+
+  it('spends no accent and draws no elevated surface of its own', () => {
+    // The frame is on every screen, so anything it spent would come out of every
+    // screen's one-accent, two-surface budget.
+    render();
+    expect(accentFilledControls(container)).toEqual([]);
+    expect(elevatedSurfaces(container)).toEqual([]);
   });
 
   it('holds the footer shape while the session resolves', () => {
@@ -285,50 +276,168 @@ describe('the resizable sidebar', () => {
   });
 });
 
-describe('the page header', () => {
+describe('the breadcrumb', () => {
   const h1s = () => [...container.querySelectorAll('h1')];
+  const crumbs = () =>
+    [
+      ...container.querySelectorAll('nav[aria-label="Breadcrumb"] li[data-slot="breadcrumb-item"]'),
+    ].map((li) => li.textContent);
 
   beforeEach(() => localStorage.clear());
 
   it.each([
-    ['/glossary', 'Glossary'],
-    ['/preferences', 'Preferences'],
-    ['/account', 'Account'],
-  ])('puts the one h1 for %s in the page, with a line saying what it is for', (route, title) => {
+    ['/translate/one-way', ['Translate', 'One-way translation']],
+    ['/history', ['Library', 'History']],
+    ['/history/abc', ['Library', 'History']],
+    ['/glossary', ['Library', 'Glossary']],
+    ['/preferences', ['Settings', 'Preferences']],
+    ['/account', ['Settings', 'Account']],
+  ])('reads %s as group › item, ending on the one h1', (route, trail) => {
     pathname.mockReturnValue(route);
     render();
-    const headings = h1s();
-    expect(headings.length).toBe(1);
-    expect(headings[0]?.textContent).toBe(title);
-    // In the page's own column, not in the topbar.
-    expect(headings[0]?.closest('main')).not.toBeNull();
-    const header = headings[0]?.closest('header');
-    expect(header?.querySelector('p')?.textContent?.length).toBeGreaterThan(20);
+    expect(crumbs()).toEqual(trail);
+    expect(h1s().map((h) => h.textContent)).toEqual([trail.at(-1)]);
+    expect(h1s()[0]?.closest('nav')?.getAttribute('aria-label')).toBe('Breadcrumb');
+    expect(h1s()[0]?.getAttribute('aria-current')).toBe('page');
   });
 
-  it('leaves the topbar title as plain text there, so the page has no second heading', () => {
+  it('draws no page header in the content column any more', () => {
     pathname.mockReturnValue('/glossary');
     render();
-    const topbar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
-    expect(topbar?.querySelector('h1')).toBeNull();
-    expect(topbar?.textContent).toContain('Glossary');
+    expect(container.querySelector('main header')).toBeNull();
   });
 
-  it.each(['/translate/one-way', '/history'])(
-    'keeps the topbar h1 on %s, which owns its layout',
-    (route) => {
-      pathname.mockReturnValue(route);
-      render();
-      expect(h1s().length).toBe(1);
-      expect(h1s()[0]?.closest('header')).toBeNull();
-    },
-  );
+  it('renders no trail on a route under no item, rather than a guess', () => {
+    pathname.mockReturnValue('/somewhere');
+    render();
+    expect(container.querySelector('nav[aria-label="Breadcrumb"]')).toBeNull();
+  });
+});
 
-  it('opens a nested route (a stored conversation) without a second header', () => {
+describe('the topbar slots', () => {
+  it('lets a page append its own crumb, which becomes the h1', () => {
+    pathname.mockReturnValue('/history/abc');
+    render(<TopbarCrumb>Client call</TopbarCrumb>);
+
+    const headings = [...container.querySelectorAll('h1')];
+    expect(headings.map((h) => h.textContent)).toEqual(['Client call']);
+    // The item before it turns into the way back.
+    const back = container.querySelector('nav[aria-label="Breadcrumb"] a[href="/history"]');
+    expect(back?.textContent).toBe('History');
+  });
+
+  it('drops the crumb with the page that set it', () => {
+    pathname.mockReturnValue('/history/abc');
+    render(<TopbarCrumb>Client call</TopbarCrumb>);
+    act(() =>
+      root?.render(
+        <LocaleProvider>
+          <AppChrome>
+            <p>page</p>
+          </AppChrome>
+        </LocaleProvider>,
+      ),
+    );
+    expect([...container.querySelectorAll('h1')].map((h) => h.textContent)).toEqual(['History']);
+  });
+
+  it("renders a page's actions in the topbar, keeping the page's state", () => {
+    function Page() {
+      const [count, setCount] = React.useState(0);
+      return (
+        <TopbarActions>
+          <button type="button" onClick={() => setCount((n) => n + 1)}>
+            Pressed {count}
+          </button>
+        </TopbarActions>
+      );
+    }
+    pathname.mockReturnValue('/glossary');
+    render(<Page />);
+
+    const slot = container.querySelector('[data-slot="topbar-actions"]');
+    const button = slot?.querySelector('button');
+    expect(button?.textContent).toBe('Pressed 0');
+    act(() => button?.click());
+    expect(slot?.querySelector('button')?.textContent).toBe('Pressed 1');
+  });
+});
+
+describe('the mobile tab bar', () => {
+  const bar = () => container.querySelector('[data-slot="mobile-tab-bar"]');
+  const tab = (label: string) =>
+    [...(bar()?.querySelectorAll('a, button') ?? [])].find((el) => el.textContent === label);
+
+  beforeEach(() => localStorage.clear());
+
+  it('offers four tabs and marks the current one', () => {
     pathname.mockReturnValue('/history/abc');
     render();
-    expect(h1s().length).toBe(1);
-    expect(container.querySelector('main header')).toBeNull();
+    expect(bar()?.getAttribute('aria-label')).toBe('Main');
+    expect([...(bar()?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual([
+      'Translate',
+      'Meetings',
+      'History',
+      'More',
+    ]);
+    const current = [...(bar()?.querySelectorAll('[aria-current="page"]') ?? [])];
+    expect(current.map((el) => el.textContent)).toEqual(['History']);
+    // Hidden from md, and the content is padded by its height below it.
+    expect(bar()?.className).toContain('md:hidden');
+    expect(container.querySelector('#main')?.className).toContain('max-md:pb-');
+  });
+
+  it('opens one-way from Translate until the reader has used two-way', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    expect(tab('Translate')?.getAttribute('href')).toBe('/translate/one-way');
+    act(() => root?.unmount());
+
+    pathname.mockReturnValue('/translate/two-way');
+    render();
+    expect(localStorage.getItem('chatofy.translate-mode')).toBe('/translate/two-way');
+    expect(tab('Translate')?.getAttribute('href')).toBe('/translate/two-way');
+    expect(tab('Translate')?.getAttribute('aria-current')).toBe('page');
+  });
+
+  it('falls back to one-way when storage refuses to be read', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    pathname.mockReturnValue('/history');
+    render();
+    expect(tab('Translate')?.getAttribute('href')).toBe('/translate/one-way');
+    vi.restoreAllMocks();
+  });
+
+  it('steps aside in the conference room, which owns the screen', () => {
+    pathname.mockReturnValue('/conference/room-1');
+    render();
+    expect(bar()).toBeNull();
+    expect(container.querySelector('#main')?.className).not.toContain('max-md:pb-');
+  });
+
+  it('steps aside while a screen asks for immersion, and comes back after', () => {
+    function Screen({ listening }: { listening: boolean }) {
+      useImmersiveChrome(listening);
+      return <p>translator</p>;
+    }
+    const draw = (listening: boolean) =>
+      act(() =>
+        root?.render(
+          <LocaleProvider>
+            <AppChrome>
+              <Screen listening={listening} />
+            </AppChrome>
+          </LocaleProvider>,
+        ),
+      );
+    render(<Screen listening />);
+    expect(bar()).toBeNull();
+    draw(false);
+    expect(bar()).not.toBeNull();
+    draw(true);
+    expect(bar()).toBeNull();
   });
 });
 

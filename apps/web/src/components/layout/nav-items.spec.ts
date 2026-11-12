@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { navItemFor, navItems } from './nav-items';
+import { isSettingsPath, navGroups, navItemFor, navItems, navPlaceFor } from './nav-items';
 
 describe('navItemFor', () => {
   it('finds the item for its own route', () => {
@@ -36,5 +36,24 @@ describe('the conference entry', () => {
       '/preferences',
       '/account',
     ]);
+  });
+});
+
+describe('navPlaceFor', () => {
+  it('pairs a route with its group, for the breadcrumb', () => {
+    const place = navPlaceFor('/history/abc');
+    expect(place?.group.labelKey).toBe('web.chrome.navGroupLibrary');
+    expect(place?.item.href).toBe('/history');
+  });
+
+  it('files preferences and account under Settings, which the sidebar does not draw', () => {
+    expect(navPlaceFor('/account')?.group.labelKey).toBe('web.chrome.navSettings');
+    expect(navGroups().map((group) => group.labelKey)).not.toContain('web.chrome.navSettings');
+    expect(isSettingsPath('/preferences')).toBe(true);
+    expect(isSettingsPath('/glossary')).toBe(false);
+  });
+
+  it('places nothing outside the product', () => {
+    expect(navPlaceFor('/')).toBeUndefined();
   });
 });

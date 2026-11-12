@@ -8,9 +8,8 @@ import { cn } from '@/lib/utils';
 import { useStoredWidth } from '@/hooks/use-stored-width';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
-import { PageHeader } from './page-header';
-import { headedItemFor } from './nav-items';
-import { useTranslate } from '@/i18n/provider';
+import { ChromeSlotsProvider, useChromeSlots } from './chrome-slots';
+import { MobileTabBar } from './mobile-tab-bar';
 import { MEASURE } from './measures';
 
 /**
@@ -59,15 +58,16 @@ const asksForRail = (pathname: string) =>
 const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
 
 /**
- * Routes that are not headed but are laid out for the full page measure: the conference
- * landing is a two-column hero, and a 672px column would squeeze it back to a form.
+ * Routes laid out for the full page measure: the conference landing is a two-column
+ * hero, and the content pages lay their sections out in columns from `lg` — a 672px
+ * column would squeeze either back to a form.
  */
-const FULL_PAGE_ROUTES: readonly Route[] = ['/conference'];
+const FULL_PAGE_ROUTES: readonly Route[] = ['/conference', '/glossary', '/preferences', '/account'];
 
 const measureFor = (pathname: string) =>
   WORKSPACE_ROUTES.some((route) => route === pathname)
     ? MEASURE.workspace
-    : headedItemFor(pathname) || FULL_PAGE_ROUTES.some((route) => route === pathname)
+    : FULL_PAGE_ROUTES.some((route) => route === pathname)
       ? MEASURE.page
       : MEASURE.wide;
 
@@ -109,8 +109,6 @@ export function AppChrome({
   defaultOpen?: boolean;
 }) {
   const pathname = usePathname();
-  const t = useTranslate();
-  const headed = headedItemFor(pathname);
 
   /*
     The reader's choice, seeded from the cookie and changed by every toggle — the
@@ -136,39 +134,61 @@ export function AppChrome({
   const sidebarWidth = useStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT, 200, 360);
 
   return (
-    <SidebarProvider
-      open={open}
-      onOpenChange={setOpen}
-      style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
-    >
-      <AppSidebar resize={sidebarWidth} />
+    <ChromeSlotsProvider>
+      <SidebarProvider
+        open={open}
+        onOpenChange={setOpen}
+        style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
+      >
+        <AppSidebar resize={sidebarWidth} />
+        <ChromeContent pathname={pathname}>{children}</ChromeContent>
+      </SidebarProvider>
+    </ChromeSlotsProvider>
+  );
+}
+
+/**
+ * Everything right of the sidebar, plus the mobile tab bar — split out because it
+ * reads the slots context the frame provides.
+ *
+ * The tab bar is not drawn in the conference room, which owns the whole screen, nor
+ * while a screen holds `useImmersiveChrome(true)`. Where it is drawn, the content is
+ * padded by its height plus the safe-area inset below `md`, so the last row of a page
+ * is never under it.
+ */
+function ChromeContent({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const immersive = useChromeSlots()?.immersive ?? false;
+  const tabBar = !isFlush(pathname) && !immersive;
+
+  return (
+    <>
       {/*
         `SidebarInset` renders the `<main>`, so this is the skip link's target.
         `tabIndex={-1}` is what lets focus actually land here — without it the fragment
         changes, focus stays in the nav, and the skip link looks implemented while doing
         nothing.
-      */}
-      {/*
-        Flush routes (conference room) cap SidebarInset at exactly h-svh so the
-        chain of flex-1/h-full inside resolves against a fixed height instead of
-        the SidebarProvider's min-h-svh which can grow with content.
-        overflow-hidden on SidebarInset prevents the body from ever scrolling.
+
+        Flush routes (conference room) cap SidebarInset at exactly h-svh so the chain of
+        flex-1/h-full inside resolves against a fixed height instead of the
+        SidebarProvider's min-h-svh which can grow with content. overflow-hidden on
+        SidebarInset prevents the body from ever scrolling.
       */}
       <SidebarInset
         id="main"
         tabIndex={-1}
-        className={
+        className={cn(
           isFlush(pathname)
             ? 'h-svh overflow-hidden'
             : isPaned(pathname)
               ? 'lg:h-svh lg:overflow-hidden'
-              : undefined
-        }
+              : undefined,
+          tabBar && 'max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]',
+        )}
       >
         <AppTopbar />
-        {/* `min-h-0` so a screen that wants to fill the viewport can: without it
-            a flex child's implicit min-height is its content, and a transcript
-            asking for the leftover space gets its own height back instead. */}
+        {/* `min-h-0` so a screen that wants to fill the viewport can: without it a flex
+            child's implicit min-height is its content, and a transcript asking for the
+            leftover space gets its own height back instead. */}
         {isFlush(pathname) ? (
           <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         ) : isPaned(pathname) ? (
@@ -180,13 +200,11 @@ export function AppChrome({
               measureFor(pathname),
             )}
           >
-            {headed?.descriptionKey ? (
-              <PageHeader title={t(headed.labelKey)} description={t(headed.descriptionKey)} />
-            ) : null}
             {children}
           </div>
         )}
       </SidebarInset>
-    </SidebarProvider>
+      {tabBar ? <MobileTabBar /> : null}
+    </>
   );
 }

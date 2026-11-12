@@ -1,53 +1,109 @@
 'use client';
 
+import { Fragment } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SidebarTrigger } from '@chatofy/ui/react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+  SidebarTrigger,
+} from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
-import { headedItemFor, navItemFor } from './nav-items';
-import { ConnectedThemeToggle } from './theme-toggle-connected';
-import { LocaleSwitcher } from './locale-switcher';
+import { useChromeSlots } from './chrome-slots';
+import { navPlaceFor } from './nav-items';
 
 /**
- * Where you are, and the two controls that belong to every product route.
+ * Where you are, and what this screen lets you do: a breadcrumb on the left, the
+ * page's own actions on the right.
  *
- * The title is read from `navItems()`, not passed down from the page — a layout
- * receives nothing from the page below it, and the alternative was a second list of
- * route names maintained by hand. A nested route takes its parent item's title
- * (`/history/<id>` is History); a route under no item renders no title rather than a
- * guess made from the URL.
+ * **The last crumb is the page's `<h1>`.** App screens no longer open with a display
+ * title of their own, so the one heading a screen reader jumps to is here, and it is
+ * the same words the sidebar highlights. The trail is read from `nav-items.ts` — group
+ * caption, then item — and a page about one thing appends that thing's name with
+ * `TopbarCrumb`; the item before it then becomes a link back.
  *
- * **Surface state does not live here, and there is no longer a hatch for it.** A portal
- * used to let one page put a control of its own beside these, and `/translate` used it
- * for its settings gear — a control belonging to one surface, in a bar that belongs to
- * every surface. The gear now sits in that screen's own dock, so the mechanism had no
- * producer left and is gone rather than waiting to be rediscovered. What is here is what
- * is true on every route: where you are, what language, what theme.
+ * **Page actions arrive through `TopbarActions`**, portalled into the box on the right
+ * so they keep the page's state. That reverses an earlier rule that this bar held only
+ * what is true on every route: the frame now follows the Linear pattern, where the
+ * topbar is the screen's toolbar, and language and theme moved to Settings ›
+ * Appearance (until then they are on `/preferences`).
+ *
+ * The sidebar trigger is gone below `md`: the bottom tab bar is the navigation there.
  */
 export function AppTopbar() {
   const t = useTranslate();
-  const pathname = usePathname();
-  const current = navItemFor(pathname);
-  // A page that opens with its own header owns the `<h1>`; the topbar keeps the name as
-  // plain text for orientation so the page never has two headings saying the same thing.
-  const headed = headedItemFor(pathname) !== undefined;
+  const place = navPlaceFor(usePathname());
+  const slots = useChromeSlots();
+  const trailing = slots?.trailingCrumb ?? null;
+
+  const crumbs: { key: string; label: string; href?: React.ComponentProps<typeof Link>['href'] }[] =
+    [];
+  if (place) {
+    crumbs.push({ key: 'group', label: t(place.group.labelKey) });
+    crumbs.push({
+      key: 'item',
+      label: t(place.item.labelKey),
+      href: trailing ? place.item.href : undefined,
+    });
+  }
+  if (trailing) crumbs.push({ key: 'trailing', label: trailing });
 
   return (
-    <div className="border-hairline bg-background flex h-14 items-center gap-3 border-b px-4">
+    <div
+      data-slot="app-topbar"
+      className="border-hairline bg-background flex h-12 shrink-0 items-center gap-3 border-b px-4"
+    >
       {/* `aria-label` rather than the primitive's own `sr-only` span, which is the one
-          string in this chrome the CLI hard-codes in English. Overriding the name here
-          keeps the generated component unforked and still leaves nothing untranslated. */}
-      <SidebarTrigger aria-label={t('web.chrome.toggleSidebar')} />
-      {current ? (
-        headed ? (
-          <p className="text-body font-semibold tracking-tight">{t(current.labelKey)}</p>
-        ) : (
-          <h1 className="text-body font-semibold tracking-tight">{t(current.labelKey)}</h1>
-        )
-      ) : null}
-      <div className="ml-auto flex items-center gap-2">
-        <LocaleSwitcher />
-        <ConnectedThemeToggle />
-      </div>
+          string in this chrome the CLI hard-codes in English. */}
+      <SidebarTrigger aria-label={t('web.chrome.toggleSidebar')} className="max-md:hidden" />
+      {crumbs.length > 0 ? (
+        <Breadcrumb aria-label={t('web.chrome.breadcrumb')} className="min-w-0 flex-1">
+          <BreadcrumbList className="flex-nowrap">
+            {crumbs.map((crumb, index) => {
+              const last = index === crumbs.length - 1;
+              // On a phone the group caption and the separator after it go first.
+              const phoneHidden = crumbs.length > 1 && index <= 1 ? 'max-sm:hidden' : undefined;
+              return (
+                <Fragment key={crumb.key}>
+                  {index > 0 ? (
+                    <BreadcrumbSeparator className={index === 1 ? phoneHidden : undefined} />
+                  ) : null}
+                  <BreadcrumbItem className={index === 0 ? phoneHidden : undefined}>
+                    {last ? (
+                      <h1
+                        aria-current="page"
+                        className="text-foreground truncate text-body font-semibold tracking-tight"
+                      >
+                        {crumb.label}
+                      </h1>
+                    ) : crumb.href ? (
+                      <BreadcrumbLink asChild>
+                        <Link href={crumb.href} className="truncate">
+                          {crumb.label}
+                        </Link>
+                      </BreadcrumbLink>
+                    ) : (
+                      <span className="truncate">{crumb.label}</span>
+                    )}
+                  </BreadcrumbItem>
+                </Fragment>
+              );
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
+      ) : (
+        <div className="flex-1" />
+      )}
+      {/* The landing box for `TopbarActions`. Always rendered, so a page's portal has
+          somewhere to go on its first render after this one. */}
+      <div
+        ref={slots?.setActionsTarget}
+        data-slot="topbar-actions"
+        className="flex shrink-0 items-center gap-2"
+      />
     </div>
   );
 }
