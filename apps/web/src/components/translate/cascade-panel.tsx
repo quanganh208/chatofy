@@ -11,7 +11,6 @@ import { DisplaySettingsPopover } from '@/components/translate/display-settings-
 import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { SessionActions, SessionReadouts } from '@/components/translate/session-controls';
-import { Alert, AlertDescription, Button } from '@chatofy/ui/react';
 import { AUTO_DETECT, languagePairOf, reversePair, type LanguageCode } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import {
@@ -32,6 +31,8 @@ import { StageControls } from '@/components/translate/stage-controls';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useCaptionWindow } from '@/hooks/use-caption-window';
 import { cn } from '@/lib/utils';
+import { useImmersiveChrome } from '@/components/layout/chrome-slots';
+import { useErrorToast } from '@/components/translate/use-error-toast';
 import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-translation-contexts';
 
 /**
@@ -57,15 +58,16 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  *
  * ## The shape of the screen
  *
- * Two panels with two headers naming the two languages, one scrolling body under
- * both, and a dock along the bottom: status and level at one end, the single
+ * Two flat regions split by a hairline, each naming its language, and a dock along
+ * the bottom under one more hairline: status and level at one end, the single
  * action in the middle, the display gear at the other.
  *
  * **Settings are split by what they are about, not by what they cost.** The voice
- * opens from the target panel's own header, because that corner is where a reader
- * asks why they are or are not hearing anything; the gear keeps the page. They
- * were one popover, which meant the speaker mark in the header configured nothing
- * and the gear configured sound — see `voice-settings-popover.tsx`.
+ * opens beside the language it speaks — in the topbar from `md`, in that pane's
+ * header below it — because that is where a reader asks why they are or are not
+ * hearing anything; the gear keeps the page. They were one popover, which meant the
+ * speaker mark configured nothing and the gear configured sound — see
+ * `voice-settings-popover.tsx`.
  *
  * **Two headers, one scroll region.** The obvious version of a two-panel
  * translator gives each panel its own scroller, which is what the product the
@@ -88,11 +90,11 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  * bound is what stops it growing the column), and anything new added under the
  * dock has to be gated the same way.
  *
- * **The gear left the topbar.** It used to portal into the chrome through a slot
- * the topbar rendered for it, which put a control for this surface in a bar that
- * belongs to every surface; now it sits at the end of this screen's own dock.
- * The portal went with it rather than staying behind with no producer, so there
- * is no hatch left for a page to reach into — see `app-topbar.tsx`.
+ * **The pair is a page action; the gear is the dock's.** From `md` the language
+ * pickers, the swap and the voices sit in the topbar through `TopbarActions`
+ * (`transcript-panes.tsx` renders them, because it owns the swap animation), the way
+ * a workspace's toolbar holds what the whole screen is about. The gear, fullscreen
+ * and the caption window stay at the end of this screen's own dock, beside Start.
  *
  * It still decides where both popovers go, because `running` and the live volume
  * write originate here; the settings VALUES belong to the page, which is the only
@@ -324,6 +326,39 @@ export function CascadePanel({
   // it is still there to work from.
   const unstored = save.failure === 'terminal' && !save.saved;
 
+  // The phone's tab bar steps aside while a conversation is open, so the panes and
+  // the dock have the whole screen; it comes back when the conversation ends.
+  useImmersiveChrome(running);
+
+  // Outcomes, said once as toasts rather than as alerts stacked over the dock —
+  // see `use-error-toast.ts`. A failed save offers its retry only when resending
+  // the same body could succeed; `saved` picks the sentence, because with the
+  // conversation already stored only the edits after it are missing, and "has not
+  // been saved" would be false about a row sitting in History. The recording is
+  // reported separately and phrased so the difference is clear: the words are
+  // safe, the audio is not.
+  useErrorToast('translate-conversation', conversation.error);
+  useErrorToast(
+    'translate-save',
+    save.failure
+      ? save.saved
+        ? t('web.translate.saveEditsFailed')
+        : save.failure === 'retryable'
+          ? t('web.translate.saveFailedRetryable')
+          : t('web.translate.saveFailedTerminal')
+      : null,
+    save.failure === 'retryable' ? save.retry : undefined,
+  );
+  useErrorToast(
+    'translate-recording',
+    audioUpload.failure
+      ? audioUpload.failure === 'retryable'
+        ? t('web.translate.recordingFailedRetryable')
+        : t('web.translate.recordingFailedTerminal')
+      : null,
+    audioUpload.failure === 'retryable' ? audioUpload.retry : undefined,
+  );
+
   // What Start sends, for both of the places Start can be pressed — the dock and
   // the fullscreen bar.
   const startConversation = () =>
@@ -396,65 +431,78 @@ export function CascadePanel({
     languageModes: conversation.languageModes,
   };
 
+  // Why no caption window appeared. The blocker is the one refusal the reader can
+  // act on, so it says what to do; a failed Picture-in-Picture request says only
+  // that it failed.
+  useErrorToast(
+    'translate-caption-window',
+    captionWindow.failure
+      ? t(
+          captionWindow.failure === 'blocked'
+            ? 'web.translate.captionWindowBlocked'
+            : 'web.translate.captionWindowFailed',
+        )
+      : null,
+  );
+
   return (
+    // Edge to edge: the column's padding is taken back (`-mx-6 -my-8`, the chrome's
+    // `px-6 py-8`), so the panes meet the topbar's hairline and the dock's hairline
+    // runs the full width, the way a workspace reads — not a box inset on the page.
+    // Everything that is text rather than a region puts the padding back itself.
+    //
     // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
     // leaves. This chain is what makes the transcript FILL; it is not what bounds
     // it — `min-h-svh` upstream is indefinite, so no `flex-1` descendant is ever
-    // constrained by it, and the scroll region carries its own viewport-relative
-    // maximum for that.
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    // constrained by it, and the section carries its own viewport-relative maximum.
+    <div className="-mx-6 -my-8 flex min-h-0 flex-1 flex-col">
       {/* Before you press anything: a conversation in progress is its own proof
-          that the microphone and the service are fine. This is the part of the
-          deleted hub that the reactive path does not cover.
+          that the microphone and the service are fine.
 
           Gated on `conversation.error` as well as on `running`, and that second
           condition is not redundant. A refused microphone calls `stop()` — which
           emits `onStatus('idle')` — and only THEN `onError`, so by the time the
-          error appears `running` is already false. Both would render, and both
-          would say the same sentence: `open-microphone.ts` maps the fault to
-          `web.translate.micDenied` and so does this banner. Two identical
-          `role="alert"` regions, announced twice. The reactive one wins because
-          it is about the attempt just made. */}
-      {running || conversation.error ? null : <ReadinessBanner />}
+          error appears `running` is already false. Both would say the same
+          sentence: `open-microphone.ts` maps the fault to
+          `web.translate.micDenied` and so does this banner. The reactive one — the
+          toast — wins because it is about the attempt just made. */}
+      {running || conversation.error ? null : (
+        <div className="px-6 pt-4 empty:hidden">
+          <ReadinessBanner />
+        </div>
+      )}
 
-      {/* No elevation. Each side is its own sheet with a hairline and its own
-          ground (`transcript-panes.tsx`); a shadow here would make the conversation
-          an object sitting on the screen rather than the screen itself.
-
-          **This is where the transcript stops growing the page.** The maximum is
+      {/* **This is where the transcript stops growing the page.** The maximum is
           viewport-relative and it is on the SECTION rather than on a scroll
-          region, because how many scroll regions there are is now a setting:
-          `split` draws one per pane, and two regions each capped at the viewport
-          are two viewports of page. Capping the box that holds all of them —
-          headers included — makes the bound the same in every arrangement.
+          region, because how many scroll regions there are is a setting: `split`
+          draws one per pane, and two regions each capped at the viewport are two
+          viewports of page. Capping the box that holds all of them — headers
+          included — makes the bound the same in every arrangement.
 
           `flex-1` alone cannot do this and fails silently. `SidebarProvider` is
-          `min-h-svh`, an INDEFINITE height, so nothing below it is ever
-          constrained by it: measured at 60 turns with no maximum anywhere, the
-          region's `clientHeight` and `scrollHeight` were both 4500, it did not
-          scroll, and the dock sat at y=4664 — with auto-follow inert, because
-          `scrollTop = scrollHeight` on an unscrollable element is a no-op. A
-          `min-height` is not a fix: a floor is not a bound, and only a resolved
-          maximum makes a box overflow.
+          `min-h-svh`, an INDEFINITE height: measured at 60 turns with no maximum
+          anywhere, the region did not scroll, and the dock sat at y=4664 with
+          auto-follow inert. A `min-height` is not a fix: only a resolved maximum
+          makes a box overflow.
 
-          The 12.5rem subtracted is everything stacked around this section: the
-          topbar, the column's padding, the gap below, and the dock. The panel
-          headers are NOT in that number any more — they are inside the box being
-          capped. */}
-      {/* Fullscreen is THIS element, so the stage replaces the panes in place and
-          leaving it returns them where they were. The stage draws the same panes
-          in the stage's look, above a bar that carries the dock's controls. Native
-          fullscreen lifts the height cap itself (`:fullscreen` is sized by the
-          browser); the emulated
-          layer — iPhone Safari, a frame without `allowfullscreen` — draws the same
-          state with a fixed cover. */}
+          What is subtracted is everything stacked around this section: the
+          topbar (3rem) and the dock (4.25rem from `sm`; two rows, 7.5rem, below
+          it) — plus, on a phone, the tab bar (3.5rem and the safe area) whenever
+          it is showing, which is whenever no conversation is open.
+
+          Fullscreen is THIS element, so the stage replaces the panes in place and
+          leaving it returns them where they were. Native fullscreen sizes the
+          element itself; the emulated layer — iPhone Safari, a frame without
+          `allowfullscreen` — draws the same state with a fixed cover. */}
       <section
         ref={attachFullscreen}
         className={cn(
-          // No frame of its own: the panes draw their own sheets (`transcript-panes.tsx`).
-          'relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col',
+          'relative flex min-h-64 flex-1 flex-col sm:max-h-[calc(100svh-7.25rem)]',
+          running
+            ? 'max-sm:max-h-[calc(100svh-10.5rem)]'
+            : 'max-sm:max-h-[calc(100svh-14rem-env(safe-area-inset-bottom))]',
           fullscreenActive && 'bg-background',
-          fullscreenEmulated && 'fixed inset-0 z-50 max-h-none',
+          fullscreenEmulated && 'fixed inset-0 z-50 max-h-none max-sm:max-h-none sm:max-h-none',
         )}
       >
         {fullscreenActive ? (
@@ -490,8 +538,8 @@ export function CascadePanel({
             languageMode={conversation.languageMode?.mode ?? null}
             conversationMode={conversationMode}
             onLanguagePair={setLanguagePair}
-            // The voice belongs beside the panel it speaks for, not behind the gear
-            // at the far end of the dock beside the page settings.
+            // The voice belongs beside the language it speaks for — in the topbar
+            // from `md`, in that pane's header below it — not behind the gear.
             voiceControlFor={(language) => (
               <VoiceSettingsPopover
                 settings={settings}
@@ -516,119 +564,59 @@ export function CascadePanel({
         />
       ) : null}
 
-      {/* A two-way start the server is running one way — it could not tell the
-          two languages apart right now. Said as what the reader gets instead,
-          and as a readout: no fill, no surface, nothing to press, because there
-          is nothing on this screen that would change the answer. */}
-      {declinedPair ? (
-        <p role="status" className="text-muted-foreground text-hint" data-two-way-unavailable>
-          {t('web.translate.twoWayUnavailable', {
-            from: nameLanguage(declinedPair.source),
-            to: nameLanguage(declinedPair.target),
-          })}
-        </p>
-      ) : null}
+      {/* Readouts about the conversation in progress: no fill, no surface, nothing
+          to press, because nothing on this screen would change them mid-run. */}
+      <div className="flex flex-col gap-1 px-6 pb-2 empty:hidden">
+        {/* A two-way start the server is running one way — it could not tell the
+            two languages apart right now. Said as what the reader gets instead. */}
+        {declinedPair ? (
+          <p role="status" className="text-muted-foreground text-hint" data-two-way-unavailable>
+            {t('web.translate.twoWayUnavailable', {
+              from: nameLanguage(declinedPair.source),
+              to: nameLanguage(declinedPair.target),
+            })}
+          </p>
+        ) : null}
 
-      {/* Half duplex, which echo cancellation off asks for: the microphone is
-          ignored while our translation plays, so speech then is not heard. Said
-          as a readout, because nothing here would change it mid-conversation. */}
-      {conversation.micPaused ? (
-        <p role="status" className="text-muted-foreground text-hint">
-          {t('web.translate.micPausedDuringPlayback')}
-        </p>
-      ) : null}
+        {/* Half duplex, which echo cancellation off asks for: the microphone is
+            ignored while our translation plays, so speech then is not heard. */}
+        {conversation.micPaused ? (
+          <p role="status" className="text-muted-foreground text-hint">
+            {t('web.translate.micPausedDuringPlayback')}
+          </p>
+        ) : null}
 
-      {/* Credits running low: a readout like the line above, because the
-          conversation goes on. The stop that may follow is the error below. */}
-      {conversation.notice ? (
-        <p role="status" className="text-muted-foreground text-hint" data-conversation-notice>
-          {conversation.notice}
-        </p>
-      ) : null}
+        {/* Credits running low: a state, not an outcome, because the conversation
+            goes on. The stop that may follow is the error toast. */}
+        {conversation.notice ? (
+          <p role="status" className="text-muted-foreground text-hint" data-conversation-notice>
+            {conversation.notice}
+          </p>
+        ) : null}
+      </div>
 
-      {conversation.error ? (
-        <Alert variant="live">
-          <AlertDescription>{conversation.error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* A failed save, and only a failed save — a successful one is silent,
-          because "your conversation was kept" is the promise the History item
-          in the sidebar already makes. Retry appears ONLY when resending the
-          same body could succeed; a terminal failure gets the sentence that
-          says why and no button that cannot work.
-
-          `saved` picks the sentence, because it decides what was actually
-          lost: with the conversation already stored, only the edits made
-          after it are missing, and telling the reader it "has not been saved"
-          would be false about a row sitting in their history. */}
-      {save.failure ? (
-        <Alert variant="live">
-          <AlertDescription className="flex flex-wrap items-center gap-3">
-            <span>
-              {save.saved
-                ? t('web.translate.saveEditsFailed')
-                : save.failure === 'retryable'
-                  ? t('web.translate.saveFailedRetryable')
-                  : t('web.translate.saveFailedTerminal')}
-            </span>
-            {save.failure === 'retryable' ? (
-              <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
-                {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
-              </Button>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* The recording, reported SEPARATELY from the transcript and phrased so the
-          difference is clear: the words are safe, the audio is not. Collapsing the
-          two would tell a reader their conversation failed to save when only the
-          recording did — and the transcript is the part they came for. An `Alert`
-          carries no elevation token, so this costs nothing against the screen's
-          surface budget. */}
-      {audioUpload.failure || audioUpload.uploading ? (
-        <Alert variant="live">
-          <AlertDescription className="flex flex-wrap items-center gap-3">
-            <span>
-              {/* Mounted on `uploading` too, not on `failure` alone: `retry`
-                  clears `failure` synchronously before the request settles, so
-                  gating on `failure` alone unmounted this whole alert — button
-                  included — the instant Retry was pressed, with nothing on
-                  screen until it failed again. `uploading` and a non-null
-                  `failure` never overlap — `send` clears one before setting the
-                  other — so this never has two things to say at once. */}
-              {audioUpload.uploading
-                ? t('web.translate.recordingUploading')
-                : audioUpload.failure === 'retryable'
-                  ? t('web.translate.recordingFailedRetryable')
-                  : t('web.translate.recordingFailedTerminal')}
-            </span>
-            {audioUpload.failure === 'retryable' ? (
-              <Button variant="outline" size="sm" onClick={audioUpload.retry}>
-                {t('web.translate.saveRetry')}
-              </Button>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* The dock. Status and elapsed time at one end, the action in the middle,
-          settings at the other — so the action sits in the same place whether or
-          not there is anything to report beside it.
+      {/* The dock: a bar under one hairline, full width. Status and elapsed time at
+          one end, the action in the middle, the page's own controls as ghost icons
+          at the other — so the action sits in the same place whether or not there
+          is anything to report beside it. Below `sm` the action takes the first row
+          on its own and the two ends share the second.
 
           The middle holds TWO buttons while a conversation is open, which is the
           one place this layout bends. They are a pair rather than two controls:
           both end the microphone, and they differ only in whether the
-          conversation survives it. Anything else that wanted a place in the dock
-          would go to a panel instead. */}
-      {/* Inert while fullscreen: the stage's bar carries the session then, and on
+          conversation survives it.
+
+          Inert while fullscreen: the stage's bar carries the session then, and on
           the emulated route this dock is still in the document under the cover —
           tabbable, and its live status announced twice, if it were not. */}
-      <div inert={fullscreenActive} className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+      <div
+        inert={fullscreenActive}
+        data-slot="translate-dock"
+        className="border-hairline grid grid-cols-[1fr_auto] items-center gap-3 border-t px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6"
+      >
         <SessionReadouts conversation={conversation} />
 
-        <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">
+        <div className="col-span-2 row-start-1 flex items-center gap-2 sm:col-span-1 sm:col-start-2 sm:justify-self-center">
           {/* Rendered once on the screen: here, or in the fullscreen bar. Both at
               once would be two Starts, which the accent budget counts. */}
           {fullscreenActive ? null : (
@@ -641,7 +629,7 @@ export function CascadePanel({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1">
           {/* Renders nothing when the account has authored no contexts, so the
               dock is unchanged for everyone who does not use this. A `Select`, so
               it spends no accent — Start is still the screen's one. */}
@@ -662,84 +650,79 @@ export function CascadePanel({
         </div>
       </div>
 
-      {/* Why no window appeared. The blocker is the one refusal the reader can act
-          on, so it says what to do; a failed Picture-in-Picture request says only
-          that it failed. A readout, like the declined two-way line above. */}
-      {captionWindow.failure ? (
-        <p role="status" className="text-muted-foreground text-hint">
-          {t(
-            captionWindow.failure === 'blocked'
-              ? 'web.translate.captionWindowBlocked'
-              : 'web.translate.captionWindowFailed',
-          )}
-        </p>
-      ) : null}
+      {/* After the talking stops: what happened, on the page ground below the dock.
+          Nothing renders here while a conversation is running, which keeps the
+          page itself from scrolling mid-sentence — anything new added here has to
+          be gated the same way. */}
+      {/* Not even an empty box while running, so the dock is the panel's last child. */}
+      {running ? null : (
+        <div className="flex flex-col gap-4 px-6 pt-2 pb-8 empty:hidden">
+          {/* The recording on its way up: a state, said where the reader is looking.
+            Its failure is a toast. */}
+          {audioUpload.uploading ? (
+            <p role="status" className="text-muted-foreground text-hint" data-recording-uploading>
+              {t('web.translate.recordingUploading')}
+            </p>
+          ) : null}
 
-      {/* Read back once the talking has stopped. It reports what happened and
-          asks for nothing: the audience for these numbers is whoever decides
-          whether the voice layer is worth switching on, and a line telling
-          somebody they labelled too little would be a report card. */}
-      {!running && conversation.stats.totalTurns > 0 ? (
-        <p className="text-muted-foreground text-hint">
-          {/* `automatic` joined this line when the acoustic layer started
-              naming turns on its own. Without it a fully labelled session read
-              "N turns · 0 marked · 0 left unmarked", which says the feature did
-              nothing in the exact case where it did everything. `pending` is
-              deliberately absent: it is empty by the time this renders, and a
-              counter that always shows zero teaches a reader to ignore the line. */}
-          {t('web.translate.attributionStats', {
-            total: conversation.stats.totalTurns,
-            automatic: conversation.stats.automatic,
-            confirmed: conversation.stats.confirmed,
-            fallback: conversation.stats.fallback,
-          })}
-          {conversation.stats.suggestions.confirmedMatching +
-            conversation.stats.suggestions.corrected +
-            conversation.stats.suggestions.unreviewed >
-          0
-            ? ` · ${t('web.translate.attributionSuggestions', {
-                agreed: conversation.stats.suggestions.confirmedMatching,
-                changed: conversation.stats.suggestions.corrected,
-                unreviewed: conversation.stats.suggestions.unreviewed,
-              })}`
-            : null}
-        </p>
-      ) : null}
+          {/* Read back once the talking has stopped. It reports what happened and
+            asks for nothing: a line telling somebody they labelled too little would
+            be a report card. */}
+          {!running && conversation.stats.totalTurns > 0 ? (
+            <p className="text-muted-foreground text-hint">
+              {/* `automatic` is here so a fully labelled session does not read
+                "N turns · 0 marked · 0 left unmarked". `pending` is deliberately
+                absent: it is empty by the time this renders. */}
+              {t('web.translate.attributionStats', {
+                total: conversation.stats.totalTurns,
+                automatic: conversation.stats.automatic,
+                confirmed: conversation.stats.confirmed,
+                fallback: conversation.stats.fallback,
+              })}
+              {conversation.stats.suggestions.confirmedMatching +
+                conversation.stats.suggestions.corrected +
+                conversation.stats.suggestions.unreviewed >
+              0
+                ? ` · ${t('web.translate.attributionSuggestions', {
+                    agreed: conversation.stats.suggestions.confirmedMatching,
+                    changed: conversation.stats.suggestions.corrected,
+                    unreviewed: conversation.stats.suggestions.unreviewed,
+                  })}`
+                : null}
+            </p>
+          ) : null}
 
-      {/* Minutes belong after the talking stops, beside the attribution stats:
-          the audience is whoever wants the outcome once the conversation is
-          done, not a control that competes for attention mid-sentence. */}
-      {!running && conversation.turns.length > 0 && !unstored ? (
-        <MinutesPanel
-          minutes={minutes.minutes}
-          loading={minutes.loading}
-          error={minutes.error}
-          canGenerate={canGenerate}
-          // Quiet, because Start is back on screen by the time this renders. Two
-          // accent-filled controls at once was this product's one accent-budget
-          // violation, and it lived exactly here.
-          emphasis="quiet"
-          // "Minutes are generated from the saved conversation" is a next step
-          // that exists only while a save can still happen, which is why the
-          // panel goes away entirely when nothing was stored and no retry can
-          // change that — the alert above has already said so, and a hint
-          // pointing at a save that will never happen would be worse.
-          //
-          // It goes away for THAT case only. A stored conversation whose later
-          // edit failed keeps its panel: taking it down would pull an
-          // already-generated summary off the screen over a failed rename.
-          unavailableHint={
-            conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
-          }
-          onGenerate={() => {
-            // The button is gated on `canGenerate`, which requires a stored
-            // conversation and therefore an id. The check is what makes that
-            // typed — there is no id to fall back to.
-            if (!conversation.conversationId) return;
-            void minutes.generate(conversation.conversationId, locale);
-          }}
-        />
-      ) : null}
+          {/* Minutes belong after the talking stops: the audience is whoever wants
+            the outcome once the conversation is done. */}
+          {!running && conversation.turns.length > 0 && !unstored ? (
+            <MinutesPanel
+              minutes={minutes.minutes}
+              loading={minutes.loading}
+              error={minutes.error}
+              canGenerate={canGenerate}
+              // Quiet, because Start is back on screen by the time this renders. Two
+              // accent-filled controls at once was this product's one accent-budget
+              // violation, and it lived exactly here.
+              emphasis="quiet"
+              // "Minutes are generated from the saved conversation" is a next step
+              // that exists only while a save can still happen, which is why the
+              // panel goes away entirely when nothing was stored and no retry can
+              // change that. A stored conversation whose later edit failed keeps its
+              // panel: taking it down would pull a generated summary off the screen
+              // over a failed rename.
+              unavailableHint={
+                conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
+              }
+              onGenerate={() => {
+                // Gated on `canGenerate`, which requires a stored conversation and
+                // therefore an id. The check is what makes that typed.
+                if (!conversation.conversationId) return;
+                void minutes.generate(conversation.conversationId, locale);
+              }}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

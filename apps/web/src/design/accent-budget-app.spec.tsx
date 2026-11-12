@@ -77,7 +77,7 @@ const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // presses play, so nothing should look loaded.
 const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
 // The recording upload. Resolving by default, like every other mock here — the
-// one row that wants the failure alert overrides it for itself.
+// one row that wants the failure toast overrides it for itself.
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The AI Context library, defaulting to an empty one in `beforeEach`.
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
@@ -170,6 +170,7 @@ const useConferenceEnd = vi.hoisted(() => vi.fn<() => UseConferenceEnd>());
 vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConferenceEnd() }));
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
+const { AppToaster } = await import('@/components/layout/app-toaster');
 const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
@@ -918,12 +919,13 @@ const SCREENS: ScreenState[] = [
   {
     // The recording failed to upload — a reachable screen-state no row here
     // exercised before: every other `/translate` row leaves `recording: null`.
-    // The alert carries no elevation token, and its Retry is `outline`, so the
-    // counts are identical to the row above; what changes is that this row
-    // actually presses the code path that draws it.
+    // The failure is a toast now, so the row mounts the app's toast host beside
+    // the panel and counts what it draws: one surface — the toast, over the page —
+    // and no accent, because its Retry is the quiet action button. Start is still
+    // the screen's one.
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
@@ -943,11 +945,19 @@ const SCREENS: ScreenState[] = [
         retry: vi.fn(),
       });
     },
-    // The alert only mounts once the automatic upload has fired and failed —
+    // The toast only mounts once the automatic upload has fired and failed —
     // proof the row actually reached that state rather than counting the
     // untouched screen above with a mock nobody exercised.
-    shows: '[data-slot="alert"]',
-    render: translate(),
+    shows: '[data-sonner-toast]',
+    render: function TranslateWithToasts() {
+      const Translate = translate();
+      return (
+        <>
+          <Translate />
+          <AppToaster />
+        </>
+      );
+    },
   },
   {
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it

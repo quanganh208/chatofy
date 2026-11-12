@@ -8,9 +8,9 @@ import { useTranslate } from '@/i18n/provider';
 /**
  * The two ways out of the page: fullscreen, and the floating caption window.
  *
- * In the dock beside the display gear, outline like it, and for the same reason
- * — they sit on the page ground, and a control with no edge there reads as an
- * unfinished icon. Never accent: the screen's one filled control is Start.
+ * In the dock beside the display gear, ghost like it: the dock is a bar on the page
+ * ground under a hairline, and its secondary controls are icons in that bar rather
+ * than boxes floating on it. Never accent: the screen's one filled control is Start.
  *
  * The window button is named for the window it will actually open. "Picture-in
  * -picture" promises a window that stays on top; a popup does not, and calling
@@ -36,7 +36,7 @@ export function StageControls({
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         aria-label={t('web.translate.fullscreen')}
         title={t('web.translate.fullscreen')}
@@ -45,7 +45,7 @@ export function StageControls({
         <Maximize2 aria-hidden />
       </Button>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         aria-label={windowLabel}
         title={windowLabel}

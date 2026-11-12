@@ -6,6 +6,9 @@ import type { MeetingMinutes } from '@chatofy/types';
 import { MinutesPanel } from './minutes-panel';
 import { LocaleProvider } from '@/i18n/provider';
 
+const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('@/lib/notify', () => ({ notify }));
+
 const ready: MeetingMinutes = {
   conversationId: 'c1',
   status: 'ready',
@@ -155,5 +158,46 @@ describe('MinutesPanel', () => {
     expect(generateButton()?.getAttribute('data-variant')).toBe('default');
     render({ emphasis: 'quiet' });
     expect(generateButton()?.getAttribute('data-variant')).toBe('outline');
+  });
+
+  describe('copying', () => {
+    const copyButton = () =>
+      Array.from(container.querySelectorAll('button')).find((b) => b.textContent === 'Copy');
+    const writeText = vi.fn<(text: string) => Promise<void>>();
+    beforeEach(() => {
+      notify.success.mockClear();
+      notify.error.mockClear();
+      writeText.mockReset();
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+    });
+
+    it('says a copy as a toast and keeps the button named for what it does', async () => {
+      writeText.mockResolvedValue(undefined);
+      render({ minutes: ready });
+      await act(async () => {
+        copyButton()?.click();
+        await Promise.resolve();
+      });
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('We agreed to ship.'));
+      expect(notify.success).toHaveBeenCalledWith('Minutes copied', { id: 'minutes-copy' });
+      expect(copyButton()).toBeDefined();
+    });
+
+    it('says a refused clipboard instead of failing silently', async () => {
+      writeText.mockRejectedValue(new Error('denied'));
+      render({ minutes: ready });
+      await act(async () => {
+        copyButton()?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(notify.success).not.toHaveBeenCalled();
+      expect(notify.error).toHaveBeenCalledWith('The minutes could not be copied.', {
+        id: 'minutes-copy',
+      });
+    });
   });
 });
