@@ -34,8 +34,8 @@ vi.mock('@/hooks/use-minutes', () => ({
 
 const nav = vi.hoisted(() => {
   const params: { conversationId?: string } = {};
-  const push = vi.fn();
-  const replace = vi.fn();
+  const push = vi.fn<(url: string) => void>();
+  const replace = vi.fn<(url: string) => void>();
   // One object, as Next's router is: a new one per render would re-run every effect
   // that depends on it, which the real app never does.
   return { params, query: '', push, replace, router: { push, replace } };
@@ -445,6 +445,76 @@ describe('the URL term the search did not write', () => {
     // The first write arrives after the reader typed on.
     await navigate(undefined, 'q=xi');
     expect(field().value).toBe('xin');
+  });
+});
+
+/**
+ * Land one of the search's own `replace` writes, as the router would — on the same
+ * page, with its `?q=`. Writes are not landed by themselves, so a spec chooses which
+ * arrive, in what order, and which the router discarded.
+ */
+async function land(url: string): Promise<void> {
+  expect(nav.replace.mock.calls.map(([written]) => written)).toContain(url);
+  await navigate(nav.params.conversationId, url.split('?')[1] ?? '');
+}
+
+const urlTerm = () => new URLSearchParams(nav.query).get('q') ?? '';
+
+describe('the search writes landing late, early or never', () => {
+  beforeEach(() => {
+    listConversations.mockResolvedValue({ conversations: [NEWEST, OLDER], nextCursor: null });
+  });
+
+  it('forgets a write the router discarded, so a later sidebar reset still clears', async () => {
+    nav.query = 'q=foo';
+    await mount();
+
+    // Cleared, then typed again within one round trip: the router keeps only the
+    // newest navigation, so the clear never lands.
+    type('');
+    await settle();
+    expect(nav.replace).toHaveBeenLastCalledWith('/history');
+    type('b');
+    await settle();
+    expect(nav.replace).toHaveBeenLastCalledWith('/history?q=b');
+    await land('/history?q=b');
+    expect(field().value).toBe('b');
+
+    // The sidebar's History: plain `/history`. The discarded clear must not be
+    // waiting in the queue to swallow it.
+    await navigate(undefined, '');
+    expect(field().value).toBe('');
+  });
+
+  it('rewrites the box term when an older write lands after the box moved on', async () => {
+    await mount();
+    type('a');
+    await settle();
+    // Cleared before `a` arrived: the URL still shows no term, so nothing is written.
+    type('');
+    await settle();
+    expect(nav.replace).toHaveBeenCalledTimes(1);
+
+    await land('/history?q=a');
+    // URL `a`, box empty: the box's term is written again, and lands.
+    expect(nav.replace).toHaveBeenLastCalledWith('/history');
+    await land('/history');
+    expect(field().value).toBe('');
+    expect(urlTerm()).toBe(field().value);
+  });
+
+  it('ends with the URL and the box agreeing when writes land out of order', async () => {
+    await mount();
+    type('a');
+    await settle();
+    type('ab');
+    await settle();
+
+    await land('/history?q=ab');
+    await land('/history?q=a');
+    for (const [written] of nav.replace.mock.calls.slice(2)) await land(written);
+
+    expect(urlTerm()).toBe(field().value);
   });
 });
 

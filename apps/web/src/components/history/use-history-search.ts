@@ -59,23 +59,10 @@ export function useHistorySearch() {
 
   const navigating = useRef<number | null>(null);
 
-  // Terms this hook has `replace`d into the URL and not yet seen land. A `q` that
-  // changes WITHOUT a pathname change is either one of these arriving — ignored, or
-  // it would rewind a reader who typed on before it landed — or a navigation to the
-  // same page with another term (the sidebar's History from `/history?q=…`, Back),
-  // which is adopted exactly like one that changed the pathname.
-  const written = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (written.current.delete(urlTerm)) return;
-    if (urlTerm === debounced) return;
-    // Following an external input — the URL — is what this effect is for.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTerm(urlTerm);
-    setDebounced(urlTerm);
-    // `debounced` is read, not followed: a change to it is a write, not a navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlTerm]);
+  // The terms this hook has `replace`d into the URL and not yet seen land, OLDEST
+  // FIRST, and the URL term as last seen. See the sync effect below.
+  const pending = useRef<string[]>([]);
+  const seenUrl = useRef(urlTerm);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(term), DEBOUNCE_MS);
@@ -85,11 +72,16 @@ export function useHistorySearch() {
   // Before the write below, so the write sees a navigation that has just landed as
   // finished. Effects run in declaration order.
   useEffect(() => {
-    // A write that was still in flight across a page change will not land here.
-    written.current.clear();
+    // A write still in flight across a page change will not land here, and the
+    // render above has already adopted the new page's term.
+    pending.current = [];
+    seenUrl.current = urlTerm;
     if (navigating.current === null) return;
     clearTimeout(navigating.current);
     navigating.current = null;
+    // Keyed on the page alone: `urlTerm` is snapshotted here, and following it would
+    // empty the queue on every one of our own writes landing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   useEffect(
@@ -99,24 +91,57 @@ export function useHistorySearch() {
     [],
   );
 
-  // The URL follows the DEBOUNCED term, so history is not filled with one entry per
-  // character, and `replace` for the same reason. Skipped when the URL already says
-  // it, and while a row's navigation is in flight (see above).
+  /*
+    The box and the URL, kept in step in ONE effect — split, a URL change and the
+    write could run in the same pass with each other's stale values.
+
+    1. A URL term that changed is either one of OUR writes landing or a navigation.
+       Ours: drop it and every older write, which the router discarded when it took
+       a newer navigation — left queued, a superseded term would later swallow a
+       real `?q=` that happened to match it. Not ours: a navigation (the sidebar's
+       History from `/history?q=…`, Back), adopted into the box and the list.
+    2. Then write the debounced term unless the URL already shows it or the newest
+       queued write will. Re-run on every landing, this is what heals one that
+       arrives after the box moved on: the URL disagrees, so the box's term is
+       written again.
+
+    `replace`, not `push`, and debounced, so history is not one entry per
+    character. Held while a row's navigation is in flight (see above).
+  */
   useEffect(() => {
+    if (urlTerm !== seenUrl.current) {
+      seenUrl.current = urlTerm;
+      const landed = pending.current.indexOf(urlTerm);
+      if (landed === -1) {
+        pending.current = [];
+        if (urlTerm !== debounced) {
+          // Following an external input — the URL — is what this branch is for.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setTerm(urlTerm);
+          setDebounced(urlTerm);
+        }
+        return;
+      }
+      pending.current = pending.current.slice(landed + 1);
+    }
+
     if (navigating.current !== null) return;
+    // Never a write the URL already shows: one could only land as "no change", and
+    // its queue entry would then never be drained. If an older write is still in
+    // flight and lands later, step 1 sees the URL change and step 2 corrects it.
+    if (debounced === urlTerm) return;
+    if (debounced === pending.current.at(-1)) return;
     const next = new URLSearchParams(searchParams.toString());
     if (debounced) next.set('q', debounced);
     else next.delete('q');
     const query = next.toString();
-    if (query === searchParams.toString()) return;
+    pending.current = [...pending.current, debounced];
     // `as Route`: `typedRoutes` cannot check a path built at runtime, and the
     // pathname half comes from the router itself.
-    written.current.add(debounced);
     router.replace(`${pathname}${query ? `?${query}` : ''}` as Route);
-    // `searchParams` is deliberately not a dependency: this effect WRITES it, and
-    // depending on it would re-run the effect with its own result.
+    // `searchParams` is read for the OTHER params only; `urlTerm` is its `q`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced, pathname, router]);
+  }, [debounced, urlTerm, pathname, router]);
 
   const clear = useCallback(() => setTerm(''), []);
 

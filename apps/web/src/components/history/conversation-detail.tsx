@@ -91,10 +91,12 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   const heading = useRef<HTMLHeadingElement>(null);
   const gone = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!conversation && !missing) return;
+    // Settled first: the loading branch has neither element to focus, and
+    // `missing` and `loading` are set from different callbacks.
+    if (loading || (!conversation && !missing)) return;
     if (!panes?.takeFocusRequest()) return;
     (conversation ? heading : gone).current?.focus();
-  }, [conversation, missing, panes]);
+  }, [conversation, missing, loading, panes]);
 
   useEffect(() => {
     let cancelled = false;
