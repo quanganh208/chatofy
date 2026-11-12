@@ -15,6 +15,7 @@ import {
   type ConversationAudioObject,
   type ConversationAudioStorage,
 } from '../storage/interfaces/conversation-audio-storage.interface';
+import { InMemoryConversationStore } from '../../../test/utils/in-memory-conversation.store';
 
 /**
  * The upload/delete orderings, driven directly rather than raced.
@@ -440,5 +441,100 @@ describe('ConversationsService title pass', () => {
     );
 
     expect(title).not.toHaveBeenCalled();
+  });
+});
+
+describe('ConversationsService rename', () => {
+  const save: SaveConversationRequest = {
+    languages: ['vi', 'en'],
+    startedAt: '2026-11-04T02:00:00.000Z',
+    endedAt: '2026-11-04T02:10:00.000Z',
+    audioOffsetMs: null,
+    pausedMs: 0,
+    titleLanguage: 'vi',
+    turns: [
+      {
+        position: 0,
+        speakerRole: 'speaker_a',
+        speakerLabel: 'Lan',
+        sourceText: 'Mình muốn thuê một căn hộ hai phòng ngủ ở quận ba',
+        displayText: null,
+        sourceLanguages: ['vi'],
+        translations: {
+          en: 'I want to rent a two-bedroom apartment in district three',
+        },
+        offsetMs: 0,
+      },
+    ],
+  };
+
+  /** A summarizer whose title call resolves only when the case says so. */
+  function heldTitle() {
+    let release: (title: string) => void = () => undefined;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const title = vi.fn(() => pending);
+    const summarizer = {
+      get: () => ({ name: 'fake', summarize: vi.fn(), title }),
+    } as unknown as MinutesSummarizer;
+    return { summarizer, title, release: (t: string) => release(t) };
+  }
+
+  it('stores the title and answers the summary', async () => {
+    const store = new InMemoryConversationStore();
+    const service = new ConversationsService(store, makeAudio(), noSummarizer);
+    await store.save('u1', 'c1', {
+      ...save,
+      turns: save.turns.map((turn) => ({ ...turn })),
+    });
+
+    await expect(
+      service.rename('u1', 'c1', { title: 'Thuê căn hộ' }),
+    ).resolves.toMatchObject({ conversationId: 'c1', title: 'Thuê căn hộ' });
+    expect((await store.get('u1', 'c1'))?.title).toBe('Thuê căn hộ');
+  });
+
+  it("answers 404 for another owner's conversation, identically to an absent one", async () => {
+    const store = new InMemoryConversationStore();
+    const service = new ConversationsService(store, makeAudio(), noSummarizer);
+    await store.save('u1', 'c1', {
+      ...save,
+      turns: save.turns.map((turn) => ({ ...turn })),
+    });
+
+    const foreign = await service
+      .rename('u2', 'c1', { title: 'Mine now' })
+      .catch((err: unknown) => err);
+    const absent = await service
+      .rename('u2', 'c-unknown', { title: 'Mine now' })
+      .catch((err: unknown) => err);
+
+    expect(foreign).toBeInstanceOf(NotFoundException);
+    expect(absent).toBeInstanceOf(NotFoundException);
+    expect((foreign as NotFoundException).getResponse()).toMatchObject({
+      statusCode: 404,
+    });
+    expect((await store.get('u1', 'c1'))?.title).toBeNull();
+  });
+
+  it('keeps a rename that lands while the generated title is still in flight', async () => {
+    const store = new InMemoryConversationStore();
+    const { summarizer, title, release } = heldTitle();
+    const service = new ConversationsService(store, makeAudio(), summarizer);
+
+    // The save starts the background pass, which waits on the provider.
+    await service.save('u1', 'c1', save);
+    await vi.waitFor(() => expect(title).toHaveBeenCalledTimes(1));
+
+    await service.rename('u1', 'c1', { title: 'Căn hộ quận ba' });
+
+    // The provider answers after the rename; the pass must not replace it.
+    const setTitleIfEmpty = vi.spyOn(store, 'setTitleIfEmpty');
+    release('Hợp đồng thuê nhà');
+    await vi.waitFor(() => expect(setTitleIfEmpty).toHaveBeenCalled());
+    await expect(setTitleIfEmpty.mock.results[0]?.value).resolves.toBe(false);
+
+    expect((await store.get('u1', 'c1'))?.title).toBe('Căn hộ quận ba');
   });
 });

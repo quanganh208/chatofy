@@ -248,6 +248,95 @@ describe('PrismaConversationStore', () => {
     });
   });
 
+  describe('rename', () => {
+    const renamed = {
+      id: 'cuid-1',
+      clientId: 'conv-1',
+      languages: ['vi', 'en'],
+      startedAt: new Date('2026-09-17T00:00:00.000Z'),
+      endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      pausedMs: 0,
+      title: 'Thuê Căn Hộ',
+      mode: 'one-way',
+      audioDurationMs: null,
+      minutes: null,
+      _count: { turns: 1 },
+      turns: [{ sourceText: 'xin chào', displayText: null }],
+    };
+
+    function storeRenaming(update: Mock) {
+      const groupBy = vi.fn().mockResolvedValue([
+        {
+          conversationId: 'cuid-1',
+          speakerRole: 'speaker_a',
+          speakerLabel: 'Lan',
+          _min: { position: 0 },
+        },
+      ]);
+      const prisma = {
+        conversation: { update },
+        conversationTurn: { groupBy },
+      } as unknown as PrismaService;
+      return { store: new PrismaConversationStore(prisma), update, groupBy };
+    }
+
+    it('writes the title and its folded search form, scoped to the owner in the same statement', async () => {
+      const { store, update } = storeRenaming(
+        vi.fn().mockResolvedValue(renamed),
+      );
+
+      const summary = await store.rename('owner-1', 'conv-1', 'Thuê Căn Hộ');
+
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            ownerId_clientId: { ownerId: 'owner-1', clientId: 'conv-1' },
+          },
+          data: { title: 'Thuê Căn Hộ', searchTitle: 'thue can ho' },
+        }),
+      );
+      expect(summary).toMatchObject({
+        conversationId: 'conv-1',
+        title: 'Thuê Căn Hộ',
+        preview: 'xin chào',
+        turnCount: 1,
+        kind: 'one-way',
+        speakers: ['Lan'],
+      });
+    });
+
+    it('answers null when the caller owns no such row', async () => {
+      const { store, groupBy } = storeRenaming(
+        vi.fn().mockRejectedValue(
+          Object.assign(new Error('Record to update not found'), {
+            code: 'P2025',
+          }),
+        ),
+      );
+
+      await expect(store.rename('owner-2', 'conv-1', 'x')).resolves.toBeNull();
+      expect(groupBy).not.toHaveBeenCalled();
+    });
+
+    it('surfaces any other failure', async () => {
+      const failure = new Error('connection reset');
+      const { store } = storeRenaming(vi.fn().mockRejectedValue(failure));
+
+      await expect(store.rename('owner-1', 'conv-1', 'x')).rejects.toBe(
+        failure,
+      );
+    });
+
+    it('answers null for a languages column the list would drop', async () => {
+      const { store } = storeRenaming(
+        vi.fn().mockResolvedValue({ ...renamed, languages: ['vi'] }),
+      );
+
+      await expect(store.rename('owner-1', 'conv-1', 'x')).resolves.toBeNull();
+    });
+  });
+
   describe('paused time', () => {
     it('writes the paused total on create', async () => {
       const { store, upsert } = fakePrisma();

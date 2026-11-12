@@ -10,6 +10,7 @@ import type {
   Conversation,
   ConversationListResponse,
   ConversationSummary,
+  RenameConversationRequest,
   SaveConversationRequest,
   SaveConversationTurn,
 } from '@chatofy/types';
@@ -200,6 +201,27 @@ export class ConversationsService {
         );
       }
     }
+  }
+
+  /**
+   * Give the conversation the title its owner chose.
+   *
+   * The background pass never undoes this: it writes only where no title is
+   * stored, so a rename that lands before or after it is the one that stays.
+   * The title arrives trimmed and bounded by `renameConversationRequestSchema`.
+   */
+  async rename(
+    ownerId: string,
+    conversationId: string,
+    body: RenameConversationRequest,
+  ): Promise<ConversationSummary> {
+    const summary = await this.store.rename(
+      ownerId,
+      conversationId,
+      body.title,
+    );
+    if (!summary) throw notFound(conversationId);
+    return summary;
   }
 
   async get(ownerId: string, conversationId: string): Promise<Conversation> {

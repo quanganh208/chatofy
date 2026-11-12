@@ -19,7 +19,7 @@ Part of the [system architecture](../system-architecture.md).
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init (STT/TTS/translation/realtime/speakerEmbedding **and `summarization`**)
-  - `conversations/` — `PUT/GET/DELETE /conversations/:conversationId`, `GET /conversations`, and `PUT/GET /conversations/:conversationId/audio` (the stored transcript, owner-scoped, cursor-paged, searchable, plus its recording)
+  - `conversations/` — `PUT/GET/PATCH/DELETE /conversations/:conversationId` (PATCH renames: the owner's title, which the background titler never overwrites), `GET /conversations`, and `PUT/GET /conversations/:conversationId/audio` (the stored transcript, owner-scoped, cursor-paged, searchable, plus its recording)
     - `conversations.controller.ts` — HTTP handlers; the write and the list are throttled, and the path param is uuid-validated so an oversized id is a 400 rather than a btree-index 500
     - `stores/prisma-conversation.store.ts` — owner-scoped by `(ownerId, clientId)` on every query; a save replaces the turns under `Serializable` with a bounded retry, because two overlapping saves would otherwise collide on the positional unique
   - `minutes/` — `POST/GET /conversations/:conversationId/minutes` (LLM meeting minutes: summary, key points, decisions, action items over a STORED conversation)
