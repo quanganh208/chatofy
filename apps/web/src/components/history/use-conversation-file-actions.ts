@@ -47,6 +47,9 @@ export function useConversationFileActions({ conversation, loaded, minutes }: Fi
   const panes = useHistoryPanes();
   const id = conversation.conversationId;
   const [busy, setBusy] = useState(false);
+  // The guard itself is a ref: two activations inside one render would both read
+  // `busy` as false. The state is only what the menu draws.
+  const running = useRef(false);
   const [notice, setNotice] = useState<FileActionNotice | null>(null);
   const timer = useRef<number | null>(null);
 
@@ -68,31 +71,67 @@ export function useConversationFileActions({ conversation, loaded, minutes }: Fi
   const full = async (): Promise<Conversation> => {
     const found =
       loaded ?? (panes ? await panes.cache.load(id) : (await getConversation(id)).conversation);
+    // Deleted while it was being fetched — from the header or another row. Nothing
+    // is saved or copied for a conversation that no longer exists.
+    if (panes?.cache.isGone(id)) throw new Error('The conversation was deleted');
     return { ...found, title: conversation.title };
   };
 
   /** What the menu can tell without fetching: the open detail's copy, or a cached one. */
   const known = (): Conversation | undefined => loaded ?? panes?.cache.peek(id);
 
-  const run = async (work: () => Promise<FileActionNotice | null>, failure: string) => {
-    if (busy) return;
+  // Synchronous up to `work()`'s first await, which is what lets `copy` reach the
+  // clipboard inside the reader's gesture.
+  const run = async (
+    work: () => Promise<FileActionNotice | null>,
+    failure: string,
+    pending = t('web.history.preparingDownload'),
+  ) => {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
-    say(known() ? null : { tone: 'busy', text: t('web.history.preparingDownload') });
+    say(known() ? null : { tone: 'busy', text: pending });
     try {
       const done = await work();
       say(done, true);
     } catch {
       say({ tone: 'error', text: failure }, true);
     } finally {
+      running.current = false;
       setBusy(false);
     }
   };
 
+  /**
+   * The clipboard is written inside the reader's gesture, or Safari refuses it. A
+   * conversation already held is written at once. One that must be fetched first
+   * goes in as a `ClipboardItem` built from the PENDING text, which the browser
+   * accepts within the gesture and fills when the fetch lands; where that is not
+   * supported, the text is written after the fetch — fine in Chromium and Firefox.
+   */
   const copy = () =>
-    run(async () => {
-      await navigator.clipboard.writeText(transcriptText(await full(), t, locale));
-      return { tone: 'done', text: t('web.history.transcriptCopied') };
-    }, t('web.history.copyFailed'));
+    run(
+      async () => {
+        const held = known();
+        const clipboard = navigator.clipboard;
+        if (held) {
+          await clipboard.writeText(
+            transcriptText({ ...held, title: conversation.title }, t, locale),
+          );
+        } else if (typeof ClipboardItem !== 'undefined' && typeof clipboard.write === 'function') {
+          const blob = full().then(
+            (source) => new Blob([transcriptText(source, t, locale)], { type: 'text/plain' }),
+          );
+          await clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+        } else {
+          const text = transcriptText(await full(), t, locale);
+          await clipboard.writeText(text);
+        }
+        return { tone: 'done', text: t('web.history.transcriptCopied') };
+      },
+      t('web.history.copyFailed'),
+      t('web.history.copying'),
+    );
 
   const download = (format: TranscriptFormat) =>
     run(async () => {

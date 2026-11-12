@@ -1,21 +1,10 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
-import { AudioLines, Copy, Ellipsis, Pencil, Trash2 } from 'lucide-react';
 import type { Conversation, ConversationSummary, MinutesContent } from '@chatofy/types';
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@chatofy/ui/react';
-import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 import { ConversationDeleteConfirm } from './conversation-delete-confirm';
-import { ConversationDownloadSubmenu } from './conversation-download-submenu';
-import { canExportSrt } from './conversation-export-srt';
+import { ConversationActionsDropdown } from './conversation-actions-dropdown';
 import { useConversationFileActions } from './use-conversation-file-actions';
 
 interface ConversationActionsProps {
@@ -40,20 +29,13 @@ interface ConversationActionsProps {
   name?: string;
 }
 
-/** Chosen in the menu, acted on once the menu has CLOSED — see `onCloseAutoFocus`. */
-type Deferred = 'rename' | 'delete' | null;
-
 /**
  * The `⋯` menu for one conversation — one component in both the detail header and
  * every list row, so the two cannot offer different actions.
  *
- * ## Two items act after the menu closes
- *
- * Rename and Delete both move focus — into the title field, onto the strip's Cancel
- * — and doing that from the item itself raced the menu's focus trap: the target was
- * focused while the menu was still mounted, the trap pulled focus back, and its
- * unmount then dropped focus on `<body>`. So the item only records the choice; the
- * menu's close acts on it and prevents its own return-to-trigger.
+ * The menu itself is `ConversationActionsDropdown`; this places it — beside the
+ * recording controls in the header, or pinned beside a row's time — with the notice
+ * line its copy and downloads speak through and the delete strip under it.
  *
  * ## Delete is still two steps
  *
@@ -66,9 +48,6 @@ type Deferred = 'rename' | 'delete' | null;
  * Nothing here is accent-filled. The open menu is one elevated surface, and the
  * Download submenu a second while it is open — the ceiling, with nothing else on
  * these screens elevated. The strip is a region between hairlines.
- *
- * `data-action` names each item for the specs, which cannot pick a menu item by its
- * text with a selector and must not depend on the items' order.
  */
 export function ConversationActions({
   conversation,
@@ -80,14 +59,9 @@ export function ConversationActions({
   placement = 'header',
   name,
 }: ConversationActionsProps) {
-  const t = useTranslate();
   const [confirming, setConfirming] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const deferred = useRef<Deferred>(null);
   const files = useConversationFileActions({ conversation, loaded, minutes });
-  // Read when the menu opens: whether Subtitles can be offered depends on turns a
-  // row has not fetched yet, and an unknown answer offers it (see `download`).
-  const [srtBlocked, setSrtBlocked] = useState(false);
   const row = placement === 'row';
 
   const close = () => {
@@ -109,93 +83,14 @@ export function ConversationActions({
   );
 
   const menu = (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) return;
-        const known = files.known();
-        setSrtBlocked(known ? !canExportSrt(known) : false);
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <Button
-          ref={trigger}
-          variant={row ? 'ghost' : 'outline'}
-          size="icon"
-          // 32px drawn on every pointer, so it stays within the row's first line;
-          // under `pointer-coarse` an invisible 6px rim widens what a finger can hit
-          // to the 44px every touch target gets, without the button growing into
-          // the preview line below it.
-          className={
-            row
-              ? "relative size-8 pointer-coarse:size-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 pointer-coarse:after:content-['']"
-              : undefined
-          }
-          aria-label={
-            row && name
-              ? t('web.history.rowActions', { title: name })
-              : t('web.history.moreActions')
-          }
-        >
-          <Ellipsis aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        onCloseAutoFocus={(event) => {
-          const choice = deferred.current;
-          if (!choice) return;
-          deferred.current = null;
-          event.preventDefault();
-          if (choice === 'delete') setConfirming(true);
-          else onRename();
-        }}
-      >
-        <DropdownMenuItem
-          data-action="rename"
-          onSelect={() => {
-            deferred.current = 'rename';
-          }}
-        >
-          <Pencil aria-hidden />
-          {t('web.history.rename')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          data-action="copy"
-          disabled={files.busy}
-          onSelect={() => void files.copy()}
-        >
-          <Copy aria-hidden />
-          {t('web.history.copyTranscript')}
-        </DropdownMenuItem>
-        <ConversationDownloadSubmenu
-          disabled={files.busy}
-          withMinutes={conversation.hasMinutes}
-          srtBlocked={srtBlocked}
-          onDownload={(format) => void files.download(format)}
-        />
-        {conversation.hasRecording ? (
-          <DropdownMenuItem
-            data-action="download-recording"
-            disabled={files.busy}
-            onSelect={() => void files.downloadRecording()}
-          >
-            <AudioLines aria-hidden />
-            {t('web.history.downloadRecording')}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          data-action="delete"
-          variant="destructive"
-          onSelect={() => {
-            deferred.current = 'delete';
-          }}
-        >
-          <Trash2 aria-hidden />
-          {t('web.history.deleteChoice')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ConversationActionsDropdown
+      conversation={conversation}
+      files={files}
+      row={row}
+      name={name}
+      triggerRef={trigger}
+      onChoose={(choice) => (choice === 'delete' ? setConfirming(true) : onRename())}
+    />
   );
 
   const strip = confirming ? (

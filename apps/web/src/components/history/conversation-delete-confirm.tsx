@@ -43,7 +43,7 @@ export function ConversationDeleteConfirm({
   return (
     <div
       role="alertdialog"
-      aria-label={name ? `${t('web.history.delete')} ${name}` : t('web.history.delete')}
+      aria-label={name ? t('web.history.deleteNamed', { title: name }) : t('web.history.delete')}
       aria-describedby={consequence}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;

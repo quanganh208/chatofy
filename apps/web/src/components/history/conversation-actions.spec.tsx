@@ -31,8 +31,14 @@ vi.mock('@/clients/api-client', () => ({
   getMinutes: (id: string) => api.getMinutes(id),
 }));
 
+const minutesState = vi.hoisted(() => ({ error: false }));
 vi.mock('@/hooks/use-minutes', () => ({
-  useMinutes: () => ({ minutes: null, loading: false, error: false, generate: vi.fn() }),
+  useMinutes: () => ({
+    minutes: null,
+    loading: false,
+    error: minutesState.error,
+    generate: vi.fn(),
+  }),
 }));
 
 const nav = vi.hoisted(() => {
@@ -108,6 +114,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   nav.params = {};
+  minutesState.error = false;
   localStorage.clear();
   api.listConversations.mockResolvedValue({
     conversations: [NEWEST, OLDER, THIRD],
@@ -361,7 +368,61 @@ describe('copy and downloads', () => {
     expect(saved.map((file) => file.name)).toEqual(['dat-ban-nha-hang-2026-11-12.txt']);
     const bytes = new Uint8Array(await saved[0]!.blob.arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
-    expect(revoked).toEqual(['blob:test-0']);
+    // Not on the next tick: a slow engine may still be reading the blob. When it IS
+    // revoked is `save-file.spec.ts`'s to pin.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(revoked).toEqual([]);
+  });
+
+  it('reads the minutes itself for a .md when the screen could not load them', async () => {
+    minutesState.error = true;
+    api.getConversation.mockImplementation((id) =>
+      Promise.resolve({ conversation: { ...stored(id), hasMinutes: true } }),
+    );
+    api.getMinutes.mockResolvedValue({
+      minutes: {
+        conversationId: 'c-1',
+        status: 'ready',
+        summary: 'A table was booked.',
+        keyPoints: [],
+        decisions: [],
+        actionItems: [],
+        generatedAt: null,
+        model: null,
+      },
+    });
+    await mount();
+    await open(headerMenu());
+    await act(async () => {
+      item('download-transcript')?.click();
+      await flush();
+    });
+    await choose('download-md');
+
+    expect(api.getMinutes).toHaveBeenCalledWith('c-1');
+    expect(await saved[0]!.blob.text()).toContain('## Minutes\n\n### Summary\nA table was booked.');
+  });
+
+  it('writes no .md, and says so, when those minutes fail to load again', async () => {
+    minutesState.error = true;
+    api.getConversation.mockImplementation((id) =>
+      Promise.resolve({ conversation: { ...stored(id), hasMinutes: true } }),
+    );
+    api.getMinutes.mockRejectedValue(new Error('offline'));
+    await mount();
+    await open(headerMenu());
+    await act(async () => {
+      item('download-transcript')?.click();
+      await flush();
+    });
+    await choose('download-md');
+
+    expect(saved).toEqual([]);
+    expect(container.querySelector('header [aria-live="polite"]')?.textContent).toBe(
+      'Could not download it. Try again.',
+    );
   });
 
   it('offers Subtitles disabled, with the reason, when a line has no time', async () => {
@@ -395,6 +456,44 @@ describe('copy and downloads', () => {
     expect(writeText).toHaveBeenCalledTimes(2);
   });
 
+  it('copies an uncached row inside the gesture, from the pending text', async () => {
+    // The ClipboardItem is handed over before the fetch lands; the browser fills it.
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText, write },
+      configurable: true,
+    });
+    const items: Record<string, Promise<Blob>>[] = [];
+    vi.stubGlobal(
+      'ClipboardItem',
+      class {
+        constructor(data: Record<string, Promise<Blob>>) {
+          items.push(data);
+        }
+      },
+    );
+    await mount();
+    await open(rowMenu('Hỏi đường'));
+    await choose('copy');
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(await (await items[0]!['text/plain']!).text()).toContain('Hỏi đường\n');
+    vi.unstubAllGlobals();
+  });
+
+  it('says "Copying…" while a row copy is still fetching, and holds Delete back', async () => {
+    await mount();
+    api.getConversation.mockImplementation(() => new Promise(() => {}));
+    await open(rowMenu('Hỏi đường'));
+    await choose('copy');
+
+    const row = rowMenu('Hỏi đường')?.closest('li');
+    expect(row?.querySelector('[aria-live="polite"]')?.textContent).toBe('Copying…');
+    await open(rowMenu('Hỏi đường'));
+    expect(item('delete')?.getAttribute('aria-disabled')).toBe('true');
+  });
+
   it('saves the recording under the extension its type names', async () => {
     api.fetchConversationAudio.mockResolvedValue(new Blob(['x'], { type: 'audio/webm' }));
     await mount();
@@ -416,12 +515,46 @@ describe('copy and downloads', () => {
   });
 });
 
+describe('a rename asked for on a row', () => {
+  it('is dropped when the reader opens another conversation first', async () => {
+    await mount();
+    await open(rowMenu('Hỏi đường'));
+    await choose('rename');
+    expect(nav.push).toHaveBeenCalledWith('/history/c-2');
+
+    // The reader went elsewhere before that navigation landed.
+    await navigate('c-3');
+    expect(titleField()).toBeNull();
+    await navigate('c-2');
+    expect(titleField(), 'an editor nobody asked for').toBeNull();
+  });
+
+  it('is dropped when the conversation turns out to be gone', async () => {
+    await mount();
+    api.getConversation.mockImplementation((id) =>
+      id === 'c-2'
+        ? Promise.reject(new Error('404'))
+        : Promise.resolve({ conversation: stored(id) }),
+    );
+    await open(rowMenu('Hỏi đường'));
+    await choose('rename');
+    await navigate('c-2');
+    expect(container.textContent).toContain('no longer here');
+
+    api.getConversation.mockImplementation((id) => Promise.resolve({ conversation: stored(id) }));
+    await navigate('c-1');
+    await navigate('c-2');
+    expect(titleField()).toBeNull();
+  });
+});
+
 describe('deleting from a row', () => {
   async function confirmRowDelete(title: string): Promise<void> {
     await open(rowMenu(title));
     await choose('delete');
     const strip = container.querySelector('li [role="alertdialog"]');
     expect(strip, 'the strip under the row').not.toBeNull();
+    expect(strip?.getAttribute('aria-label')).toBe(`Delete ${title}`);
     const press = [...strip!.querySelectorAll<HTMLElement>('button')].find(
       (button) => button.textContent === 'Delete',
     );

@@ -1,10 +1,14 @@
+/** How long a download's object URL outlives the click — see `saveBlob`. */
+export const REVOKE_AFTER_MS = 60_000;
+
 /**
  * Hand a Blob to the browser as a download.
  *
  * A temporary `<a download>` is the one way that works in every browser without a
- * new tab. The object URL is revoked on the next task rather than synchronously:
- * revoking it in the same task as the click cancels the download in some engines,
- * and leaving it would keep the bytes alive for the life of the page.
+ * new tab. The object URL is revoked a minute later, not on the next task: Firefox
+ * and Safari read a large blob (a recording of several MB) after the click returns,
+ * and revoking it early aborts the download. Never revoking it would keep the
+ * bytes alive for the life of the page; one blob held for a minute is harmless.
  */
 export function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -18,7 +22,7 @@ export function saveBlob(blob: Blob, filename: string): void {
     link.click();
   } finally {
     link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS);
   }
 }
 

@@ -1,9 +1,18 @@
-import type { Conversation } from '@chatofy/types';
+import type { Conversation, ConversationTurn } from '@chatofy/types';
 import { activeDurationMs } from './conversation-formatting';
-import { turnStart, turnText, turnTranslations } from './conversation-export';
+import {
+  exportTurns,
+  textLines,
+  turnStart,
+  turnText,
+  turnTranslations,
+} from './conversation-export-turns';
 
 /** How long the last cue stays up at the least, when the conversation ends sooner. */
 const LAST_CUE_MIN_MS = 5_000;
+
+/** How long a cue stays up when the next one starts at the same moment. */
+const MIN_CUE_MS = 1_000;
 
 /**
  * Whether the conversation can be written as subtitles at all.
@@ -13,8 +22,8 @@ const LAST_CUE_MIN_MS = 5_000;
  * it was not said, which is worse than offering no subtitles. So the whole format
  * is unavailable rather than a file with holes.
  */
-export function canExportSrt(conversation: Pick<Conversation, 'turns'>): boolean {
-  return conversation.turns.every((turn) => turn.offsetMs !== null);
+export function canExportSrt(conversation: Pick<Conversation, 'turns' | 'languages'>): boolean {
+  return exportTurns(conversation).every((turn) => turn.offsetMs !== null);
 }
 
 /** `HH:MM:SS,mmm`, the SubRip timestamp — a comma before the milliseconds, not a dot. */
@@ -28,43 +37,57 @@ export function srtTimestamp(ms: number): string {
 }
 
 /**
- * A blank line ends a cue in SubRip, so text that carries one would split a cue in
- * two and misnumber every cue after it. Collapsed to single line breaks.
+ * A cue's own lines. `-->` is the timing line's separator, and a parser that meets
+ * it in the text reads that line as a timing line; the arrow says the same thing.
  */
-function cueLine(text: string): string {
-  return text.replace(/\n\s*\n+/g, '\n').trim();
+function cueLines(text: string): string[] {
+  return textLines(text).map((line) => line.replaceAll('-->', '→'));
 }
 
 /**
- * The `.srt` export: one cue per turn, numbered from 1, timed on the recording's
- * clock — the same `mediaOffset` the transcript's gutter and the player use.
+ * The `.srt` export: one cue per turn, numbered from 1 in the order they play,
+ * timed on the recording's clock — the same `mediaOffset` the transcript's gutter
+ * and the player use. CRLF, as SubRip was written and some Windows players expect.
  *
- * A cue runs until the next one starts, so a reader never sees two lines at once
- * nor a gap between turns. The last runs to the end of the conversation's ACTIVE
- * time (paused time excluded, as the recording pauses with it), moved onto the
- * same clock, or for five seconds — whichever is later, so a line spoken right at
- * the end is still readable.
+ * Cues are sorted by start: turns are stored in display order, and two speakers
+ * overlapping, or several turns clamped to 0 before the recording began, put a
+ * later turn's start at or before an earlier one's. A cue runs until the next one
+ * starts, so no two lines are up at once; when the next starts at the SAME moment
+ * it runs for {@link MIN_CUE_MS} instead, because a zero-length cue is never shown.
+ * The last runs to the end of the conversation's ACTIVE time (paused time excluded,
+ * as the recording pauses with it), moved onto the same clock, or for five seconds
+ * — whichever is later, so a line spoken right at the end is still readable.
  *
  * Throws when a turn has no offset: callers check {@link canExportSrt} first, and
  * writing a file with an invented time would be the silent version of that bug.
  */
 export function transcriptSrt(conversation: Conversation): string {
-  const starts = conversation.turns.map((turn) => turnStart(turn, conversation));
-  if (starts.some((start) => start === null)) {
+  const timed = exportTurns(conversation).map((turn) => ({
+    turn,
+    start: turnStart(turn, conversation),
+  }));
+  if (timed.some(({ start }) => start === null)) {
     throw new Error('Every turn needs an offset to be written as subtitles');
   }
-  const times = starts as number[];
+  const cues = (timed as { turn: ConversationTurn; start: number }[]).sort(
+    (a, b) => a.start - b.start,
+  );
   const end = activeDurationMs(conversation) - (conversation.audioOffsetMs ?? 0);
 
-  const cues = conversation.turns.map((turn, index) => {
-    const start = times[index]!;
-    const next = times[index + 1];
+  const blocks = cues.map(({ turn, start }, index) => {
+    const next = cues[index + 1]?.start;
     const stop =
-      next === undefined ? Math.max(start + LAST_CUE_MIN_MS, end) : Math.max(next, start);
-    const text = [turnText(turn), ...turnTranslations(turn, conversation.languages)]
-      .map(cueLine)
-      .filter((line) => line !== '');
-    return [`${index + 1}`, `${srtTimestamp(start)} --> ${srtTimestamp(stop)}`, ...text].join('\n');
+      next === undefined
+        ? Math.max(start + LAST_CUE_MIN_MS, end)
+        : next > start
+          ? next
+          : start + MIN_CUE_MS;
+    const text = [turnText(turn), ...turnTranslations(turn, conversation.languages)].flatMap(
+      cueLines,
+    );
+    return [`${index + 1}`, `${srtTimestamp(start)} --> ${srtTimestamp(stop)}`, ...text].join(
+      '\r\n',
+    );
   });
-  return cues.length ? `${cues.join('\n\n')}\n` : '';
+  return blocks.length ? `${blocks.join('\r\n\r\n')}\r\n` : '';
 }

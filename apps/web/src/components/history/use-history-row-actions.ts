@@ -79,6 +79,14 @@ export function useHistoryRowActions({
     [router],
   );
   const takeRenameRequest = useCallback(() => setRenameRequest(null), []);
+  // Dropped when the reader ends up somewhere else before it was taken — another
+  // conversation, or back on the list — so it can never open an editor later,
+  // unasked. Adjusted during render, so no frame draws the stale request.
+  const [requestSeenAt, setRequestSeenAt] = useState(selectedId);
+  if (requestSeenAt !== selectedId) {
+    setRequestSeenAt(selectedId);
+    if (renameRequest !== null && selectedId !== renameRequest) setRenameRequest(null);
+  }
 
   // A row deleted that was NOT open: nothing in the pane changes, so focus — which
   // was on that row's strip — goes to the row that took its place, or the list.

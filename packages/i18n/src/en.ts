@@ -633,6 +633,9 @@ export const en = {
   'web.history.subtitlesNeedTimes': 'Needs a time on every line',
   'web.history.downloadRecording': 'Download recording',
   'web.history.preparingDownload': 'Preparing the download…',
+  'web.history.copying': 'Copying…',
+  // The delete strip under a row, named for the conversation it deletes.
+  'web.history.deleteNamed': 'Delete {title}',
   'web.history.downloadFailed': 'Could not download it. Try again.',
   // The menu item: the ellipsis says another step follows before anything goes.
   'web.history.deleteChoice': 'Delete…',

@@ -499,6 +499,8 @@ export const vi: Messages = {
   'web.history.subtitlesNeedTimes': 'Cần mốc thời gian ở mọi dòng',
   'web.history.downloadRecording': 'Tải bản ghi âm',
   'web.history.preparingDownload': 'Đang chuẩn bị tệp…',
+  'web.history.copying': 'Đang sao chép…',
+  'web.history.deleteNamed': 'Xoá {title}',
   'web.history.downloadFailed': 'Không tải xuống được. Hãy thử lại.',
   'web.history.deleteChoice': 'Xoá…',
   'web.history.renameLabel': 'Tiêu đề cuộc hội thoại',

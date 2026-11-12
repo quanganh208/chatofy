@@ -24,13 +24,19 @@ export interface ConversationCache {
   remember: (conversation: Conversation) => void;
   /** Fold a newer summary (a rename) into the held copy, turns unchanged. */
   update: (summary: ConversationSummary) => void;
-  /** Drop a deleted conversation. */
+  /**
+   * Drop a deleted conversation, for good: a request for it still in flight does
+   * not write it back when it lands, and nothing re-stores it.
+   */
   forget: (conversationId: string) => void;
+  /** Whether the conversation was deleted while this layout held it. */
+  isGone: (conversationId: string) => boolean;
 }
 
 export function createConversationCache(): ConversationCache {
   const held = new Map<string, Conversation>();
   const inFlight = new Map<string, Promise<Conversation>>();
+  const gone = new Set<string>();
 
   return {
     peek: (id) => held.get(id),
@@ -41,22 +47,27 @@ export function createConversationCache(): ConversationCache {
       if (pending) return pending;
       const request = getConversation(id)
         .then(({ conversation }) => {
-          held.set(id, conversation);
+          if (!gone.has(id)) held.set(id, conversation);
           return conversation;
         })
         .finally(() => inFlight.delete(id));
       inFlight.set(id, request);
       return request;
     },
-    remember: (conversation) => held.set(conversation.conversationId, conversation),
+    remember(conversation) {
+      if (!gone.has(conversation.conversationId))
+        held.set(conversation.conversationId, conversation);
+    },
     update(summary) {
       const known = held.get(summary.conversationId);
       if (known) held.set(summary.conversationId, { ...known, ...summary });
     },
     forget(id) {
+      gone.add(id);
       held.delete(id);
       inFlight.delete(id);
     },
+    isGone: (id) => gone.has(id),
   };
 }
 
