@@ -17,7 +17,7 @@ interface HistoryListRowProps {
   /** `?q=…` when a search is in effect, so opening a row keeps it in the URL. */
   querySuffix: string;
   /** Called for a click that navigates in place — not one opening a new tab. */
-  onOpen?: () => void;
+  onOpen?: (pathname: string) => void;
 }
 
 /**
@@ -56,7 +56,7 @@ export function HistoryListRow({
         ) {
           return;
         }
-        onOpen?.();
+        onOpen?.(`/history/${conversation.conversationId}`);
       }}
       className={cn(
         'animate-in fade-in fill-mode-both duration-300 motion-reduce:animate-none',

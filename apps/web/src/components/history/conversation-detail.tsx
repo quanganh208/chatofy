@@ -84,10 +84,17 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   // Opened in the place of one just deleted: the delete removed the control that
   // had focus, so the next conversation's title takes it, where a reader expects
   // to be — not `<body>`.
+  //
+  // Taken by the not-found state too. Left pending there, the request would be
+  // served by whichever conversation loads NEXT — one opened much later, by a
+  // reader who is somewhere else entirely.
   const heading = useRef<HTMLHeadingElement>(null);
+  const gone = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (conversation && panes?.takeFocusRequest()) heading.current?.focus();
-  }, [conversation, panes]);
+    if (!conversation && !missing) return;
+    if (!panes?.takeFocusRequest()) return;
+    (conversation ? heading : gone).current?.focus();
+  }, [conversation, missing, panes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +134,9 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
       {loading ? (
         <ConversationDetailLoading />
       ) : missing || !conversation ? (
-        <ConversationDetailMissing />
+        <div ref={gone} tabIndex={-1} className="outline-none">
+          <ConversationDetailMissing />
+        </div>
       ) : (
         <>
           {/* The row's own title and facts, following the reader in: this is what

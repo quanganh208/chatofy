@@ -31,8 +31,8 @@ interface HistoryListProps {
   selectedId?: string;
   /** `?q=…` while searching, carried into every row's link. */
   querySuffix?: string;
-  /** A row is being opened in place (a plain click, not a new tab). */
-  onOpen?: () => void;
+  /** A row is being opened in place (a plain click, not a new tab), by its pathname. */
+  onOpen?: (pathname: string) => void;
 }
 
 /**

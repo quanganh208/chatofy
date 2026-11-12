@@ -34,10 +34,14 @@ vi.mock('@/hooks/use-minutes', () => ({
 
 const nav = vi.hoisted(() => {
   const params: { conversationId?: string } = {};
-  return { params, query: '', push: vi.fn(), replace: vi.fn() };
+  const push = vi.fn();
+  const replace = vi.fn();
+  // One object, as Next's router is: a new one per render would re-run every effect
+  // that depends on it, which the real app never does.
+  return { params, query: '', push, replace, router: { push, replace } };
 });
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: nav.push, replace: nav.replace }),
+  useRouter: () => nav.router,
   usePathname: () =>
     nav.params.conversationId ? `/history/${nav.params.conversationId}` : '/history',
   useSearchParams: () => new URLSearchParams(nav.query),
@@ -400,6 +404,91 @@ describe('a row clicked while a search is still being typed', () => {
     await navigate(undefined, '');
     expect(field().value).toBe('');
     expect(nav.replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('the URL term the search did not write', () => {
+  beforeEach(() => {
+    layout.wide = true;
+    listConversations.mockResolvedValue({ conversations: [NEWEST, OLDER], nextCursor: null });
+  });
+
+  it('clears the box when /history?q=… navigates to plain /history', async () => {
+    nav.query = 'q=xin';
+    await mount();
+    expect(field().value).toBe('xin');
+    const fetches = listConversations.mock.calls.length;
+
+    // The sidebar's History item: same pathname, no term.
+    await navigate(undefined, '');
+    expect(field().value).toBe('');
+    // The filter goes with it: the unfiltered list is fetched again.
+    expect(listConversations.mock.calls.length).toBeGreaterThan(fetches);
+    expect(nav.replace).not.toHaveBeenCalled();
+  });
+
+  it('adopts a term that arrives by navigation on the same page (Back)', async () => {
+    await mount();
+    await navigate(undefined, 'q=hỏi');
+    expect(field().value).toBe('hỏi');
+  });
+
+  it('does not rewind typing when its own earlier write lands late', async () => {
+    await mount();
+    type('xi');
+    await settle();
+    expect(nav.replace).toHaveBeenLastCalledWith('/history?q=xi');
+    type('xin');
+    await settle();
+    expect(nav.replace).toHaveBeenLastCalledWith('/history?q=xin');
+
+    // The first write arrives after the reader typed on.
+    await navigate(undefined, 'q=xi');
+    expect(field().value).toBe('xin');
+  });
+});
+
+describe('re-clicking the open row', () => {
+  it('does not hold back the URL write of a search typed afterwards', async () => {
+    layout.wide = true;
+    listConversations.mockResolvedValue({ conversations: [NEWEST, OLDER], nextCursor: null });
+    nav.params = { conversationId: 'c-1' };
+    await mount();
+
+    const row = container.querySelector<HTMLAnchorElement>('a[href^="/history/c-1"]');
+    row?.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    act(() => {
+      row?.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    });
+
+    type('xin');
+    await settle();
+    expect(nav.replace).toHaveBeenCalledWith('/history/c-1?q=xin');
+  });
+});
+
+describe('focus after a delete', () => {
+  it('is taken by a not-found state, so a later load does not steal it', async () => {
+    layout.wide = true;
+    listConversations.mockResolvedValue({ conversations: [NEWEST, OLDER], nextCursor: null });
+    getConversation.mockImplementation((id) =>
+      id === 'c-2'
+        ? Promise.reject(new Error('404'))
+        : Promise.resolve({ conversation: stored(id) }),
+    );
+    deleteConversation.mockResolvedValue(undefined);
+    await mount();
+
+    await deleteOpenConversation();
+    await settle();
+    // The next newest is gone too: its not-found state holds the focus.
+    expect(document.activeElement?.textContent).toContain('no longer here');
+
+    // Much later, the reader opens something else: its title does not take focus,
+    // because the request was already spent.
+    await navigate('c-1');
+    expect(heading()).toBe(NEWEST.title);
+    expect(document.activeElement).not.toBe(container.querySelector('header h2'));
   });
 });
 

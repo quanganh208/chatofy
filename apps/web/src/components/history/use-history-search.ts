@@ -59,6 +59,24 @@ export function useHistorySearch() {
 
   const navigating = useRef<number | null>(null);
 
+  // Terms this hook has `replace`d into the URL and not yet seen land. A `q` that
+  // changes WITHOUT a pathname change is either one of these arriving — ignored, or
+  // it would rewind a reader who typed on before it landed — or a navigation to the
+  // same page with another term (the sidebar's History from `/history?q=…`, Back),
+  // which is adopted exactly like one that changed the pathname.
+  const written = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (written.current.delete(urlTerm)) return;
+    if (urlTerm === debounced) return;
+    // Following an external input — the URL — is what this effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTerm(urlTerm);
+    setDebounced(urlTerm);
+    // `debounced` is read, not followed: a change to it is a write, not a navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlTerm]);
+
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(term), DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -67,6 +85,8 @@ export function useHistorySearch() {
   // Before the write below, so the write sees a navigation that has just landed as
   // finished. Effects run in declaration order.
   useEffect(() => {
+    // A write that was still in flight across a page change will not land here.
+    written.current.clear();
     if (navigating.current === null) return;
     clearTimeout(navigating.current);
     navigating.current = null;
@@ -91,6 +111,7 @@ export function useHistorySearch() {
     if (query === searchParams.toString()) return;
     // `as Route`: `typedRoutes` cannot check a path built at runtime, and the
     // pathname half comes from the router itself.
+    written.current.add(debounced);
     router.replace(`${pathname}${query ? `?${query}` : ''}` as Route);
     // `searchParams` is deliberately not a dependency: this effect WRITES it, and
     // depending on it would re-run the effect with its own result.
@@ -99,14 +120,25 @@ export function useHistorySearch() {
 
   const clear = useCallback(() => setTerm(''), []);
 
-  /** A row is being opened: apply what was typed and leave the URL to the link. */
-  const beginNavigation = useCallback(() => {
-    setDebounced(term);
-    if (navigating.current !== null) clearTimeout(navigating.current);
-    navigating.current = window.setTimeout(() => {
-      navigating.current = null;
-    }, NAVIGATION_GRACE_MS);
-  }, [term]);
+  /**
+   * A row is being opened: apply what was typed and leave the URL to the link.
+   *
+   * No hold for a link to the page already open (re-clicking the open row): its
+   * pathname never changes, so nothing would release the hold before the fallback,
+   * and a search typed meanwhile would never reach the URL. There is no navigation
+   * for the write to race, either — both name the same page.
+   */
+  const beginNavigation = useCallback(
+    (targetPathname: string) => {
+      setDebounced(term);
+      if (targetPathname === pathname) return;
+      if (navigating.current !== null) clearTimeout(navigating.current);
+      navigating.current = window.setTimeout(() => {
+        navigating.current = null;
+      }, NAVIGATION_GRACE_MS);
+    },
+    [term, pathname],
+  );
 
   /** `?q=…` for the list link after a delete and the back link. */
   const querySuffix = suffix(debounced);
