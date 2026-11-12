@@ -27,6 +27,9 @@
  */
 export const en = {
   // ---- common: vocabulary a second surface could adopt unchanged ----
+  // Navigation labels both apps use for the same destination.
+  'common.nav.translate': 'Translate',
+  'common.nav.settings': 'Settings',
   'common.theme.light': 'Light',
   'common.theme.dark': 'Dark',
   'common.theme.system': 'Match system',
@@ -222,14 +225,12 @@ export const en = {
   // The sidebar's two captions. Settings is not a group: it sits in the footer.
   'web.chrome.navGroupTranslate': 'Translate',
   'web.chrome.navGroupLibrary': 'Library',
-  'web.chrome.navSettings': 'Settings',
   'web.chrome.breadcrumb': 'Breadcrumb',
   // The credit line under the name in the sidebar footer and the More sheet.
   // `{amount}` is already a counted phrase ("74 credits").
   'web.chrome.creditsLeft': '{amount} left',
   // The bottom tab bar below 768px. Short on purpose: four fit across a phone.
   'web.chrome.tabBar': 'Main',
-  'web.chrome.tabTranslate': 'Translate',
   'web.chrome.tabHistory': 'History',
   'web.chrome.tabMore': 'More',
   'web.chrome.close': 'Close',
@@ -1122,9 +1123,7 @@ export const en = {
   'mobile.conference.minutesGenerating': 'Summarizing the meeting…',
   'mobile.conference.minutesEmpty':
     'No minutes yet. Anyone who was in the meeting can generate them.',
-  'mobile.tabs.translate': 'Translate',
   'mobile.tabs.conference': 'Conference',
-  'mobile.tabs.settings': 'Settings',
   'mobile.auth.noAccountPrompt': 'No account yet?',
   'mobile.auth.linkExpired': 'This link has expired or was already used. Ask for a new one.',
   'mobile.auth.fillAllFields': 'Fill in every field.',

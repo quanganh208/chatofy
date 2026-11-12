@@ -52,9 +52,9 @@ describe('navPlaceFor', () => {
   });
 
   it('files every settings page under Settings, which the sidebar does not draw', () => {
-    expect(navPlaceFor('/settings/billing')?.group.labelKey).toBe('web.chrome.navSettings');
+    expect(navPlaceFor('/settings/billing')?.group.labelKey).toBe('common.nav.settings');
     expect(navPlaceFor('/settings/billing')?.item.labelKey).toBe('web.settings.billing');
-    expect(navGroups().map((group) => group.labelKey)).not.toContain('web.chrome.navSettings');
+    expect(navGroups().map((group) => group.labelKey)).not.toContain('common.nav.settings');
     expect(isSettingsPath('/settings/appearance')).toBe(true);
     expect(isSettingsPath('/preferences')).toBe(false);
     expect(isSettingsPath('/glossary')).toBe(false);

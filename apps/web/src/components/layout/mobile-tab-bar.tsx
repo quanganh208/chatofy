@@ -46,7 +46,7 @@ export function MobileTabBar() {
     {
       key: 'translate',
       href: translateHref,
-      labelKey: 'web.chrome.tabTranslate',
+      labelKey: 'common.nav.translate',
       icon: Mic,
       active: (path) => path.startsWith('/translate/'),
     },

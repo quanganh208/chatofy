@@ -84,12 +84,12 @@ const GROUPS: readonly NavGroup[] = [
  */
 export const SETTINGS_ITEM: NavItem = {
   href: '/settings/appearance',
-  labelKey: 'web.chrome.navSettings',
+  labelKey: 'common.nav.settings',
   icon: Settings,
 };
 
 const SETTINGS_GROUP: NavGroup = {
-  labelKey: 'web.chrome.navSettings',
+  labelKey: 'common.nav.settings',
   // The settings pages themselves, so the breadcrumb reads Settings › Appearance in the
   // words the settings sub-navigation uses. `settings-sections.ts` owns the list.
   items: SETTINGS_SECTIONS.map(({ href, labelKey, icon }) => ({ href, labelKey, icon })),

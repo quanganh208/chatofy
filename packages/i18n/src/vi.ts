@@ -40,6 +40,9 @@ import type { Messages } from './en.js';
  * not what the product does.
  */
 export const vi: Messages = {
+  // Navigation labels both apps use for the same destination.
+  'common.nav.translate': 'Dịch',
+  'common.nav.settings': 'Cài đặt',
   'common.theme.light': 'Sáng',
   'common.theme.dark': 'Tối',
   'common.theme.system': 'Theo hệ thống',
@@ -190,11 +193,9 @@ export const vi: Messages = {
   'web.chrome.sidebarWidth': 'Độ rộng thanh bên',
   'web.chrome.navGroupTranslate': 'Dịch',
   'web.chrome.navGroupLibrary': 'Thư viện',
-  'web.chrome.navSettings': 'Cài đặt',
   'web.chrome.breadcrumb': 'Vị trí trang',
   'web.chrome.creditsLeft': 'Còn {amount}',
   'web.chrome.tabBar': 'Điều hướng chính',
-  'web.chrome.tabTranslate': 'Dịch',
   'web.chrome.tabHistory': 'Lịch sử',
   'web.chrome.tabMore': 'Thêm',
   'web.chrome.close': 'Đóng',
@@ -872,9 +873,7 @@ export const vi: Messages = {
   'mobile.conference.hideChat': 'Ẩn trò chuyện',
   'mobile.conference.minutesGenerating': 'Đang tóm tắt cuộc họp…',
   'mobile.conference.minutesEmpty': 'Chưa có biên bản. Ai đã tham gia cuộc họp đều có thể tạo.',
-  'mobile.tabs.translate': 'Dịch',
   'mobile.tabs.conference': 'Cuộc họp',
-  'mobile.tabs.settings': 'Cài đặt',
   'mobile.auth.noAccountPrompt': 'Chưa có tài khoản?',
   'mobile.auth.linkExpired': 'Liên kết đã hết hạn hoặc đã được dùng. Hãy yêu cầu liên kết mới.',
   'mobile.auth.fillAllFields': 'Điền đủ các ô.',
