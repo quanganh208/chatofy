@@ -55,9 +55,9 @@ describe('wide layouts', () => {
     expect(read('../components/glossary/glossary-page-content.tsx')).not.toContain('-mx-6');
   });
 
-  it('opens the conference landing as a two-column hero with the lotus beside the actions', () => {
+  it('opens the conference landing as one calm column, with no hero beside the actions', () => {
     const src = read('../../app/(app)/conference/page.tsx');
-    expect(src).toContain('lg:grid-cols-');
-    expect(src).toContain('LotusIllustration');
+    expect(src).toContain('max-w-2xl');
+    expect(src).not.toContain('LotusIllustration');
   });
 });
