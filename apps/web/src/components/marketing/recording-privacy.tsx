@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
 
@@ -30,15 +31,21 @@ export async function RecordingPrivacy() {
 
   return (
     <Section id="privacy">
-      <div className="flex max-w-prose flex-col gap-4">
-        <h2 className="text-title font-display font-light tracking-tight text-balance">
-          {t('web.landing.localTitle')}
-        </h2>
-        <p className="text-prose text-body">{t('web.landing.localBody')}</p>
-        <ul className="border-hairline flex flex-col border-t">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-16">
+        <div className="flex max-w-prose flex-col gap-4">
+          <h2 className="text-title font-display font-light tracking-tight text-balance">
+            {t('web.landing.localTitle')}
+          </h2>
+          <p className="text-prose text-body">{t('web.landing.localBody')}</p>
+        </div>
+        <ul className="border-hairline flex flex-col rounded-xl border">
           {kept.map((fact) => (
-            <li key={fact} className="text-prose text-hint border-hairline border-b py-3">
-              {fact}
+            <li
+              key={fact}
+              className="text-prose text-hint border-hairline flex gap-3 border-b p-4 last:border-b-0"
+            >
+              <Check aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">{fact}</span>
             </li>
           ))}
         </ul>

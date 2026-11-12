@@ -588,3 +588,81 @@ describe('useStreamingTranslate microphone processing', () => {
     expect(latest.micPaused).toBe(false);
   });
 });
+
+describe('playback volume per language', () => {
+  /** An `AudioContext` that records every gain stage and what each chunk joined. */
+  function fakeAudio() {
+    const stages: Array<{ value: number; target: number | null }> = [];
+    const connections: number[] = [];
+    const context = {
+      state: 'running',
+      currentTime: 0,
+      destination: {},
+      createGain: () => {
+        const stage = { value: 0, target: null as number | null };
+        stages.push(stage);
+        return {
+          context,
+          gain: {
+            set value(next: number) {
+              stage.value = next;
+            },
+            setTargetAtTime: (next: number) => {
+              stage.target = next;
+            },
+          },
+          connect: () => {},
+          index: stages.length - 1,
+        };
+      },
+      createBuffer: (_c: number, length: number, rate: number) => ({
+        duration: length / rate,
+        getChannelData: () => new Float32Array(length),
+      }),
+      createBufferSource: () => ({
+        buffer: null,
+        onended: null,
+        connect: (node: { index: number }) => connections.push(node.index),
+        start: () => {},
+      }),
+    };
+    return { context, stages, connections };
+  }
+
+  it('gives each language its own stage, read from its own volume, and turns one down alone', async () => {
+    const volumes: Record<string, number> = { vi: 0.3, en: 0.8, '': 0.8 };
+    function VolumeProbe() {
+      const value = useStreamingTranslate((lang) => volumes[lang ?? '']!);
+      React.useEffect(() => {
+        latest = value;
+      });
+      return null;
+    }
+    await act(async () => {
+      root.render(<VolumeProbe />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.start(options);
+    });
+    const deps = FakeConversationSession.last!.deps as unknown as {
+      createPlaybackSink: (
+        context: unknown,
+        onDrained: () => void,
+      ) => { enqueue: (key: string, s: Int16Array, rate: number, lang?: string) => void };
+    };
+    const { context, stages, connections } = fakeAudio();
+    const sink = deps.createPlaybackSink(context, () => {});
+
+    sink.enqueue('t1', new Int16Array(160), 16000, 'vi');
+    sink.enqueue('t2', new Int16Array(160), 16000, 'en');
+    sink.enqueue('t3', new Int16Array(160), 16000, 'vi');
+
+    expect(stages.map((stage) => stage.value)).toEqual([0.3, 0.8]);
+    expect(connections).toEqual([0, 1, 0]);
+
+    latest.setVolume(0.1, 'vi');
+    expect(stages[0]!.target).toBe(0.1);
+    expect(stages[1]!.target).toBeNull();
+  });
+});

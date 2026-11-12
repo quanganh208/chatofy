@@ -50,12 +50,12 @@ afterEach(() => {
   container.remove();
 });
 
-function render(page: React.ReactNode = <p>page</p>) {
+function render(page: React.ReactNode = <p>page</p>, defaultOpen?: boolean) {
   act(() => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AppChrome>{page}</AppChrome>
+        <AppChrome defaultOpen={defaultOpen}>{page}</AppChrome>
       </LocaleProvider>,
     );
   });
@@ -104,6 +104,16 @@ describe('the product sidebar', () => {
     expect(item?.getAttribute('aria-label')).toBe('One-way translation');
   });
 
+  it('marks the current page with aria-current and one dawn bar, and no other link', () => {
+    const sidebar = render();
+    const current = [...sidebar.querySelectorAll('a[aria-current="page"]')];
+    expect(current.map((a) => a.getAttribute('href'))).toEqual(['/translate/one-way']);
+    // Decoration only: hidden from assistive tech, and there is exactly one.
+    const bars = sidebar.querySelectorAll('[data-slot="sidebar-active-bar"]');
+    expect(bars.length).toBe(1);
+    expect(bars[0]?.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('marks the current route active', () => {
     expect(
       render().querySelector('a[href="/translate/one-way"]')?.getAttribute('data-active'),
@@ -134,22 +144,52 @@ describe('the product frame', () => {
     );
   });
 
-  it('opens as a rail where the surface asked for one, and expanded everywhere else', () => {
-    // The collapse rule is route-driven and lives in `RAIL_ROUTES`. The cookie the
-    // primitive still writes is inert; if it ever becomes authoritative again this is
-    // where the two mechanisms start disagreeing.
+  it('opens the translator the way the reader left the sidebar', () => {
+    // No route decides this any more: the translator opens expanded for a reader
+    // who never toggled, and as a rail for one whose cookie says they chose it.
     render();
-    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+    expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
     act(() => root?.unmount());
 
     pathname.mockReturnValue('/translate/two-way');
-    render();
+    render(undefined, false);
     expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
-    act(() => root?.unmount());
+  });
+
+  it('keeps a toggle across navigation', () => {
+    render();
+    const toggle = container.querySelector<HTMLButtonElement>('[data-sidebar="trigger"]');
+    act(() => toggle?.click());
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
 
     pathname.mockReturnValue('/history');
+    act(() =>
+      root?.render(
+        <LocaleProvider>
+          <AppChrome>
+            <p>page</p>
+          </AppChrome>
+        </LocaleProvider>,
+      ),
+    );
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+  });
+
+  it("opens the conference room as a rail without overwriting the reader's choice", () => {
+    pathname.mockReturnValue('/conference/room-1');
     render();
-    expect(container.querySelector('[data-state="collapsed"]')).toBeNull();
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+
+    pathname.mockReturnValue('/conference');
+    act(() =>
+      root?.render(
+        <LocaleProvider>
+          <AppChrome>
+            <p>page</p>
+          </AppChrome>
+        </LocaleProvider>,
+      ),
+    );
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
@@ -180,11 +220,143 @@ describe('the product frame', () => {
     ]);
   });
 
+  it('gives the topbar controls a 44px hit area on touch screens', () => {
+    // Pointer-coarse only: on a desktop the compact header stays as designed. The
+    // controls measured 26px (theme), 28px (sidebar) and 32px (language) at 375px.
+    render();
+    const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
+    const controls = [
+      bar?.querySelector('[data-sidebar="trigger"]'),
+      bar?.querySelector('[aria-label="Language"]'),
+      ...(bar?.querySelectorAll('[data-slot="theme-toggle"] button') ?? []),
+    ];
+    expect(controls.length).toBe(5);
+    for (const control of controls) {
+      expect(control?.className, control?.getAttribute('aria-label') ?? 'sidebar').toContain(
+        'pointer-coarse:size-11',
+      );
+    }
+  });
+
   it('holds the footer shape while the session resolves', () => {
     render();
     // Not `null` while loading: an identity that appears after a beat moves the
     // sidebar's footer, and the sign-out behind it, under the pointer.
     expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull();
     expect(container.querySelector('#sign-out')).toBeNull();
+  });
+});
+
+describe('the resizable sidebar', () => {
+  const handle = () =>
+    container.querySelector<HTMLElement>('[role="separator"][aria-label="Sidebar width"]');
+  const wrapper = () => container.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]');
+
+  beforeEach(() => localStorage.clear());
+
+  it('offers a width handle where the sidebar is open', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    expect(handle()?.getAttribute('aria-valuenow')).toBe('256');
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('256px');
+  });
+
+  it('widens from the keyboard and remembers the width', () => {
+    pathname.mockReturnValue('/history');
+    render();
+    act(() => {
+      handle()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+    expect(handle()?.getAttribute('aria-valuenow')).toBe('272');
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('272px');
+    expect(localStorage.getItem('chatofy.sidebar-width')).toBe('272');
+  });
+
+  it('starts from a remembered width', () => {
+    localStorage.setItem('chatofy.sidebar-width', '320');
+    pathname.mockReturnValue('/history');
+    render();
+    expect(wrapper()?.style.getPropertyValue('--sidebar-width')).toBe('320px');
+  });
+
+  it('has no handle on the icon rail', () => {
+    render(undefined, false);
+    expect(handle()).toBeNull();
+  });
+});
+
+describe('the page header', () => {
+  const h1s = () => [...container.querySelectorAll('h1')];
+
+  beforeEach(() => localStorage.clear());
+
+  it.each([
+    ['/glossary', 'Glossary'],
+    ['/preferences', 'Preferences'],
+    ['/account', 'Account'],
+  ])('puts the one h1 for %s in the page, with a line saying what it is for', (route, title) => {
+    pathname.mockReturnValue(route);
+    render();
+    const headings = h1s();
+    expect(headings.length).toBe(1);
+    expect(headings[0]?.textContent).toBe(title);
+    // In the page's own column, not in the topbar.
+    expect(headings[0]?.closest('main')).not.toBeNull();
+    const header = headings[0]?.closest('header');
+    expect(header?.querySelector('p')?.textContent?.length).toBeGreaterThan(20);
+  });
+
+  it('leaves the topbar title as plain text there, so the page has no second heading', () => {
+    pathname.mockReturnValue('/glossary');
+    render();
+    const topbar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
+    expect(topbar?.querySelector('h1')).toBeNull();
+    expect(topbar?.textContent).toContain('Glossary');
+  });
+
+  it.each(['/translate/one-way', '/history'])(
+    'keeps the topbar h1 on %s, which owns its layout',
+    (route) => {
+      pathname.mockReturnValue(route);
+      render();
+      expect(h1s().length).toBe(1);
+      expect(h1s()[0]?.closest('header')).toBeNull();
+    },
+  );
+
+  it('opens a nested route (a stored conversation) without a second header', () => {
+    pathname.mockReturnValue('/history/abc');
+    render();
+    expect(h1s().length).toBe(1);
+    expect(container.querySelector('main header')).toBeNull();
+  });
+});
+
+describe('the paned History frame', () => {
+  const main = () => container.querySelector<HTMLElement>('#main');
+
+  it.each(['/history', '/history/abc'])(
+    'pins %s to the viewport from lg, so its panes scroll and the page does not',
+    (route) => {
+      pathname.mockReturnValue(route);
+      render();
+      expect(main()?.className).toContain('lg:h-svh');
+      expect(main()?.className).toContain('lg:overflow-hidden');
+      // The panes draw their own padding and measure; the content column's would
+      // inset the list from the sidebar it sits against.
+      expect(container.querySelector('main .max-w-6xl, main .max-w-2xl')).toBeNull();
+    },
+  );
+
+  it('leaves every other route to scroll as a page', () => {
+    pathname.mockReturnValue('/glossary');
+    render();
+    expect(main()?.className).not.toContain('lg:h-svh');
+  });
+
+  it('does not let a sibling path borrow the frame', () => {
+    pathname.mockReturnValue('/historyx');
+    render();
+    expect(main()?.className).not.toContain('lg:h-svh');
   });
 });

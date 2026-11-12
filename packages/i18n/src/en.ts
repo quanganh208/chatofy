@@ -219,6 +219,11 @@ export const en = {
   // locale may well want two different words.
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
+  'web.chrome.sidebarWidth': 'Sidebar width',
+  'web.chrome.descGlossary': 'Names and terms you want translated your way, kept in one place.',
+  'web.chrome.descPreferences':
+    'How the microphone, the translator and the screen behave the next time you start.',
+  'web.chrome.descAccount': 'Who you are signed in as, and the settings that keep it safe.',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
@@ -367,6 +372,7 @@ export const en = {
   // which meant the icon at the bottom covered both the voice and the page layout
   // while the speaker in the panel header configured nothing.
   'web.translate.voiceSettings': 'Voice settings',
+  'web.translate.voiceSettingsFor': 'Voice for {language}',
   'web.translate.displaySettings': 'Display settings',
   // ---- fullscreen, the caption window, and the reader's appearance ----
   // One button opens the floating captions; it is called picture-in-picture
@@ -516,8 +522,6 @@ export const en = {
   // Interpolated with the number the roster assigns, so the placeholder name a
   // person then edits is in their language rather than always English.
   'web.translate.speakerDefault': 'Speaker {number}',
-  'web.translate.speakerRosterHint':
-    'Add the people talking and each turn can be marked with who said it.',
   'web.translate.speakerNameFor': 'Name for {name}',
   'web.translate.speakerRemove': 'Remove {name}',
   // Removal is refused while a turn still names somebody, and says so rather than
@@ -609,6 +613,44 @@ export const en = {
   // back to the full list is selecting the field and deleting what you typed.
   'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
+  // The detail's overflow menu. Delete's second step happens beside the sentence
+  // saying what it costs — under the header, or under the row it was chosen on.
+  'web.history.moreActions': 'More actions',
+  // The actions menu, shared by the detail header and every list row. A row's
+  // trigger names its conversation: twenty identical "More actions" buttons in a
+  // list say nothing about which one is about to act.
+  'web.history.rowActions': 'More actions for {title}',
+  'web.history.rename': 'Rename',
+  'web.history.copyTranscript': 'Copy transcript',
+  'web.history.transcriptCopied': 'Transcript copied',
+  'web.history.copyFailed': 'Could not copy the transcript.',
+  'web.history.downloadTranscript': 'Download transcript',
+  'web.history.downloadText': 'Text (.txt)',
+  'web.history.downloadMarkdown': 'Markdown (.md)',
+  'web.history.downloadMarkdownMinutes': 'with minutes',
+  'web.history.downloadSubtitles': 'Subtitles (.srt)',
+  // Why Subtitles is unavailable: a cue needs a start, and some lines have none.
+  'web.history.subtitlesNeedTimes': 'Needs a time on every line',
+  'web.history.downloadRecording': 'Download recording',
+  'web.history.preparingDownload': 'Preparing the download…',
+  'web.history.copying': 'Copying…',
+  // The delete strip under a row, named for the conversation it deletes.
+  'web.history.deleteNamed': 'Delete {title}',
+  'web.history.downloadFailed': 'Could not download it. Try again.',
+  // The menu item: the ellipsis says another step follows before anything goes.
+  'web.history.deleteChoice': 'Delete…',
+  // Renaming, in place of the title.
+  'web.history.renameLabel': 'Conversation title',
+  'web.history.renameSave': 'Save',
+  'web.history.renameSaving': 'Saving…',
+  'web.history.renameHint': 'Enter to save, Esc to cancel. Up to {max} characters.',
+  'web.history.renameEmpty': 'A title cannot be empty.',
+  'web.history.renameTooLong': 'Keep the title to {max} characters.',
+  'web.history.renameFailed': 'Could not rename this conversation. Try again.',
+  'web.history.tabMinutes': 'Minutes',
+  // Read after the tab's name when minutes exist; the dot beside it is decoration.
+  'web.history.tabMinutesReady': '(ready)',
+  'web.history.listWidth': 'Conversation list width',
   'web.history.turnCount': '{count} lines',
   'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',
@@ -755,6 +797,8 @@ export const en = {
   'web.account.avatarUnavailable':
     "Couldn't save that photo — nothing was changed. Try again; if it keeps failing, tell whoever runs this server.",
   'web.account.security': 'Security',
+  'web.account.session': 'Session',
+  'web.account.thisBrowser': 'This browser',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':
     'Signs out your other devices and closes any translation or meeting still open. This browser stays signed in.',
@@ -973,8 +1017,24 @@ export const en = {
   'web.conference.translatedVoiceHint':
     'Others hear your translated speech in this voice. It is the same setting as on Translate.',
   'web.conference.copyInviteLink': 'Copy invite link',
+  'web.conference.showQr': 'Show QR code',
+  'web.conference.qrTitle': 'Join from a phone',
+  'web.conference.qrLabel': 'QR code to join the meeting',
+  'web.conference.qrHint': 'Scan this with a phone camera to open the meeting.',
+  'web.conference.micOn': 'Microphone on',
+  'web.conference.micOff': 'Microphone muted',
+  'web.conference.camOn': 'Camera on',
+  'web.conference.camOff': 'Camera off',
+  'web.conference.chatEmptyHint': 'Everyone reads messages in their own language.',
   'web.conference.inviteLinkCopied': 'Link copied',
   'web.conference.meetingCode': 'Meeting code',
+  'web.conference.rosterWidth': 'Chat panel width',
+  'web.conference.soundCaptionsTitle': 'Captions and sound',
+  'web.conference.captionsShow': 'Show captions',
+  'web.conference.captionSize': 'Caption size',
+  'web.conference.originalVolume': 'Original voices',
+  'web.conference.originalVolumeAria': 'Original voices volume',
+  'web.conference.originalVolumeHint': 'Lower this to hear the translation more clearly.',
   'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
@@ -1042,7 +1102,9 @@ export const en = {
   'web.glossary.title': 'Glossaries',
   'web.glossary.new': 'New',
   'web.glossary.loadFailed': 'Could not load your glossaries.',
-  'web.glossary.emptyList': 'No glossaries yet.',
+  'web.glossary.emptyTitle': 'No glossaries yet',
+  'web.glossary.emptyList':
+    'A glossary keeps your names and terms translated the way you want. Press New to make one.',
   'web.glossary.termCount': '{count} terms',
   'web.glossary.badgeActive': 'Active',
   'web.glossary.badgeInactive': 'Inactive',

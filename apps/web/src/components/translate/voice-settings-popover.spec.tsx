@@ -29,7 +29,7 @@ vi.mock('@/hooks/use-voice-catalog', () => ({
 
 const { VoiceSettingsPopover } = await import('./voice-settings-popover');
 const { LocaleProvider } = await import('@/i18n/provider');
-const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
+const { DEFAULT_TRANSLATE_SETTINGS, languageVoicePatch } = await import('@/lib/translate-settings');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -51,8 +51,11 @@ function render(running: boolean, voiceOutput = true) {
     root.render(
       <LocaleProvider>
         <VoiceSettingsPopover
-          mode="one-way"
-          settings={{ ...DEFAULT_TRANSLATE_SETTINGS, voiceOutput }}
+          language="en"
+          settings={{
+            ...DEFAULT_TRANSLATE_SETTINGS,
+            ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'en', { speak: voiceOutput }),
+          }}
           running={running}
           onChange={() => {}}
           onVolumeChange={() => {}}
@@ -79,9 +82,9 @@ describe('VoiceSettingsPopover', () => {
     // the assertion is on the ACCESSIBLE NAME, because a glyph answers nothing to
     // a screen reader. Dropping the state from here to shorten the button is the
     // regression this guards: it would still look right and still read wrong.
-    expect(render(false, true)?.getAttribute('aria-label')).toBe('Voice settings: on');
+    expect(render(false, true)?.getAttribute('aria-label')).toBe('Voice for English: on');
     act(() => root?.unmount());
-    expect(render(false, false)?.getAttribute('aria-label')).toBe('Voice settings: off');
+    expect(render(false, false)?.getAttribute('aria-label')).toBe('Voice for English: off');
   });
 
   it('spends no words on the header bar itself', () => {

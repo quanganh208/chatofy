@@ -39,6 +39,7 @@ export function StageControls({
         variant="outline"
         size="icon"
         aria-label={t('web.translate.fullscreen')}
+        title={t('web.translate.fullscreen')}
         onClick={onFullscreen}
       >
         <Maximize2 aria-hidden />
@@ -47,6 +48,7 @@ export function StageControls({
         variant="outline"
         size="icon"
         aria-label={windowLabel}
+        title={windowLabel}
         aria-pressed={windowOpen}
         onClick={onToggleWindow}
       >

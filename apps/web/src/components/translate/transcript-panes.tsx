@@ -1,7 +1,7 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-import type { SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
+import { useCallback, useLayoutEffect, useRef, type ComponentProps } from 'react';
+import type { LanguageCode, SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
@@ -12,9 +12,15 @@ import {
   LanguageModeHint,
   PanelHeader,
   PanelHeaders,
+  sourceVoiceControl,
   SourceHeaderLanguage,
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
+import {
+  captureShuffle,
+  playShuffle,
+  type ShuffleSnapshot,
+} from '@/components/translate/language-shuffle';
 import {
   effectiveStageAppearance,
   pairFor,
@@ -54,8 +60,8 @@ interface TranscriptPanesProps {
    * `LanguageModeHint`. Null when no turn has said.
    */
   languageMode?: SessionLanguageMode | null;
-  /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
-  voiceControl?: React.ReactNode;
+  /** A language's voice control, for its header's end slot — see `panel-headers.tsx`. */
+  voiceControlFor?: (language: LanguageCode) => React.ReactNode;
   stream: StreamProps;
   /**
    * Which language the finished turns on screen were actually translated into.
@@ -141,7 +147,7 @@ export function TranscriptPanes({
   onSwap,
   onLanguagePair,
   conversationMode,
-  voiceControl,
+  voiceControlFor,
   stream,
   conversationLanguagePair,
   languageMode = null,
@@ -154,6 +160,21 @@ export function TranscriptPanes({
   // already-spoken text must stay pinned to what it was captured for.
   const languagePair = pairFor(settings, conversationMode);
   const turnPair = conversationLanguagePair ?? languagePair;
+
+  // The swap, animated as two cards trading places — see `language-shuffle.ts`.
+  // Measured on the click, before the pair changes, and played in the layout effect
+  // after it has, so the first painted frame already shows each card where it was.
+  const frame = useRef<HTMLDivElement>(null);
+  const shuffle = useRef<ShuffleSnapshot | null>(null);
+  const shuffleThenSwap = useCallback(() => {
+    shuffle.current = captureShuffle(frame.current);
+    onSwap?.();
+  }, [onSwap]);
+  useLayoutEffect(() => {
+    if (!shuffle.current) return;
+    playShuffle(frame.current, shuffle.current);
+    shuffle.current = null;
+  }, [languagePair.source, languagePair.target]);
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
@@ -188,8 +209,23 @@ export function TranscriptPanes({
   );
 
   if (split) {
+    // Two sheets rather than one box cut down the middle: each side is its own
+    // region, on its own ground — the side you speak into on `card`, the side you
+    // read on `muted` — so which is which reads before any word does. A reader who
+    // picked their own background keeps it on both (`--reading-bg`, set by
+    // `readingStyle` on the frame below). Hairline and no shadow: regions on the
+    // page ground, not elevated cards (`design/surface-count.ts`).
+    //
+    // `data-shuffle-card` names the language each sheet holds, so a swap can fly
+    // the two sheets into each other's places — see `language-shuffle.ts`.
+    const sheet =
+      'reading-frame border-hairline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border';
     const source = (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        data-shuffle-card={languagePair.source}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--card))' }}
+      >
         <PanelHeader
           role={t('web.translate.languagePairSource')}
           hint={<LanguageModeHint mode={languageMode} />}
@@ -201,17 +237,17 @@ export function TranscriptPanes({
               conversationMode={conversationMode}
             />
           }
-          end={
-            onSwap ? (
-              <LanguagePairSwap languagePair={languagePair} running={running} onSwap={onSwap} />
-            ) : null
-          }
+          end={sourceVoiceControl(languagePair, conversationMode, voiceControlFor)}
         />
         {pane('source', true, t('web.translate.paneSource'))}
       </div>
     );
     const target = (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        data-shuffle-card={languagePair.target}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--muted))' }}
+      >
         <PanelHeader
           role={t('web.translate.languagePairTarget')}
           language={
@@ -223,50 +259,71 @@ export function TranscriptPanes({
               conversationMode={conversationMode}
             />
           }
-          end={voiceControl}
+          end={voiceControlFor?.(languagePair.target)}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
       </div>
     );
 
     return (
-      <div
-        className={cn(
-          'reading-frame relative flex min-h-0 flex-1',
-          scheme,
-          // One column below `sm` and two above it for `row`, in CSS rather than
-          // in JavaScript: a `matchMedia` fork would render one thing on the
-          // server and another on the client, which is a hydration mismatch and a
-          // visible flicker. Two prose columns do not fit a phone.
-          column ? 'flex-col' : 'flex-col sm:flex-row',
-        )}
-        style={scale}
-      >
-        {/* The divider, only where there is a seam to mark: side by side, on a
-            viewport wide enough to actually be side by side. Stacked panes are
-            separated by their own headers' rules. */}
-        {column ? null : (
-          <div
-            aria-hidden
-            className="bg-hairline absolute inset-y-0 left-1/2 hidden w-px sm:block"
-          />
-        )}
-        {source}
-        {target}
+      // The query container for the row: whether two sheets fit side by side is a
+      // fact about the room this column has, not about the viewport. An open
+      // sidebar at 768px leaves the column ~464px — past `sm`, but two-way
+      // headers need ~546px side by side, and the page scrolled sideways.
+      <div className="@container flex min-h-0 flex-1 flex-col">
+        <div
+          ref={frame}
+          className={cn(
+            'relative flex min-h-0 flex-1 gap-4',
+            scheme,
+            // One column below a 36rem container and two above it for `row`, in CSS
+            // rather than in JavaScript: a `ResizeObserver` fork would render one
+            // thing on the server and another on the client, which is a hydration
+            // mismatch and a visible flicker. Two prose columns do not fit a phone.
+            column ? 'flex-col' : 'flex-col @xl:flex-row',
+          )}
+          style={scale}
+        >
+          {/* The swap between the two languages, at the centre of the gap between the
+            sheets in every arrangement: side by side it points across, stacked it
+            points up and down. Raised on `card` with a control's depth so it reads as
+            a thing to press sitting over the seam, never as part of either sheet, and
+            above both sheets while they cross (`z-20` over their 11 and 12). */}
+          {onSwap ? (
+            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+              <LanguagePairSwap
+                languagePair={languagePair}
+                running={running}
+                onSwap={shuffleThenSwap}
+                className="bg-card hover:bg-muted size-11 p-0"
+                iconClassName={cn('size-5', column ? 'rotate-90' : '@max-xl:rotate-90')}
+              />
+            </div>
+          ) : null}
+          {source}
+          {target}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={cn('reading-frame flex min-h-0 flex-1 flex-col', scheme)} style={scale}>
+    <div
+      ref={frame}
+      className={cn(
+        'reading-frame border-hairline flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border',
+        scheme,
+      )}
+      style={scale}
+    >
       <PanelHeaders
         languagePair={languagePair}
         running={running}
-        onSwap={onSwap}
+        onSwap={onSwap ? shuffleThenSwap : undefined}
         onLanguagePair={onLanguagePair}
         conversationMode={conversationMode}
         mode={languageMode}
-        voiceControl={voiceControl}
+        voiceControlFor={voiceControlFor}
       />
       {settings.translationOnly
         ? pane('target', true, t('web.translate.paneTarget'))

@@ -172,6 +172,20 @@ export class TranslationMeter {
     this.turnSockets.set(sessionId, socket);
   }
 
+  /**
+   * Lower the rate an open turn's audio settles at. Never raises it: the rate a
+   * turn opened with is what admission held credit for, so a raise could bill
+   * past the lease. Used when the turn turns out to speak nothing aloud — a
+   * two-way turn whose language, decided only once heard, is one the client
+   * muted.
+   */
+  repriceTurn(sessionId: string, multiplier: number): void {
+    const socket = this.turnSockets.get(sessionId);
+    const turn = socket && this.connections.get(socket)?.turns.get(sessionId);
+    if (!turn || !(multiplier < turn.multiplier)) return;
+    turn.multiplier = multiplier;
+  }
+
   /** Count `acceptedSeconds` the turn accepted (0 for a refused frame counts nothing). */
   onFrame(
     socket: StreamSocket,

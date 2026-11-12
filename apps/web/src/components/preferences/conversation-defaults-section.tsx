@@ -53,6 +53,7 @@ export function ConversationDefaultsSection({
 }: Pick<UseTranslateSettings, 'settings' | 'ready' | 'set'>) {
   const t = useTranslate();
   const { contexts, status } = useTranslationContexts();
+  const nameLanguage = languageNamer(t);
 
   return (
     <SettingsSection
@@ -121,22 +122,29 @@ export function ConversationDefaultsSection({
             </SettingsSectionRow>
           ) : null}
 
-          <VoiceSettingsPanel
-            settings={settings}
-            // The two-way pair's languages: a two-way conversation speaks both,
-            // and they are the languages Auto-detect translates into. A voice
-            // for a one-way target outside them is chosen on `/translate`.
-            mode="two-way"
-            // No conversation on this page, so the rows that ride
-            // `client.session.start` are all editable.
-            running={false}
-            onChange={set}
-            // A no-op here, and deliberately not wired to anything. This prop exists
-            // to reach the playback gain node ahead of the debounced write to
-            // storage, and on this page there is nothing playing. The value itself
-            // still lands, via `onChange` above.
-            onVolumeChange={() => {}}
-          />
+          {/* One per registry language: each language keeps its own voice, and a
+              one-way conversation may translate into any of them. Named by the
+              language, so the reader sets the voice of a language rather than of
+              a slot. `running={false}`: no conversation here to be fixed by. The
+              volume callback is a no-op — nothing is playing on this page, and
+              the value still lands through `onChange`. */}
+          {LANGUAGE_CODES.map((language) => (
+            <SettingsSectionRow
+              key={language}
+              label={t('web.translate.voiceSettingsFor', { language: nameLanguage(language) })}
+              block
+            >
+              <div className="w-full" data-voice-language={language}>
+                <VoiceSettingsPanel
+                  settings={settings}
+                  language={language}
+                  running={false}
+                  onChange={set}
+                  onVolumeChange={() => {}}
+                />
+              </div>
+            </SettingsSectionRow>
+          ))}
 
           <Separator />
 

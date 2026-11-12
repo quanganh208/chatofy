@@ -216,7 +216,7 @@ export function SegmentedControl<T extends string>({
             className={cn(
               'relative z-10 h-auto rounded-sm',
               density === 'compact' ? 'px-2' : 'px-3',
-              'py-1.5 text-body font-medium whitespace-nowrap',
+              'py-1.5 pointer-coarse:min-h-11 text-body font-medium whitespace-nowrap',
               // `basis-0` as well as `flex-1`: growing from the content width
               // would keep the widest label wider, which is the raggedness this
               // is here to remove.

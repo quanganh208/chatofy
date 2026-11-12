@@ -38,6 +38,19 @@ interface ConfirmDeleteButtonProps {
   triggerVariant?: 'outline' | 'ghost';
   /** The trash icon, which a dense list generally does not want. */
   withIcon?: boolean;
+  /**
+   * Open already on the second step. For a caller whose FIRST step lives somewhere
+   * else — a menu item that says "Delete" — so the press that opened this is the
+   * quiet one and nothing here can delete on arrival. Focus lands on Cancel, as it
+   * does after the trigger.
+   */
+  startConfirming?: boolean;
+  /**
+   * Called instead of falling back to the trigger when the reader cancels. A caller
+   * that started confirming has no trigger here to return to: it removes this
+   * component and puts focus back on whatever opened it.
+   */
+  onCancel?: () => void;
 }
 
 /**
@@ -73,8 +86,10 @@ export function ConfirmDeleteButton({
   name,
   triggerVariant = 'outline',
   withIcon = true,
+  startConfirming = false,
+  onCancel,
 }: ConfirmDeleteButtonProps) {
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState(startConfirming);
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -181,6 +196,10 @@ export function ConfirmDeleteButton({
         size="sm"
         aria-label={label(labels.cancel)}
         onClick={() => {
+          if (onCancel) {
+            onCancel();
+            return;
+          }
           returning.current = true;
           setConfirming(false);
         }}

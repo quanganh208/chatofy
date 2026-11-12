@@ -67,6 +67,14 @@ function render(
 }
 
 describe('HistoryTranscript', () => {
+  it('breaks an unbroken token or URL instead of overflowing the page (D2)', () => {
+    const long = 'https://example.com/' + 'path/'.repeat(40);
+    const c = render([turn({ sourceText: long, translations: { en: long } })]);
+    const prose = [...c.querySelectorAll('p')].filter((p) => p.textContent === long);
+    expect(prose.length).toBe(2);
+    for (const p of prose) expect(p.className).toContain('wrap-anywhere');
+  });
+
   it('renders displayText when it is present', () => {
     const text = render([turn({ sourceText: 'xin chao', displayText: 'xin chào' })]).textContent;
     expect(text).toContain('xin chào');
@@ -109,7 +117,7 @@ describe('HistoryTranscript', () => {
       turn({ position: 0, sourceText: 'first half second half', translations: { en: 'one two' } }),
     ]);
     expect(container.textContent).toContain('first half second half');
-    expect(container.querySelectorAll('p.uppercase').length).toBe(1);
+    expect(container.querySelectorAll('[data-slot="speaker-label"]').length).toBe(1);
   });
 
   describe('the timestamp gutter', () => {

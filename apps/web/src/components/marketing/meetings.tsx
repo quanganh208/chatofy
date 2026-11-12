@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { FileText, Link2, MessageSquare, Volume2 } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
+import { Reveal } from '@/components/motion/reveal';
 import { Section } from './section';
 
 /**
@@ -24,7 +26,9 @@ import { Section } from './section';
 export async function Meetings() {
   const t = await getT();
 
+  const icons = { Link: Link2, Hear: Volume2, Chat: MessageSquare, Minutes: FileText } as const;
   const points = (['Link', 'Hear', 'Chat', 'Minutes'] as const).map((point) => ({
+    Icon: icons[point],
     title: t(`web.landing.meetings${point}Title`),
     body: t(`web.landing.meetings${point}Body`),
   }));
@@ -35,12 +39,24 @@ export async function Meetings() {
       title={t('web.landing.meetingsTitle')}
       description={t('web.landing.meetingsBody')}
     >
-      <div className="grid gap-8 sm:grid-cols-2">
-        {points.map((point) => (
-          <div key={point.title} className="flex flex-col gap-2">
-            <h3 className="text-body font-medium tracking-tight">{point.title}</h3>
-            <p className="text-prose text-hint">{point.body}</p>
-          </div>
+      {/* Flat tiles, not cards: no shadow, so the band adds nothing to the elevated-surface
+          count of the page. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {points.map((point, index) => (
+          <Reveal key={point.title} delay={(index % 2) * 90}>
+            <div className="border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full gap-4 rounded-xl border p-5 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <span
+                aria-hidden
+                className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
+              >
+                <point.Icon className="size-5" />
+              </span>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <h3 className="text-body font-medium tracking-tight">{point.title}</h3>
+                <p className="text-prose text-hint text-muted-foreground">{point.body}</p>
+              </div>
+            </div>
+          </Reveal>
         ))}
       </div>
       <div className="mt-10 flex flex-wrap items-center gap-4">

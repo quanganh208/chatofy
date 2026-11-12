@@ -4,11 +4,25 @@
  * Participant roster: self + all remote peers.
  *
  * Rendered as a region/list — NOT cards (design rule: cards are for things
- * you act on as a unit). Shows name, mic/cam state glyphs, source language.
+ * you act on as a unit). Each row has the same initials disc the video tile shows when a
+ * camera is off, so a person looks the same in both places; the name, then what they speak;
+ * then the state of their mic and camera.
+ *
+ * The state glyphs are NAMED ("Microphone muted"), not decorative: a glyph alone told a
+ * screen-reader user nothing about who could be heard. A muted mic is drawn in the
+ * destructive colour so it can be found at a glance in a long list.
  */
 
 import { Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import type { PeerState } from '@/hooks/use-conference';
+import { initials } from '../utils/initials';
+
+interface StateLabels {
+  micOn: string;
+  micOff: string;
+  camOn: string;
+  camOff: string;
+}
 
 interface ParticipantListProps {
   selfName: string;
@@ -18,6 +32,7 @@ interface ParticipantListProps {
   selfLabel: string;
   peers: Map<string, PeerState>;
   rosterTitle: string;
+  stateLabels: StateLabels;
 }
 
 export function ParticipantList({
@@ -28,33 +43,39 @@ export function ParticipantList({
   selfLabel,
   peers,
   rosterTitle,
+  stateLabels,
 }: ParticipantListProps) {
   const peerEntries = [...peers.entries()];
+  const count = peerEntries.length + 1;
 
   return (
-    <section aria-label={rosterTitle} className="flex flex-col gap-1">
-      <h2 className="text-label text-textMuted px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
+    <section aria-label={rosterTitle} className="flex flex-col gap-0.5">
+      <h2 className="text-label text-muted-foreground flex items-baseline gap-1.5 px-3 pt-3 pb-1 font-semibold uppercase tracking-wide">
         {rosterTitle}
+        <span className="font-normal tabular-nums" data-slot="roster-count">
+          {count}
+        </span>
       </h2>
 
-      {/* Self row */}
-      <ParticipantRow
-        name={`${selfName} (${selfLabel})`}
-        muted={selfMuted}
-        videoEnabled={selfVideoEnabled}
-        language={selfLanguage}
-      />
-
-      {/* Remote peers */}
-      {peerEntries.map(([socketId, peer]) => (
+      <ul className="flex flex-col">
         <ParticipantRow
-          key={socketId}
-          name={peer.displayName}
-          muted={peer.muted}
-          videoEnabled={peer.videoEnabled}
-          language={undefined}
+          name={selfName}
+          badge={selfLabel}
+          muted={selfMuted}
+          videoEnabled={selfVideoEnabled}
+          language={selfLanguage}
+          labels={stateLabels}
         />
-      ))}
+        {peerEntries.map(([socketId, peer]) => (
+          <ParticipantRow
+            key={socketId}
+            name={peer.displayName}
+            muted={peer.muted}
+            videoEnabled={peer.videoEnabled}
+            labels={stateLabels}
+          />
+        ))}
+      </ul>
     </section>
   );
 }
@@ -63,25 +84,62 @@ export function ParticipantList({
 
 interface ParticipantRowProps {
   name: string;
+  badge?: string;
   muted: boolean;
   videoEnabled: boolean;
-  language: string | undefined;
+  language?: string;
+  labels: StateLabels;
 }
 
-function ParticipantRow({ name, muted, videoEnabled, language }: ParticipantRowProps) {
+function ParticipantRow({
+  name,
+  badge,
+  muted,
+  videoEnabled,
+  language,
+  labels,
+}: ParticipantRowProps) {
   return (
-    <div className="flex items-center gap-2 rounded px-2 py-1.5">
-      <span className="text-body text-text min-w-0 flex-1 truncate">{name}</span>
-
-      {language && <span className="text-hint text-textMuted shrink-0">{language}</span>}
-
-      <span className="text-textMuted shrink-0" aria-hidden>
-        {muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+    <li className="animate-in fade-in slide-in-from-left-2 flex items-center gap-2.5 px-3 py-1.5 duration-300 motion-reduce:animate-none">
+      <span
+        aria-hidden
+        data-slot="roster-avatar"
+        className="bg-muted text-foreground text-hint flex size-8 shrink-0 items-center justify-center rounded-full font-semibold"
+      >
+        {initials(name) || '?'}
       </span>
 
-      <span className="text-textMuted shrink-0" aria-hidden>
-        {videoEnabled ? <Video className="size-3.5" /> : <VideoOff className="size-3.5" />}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-body text-text flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate">{name}</span>
+          {badge ? (
+            <span className="text-hint text-muted-foreground shrink-0">({badge})</span>
+          ) : null}
+        </span>
+        {language ? (
+          <span className="text-hint text-muted-foreground truncate">{language}</span>
+        ) : null}
       </span>
-    </div>
+
+      <span
+        role="img"
+        aria-label={muted ? labels.micOff : labels.micOn}
+        className={muted ? 'text-destructive shrink-0' : 'text-muted-foreground shrink-0'}
+      >
+        {muted ? <MicOff className="size-4" aria-hidden /> : <Mic className="size-4" aria-hidden />}
+      </span>
+
+      <span
+        role="img"
+        aria-label={videoEnabled ? labels.camOn : labels.camOff}
+        className="text-muted-foreground shrink-0"
+      >
+        {videoEnabled ? (
+          <Video className="size-4" aria-hidden />
+        ) : (
+          <VideoOff className="size-4" aria-hidden />
+        )}
+      </span>
+    </li>
   );
 }

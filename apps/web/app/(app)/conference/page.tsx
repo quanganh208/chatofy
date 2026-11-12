@@ -24,10 +24,11 @@ import { useTranslate } from '@/i18n/provider';
 import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
 import { parseRoomInput } from './utils/parse-room-input';
 import { DAWN_GRADIENT } from './components/dawn-glow';
+import { LotusIllustration } from '@/components/marketing/lotus-illustration';
 
 function roomPath(roomId: string): Route {
   // `as Route`: typedRoutes cannot validate a path built at runtime (same
-  // pattern as history-screen.tsx).
+  // pattern as history/use-history-search.ts).
   return `/conference/${encodeURIComponent(roomId)}` as Route;
 }
 
@@ -90,52 +91,66 @@ function ConferenceLanding() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
-      <div className="flex flex-col gap-2">
-        {/* The brand cue the pre-join screen carries as a glow: here a band,
+    <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-center lg:py-16">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          {/* The brand cue the pre-join screen carries as a glow: here a band,
             because every part of this column is text and dawn never sits behind it. */}
-        <div
-          aria-hidden
-          className="mb-2 h-1.5 w-24 rounded-full"
-          style={{ backgroundImage: DAWN_GRADIENT }}
-        />
-        <h2 className="text-heading font-semibold">{t('common.conference.lobbyTitle')}</h2>
-        <p className="text-body text-textMuted">{t('web.conference.landingLead')}</p>
+          <div
+            aria-hidden
+            className="mb-2 h-1.5 w-24 rounded-full"
+            style={{ backgroundImage: DAWN_GRADIENT }}
+          />
+          <h2 className="text-title lg:text-display font-display font-light tracking-tight text-balance">
+            {t('common.conference.lobbyTitle')}
+          </h2>
+          <p className="text-body text-muted-foreground">{t('web.conference.landingLead')}</p>
+        </div>
+
+        <Button onClick={() => void create()} disabled={creating}>
+          <Video aria-hidden />
+          {creating ? t('common.conference.creating') : t('web.conference.newMeeting')}
+        </Button>
+
+        <form className="flex flex-col gap-2" onSubmit={join}>
+          <Label htmlFor="conf-room">{t('web.conference.codeOrLink')}</Label>
+          <div className="flex gap-2">
+            <Input
+              id="conf-room"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder={t('web.conference.codeOrLinkPlaceholder')}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <Button type="submit" variant="outline" disabled={creating || !code.trim()}>
+              {t('web.conference.joinAction')}
+            </Button>
+          </div>
+        </form>
+
+        {error && (
+          <p role="alert" className="text-destructive text-hint">
+            {error}
+          </p>
+        )}
+
+        {accountName && (
+          <p className="text-hint text-muted-foreground">
+            {t('web.conference.joiningAs', { name: accountName })}
+          </p>
+        )}
       </div>
 
-      <Button onClick={() => void create()} disabled={creating}>
-        <Video aria-hidden />
-        {creating ? t('common.conference.creating') : t('web.conference.newMeeting')}
-      </Button>
-
-      <form className="flex flex-col gap-2" onSubmit={join}>
-        <Label htmlFor="conf-room">{t('web.conference.codeOrLink')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="conf-room"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder={t('web.conference.codeOrLinkPlaceholder')}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <Button type="submit" variant="outline" disabled={creating || !code.trim()}>
-            {t('web.conference.joinAction')}
-          </Button>
-        </div>
-      </form>
-
-      {error && (
-        <p role="alert" className="text-destructive text-hint">
-          {error}
-        </p>
-      )}
-
-      {accountName && (
-        <p className="text-hint text-textMuted">
-          {t('web.conference.joiningAs', { name: accountName })}
-        </p>
-      )}
+      {/* The brand beside the actions, never behind a sentence. Decorative, and only where
+          there is room for it. */}
+      <div aria-hidden className="relative hidden lg:block">
+        <div
+          className="absolute inset-0 -z-0 rounded-[2rem] opacity-60 blur-3xl dark:opacity-30"
+          style={{ backgroundImage: DAWN_GRADIENT }}
+        />
+        <LotusIllustration className="relative mx-auto w-full max-w-lg" />
+      </div>
     </div>
   );
 }

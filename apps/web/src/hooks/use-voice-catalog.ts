@@ -65,6 +65,18 @@ const cachedVoices = new Map<LanguageCode, VoiceCatalogPayload>();
  */
 const pendingVoices = new Map<LanguageCode, Promise<VoiceCatalogPayload>>();
 
+/**
+ * Forget every cached catalog, so the next panel asks the backend again.
+ *
+ * For specs that mount several screens in one file: `/preferences` asks for
+ * every registry language at once, so a row whose backend answered empty would
+ * otherwise hand that empty answer to every later row, whatever it mocks.
+ */
+export function forgetVoiceCatalogs(): void {
+  cachedVoices.clear();
+  pendingVoices.clear();
+}
+
 function loadVoices(language: LanguageCode): Promise<VoiceCatalogPayload> {
   const pending = pendingVoices.get(language);
   if (pending) return pending;

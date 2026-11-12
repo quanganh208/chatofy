@@ -40,10 +40,22 @@ export const MEASURE = {
    * fluid.
    */
   workspace: 'max-w-[110rem]',
+  /**
+   * Content pages with a header (history, glossary, preferences, account): wide enough
+   * for two columns of their content at a laptop width instead of one column and two
+   * margins of nothing.
+   */
+  page: 'max-w-6xl',
   /** Prose-led pages — an auth card, a short explanation. */
   reading: 'max-w-xl',
-  /** The landing page's sections. */
-  marketing: 'max-w-4xl',
+  /**
+   * The landing and pricing sections, and the header and footer that align to them.
+   *
+   * 4xl left 296px of nothing on each side at 1440 and 536px at 1920, with the hero
+   * squeezed into the middle. 7xl fills a laptop and keeps ~320px a side on a 1920
+   * monitor; running text keeps its own `max-w-prose`, so lines stay readable.
+   */
+  marketing: 'max-w-7xl',
 } as const;
 
 export type Measure = keyof typeof MEASURE;

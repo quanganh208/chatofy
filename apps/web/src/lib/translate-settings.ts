@@ -30,6 +30,8 @@ import {
   sessionLanguagePairSchema,
   voiceGenderSchema,
   type LanguageCode,
+  type SessionOptions,
+  type VoiceGender,
   type LanguagePair,
   type LanguageTable,
   type MicProcessing,
@@ -154,40 +156,54 @@ export function textSizeScale(step: number): number {
 }
 
 /**
- * A chosen voice, keyed by the language it speaks.
+ * A chosen voice token, kept inside its language's setup.
  *
- * NOT a single string. The two engines address voices by disjoint vocabularies —
- * an integer speaker id for English, a preset name for Vietnamese — so one flat
- * token survives a language pair change and is then sent to an engine that cannot
- * mean anything by it. Keyed by output language, a swap of the pair selects the
- * right token or none.
+ * Per language because the two engines address voices by disjoint vocabularies —
+ * an integer speaker id for English, a preset name for Vietnamese — so a token
+ * kept once would survive a pair change and reach an engine that cannot mean
+ * anything by it.
  *
  * Bounded but otherwise opaque, and deliberately never an enum: which voices
  * exist is a property of whichever backend is running, discovered at runtime.
- * Enumerating them here would hardcode one backend's vocabulary into the client.
  */
-/**
- * Read leniently — each language catches on its own.
- *
- * An object-level `catch` would be wrong in a way that is easy to miss and annoying
- * to hit: one over-long English token would discard a perfectly good Vietnamese one,
- * because the whole object failed and fell back together.
- *
- * Phase 5 will want a STRICT counterpart of this for the value it puts on the wire.
- * It is not declared here, because a schema nothing validates with yet is
- * indistinguishable from one that has been orphaned.
- */
-// Built from the registry rather than written out one language at a time: every
-// field gets the SAME schema instance, so each still catches independently — a
-// shared, stateless schema parses every key on its own, which is what a single
-// over-long token must not be able to wipe its neighbours by failing.
 const voiceTokenSchema = z.string().max(VOICE_TOKEN_MAX).optional().catch(undefined);
-const storedVoiceSelectionSchema = z.object(
-  Object.fromEntries(LANGUAGE_CODES.map((code) => [code, voiceTokenSchema])) as LanguageTable<
-    typeof voiceTokenSchema
-  >,
-);
-type VoiceSelection = z.infer<typeof storedVoiceSelectionSchema>;
+
+/**
+ * How one language is spoken — everything about the voice a reader can set, kept
+ * per language.
+ *
+ * Per language rather than once, because the two sides of a conversation are
+ * heard by different people and spoken by different engines: one reader wants to
+ * hear English and not Vietnamese, and a rate the English engine honours the
+ * Vietnamese one ignores. Keyed by language rather than by page, so the English
+ * voice set on `/translate/two-way` is the one `/translate/one-way` into English
+ * speaks with, and `/preferences` edits the same thing.
+ */
+export interface LanguageVoiceSetup {
+  /** Whether translations into this language are spoken at all. */
+  speak: boolean;
+  /** Which gender's default speaks when no voice is named. */
+  gender: VoiceGender;
+  /**
+   * Speaking rate. Whether it does anything is a property of the engine that
+   * speaks this language, read from its voice catalog (`speedAdjustable`).
+   */
+  speed: number;
+  /** An opaque token from this language's catalog; absent is the gender default. */
+  voice?: string;
+  /** Playback gain, 0..1, in this tab. Never sent: it is a property of the listener. */
+  volume: number;
+}
+
+export const DEFAULT_LANGUAGE_VOICE: LanguageVoiceSetup = Object.freeze({
+  speak: true,
+  gender: DEFAULT_VOICE_GENDER,
+  speed: 1,
+  volume: 1,
+});
+
+/** One {@link LanguageVoiceSetup} per registry language. */
+export type VoiceByLanguage = LanguageTable<LanguageVoiceSetup>;
 
 export interface TranslateSettings {
   /**
@@ -195,9 +211,6 @@ export interface TranslateSettings {
    * be `'detect'` — see {@link canAutoDetectInto} for when it is offered.
    */
   languagePair: SessionLanguagePair;
-  voiceGender: z.infer<typeof voiceGenderSchema>;
-  /** Whether the translation is spoken at all. */
-  voiceOutput: boolean;
   /**
    * The pair `/translate/two-way` starts in. Its own field rather than a mode applied
    * to {@link languagePair}, because the one-way pair may be `'detect'` and a
@@ -206,16 +219,8 @@ export interface TranslateSettings {
    * {@link canRunTwoWay} accepts — see `storedTwoWayPair`.
    */
   twoWayPair: LanguagePair;
-  /**
-   * Speaking rate. Whether it does anything is a property of the running TTS
-   * engine, not of the output language — see `VoiceSettingsPanel`'s
-   * `catalog.speedAdjustable`, read from the voice catalog rather than assumed.
-   */
-  speed: number;
-  /** Empty until a catalog exists to choose from. */
-  voice: VoiceSelection;
-  /** Playback gain, 0..1. Never above 1 — see the settings panel. */
-  volume: number;
+  /** How each language is spoken — see {@link LanguageVoiceSetup}. */
+  voiceByLanguage: VoiceByLanguage;
   displayMode: DisplayMode;
   /** Read only under `displayMode: 'split'`, and remembered across `list`. */
   paneLayout: PaneLayout;
@@ -304,12 +309,10 @@ export function effectiveStageAppearance(settings: TranslateSettings): {
  */
 export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   languagePair: DEFAULT_LANGUAGE_PAIR,
-  voiceGender: DEFAULT_VOICE_GENDER,
-  voiceOutput: true,
   twoWayPair: DEFAULT_LANGUAGE_PAIR,
-  speed: 1,
-  voice: Object.freeze({}),
-  volume: 1,
+  voiceByLanguage: Object.freeze(
+    Object.fromEntries(LANGUAGE_CODES.map((code) => [code, DEFAULT_LANGUAGE_VOICE])),
+  ) as VoiceByLanguage,
   // Two panes side by side, because the screen is two panels with two headers
   // naming the two languages — one merged stream under them contradicts the frame
   // it sits in. Both panes collapse to one on a narrow viewport anyway.
@@ -360,7 +363,7 @@ function snapTextSize(value: number): number {
  * Storage format. Bumped when a stored value has to be reinterpreted rather than
  * merely read — see {@link migrate}.
  */
-const SETTINGS_VERSION = 3;
+const SETTINGS_VERSION = 4;
 
 /**
  * Bring a stored blob up to {@link SETTINGS_VERSION}, one step at a time.
@@ -434,9 +437,62 @@ function migrate(stored: Record<string, unknown>): Record<string, unknown> {
     }
   }
 
+  if (version < 4) {
+    // One voice for every language becomes one per language. Each language
+    // starts as a copy of the single setup the reader had, so nothing they chose
+    // is lost and nothing changes until they change it; the token was already
+    // kept per language and moves into its language's setup.
+    const tokens =
+      next.voice && typeof next.voice === 'object' ? (next.voice as Record<string, unknown>) : {};
+    next.voiceByLanguage = Object.fromEntries(
+      LANGUAGE_CODES.map((code) => [
+        code,
+        {
+          speak: next.voiceOutput,
+          gender: next.voiceGender,
+          speed: next.speed,
+          voice: tokens[code],
+          volume: next.volume,
+        },
+      ]),
+    );
+    for (const field of ['voiceOutput', 'voiceGender', 'speed', 'voice', 'volume']) {
+      delete next[field];
+    }
+  }
+
   next.version = SETTINGS_VERSION;
   return next;
 }
+
+/**
+ * One language's setup, read field by field: an unreadable rate keeps the
+ * language's speak flag, voice and volume. A token longer than the cap is
+ * dropped rather than truncated — half a token is not a shorter token, it is a
+ * different one, and it would be refused downstream anyway.
+ */
+const storedLanguageVoiceSchema = z
+  .object({
+    speak: z.boolean().catch(DEFAULT_LANGUAGE_VOICE.speak),
+    gender: voiceGenderSchema.catch(DEFAULT_LANGUAGE_VOICE.gender),
+    speed: z.number().catch(DEFAULT_LANGUAGE_VOICE.speed).transform(snapSpeed),
+    voice: voiceTokenSchema,
+    volume: z
+      .number()
+      .catch(DEFAULT_LANGUAGE_VOICE.volume)
+      .transform((value) => clamp(value, 0, 1)),
+  })
+  .catch(DEFAULT_LANGUAGE_VOICE)
+  // An absent token is left out rather than kept as `voice: undefined`, so a
+  // setup reads the same whether it was stored or defaulted.
+  .transform(({ voice, ...rest }) => (voice === undefined ? rest : { ...rest, voice }));
+
+/** Per language, each on its own — one language's bad value never resets another's. */
+const storedVoiceByLanguageSchema = z.object(
+  Object.fromEntries(
+    LANGUAGE_CODES.map((code) => [code, storedLanguageVoiceSchema]),
+  ) as LanguageTable<typeof storedLanguageVoiceSchema>,
+);
 
 /**
  * The whitelist.
@@ -447,17 +503,7 @@ function migrate(stored: Record<string, unknown>): Record<string, unknown> {
  * was out of range.
  */
 const storedSettingsSchema = z.object({
-  voiceGender: voiceGenderSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceGender),
-  voiceOutput: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.voiceOutput),
-  speed: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.speed).transform(snapSpeed),
-  // A token longer than the cap is dropped rather than truncated: half a token is
-  // not a shorter token, it is a different one, and it would be refused downstream
-  // anyway. Dropped per language — see `storedVoiceSelectionSchema`.
-  voice: storedVoiceSelectionSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voice),
-  volume: z
-    .number()
-    .catch(DEFAULT_TRANSLATE_SETTINGS.volume)
-    .transform((value) => clamp(value, 0, 1)),
+  voiceByLanguage: storedVoiceByLanguageSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage),
   displayMode: displayModeSchema.catch(DEFAULT_TRANSLATE_SETTINGS.displayMode),
   paneLayout: paneLayoutSchema.catch(DEFAULT_TRANSLATE_SETTINGS.paneLayout),
   speakerLabels: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.speakerLabels),
@@ -512,12 +558,8 @@ export function loadTranslateSettings(): TranslateSettings {
     const parsed = storedSettingsSchema.parse(merged);
     const settings: TranslateSettings = {
       languagePair: storedLanguagePair(stored),
-      voiceGender: parsed.voiceGender,
-      voiceOutput: parsed.voiceOutput,
       twoWayPair: storedTwoWayPair(stored),
-      speed: parsed.speed,
-      voice: parsed.voice,
-      volume: parsed.volume,
+      voiceByLanguage: parsed.voiceByLanguage,
       displayMode: parsed.displayMode,
       paneLayout: parsed.paneLayout,
       speakerLabels: parsed.speakerLabels,
@@ -651,21 +693,80 @@ export function representablePair(pair: SessionLanguagePair): SessionLanguagePai
 }
 
 /**
- * The chosen voice per language, for a start whose spoken language is only
- * known per turn: /translate's two-way start and a meeting speaker's leg, which
- * may voice several languages. Languages with no choice are left out, which the
- * server reads as "the gender default" — exactly what an unset token means
- * everywhere else.
+ * The languages a conversation started from `pair` on `mode`'s page may speak,
+ * the one a declared turn speaks first: both sides of a two-way pair, the
+ * target of anything else. Auto-detect speaks only its target.
  */
-export function chosenVoices(
-  voice: TranslateSettings['voice'],
-): Partial<Record<LanguageCode, string>> {
-  const voices: Partial<Record<LanguageCode, string>> = {};
-  for (const code of LANGUAGE_CODES) {
-    const token = voice[code];
-    if (token) voices[code] = token;
-  }
-  return voices;
+export function spokenLanguagesOf(
+  pair: SessionLanguagePair,
+  mode: ConversationMode,
+): LanguageCode[] {
+  return pair.source !== AUTO_DETECT && asksTwoWay(pair, mode)
+    ? [pair.target, pair.source]
+    : [pair.target];
+}
+
+/** One language's setup. */
+export function languageVoice(
+  settings: Pick<TranslateSettings, 'voiceByLanguage'>,
+  language: LanguageCode,
+): LanguageVoiceSetup {
+  return settings.voiceByLanguage[language];
+}
+
+/**
+ * The patch that changes one language's setup and leaves every other alone.
+ *
+ * Builds new objects all the way down: the defaults are frozen, and a setup
+ * edited in place would edit them for every later fallback on the page.
+ */
+export function languageVoicePatch(
+  settings: Pick<TranslateSettings, 'voiceByLanguage'>,
+  language: LanguageCode,
+  patch: Partial<LanguageVoiceSetup>,
+): Pick<TranslateSettings, 'voiceByLanguage'> {
+  const next = { ...settings.voiceByLanguage[language], ...patch };
+  // `voice: undefined` in a patch means "the gender default": dropped, not kept.
+  if (next.voice === undefined) delete next.voice;
+  return { voiceByLanguage: { ...settings.voiceByLanguage, [language]: next } };
+}
+
+/** The patch that applies `patch` to every language's setup at once. */
+export function everyLanguageVoicePatch(
+  settings: Pick<TranslateSettings, 'voiceByLanguage'>,
+  patch: Partial<LanguageVoiceSetup>,
+): Pick<TranslateSettings, 'voiceByLanguage'> {
+  let next = settings;
+  for (const language of LANGUAGE_CODES) next = languageVoicePatch(next, language, patch);
+  return { voiceByLanguage: next.voiceByLanguage };
+}
+
+/**
+ * The voice fields of a start that may speak `languages`, the one it speaks
+ * first leading.
+ *
+ * Both shapes, on purpose. `voiceByLanguage` is what this build means; the flat
+ * fields, read off the first language, are what an API older than that field
+ * still understands — so a web deploy that lands before its API speaks the
+ * primary language as before rather than with every default.
+ */
+export function sessionVoiceOptions(
+  settings: Pick<TranslateSettings, 'voiceByLanguage'>,
+  languages: readonly LanguageCode[],
+): Pick<SessionOptions, 'voiceGender' | 'voiceOutput' | 'speed' | 'voice' | 'voiceByLanguage'> {
+  const primary = settings.voiceByLanguage[languages[0] ?? DEFAULT_LANGUAGE_PAIR.target];
+  return {
+    voiceGender: primary.gender,
+    voiceOutput: primary.speak,
+    speed: primary.speed,
+    ...(primary.voice ? { voice: primary.voice } : {}),
+    voiceByLanguage: Object.fromEntries(
+      languages.map((language) => {
+        const { speak, speed, gender, voice } = settings.voiceByLanguage[language];
+        return [language, { speak, speed, gender, ...(voice ? { voice } : {}) }];
+      }),
+    ),
+  };
 }
 
 export function saveTranslateSettings(settings: TranslateSettings): void {

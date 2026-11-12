@@ -41,6 +41,11 @@ export const HISTORY_LIMITS = {
   /** Per text field. */
   MAX_TURN_CHARS: 4_000,
   MAX_SPEAKER_LABEL_CHARS: 120,
+  /**
+   * A title the owner types. Wider than the 80 the background titler writes,
+   * because a person naming their own record may want the whole phrase.
+   */
+  MAX_TITLE_CHARS: 120,
   MAX_TOTAL_CHARS: 400_000,
   DEFAULT_PAGE_SIZE: 30,
   MAX_PAGE_SIZE: 100,
@@ -435,7 +440,17 @@ export const conversationResponseSchema = z.object({
 });
 export type ConversationResponse = z.infer<typeof conversationResponseSchema>;
 
-/** PUT answers with the summary it stored — the list card's shape, no turns. */
+/**
+ * PATCH body: the owner renames a conversation. Only the title can change this
+ * way; everything else is the full-replacement PUT's job. Trimmed before the
+ * length checks, so a title of spaces is refused as empty.
+ */
+export const renameConversationRequestSchema = z.object({
+  title: z.string().trim().min(1).max(HISTORY_LIMITS.MAX_TITLE_CHARS),
+});
+export type RenameConversationRequest = z.infer<typeof renameConversationRequestSchema>;
+
+/** PUT and PATCH answer with the summary they stored — the list row's shape, no turns. */
 export const conversationSummaryResponseSchema = z.object({
   conversation: conversationSummarySchema,
 });

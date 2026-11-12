@@ -75,9 +75,13 @@ export function SessionReadouts({
         tone={STATUS_TONE[conversation.status]}
         label={t(STATUS_KEY[conversation.status])}
       />
-      <MicMeter level={conversation.level} />
+      {/* Only while a conversation is open: at rest it was a row of identical dots beside
+          "Not listening", which answers no question. */}
       {conversation.status !== 'idle' ? (
-        <ElapsedClock startedAt={conversation.startedAt} pauses={conversation.pauses} />
+        <>
+          <MicMeter level={conversation.level} />
+          <ElapsedClock startedAt={conversation.startedAt} pauses={conversation.pauses} />
+        </>
       ) : null}
     </div>
   );

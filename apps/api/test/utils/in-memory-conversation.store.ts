@@ -211,6 +211,18 @@ export class InMemoryConversationStore implements ConversationStore {
     return Promise.resolve(true);
   }
 
+  /** Unconditional, as the durable store's rename; null for a foreign or absent id. */
+  rename(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<ConversationSummary | null> {
+    const stored = this.byOwnerClient.get(key(ownerId, conversationId));
+    if (!stored) return Promise.resolve(null);
+    stored.title = title;
+    return Promise.resolve(summaryOf(stored));
+  }
+
   /** Marks a conversation as having minutes, for a `hasMinutes` assertion. */
   markMinutes(ownerId: string, conversationId: string): void {
     const stored = this.byOwnerClient.get(key(ownerId, conversationId));

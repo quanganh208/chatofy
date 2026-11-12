@@ -1,3 +1,5 @@
+import type { LanguageCode } from '@chatofy/types';
+
 /**
  * Plays translated speech as it arrives, chunk by chunk.
  *
@@ -38,6 +40,13 @@ const START_CUSHION_S = 0.06;
  */
 const DRAIN_SETTLE_MS = 60;
 
+/**
+ * Where a chunk's samples go: one node for everything, or a node chosen per
+ * chunk by the language it is in — the web page keeps a volume per language,
+ * and a frame's `lang` is the only place it learns which one a reply is in.
+ */
+export type PlaybackDestination = AudioNode | ((lang?: LanguageCode) => AudioNode);
+
 export class PcmPlaybackQueue {
   /** Web Audio time at which the next chunk should begin. */
   private nextStartTime = 0;
@@ -64,7 +73,7 @@ export class PcmPlaybackQueue {
      * Scheduling is identical either way, and a second copy of it is what this
      * parameter exists to avoid.
      */
-    private readonly destination: AudioNode = context.destination,
+    private readonly destination: PlaybackDestination = context.destination,
   ) {}
 
   /** True while any turn has audio queued or playing. */
@@ -87,7 +96,7 @@ export class PcmPlaybackQueue {
    * they are enqueued: putting them in the right order is the caller's job, and
    * doing it here would need knowledge of turn boundaries this class does not have.
    */
-  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void {
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number, lang?: LanguageCode): void {
     if (samples.length === 0) return;
 
     const buffer = this.context.createBuffer(1, samples.length, sampleRate);
@@ -96,7 +105,11 @@ export class PcmPlaybackQueue {
 
     const source = this.context.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.destination);
+    // One schedule whichever node a chunk lands in: two languages routed to two
+    // gain stages still play one after the other, never on top of each other.
+    source.connect(
+      typeof this.destination === 'function' ? this.destination(lang) : this.destination,
+    );
 
     // Restart the clock whenever the queue has run dry, otherwise a stale
     // `nextStartTime` in the past makes the browser play the chunk immediately

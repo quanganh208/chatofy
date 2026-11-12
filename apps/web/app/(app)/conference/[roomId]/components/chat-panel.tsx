@@ -9,12 +9,17 @@
  * control stays Leave, so this panel spends no accent budget either.
  *
  * Each message arrives already in this client's chosen language (the gateway
- * translates per recipient). Own messages are distinguished by `mySocketId`.
+ * translates per recipient). Own messages are distinguished by `mySocketId`: they sit on
+ * the right in a tinted bubble, others on the left in an outlined one. Consecutive
+ * messages from one sender share a single name-and-time line, and the list follows the
+ * newest message unless the reader has scrolled up to read.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { Button, Input } from '@chatofy/ui/react';
 import type { ConferenceChatMessage } from '@/hooks/use-conference';
+import { cn } from '@/lib/utils';
 
 interface ChatPanelProps {
   messages: ConferenceChatMessage[];
@@ -24,8 +29,23 @@ interface ChatPanelProps {
   inputPlaceholder: string;
   sendLabel: string;
   emptyLabel: string;
+  /** What translation means for this panel, shown under the empty sentence. */
+  emptyHint?: string;
+  /** BCP-47 tag for the time stamps. */
+  locale?: string;
   /** Why the last message was refused, already in the reader's language. */
   refusalLabel?: string;
+}
+
+/** Within this many px of the bottom counts as "reading the newest". */
+const FOLLOW_SLACK = 48;
+
+function clock(sentAt: number, locale: string | undefined): string {
+  try {
+    return new Date(sentAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
 export function ChatPanel({
@@ -36,36 +56,86 @@ export function ChatPanel({
   inputPlaceholder,
   sendLabel,
   emptyLabel,
+  emptyHint,
+  locale,
   refusalLabel,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
 
   function submit() {
     const text = draft.trim();
     if (!text) return;
     onSend(text);
     setDraft('');
+    // Sending is reading: jump to the bottom whatever the scroll position was.
+    following.current = true;
   }
 
+  // Follow the newest message, unless the reader scrolled up — a new line must not
+  // yank them away from what they are reading.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el && following.current) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
   return (
-    <section aria-label={title} className="flex min-h-0 flex-col gap-1">
-      <h2 className="text-label text-textMuted px-2 pt-2 pb-1 font-semibold uppercase tracking-wide">
+    <section aria-label={title} className="flex min-h-0 flex-1 flex-col">
+      <h2 className="text-label text-muted-foreground px-3 pt-3 pb-1 font-semibold uppercase tracking-wide">
         {title}
       </h2>
 
-      {/* Message list */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-1">
+      {/* Message list. `role="log"` is a polite live region, so a screen reader hears a
+          message as it arrives without the panel stealing focus. */}
+      <div
+        ref={listRef}
+        role="log"
+        aria-label={title}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          following.current = el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_SLACK;
+        }}
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2"
+      >
         {messages.length === 0 ? (
-          <p className="text-hint text-textMuted py-2">{emptyLabel}</p>
+          <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+            <MessageSquare className="size-6 opacity-60" aria-hidden />
+            <p className="text-body">{emptyLabel}</p>
+            {emptyHint ? <p className="text-hint">{emptyHint}</p> : null}
+          </div>
         ) : (
-          messages.map((m) => {
+          messages.map((m, i) => {
             const isOwn = m.socketId === mySocketId;
+            const prev = messages[i - 1];
+            // A new sender, or a pause of over two minutes, starts a new group.
+            const startsGroup =
+              !prev || prev.socketId !== m.socketId || m.sentAt - prev.sentAt > 120_000;
             return (
-              <div key={m.id} className="flex flex-col">
-                <span className="text-hint text-textMuted">
-                  {isOwn ? `${m.displayName} •` : m.displayName}
+              <div
+                key={m.id}
+                className={cn(
+                  'animate-in fade-in slide-in-from-bottom-1 flex flex-col duration-200 motion-reduce:animate-none',
+                  isOwn ? 'items-end' : 'items-start',
+                  startsGroup && i > 0 && 'mt-2',
+                )}
+              >
+                {startsGroup ? (
+                  <span className="text-hint text-muted-foreground px-1 pb-0.5">
+                    {isOwn ? '' : `${m.displayName} · `}
+                    <time dateTime={new Date(m.sentAt).toISOString()}>
+                      {clock(m.sentAt, locale)}
+                    </time>
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    'text-body text-text max-w-[85%] rounded-2xl px-3 py-1.5 break-words',
+                    isOwn ? 'bg-muted rounded-br-md' : 'border-border rounded-bl-md border',
+                  )}
+                >
+                  {m.text}
                 </span>
-                <span className="text-body text-text break-words">{m.text}</span>
               </div>
             );
           })
@@ -74,14 +144,14 @@ export function ChatPanel({
 
       {/* A refused message is said here, as text: no control, no accent. */}
       {refusalLabel ? (
-        <p role="alert" className="text-hint text-destructive px-2">
+        <p role="alert" className="text-hint text-destructive px-3 pb-1">
           {refusalLabel}
         </p>
       ) : null}
 
       {/* Composer — ghost/outline only, no accent fill */}
       <form
-        className="border-border flex items-center gap-1.5 border-t px-2 py-2"
+        className="border-border flex items-center gap-1.5 border-t px-3 py-2"
         onSubmit={(e) => {
           e.preventDefault();
           submit();

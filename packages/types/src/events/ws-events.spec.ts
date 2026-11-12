@@ -320,6 +320,53 @@ describe('sessionOptionsSchema language modes', () => {
   });
 });
 
+describe('sessionOptionsSchema voiceByLanguage', () => {
+  const base = { languagePair: { source: 'vi', target: 'en' } } as const;
+
+  it('takes a voice setup per language, each field optional', () => {
+    const parsed = sessionOptionsSchema.parse({
+      ...base,
+      voiceByLanguage: {
+        vi: { speak: false },
+        en: { speak: true, speed: 1.25, gender: 'male', voice: 'am_adam' },
+      },
+    });
+    expect(parsed.voiceByLanguage).toEqual({
+      vi: { speak: false },
+      en: { speak: true, speed: 1.25, gender: 'male', voice: 'am_adam' },
+    });
+  });
+
+  it('clamps a rate rather than refusing the start', () => {
+    const parsed = sessionOptionsSchema.parse({ ...base, voiceByLanguage: { en: { speed: 9 } } });
+    expect(parsed.voiceByLanguage?.en?.speed).toBe(2);
+  });
+
+  it('drops only the field that is wrong, keeping the rest of the language', () => {
+    const parsed = sessionOptionsSchema.parse({
+      ...base,
+      voiceByLanguage: { en: { speak: false, voice: 'v'.repeat(65), gender: 'robot' } },
+    });
+    expect(parsed.voiceByLanguage?.en?.speak).toBe(false);
+    expect(parsed.voiceByLanguage?.en?.voice).toBeUndefined();
+    expect(parsed.voiceByLanguage?.en?.gender).toBeUndefined();
+  });
+
+  it('reads a map that is not one as absent — a refused start is silence', () => {
+    const parsed = sessionOptionsSchema.parse({
+      ...base,
+      voiceByLanguage: { xx: { speak: true } },
+    });
+    expect(parsed.voiceByLanguage).toBeUndefined();
+    expect(sessionOptionsSchema.safeParse({ ...base, voiceByLanguage: 'loud' }).success).toBe(true);
+  });
+
+  it('the flat speed still clamps as it did', () => {
+    expect(sessionOptionsSchema.parse({ ...base, speed: 0.1 }).speed).toBe(0.5);
+    expect('voiceByLanguage' in sessionOptionsSchema.parse(base)).toBe(false);
+  });
+});
+
 describe('server events that echo the language mode', () => {
   it('a ready event with no mode still parses, and one with a mode carries it', () => {
     const old = serverEventSchema.parse({ type: 'server.session.ready', sessionId: 's1' });

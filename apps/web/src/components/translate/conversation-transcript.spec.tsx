@@ -273,6 +273,19 @@ describe('ConversationTranscript as one side of a split', () => {
     expect(dimmed, 'the live translation line is dimmed').toEqual([]);
   });
 
+  it('labels the empty source pane and gives it nothing to press', () => {
+    // The dock's Start is the screen's one way to begin. A mic button here was a second
+    // one, hidden from assistive tech so it would not be announced twice, which left a
+    // control only a pointer could find. The lotus pushed this sentence below the
+    // target pane's, and the hint about naming speakers asked for a step with no
+    // control until a turn exists.
+    render({ turns: [], liveTurns: [], side: 'source', running: false, speakers: [] });
+    expect(container.querySelector('button')).toBeNull();
+    expect(container.querySelector('[data-slot="lotus-illustration"]')).toBeNull();
+    expect(container.querySelectorAll('p')).toHaveLength(1);
+    expect(container.textContent).toBe('What you say appears here.');
+  });
+
   it('says what its own pane is for, not what the other one is for', () => {
     // A pane cannot borrow the other's explanation: in `column` they are half a
     // screen apart, and the empty state is the one frame with no content to work
@@ -365,12 +378,6 @@ describe('ConversationTranscript speaker labels', () => {
     expect(container.textContent).not.toContain('Who spoke?');
     // The turn itself survives: this hides a name, it does not hide a sentence.
     expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
-  });
-
-  it('keeps the hint about naming people off the passive stream', () => {
-    // It points at a control that stream does not have.
-    render({ turns: [], liveTurns: [], side: 'target', interactive: false, speakers: [] });
-    expect(container.textContent).not.toContain('Add the people talking');
   });
 });
 

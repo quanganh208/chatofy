@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@chatofy/i18n';
+import type { LanguageCode } from '@chatofy/types';
 import type { TranslateSettings } from '@/lib/translate-settings';
 
 /**
@@ -21,19 +22,25 @@ vi.mock('@/clients/api-client', () => ({ listVoices: () => listVoices() }));
 
 const { VoiceSettingsPanel } = await import('./voice-settings-panel');
 const { LocaleProvider } = await import('@/i18n/provider');
-const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
+const { DEFAULT_TRANSLATE_SETTINGS, languageVoicePatch } = await import('@/lib/translate-settings');
+
+/** The defaults with `language` spoken or not. */
+const speaking = (speak: boolean, language: LanguageCode = 'en'): TranslateSettings => ({
+  ...DEFAULT_TRANSLATE_SETTINGS,
+  ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, language, { speak }),
+});
 
 let root: Root | undefined;
 let container: HTMLElement;
 
-async function render(overrides: Partial<TranslateSettings> = {}): Promise<void> {
+async function render(settings: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS): Promise<void> {
   await act(async () => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
         <VoiceSettingsPanel
-          settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
-          mode="one-way"
+          settings={settings}
+          language="en"
           running={false}
           onChange={vi.fn()}
           onVolumeChange={vi.fn()}
@@ -61,7 +68,7 @@ describe('VoiceSettingsPanel', () => {
   it('labels the gender control and the voice control differently', async () => {
     // Both read `web.translate.voice` once and printed the same word over two
     // adjacent controls.
-    await render({ voiceOutput: true });
+    await render(speaking(true));
     expect(container.textContent).toContain(en['web.translate.voiceGender']);
     expect(en['web.translate.voiceGender']).not.toBe(en['web.translate.voice']);
   });
@@ -99,8 +106,8 @@ describe('the rate control', () => {
       freshRoot.render(
         <FreshLocaleProvider>
           <FreshPanel
-            settings={{ ...freshDefaults, voiceOutput: true }}
-            mode="one-way"
+            settings={freshDefaults}
+            language="en"
             running={false}
             onChange={vi.fn()}
             onVolumeChange={vi.fn()}
@@ -158,19 +165,19 @@ describe('what is reachable with playback off', () => {
   const volume = () => container.querySelector('[aria-label="Playback volume"]');
 
   it('offers no volume when nothing is spoken', async () => {
-    await render({ voiceOutput: false });
+    await render(speaking(false));
     expect(volume()).toBeNull();
   });
 
   it('offers it again as soon as something is', async () => {
-    await render({ voiceOutput: true });
+    await render(speaking(true));
     expect(volume()).not.toBeNull();
   });
 
   it('leaves only the switch itself when playback is off', async () => {
     // Everything under the switch is about a voice that is not speaking. The
     // switch stays, because it is the way back.
-    await render({ voiceOutput: false });
+    await render(speaking(false));
     const speak = container.querySelector('button[aria-label="Speak the translation aloud"]');
     expect(speak).not.toBeNull();
     expect(container.querySelectorAll('[role="radiogroup"]').length).toBe(0);
@@ -178,31 +185,34 @@ describe('what is reachable with playback off', () => {
 });
 
 /**
- * A two-way conversation speaks both of its languages — a reply in the target is
- * read out in the source — so it needs a voice for each. Mocked the way the rate
- * cases above are, for the same reason: the real hook caches per language for
- * the whole file.
+ * One language per panel: a two-way conversation is two panels, one in each
+ * header, so a reader can hear one side and not the other. Mocked the way the
+ * rate cases above are, for the same reason: the real hook caches per language
+ * for the whole file.
  */
-describe('voices per spoken language', () => {
-  async function renderWith(
-    pair: Pick<TranslateSettings, 'languagePair'> | Pick<TranslateSettings, 'twoWayPair'>,
-    mode: 'one-way' | 'two-way',
-  ): Promise<{ text: string | null; asked: string[]; cleanup: () => void }> {
+describe('one language per panel', () => {
+  async function renderFor(
+    language: LanguageCode,
+    settings: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS,
+  ) {
     vi.resetModules();
     const asked: string[] = [];
     vi.doMock('@/hooks/use-voice-catalog', () => ({
-      useVoiceCatalog: (language: string) => {
-        asked.push(language);
+      useVoiceCatalog: (catalogLanguage: string) => {
+        asked.push(catalogLanguage);
         return {
           status: 'ready',
-          voices: [{ token: `${language}-1`, label: `${language} voice`, gender: 'female' }],
+          voices: [
+            { token: `${catalogLanguage}-1`, label: `${catalogLanguage} voice`, gender: 'female' },
+          ],
           speedAdjustable: true,
         };
       },
     }));
     const { VoiceSettingsPanel: FreshPanel } = await import('./voice-settings-panel');
     const { LocaleProvider: FreshLocaleProvider } = await import('@/i18n/provider');
-    const { DEFAULT_TRANSLATE_SETTINGS: freshDefaults } = await import('@/lib/translate-settings');
+    const onChange = vi.fn();
+    const onVolumeChange = vi.fn();
 
     const el = document.createElement('div');
     document.body.appendChild(el);
@@ -211,19 +221,21 @@ describe('voices per spoken language', () => {
       freshRoot.render(
         <FreshLocaleProvider>
           <FreshPanel
-            settings={{ ...freshDefaults, voiceOutput: true, ...pair }}
-            mode={mode}
+            settings={settings}
+            language={language}
             running={false}
-            onChange={vi.fn()}
-            onVolumeChange={vi.fn()}
+            onChange={onChange}
+            onVolumeChange={onVolumeChange}
           />
         </FreshLocaleProvider>,
       );
       for (let i = 0; i < 5; i += 1) await Promise.resolve();
     });
     return {
-      text: el.textContent,
+      el,
       asked,
+      onChange,
+      onVolumeChange,
       cleanup: () => {
         act(() => freshRoot.unmount());
         el.remove();
@@ -232,44 +244,31 @@ describe('voices per spoken language', () => {
     };
   }
 
-  it('offers a voice for each language of a two-way pair, named by its language', async () => {
-    const { text, asked, cleanup } = await renderWith(
-      { twoWayPair: { source: 'vi', target: 'en' } },
-      'two-way',
-    );
-    expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.en']}`);
-    expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.vi']}`);
-    expect(new Set(asked)).toEqual(new Set(['en', 'vi']));
+  it('lists only its own language’s voices, in one picker', async () => {
+    const { el, asked, cleanup } = await renderFor('vi');
+    expect(new Set(asked)).toEqual(new Set(['vi']));
+    expect(el.querySelectorAll('button[role="combobox"]')).toHaveLength(1);
     cleanup();
   });
 
-  it('offers one voice, the translation language’s, for an auto-detected source', async () => {
-    const { text, asked, cleanup } = await renderWith(
-      { languagePair: { source: 'detect', target: 'en' } },
-      'one-way',
+  it('muting it touches its own language and leaves the others speaking', async () => {
+    const { el, onChange, cleanup } = await renderFor('vi');
+    const speak = el.querySelector<HTMLButtonElement>(
+      'button[aria-label="Speak the translation aloud"]',
     );
-    expect(text).toContain(en['web.translate.voice']);
-    expect(text).not.toContain(`${en['web.translate.voice']} · `);
-    expect(new Set(asked)).toEqual(new Set(['en']));
+    act(() => speak?.click());
+    const patch = onChange.mock.calls.at(-1)?.[0] as Pick<TranslateSettings, 'voiceByLanguage'>;
+    expect(patch.voiceByLanguage.vi.speak).toBe(false);
+    expect(patch.voiceByLanguage.en).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage.en);
     cleanup();
   });
 
-  it('keeps one voice for a pair it cannot run both ways', async () => {
-    const { text, cleanup } = await renderWith(
-      { languagePair: { source: 'vi', target: 'zh' } },
-      'one-way',
-    );
-    expect(text).not.toContain(`${en['web.translate.voice']} · `);
+  it('reads its own language’s setup: a muted language shows only its switch', async () => {
+    const { el, cleanup } = await renderFor('vi', speaking(false, 'vi'));
+    expect(el.querySelector('[aria-label="Playback volume"]')).toBeNull();
     cleanup();
-  });
-
-  it('keeps one voice for a two-way-capable pair on the one-way page', async () => {
-    const { text, asked, cleanup } = await renderWith(
-      { languagePair: { source: 'vi', target: 'en' } },
-      'one-way',
-    );
-    expect(text).not.toContain(`${en['web.translate.voice']} · `);
-    expect(new Set(asked)).toEqual(new Set(['en']));
-    cleanup();
+    const other = await renderFor('en', speaking(false, 'vi'));
+    expect(other.el.querySelector('[aria-label="Playback volume"]')).not.toBeNull();
+    other.cleanup();
   });
 });

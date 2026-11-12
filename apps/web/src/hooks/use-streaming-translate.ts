@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import type {
+  LanguageCode,
   MicProcessing,
   SessionLanguageMode,
   SessionLanguagePair,
@@ -338,13 +339,14 @@ export interface UseStreamingTranslate {
    */
   end: () => void;
   /**
-   * Set playback gain, 0..1, taking effect immediately.
+   * Set one language's playback gain, 0..1, taking effect immediately — `lang`
+   * absent is the stage untagged (one-way) frames play through.
    *
    * Live mid-conversation because it never touches the session options: the gain
    * node sits between the playback queue and the loudspeakers, so changing it is
    * a property write rather than anything the server has to be told about.
    */
-  setVolume: (volume: number) => void;
+  setVolume: (volume: number, lang?: LanguageCode) => void;
 }
 
 /**
@@ -366,7 +368,7 @@ export interface UseStreamingTranslate {
  * microphone opens and when the session reads its runtime — both at start.
  */
 export function useStreamingTranslate(
-  getVolume: () => number = () => 1,
+  getVolume: (lang?: LanguageCode) => number = () => 1,
   getMicProcessing: () => MicProcessing = () => DEFAULT_MIC_PROCESSING,
 ): UseStreamingTranslate {
   // A READER, not a value. The socket cannot open without a token —
@@ -407,7 +409,9 @@ export function useStreamingTranslate(
    * the context is still open, so a node belonging to a finished run is simply
    * ignored rather than being an error case to prevent.
    */
-  const gainRef = useRef<GainNode | null>(null);
+  // One gain stage per language a frame was tagged with, `''` for an untagged
+  // frame — see `createPlaybackSink`.
+  const gainsRef = useRef<Map<string, GainNode> | null>(null);
   // Read at sink-creation time. See the note on `getVolume` above.
   //
   // Kept current in an effect rather than assigned during render: a render can be
@@ -511,11 +515,24 @@ export function useStreamingTranslate(
        * participants hear.
        */
       createPlaybackSink: (context, onTurnDrained) => {
-        const gain = context.createGain();
-        gain.gain.value = clampVolume(getVolumeRef.current());
-        gain.connect(context.destination);
-        gainRef.current = gain;
-        return new PcmPlaybackQueue(context, onTurnDrained, gain);
+        // A stage per language, built the first time a frame in it arrives: a
+        // reader keeps a volume per language, and a two-way reply's frame is
+        // the only thing that says which language it is in. An untagged frame
+        // (a one-way turn) gets the `''` stage, whose volume the reader chose.
+        const gains = new Map<string, GainNode>();
+        gainsRef.current = gains;
+        const stageFor = (lang?: LanguageCode): GainNode => {
+          const key = lang ?? '';
+          let gain = gains.get(key);
+          if (!gain) {
+            gain = context.createGain();
+            gain.gain.value = clampVolume(getVolumeRef.current(lang));
+            gain.connect(context.destination);
+            gains.set(key, gain);
+          }
+          return gain;
+        };
+        return new PcmPlaybackQueue(context, onTurnDrained, stageFor);
       },
     },
     {
@@ -562,7 +579,7 @@ export function useStreamingTranslate(
       // `releaseResources` is private with no callback, so without this the gain
       // node of a closed context would be held until the next run replaced it.
       onStopped: () => {
-        gainRef.current = null;
+        gainsRef.current = null;
         setMicPaused(false);
         // The conversation is over, so this is the last moment the acoustic
         // layer can keep its promise: every turn it heard but could not place
@@ -744,11 +761,12 @@ export function useStreamingTranslate(
     [session],
   );
 
-  const setVolume = useCallback((volume: number) => {
-    const gain = gainRef.current;
-    // Nothing to write to when no conversation is running — the value still lives
-    // in settings, and the next sink reads it through `getVolume`. A closed
-    // context is the same case: the run it belonged to is over.
+  const setVolume = useCallback((volume: number, lang?: LanguageCode) => {
+    // Only the stage of the language named, `''` for untagged frames. A stage not
+    // built yet has nothing to write to and reads its volume through `getVolume`
+    // when its first frame arrives; no running conversation is the same case.
+    const gain = gainsRef.current?.get(lang ?? '');
+    // A closed context is a run that is over.
     if (!gain || gain.context.state === 'closed') return;
     // Ramped rather than assigned. A step change in gain is an audible click,
     // which on a control someone is dragging would fire on every frame.

@@ -199,6 +199,37 @@ function clampExtraTargets<L extends string>(languages: readonly L[]): L[] {
 }
 
 /**
+ * A speaking rate, CLAMPED to 0.5–2 and never rejected — see
+ * `SessionOptions.speed` for why a refusal here is silence.
+ *
+ * `.pipe(min().max())` would REJECT an out-of-range number rather than pull it
+ * into range. `.catch` alone is not enough either: it only fires when the input
+ * is not a number at all, so 99 would sail past it. The arithmetic is the
+ * enforcement.
+ */
+const speakingRateSchema = z
+  .number()
+  .catch(1)
+  .transform((value) => Math.min(2, Math.max(0.5, value)));
+
+/**
+ * How one language is spoken, when the client chose it per language.
+ *
+ * Every field catches on its own: an over-long token drops that token and keeps
+ * the language's speak flag and rate, rather than discarding the whole entry.
+ */
+export const languageVoiceSettingsSchema = z.object({
+  /** Whether turns translated into this language are spoken at all. */
+  speak: z.boolean().optional().catch(undefined),
+  speed: speakingRateSchema.optional().catch(undefined),
+  /** The gender default this language speaks in when no voice is named. */
+  gender: voiceGenderSchema.optional().catch(undefined),
+  /** An opaque token of this language's engine — see `SessionOptions.voice`. */
+  voice: z.string().max(64).optional().catch(undefined),
+});
+export type LanguageVoiceSettings = z.infer<typeof languageVoiceSettingsSchema>;
+
+/**
  * Everything a turn needs to be decided before the first frame arrives.
  *
  * Exported on its own because these settings travel together the whole way
@@ -259,16 +290,7 @@ export const sessionOptionsSchema = z.object({
    * not fixed here. Today's local backends: honoured for English (Kokoro),
    * ignored for Vietnamese (VieNeu).
    */
-  speed: z
-    .number()
-    .catch(1)
-    // CLAMPED, not validated. `.pipe(min().max())` would REJECT an out-of-range
-    // number rather than pull it into range — which is the silent hang described
-    // above, not a refusal anyone can see. `.catch` alone is not enough either:
-    // it only fires when the input is not a number at all, so 99 would sail past
-    // it. The arithmetic is the enforcement.
-    .transform((value) => Math.min(2, Math.max(0.5, value)))
-    .optional(),
+  speed: speakingRateSchema.optional(),
   /**
    * A specific voice, as an OPAQUE token the running backend published.
    *
@@ -292,6 +314,27 @@ export const sessionOptionsSchema = z.object({
    * Additive: a declared one-way session keeps sending `voice` alone.
    */
   voices: z.partialRecord(languageCodeSchema, z.string().max(64)).optional(),
+  /**
+   * How each language is spoken: whether at all, how fast, in which gender and
+   * voice. A reader may want to hear one side of a two-way conversation and not
+   * the other, and one language's engine may honour a rate the other ignores.
+   *
+   * Additive, and every field falls back on its own: a language's entry, then the
+   * flat field ({@link voiceOutput}, {@link speed}, {@link voiceGender},
+   * {@link voices} then {@link voice}), then the server's default. A client that
+   * never sends this — mobile, the extension, a meeting leg, a tab built before it
+   * existed — runs exactly as before.
+   *
+   * Playback volume is not here and never will be: it is a gain stage in the
+   * listener's own tab.
+   *
+   * Read as absent rather than refused when it is not a map of registry
+   * languages, because a refused start is silence.
+   */
+  voiceByLanguage: z
+    .partialRecord(languageCodeSchema, languageVoiceSettingsSchema)
+    .optional()
+    .catch(undefined),
   /**
    * More languages to receive the translation of each turn in, beside
    * `languagePair.target`: the client opts in to several languages of text and

@@ -381,6 +381,28 @@ describe('TranslateGateway', () => {
       expect(opened).toHaveBeenCalledWith(socket, 's1', 1, 'conv-1');
     });
 
+    it('prices a two-way start voiced while either language is still spoken', async () => {
+      sessions.start.mockReturnValue({ sessionId: 's1', extraTargets: 0 });
+      const opened = vi.spyOn(meter, 'turnOpened');
+      await start(socket, {
+        twoWay: true,
+        voiceByLanguage: { vi: { speak: false } },
+      });
+      // English is still spoken: the turn may answer in it, so admission holds
+      // the voiced rate and the turn reprices down at settle if it does not.
+      expect(opened).toHaveBeenCalledWith(socket, 's1', 2, undefined);
+    });
+
+    it('prices a start captions-only when every language it may speak is muted', async () => {
+      sessions.start.mockReturnValue({ sessionId: 's1', extraTargets: 0 });
+      const opened = vi.spyOn(meter, 'turnOpened');
+      await start(socket, {
+        twoWay: true,
+        voiceByLanguage: { vi: { speak: false }, en: { speak: false } },
+      });
+      expect(opened).toHaveBeenCalledWith(socket, 's1', 1, undefined);
+    });
+
     it('prices a voiced turn by the extra targets start() actually ran', async () => {
       sessions.start.mockReturnValue({ sessionId: 's1', extraTargets: 2 });
       const opened = vi.spyOn(meter, 'turnOpened');

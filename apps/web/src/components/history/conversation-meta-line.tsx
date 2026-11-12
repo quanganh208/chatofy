@@ -1,10 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { ArrowLeftRight, ArrowRight, AudioLines } from 'lucide-react';
 import type { ConversationSummary, LanguageCode } from '@chatofy/types';
 import type { Translate } from '@chatofy/i18n';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { cn } from '@/lib/utils';
 import { durationMinutes, formatTimeRange } from './conversation-formatting';
 import { turnCountLabel } from './turn-count-label';
 
@@ -17,6 +18,13 @@ interface ConversationMetaLineProps {
   showTimeRange?: boolean;
   /** A fact printed before the kind, on the same line — the detail page's date. */
   leading?: ReactNode;
+  /**
+   * One line that never wraps, for a list row: the kind, the length and the line
+   * count, and nothing that only the open conversation needs (speakers, recording).
+   * In a pane as narrow as the list a wrapping line strands its last fact alone on a
+   * line of its own; this one gives up its tail to an ellipsis instead.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -32,9 +40,36 @@ export function ConversationMetaLine({
   conversation,
   showTimeRange,
   leading,
+  compact,
 }: ConversationMetaLineProps) {
   const t = useTranslate();
   const locale = useLocale();
+
+  if (compact) {
+    const facts = [
+      <KindLabel key="kind" conversation={conversation} />,
+      <span key="duration">
+        {t('web.history.duration', { minutes: durationMinutes(conversation) })}
+      </span>,
+      <span key="turns">{turnCountLabel(t, conversation.turnCount)}</span>,
+    ];
+    return (
+      <p className="text-hint text-muted-foreground min-w-0 truncate">
+        {facts.map((fact, index) => (
+          <Fragment key={fact.key}>
+            {index > 0 ? (
+              <>
+                {/* The margin evens these with the dots inside the kind label, whose
+                    flex `gap-1` sits beside a collapsed space rather than a full one. */}{' '}
+                <Dot className="mx-0.5" />{' '}
+              </>
+            ) : null}
+            {fact}
+          </Fragment>
+        ))}
+      </p>
+    );
+  }
 
   const parts = [
     leading ? <span key="leading">{leading}</span> : null,
@@ -51,7 +86,13 @@ export function ConversationMetaLine({
     </span>,
     <span key="turns">{turnCountLabel(t, conversation.turnCount)}</span>,
     conversation.speakerCount > 0 ? (
-      <span key="speakers">{speakersLabel(t, conversation)}</span>
+      <span
+        key="speakers"
+        className="wrap-anywhere line-clamp-2 min-w-0"
+        title={speakersLabel(t, conversation)}
+      >
+        {speakersLabel(t, conversation)}
+      </span>
     ) : null,
     conversation.hasRecording ? (
       <span key="recording" className="inline-flex items-center gap-1">
@@ -69,7 +110,7 @@ export function ConversationMetaLine({
         index === 0 ? (
           part
         ) : (
-          <span key={part.key} className="inline-flex items-center gap-x-1.5">
+          <span key={part.key} className="inline-flex max-w-full min-w-0 items-center gap-x-1.5">
             <Dot />
             {part}
           </span>
@@ -136,9 +177,9 @@ function speakersLabel(
     : t('web.history.speakersNamed', { count, names });
 }
 
-export function Dot() {
+export function Dot({ className }: { className?: string }) {
   return (
-    <span aria-hidden className="text-border-strong">
+    <span aria-hidden className={cn('text-border-strong', className)}>
       ·
     </span>
   );

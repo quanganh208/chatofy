@@ -40,7 +40,7 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
       type={type}
       data-slot="input"
       className={cn(
-        'flex h-10 w-full min-w-0 rounded-md px-3 py-2',
+        'flex h-10 pointer-coarse:h-11 w-full min-w-0 rounded-md px-3 py-2',
         'bg-card text-body text-foreground shadow-field inset-ring-1 inset-ring-border',
         // 16px under a touch pointer. iOS zooms the whole page into any focused
         // field set smaller than that, and 14px is this scale's body size. Keyed

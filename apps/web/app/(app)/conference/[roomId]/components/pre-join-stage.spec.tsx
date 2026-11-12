@@ -17,7 +17,11 @@ const { PreJoinStage } = await import('./pre-join-stage');
 /** The voice gender the speaker leg would read from storage when it is built. */
 function storedGender(): unknown {
   const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as { voiceGender?: unknown }).voiceGender : undefined;
+  // The chip writes one gender into every language's setup; any language reads it.
+  return raw
+    ? (JSON.parse(raw) as { voiceByLanguage?: { en?: { gender?: unknown } } }).voiceByLanguage?.en
+        ?.gender
+    : undefined;
 }
 
 describe('PreJoinStage — the voice chosen here is the voice the call uses', () => {

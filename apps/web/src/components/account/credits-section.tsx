@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { dawn } from '@chatofy/ui';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
+import { AnimatedNumber } from '@/components/motion/animated-number';
 import { getBillingPortal } from '@/clients/api-client';
 import { CreditBuyActions, type SepayCheckout } from '@/components/account/credit-buy-actions';
 import { CreditUsageList } from '@/components/account/credit-usage-list';
@@ -73,7 +75,7 @@ export function CreditsSection() {
   const { balance, state } = credits;
 
   return (
-    <>
+    <div className="flex flex-col gap-8">
       <SettingsSection title={t('common.billing.title')}>
         {balance === null ? (
           state === 'failed' ? (
@@ -85,11 +87,33 @@ export function CreditsSection() {
           )
         ) : (
           <>
-            <SettingsSectionRow label={t('common.billing.totalCredits')}>
-              <span className="text-heading font-medium tabular-nums" data-credit-total>
-                {formatCredits(t, locale, balance.totalCredits)}
+            <div className="border-border flex flex-col gap-3 border-b py-4">
+              <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
+                {t('common.billing.totalCredits')}
               </span>
-            </SettingsSectionRow>
+              <AnimatedNumber
+                data-credit-total
+                value={balance.totalCredits}
+                format={(n) => formatCredits(t, locale, n)}
+                className="text-title font-display leading-none font-light tabular-nums"
+              />
+              {/* The split at a glance: this period's plan credits in the dawn gradient,
+                  top-ups in the muted tone. Decorative: the two rows below say the same in
+                  words, so a screen reader hears them once. */}
+              <div aria-hidden className="bg-muted flex h-1.5 w-full overflow-hidden rounded-full">
+                <span
+                  className="duration-slow ease-standard h-full transition-[width] motion-reduce:transition-none"
+                  style={{
+                    width: `${share(balance.planCredits, balance.totalCredits)}%`,
+                    backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+                  }}
+                />
+                <span
+                  className="bg-muted-foreground/60 duration-slow ease-standard h-full transition-[width] motion-reduce:transition-none"
+                  style={{ width: `${share(balance.topupCredits, balance.totalCredits)}%` }}
+                />
+              </div>
+            </div>
             <SettingsSectionRow
               label={t('common.billing.planCredits')}
               note={
@@ -160,8 +184,13 @@ export function CreditsSection() {
       <SettingsSection title={t('common.billing.usageTitle')}>
         <CreditUsageList usage={usage} />
       </SettingsSection>
-    </>
+    </div>
   );
+}
+
+/** `part` as a percentage of `whole`, 0 when there is nothing to divide. */
+function share(part: number, whole: number): number {
+  return whole > 0 ? Math.min(100, Math.max(0, (part / whole) * 100)) : 0;
 }
 
 /** Where Pro came from, under the plan badge; nothing on Free. */

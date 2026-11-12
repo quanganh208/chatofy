@@ -55,17 +55,24 @@ afterEach(() => {
   container.remove();
 });
 
-function render(overrides: Partial<TranslateSettings> = {}) {
+function render(
+  overrides: Partial<TranslateSettings> = {},
+  { conversationMode = 'one-way' }: { conversationMode?: 'one-way' | 'two-way' } = {},
+) {
   act(() => {
     root.render(
       <LocaleProvider>
         <TranscriptPanes
-          conversationMode="one-way"
+          conversationMode={conversationMode}
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onSwap={vi.fn()}
           onLanguagePair={vi.fn()}
-          voiceControl={<button type="button">voice slot</button>}
+          voiceControlFor={(language) => (
+            <button type="button" data-voice-language={language}>
+              voice slot
+            </button>
+          )}
           stream={{
             turns: TURNS,
             liveTurns: [],
@@ -128,7 +135,7 @@ describe('TranscriptPanes arrangements', () => {
       // that reason; the narrow case is the same fault at a different width, so
       // both orientations are exempt.
       render({ displayMode: 'split', paneLayout });
-      const roles = Array.from(container.querySelectorAll('.border-b .text-label')).map(
+      const roles = Array.from(container.querySelectorAll('.border-b [data-slot="pane-role"]')).map(
         (node) => node.textContent,
       );
       expect(roles).toEqual(['Source', 'Translation']);
@@ -140,7 +147,9 @@ describe('TranscriptPanes arrangements', () => {
     // nothing on its own — the broken arrangement had exactly that.
     render({ displayMode: 'split', paneLayout: 'row' });
     for (const pane of container.querySelectorAll('[role="region"]')) {
-      expect(pane.previousElementSibling?.querySelector('.text-label')).not.toBeNull();
+      // The region is the scroll area's viewport, so the pane's box is that area's root.
+      const box = pane.closest('[data-slot="scroll-area"]');
+      expect(box?.previousElementSibling?.querySelector('[data-slot="pane-role"]')).not.toBeNull();
     }
   });
 
@@ -166,14 +175,33 @@ describe('TranscriptPanes arrangements', () => {
     }
   });
 
-  it('divides the pair once, and only when there is a pair', () => {
+  it('puts the source language’s voice on the source sheet on the two-way page', () => {
+    render({ displayMode: 'split', paneLayout: 'row' }, { conversationMode: 'two-way' });
+    const sheets = [...container.querySelectorAll('[data-shuffle-card]')];
+    expect(
+      sheets.map(
+        (sheet) => sheet.querySelector<HTMLElement>('[data-voice-language]')?.dataset.voiceLanguage,
+      ),
+    ).toEqual(['vi', 'en']);
+  });
+
+  it('draws a pair as two sheets on two grounds, and one stream as one sheet', () => {
+    // Each side is its own region rather than one box cut down the middle, so there
+    // is no divider; the sides are told apart by their grounds.
     render({ displayMode: 'split', paneLayout: 'row' });
-    expect(container.querySelectorAll('[aria-hidden].bg-hairline').length).toBe(1);
+    expect(container.querySelectorAll('[aria-hidden].bg-hairline').length).toBe(0);
+    const sheets = [...container.querySelectorAll<HTMLElement>('[data-shuffle-card]')];
+    expect(sheets.map((sheet) => sheet.dataset.shuffleCard)).toEqual(['vi', 'en']);
+    expect(sheets.map((sheet) => sheet.style.backgroundColor)).toEqual([
+      'var(--reading-bg, var(--card))',
+      'var(--reading-bg, var(--muted))',
+    ]);
 
     act(() => root.unmount());
     root = createRoot(container);
     render({ displayMode: 'list' });
-    expect(container.querySelectorAll('[aria-hidden].bg-hairline').length).toBe(0);
+    expect(container.querySelectorAll('[data-shuffle-card]').length).toBe(0);
+    expect(container.querySelectorAll('.reading-frame.rounded-xl').length).toBe(1);
   });
 });
 
@@ -196,7 +224,11 @@ describe('TranscriptPanes and the conversation-captured language pair', () => {
             running={false}
             onSwap={vi.fn()}
             onLanguagePair={vi.fn()}
-            voiceControl={<button type="button">voice slot</button>}
+            voiceControlFor={(language) => (
+              <button type="button" data-voice-language={language}>
+                voice slot
+              </button>
+            )}
             conversationLanguagePair={{ source: 'vi', target: 'en' }}
             stream={{
               turns: TURNS,
@@ -243,7 +275,11 @@ describe('TranscriptPanes in a two-way conversation', () => {
             running
             onSwap={vi.fn()}
             onLanguagePair={vi.fn()}
-            voiceControl={<button type="button">voice slot</button>}
+            voiceControlFor={(language) => (
+              <button type="button" data-voice-language={language}>
+                voice slot
+              </button>
+            )}
             conversationLanguagePair={{ source: 'vi', target: 'en' }}
             languageMode="two-way"
             stream={{
@@ -349,7 +385,11 @@ describe('TranscriptPanes and the reader appearance', () => {
       expect(container.querySelectorAll('[style*="--reading-target"]').length).toBe(1);
       expect(frame()?.style.getPropertyValue('--reading-target')).toBe('#abcdef');
       expect(frame()?.classList).toContain('reading-scheme-dark');
-      expect(frame()?.classList).toContain('reading-frame');
+      // The ground is painted by the sheet: the frame itself in `list`, each pane's
+      // sheet in `split`.
+      const painted = container.querySelectorAll('.reading-frame');
+      expect(painted.length).toBe(displayMode === 'split' ? 2 : 1);
+      for (const sheet of painted) expect(frame()?.contains(sheet)).toBe(true);
     },
   );
 });

@@ -41,13 +41,15 @@ interface PanelHeadersProps {
    */
   conversationMode: ConversationMode;
   /**
-   * The voice control, rendered at the end of the target header.
+   * The voice control for a language, rendered at the end of that language's
+   * header: the target's always, the source's too on the two-way page, where
+   * both languages are spoken.
    *
    * A slot rather than props, so this component stays about the two languages and
    * the swap between them. What goes in it reads and writes the whole settings
-   * object, which is the page's to own — see `translate/page.tsx`.
+   * object, which is the page's to own — see `cascade-panel.tsx`.
    */
-  voiceControl?: React.ReactNode;
+  voiceControlFor?: (language: LanguageCode) => React.ReactNode;
 }
 
 /**
@@ -103,8 +105,10 @@ interface PanelHeadersProps {
  * holds none of that: it takes a node, so it stays about the two languages and
  * the swap, and nothing here has to know that the settings object exists.
  *
- * The left header has no counterpart because nothing is ever spoken in the
- * source language.
+ * On the two-way page the source header carries one too, for its own
+ * language: a reply in the target is read out in the source, and the reader
+ * sets — or mutes — each language separately. On the one-way page the source
+ * has none, because nothing is ever spoken in it.
  *
  * ## One stacked pair, never two columns
  *
@@ -121,9 +125,14 @@ export function PanelHeaders({
   onLanguagePair,
   mode = null,
   conversationMode,
-  voiceControl,
+  voiceControlFor,
 }: PanelHeadersProps) {
   const t = useTranslate();
+  const sourceVoice = sourceVoiceControl(languagePair, conversationMode, voiceControlFor);
+  // Clear of the swap, which sits on the seam at the right edge: the end slots
+  // of BOTH rows now reach that corner on the two-way page, and the swap's half
+  // above and below the seam would otherwise land on the speaker of each.
+  const endClear = onSwap ? 'pr-4' : undefined;
 
   return (
     // The same left inset the turns below carry, so a header and the prose it
@@ -141,6 +150,8 @@ export function PanelHeaders({
           />
         }
         className="border-hairline border-b"
+        end={sourceVoice}
+        endClassName={endClear}
       />
       <Side
         role={t('web.translate.languagePairTarget')}
@@ -153,7 +164,8 @@ export function PanelHeaders({
             conversationMode={conversationMode}
           />
         }
-        end={voiceControl}
+        end={voiceControlFor?.(languagePair.target)}
+        endClassName={endClear}
       />
 
       {/* Centred on the pair with a negative margin rather than a translate: the
@@ -174,6 +186,20 @@ export function PanelHeaders({
       ) : null}
     </div>
   );
+}
+
+/**
+ * The source header's voice control: only on the two-way page, where replies
+ * are spoken in the source language too. A one-way source is never spoken —
+ * and may be "detect", which is no language to speak in.
+ */
+export function sourceVoiceControl(
+  languagePair: SessionLanguagePair,
+  conversationMode: ConversationMode,
+  voiceControlFor?: (language: LanguageCode) => React.ReactNode,
+): React.ReactNode {
+  if (conversationMode !== 'two-way' || languagePair.source === AUTO_DETECT) return null;
+  return voiceControlFor?.(languagePair.source) ?? null;
 }
 
 /**
@@ -272,7 +298,9 @@ export function HeaderLanguage({
     disabled: running,
     nameLanguage: languageNamer(t),
     size: 'sm' as const,
-    className: 'font-medium',
+    // The page ground, not the field's usual fill: the sheets are `card` and `muted`,
+    // and a picker filled with either vanished into the sheet that matched it.
+    className: 'bg-background font-medium',
     unavailable: twoWay
       ? {
           codes: LANGUAGE_CODES.filter((language) => !IDENTIFIABLE_LANGUAGES.includes(language)),
@@ -353,11 +381,14 @@ export function LanguagePairSwap({
   running,
   onSwap,
   className,
+  iconClassName,
 }: {
   languagePair: SessionLanguagePair;
   running: boolean;
   onSwap: () => void;
   className?: string;
+  /** On the icon itself, e.g. turning it to point up and down when the sides stack. */
+  iconClassName?: string;
 }) {
   const t = useTranslate();
   const { source, target } = languagePair;
@@ -367,6 +398,9 @@ export function LanguagePairSwap({
     <Button
       variant="outline"
       size="icon"
+      // What the swap animation spins (`language-shuffle.ts`): the whole round button,
+      // so a rotation on the icon itself survives it.
+      data-shuffle-icon
       // Also dead while the source is "detect": it has no language to trade
       // places with, and a translation cannot be "detect".
       disabled={running || source === AUTO_DETECT}
@@ -385,7 +419,7 @@ export function LanguagePairSwap({
         className,
       )}
     >
-      <ArrowLeftRight aria-hidden className="size-3.5" />
+      <ArrowLeftRight aria-hidden className={cn('size-3.5', iconClassName)} />
     </Button>
   );
 }
@@ -395,12 +429,14 @@ function Side({
   language,
   className,
   end,
+  endClassName,
   hint,
 }: {
   role: string;
   language: React.ReactNode;
   className?: string;
   end?: React.ReactNode;
+  endClassName?: string;
   hint?: React.ReactNode;
 }) {
   return (
@@ -412,7 +448,8 @@ function Side({
         <span className="flex flex-wrap items-baseline gap-x-2">
           <span
             aria-hidden
-            className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+            data-slot="pane-role"
+            className="text-muted-foreground text-hint font-medium"
           >
             {role}
           </span>
@@ -420,7 +457,9 @@ function Side({
         </span>
         {language}
       </div>
-      {end ? <div className="ml-auto flex items-center gap-2">{end}</div> : null}
+      {end ? (
+        <div className={cn('ml-auto flex items-center gap-2', endClassName)}>{end}</div>
+      ) : null}
     </div>
   );
 }

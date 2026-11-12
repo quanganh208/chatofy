@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/../auth';
 import { AppChrome } from '@/components/layout/app-chrome';
@@ -23,6 +24,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // that is present but no longer renewable must not open this surface.
   if (!isLiveSession(await auth())) redirect('/login');
 
+  // The sidebar's open or rail state is the reader's choice, written by the sidebar
+  // primitive on every toggle. Read here so the first paint is already that shape;
+  // unset means open. See `app-chrome.tsx`.
+  const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
+
   return (
     <>
       <SkipLink />
@@ -35,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           likely to need it. Inside this group it covers precisely the routes the
           matcher gates. */}
       <SessionGuard />
-      <AppChrome>{children}</AppChrome>
+      <AppChrome defaultOpen={sidebarOpen}>{children}</AppChrome>
     </>
   );
 }

@@ -17,10 +17,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Link as LinkIcon, Users } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
+import { Button, ResizeHandle } from '@chatofy/ui/react';
+import { useStoredWidth } from '@/hooks/use-stored-width';
+import { useCallPreferences } from '@/hooks/use-call-preferences';
+import { ListeningMenu } from './components/listening-menu';
+import { InviteQr } from './components/invite-qr';
 import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
 import { useConference } from '@/hooks/use-conference';
 import { VideoGrid } from './components/video-grid';
@@ -33,9 +37,21 @@ import { ACTIVE_CALL_KEY, decodeRoomId, endedPath } from './utils/room-route';
 /** The roster sits beside the grid from Tailwind's `md` up; below it, it covers the grid. */
 const ROSTER_BESIDE_QUERY = '(min-width: 768px)';
 
+/**
+ * The roster and chat column. Its default width is a responsive class (18rem, 20rem from
+ * `xl`); once the reader drags it, their width is held in a CSS variable that overrides
+ * both. It is also capped at half the window so the video grid is never squeezed out.
+ */
+const ROSTER_MIN = 240;
+const rosterMax = () => Math.min(480, Math.floor(window.innerWidth / 2));
+const rosterDefault = () => (window.innerWidth >= 1280 ? 320 : 288);
+
 export default function ConferenceRoomPage() {
   const t = useTranslate();
+  const locale = useLocale();
   const router = useRouter();
+  const roster = useStoredWidth('chatofy.chat-width', 288, ROSTER_MIN, rosterMax);
+  const callPrefs = useCallPreferences();
   const params = useParams<{ roomId: string }>();
 
   const roomId = decodeRoomId(params.roomId);
@@ -167,7 +183,7 @@ export default function ConferenceRoomPage() {
             ? t('common.conference.roomEnded')
             : t('common.conference.roomNotFound')}
         </p>
-        <p className="text-hint text-textMuted">{t('web.conference.roomGoneHint')}</p>
+        <p className="text-hint text-muted-foreground">{t('web.conference.roomGoneHint')}</p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -189,7 +205,7 @@ export default function ConferenceRoomPage() {
   if (status === 'connecting') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body text-textMuted">{t('common.conference.connecting')}</p>
+        <p className="text-body text-muted-foreground">{t('common.conference.connecting')}</p>
         {/* Leave is still the one accent-filled control even in the loading state */}
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.leave')}
@@ -202,7 +218,7 @@ export default function ConferenceRoomPage() {
   if (status === 'reconnecting') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-body text-textMuted">
+        <p className="text-body text-muted-foreground">
           {t('common.conference.reconnecting', {
             attempt: String(reconnectAttempt),
             cap: String(reconnectCap),
@@ -221,7 +237,9 @@ export default function ConferenceRoomPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body font-medium">{t('common.conference.permissionDenied')}</p>
-        <p className="text-hint text-textMuted">{t('web.conference.permissionDeniedHint')}</p>
+        <p className="text-hint text-muted-foreground">
+          {t('web.conference.permissionDeniedHint')}
+        </p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -234,7 +252,7 @@ export default function ConferenceRoomPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body font-medium">{t('common.conference.disconnected')}</p>
-        <p className="text-hint text-textMuted">{t('common.conference.disconnectedHint')}</p>
+        <p className="text-hint text-muted-foreground">{t('common.conference.disconnectedHint')}</p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -259,20 +277,21 @@ export default function ConferenceRoomPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Room header */}
       <div className="border-border flex items-center justify-between border-b px-4 py-2">
-        <p className="text-hint text-textMuted min-w-0 truncate">
-          <span className="text-label mr-2 font-semibold uppercase tracking-wide">
-            {t('web.conference.meetingCode')}
-          </span>
+        <p className="text-hint text-muted-foreground min-w-0 truncate">
+          <span className="text-hint mr-2 font-medium">{t('web.conference.meetingCode')}</span>
           {roomId}
         </p>
         <div className="flex shrink-0 items-center gap-1">
           {copied && (
-            <span role="status" className="text-hint text-textMuted">
+            <span role="status" className="text-hint text-muted-foreground">
               {t('web.conference.inviteLinkCopied')}
             </span>
           )}
           {/* Words from `sm` up, so the way to invite is found without hovering
               an icon; the phone keeps the icon and its accessible name. */}
+          <InviteQr
+            url={() => `${window.location.origin}/conference/${encodeURIComponent(roomId)}`}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -298,7 +317,7 @@ export default function ConferenceRoomPage() {
 
       {/* Audio-only soft notice — no card, no elevation, inline text */}
       {errorReason === 'audio-only' && (
-        <p className="text-hint text-textMuted border-border border-b px-4 py-1">
+        <p className="text-hint text-muted-foreground border-border border-b px-4 py-1">
           {t('common.conference.permissionDeniedAudioOnly')}
         </p>
       )}
@@ -311,7 +330,7 @@ export default function ConferenceRoomPage() {
         <p
           role="status"
           data-translation-ended
-          className="text-hint text-textMuted border-border border-b px-4 py-1"
+          className="text-hint text-muted-foreground border-border border-b px-4 py-1"
         >
           {translationEnded === 'credits_exhausted'
             ? t('common.conference.translationEndedNoCredits')
@@ -323,7 +342,7 @@ export default function ConferenceRoomPage() {
           Ghost/readout control only; Leave is still the one accent-filled control. */}
       {audioBlocked && (
         <div className="border-border flex items-center justify-between border-b px-4 py-1">
-          <p className="text-hint text-textMuted">{t('web.conference.audioBlocked')}</p>
+          <p className="text-hint text-muted-foreground">{t('web.conference.audioBlocked')}</p>
           <Button
             variant="ghost"
             size="sm"
@@ -350,6 +369,9 @@ export default function ConferenceRoomPage() {
             waitingLabel={t('common.conference.waiting')}
             localTranslating={localTranslating}
             translatingLabel={t('common.conference.translating')}
+            captions={callPrefs.prefs.captions}
+            captionSize={callPrefs.prefs.captionSize}
+            originalVolume={callPrefs.prefs.originalVolume}
           />
         </div>
 
@@ -358,10 +380,31 @@ export default function ConferenceRoomPage() {
           <aside
             // Beside the grid from `md` up; below it, over the grid at full
             // width rather than squeezing the video into strips.
-            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:static md:w-64 md:shrink-0 md:border-l xl:w-72"
+            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:relative md:w-[var(--chat-width,18rem)] md:shrink-0 md:border-l xl:w-[var(--chat-width,20rem)]"
+            style={
+              roster.isCustom
+                ? ({ '--chat-width': `${roster.width}px` } as React.CSSProperties)
+                : undefined
+            }
             aria-label={t('common.conference.rosterTitle')}
           >
-            <div className="shrink-0 overflow-y-auto">
+            {/* Beside the grid only (from `md`): below it the column covers the video and has
+                no edge to drag. */}
+            {roster.ready ? (
+              <ResizeHandle
+                label={t('web.conference.rosterWidth')}
+                value={roster.isCustom ? roster.width : rosterDefault()}
+                min={ROSTER_MIN}
+                max={rosterMax}
+                grow="left"
+                onChange={roster.setWidth}
+                onReset={roster.reset}
+                className="left-0 hidden justify-start md:flex"
+              />
+            ) : null}
+            {/* Bounded, so a long roster scrolls inside its own region instead of squeezing the
+                chat to nothing. */}
+            <div className="max-h-[45%] shrink-0 overflow-y-auto">
               <ParticipantList
                 selfName={joinedAs?.name ?? t('common.conference.you')}
                 selfMuted={localMuted}
@@ -370,6 +413,12 @@ export default function ConferenceRoomPage() {
                 selfLabel={t('common.conference.you')}
                 peers={peers}
                 rosterTitle={t('common.conference.rosterTitle')}
+                stateLabels={{
+                  micOn: t('web.conference.micOn'),
+                  micOff: t('web.conference.micOff'),
+                  camOn: t('web.conference.camOn'),
+                  camOff: t('web.conference.camOff'),
+                }}
               />
             </div>
             <div className="border-border mt-1 flex min-h-0 flex-1 flex-col border-t">
@@ -381,6 +430,8 @@ export default function ConferenceRoomPage() {
                 inputPlaceholder={t('common.conference.chatPlaceholder')}
                 sendLabel={t('common.conference.chatSend')}
                 emptyLabel={t('common.conference.chatEmpty')}
+                emptyHint={t('web.conference.chatEmptyHint')}
+                locale={locale}
                 refusalLabel={
                   chatRefusal === 'rate-limited'
                     ? t('common.conference.chatRateLimited')
@@ -406,6 +457,7 @@ export default function ConferenceRoomPage() {
         disableCameraLabel={t('common.conference.disableCamera')}
         enableCameraLabel={t('common.conference.enableCamera')}
         leaveLabel={t('common.conference.leave')}
+        extra={<ListeningMenu prefs={callPrefs.prefs} onChange={callPrefs.update} />}
       />
     </div>
   );

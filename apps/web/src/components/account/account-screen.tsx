@@ -76,22 +76,27 @@ export function AccountScreen() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-10">
-      <AccountIdentity
-        name={data?.user?.name}
-        email={data?.user?.email}
-        avatarUrl={profile === undefined || profile === 'failed' ? undefined : profile.avatarUrl}
-        sessionImage={data?.user?.image}
-        memberSince={
-          profile === undefined
-            ? undefined
-            : profile === 'failed'
-              ? null
-              : memberSince(profile.createdAt)
-        }
-      />
+    <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+      <div className="lg:col-span-2">
+        <AccountIdentity
+          name={data?.user?.name}
+          email={data?.user?.email}
+          avatarUrl={profile === undefined || profile === 'failed' ? undefined : profile.avatarUrl}
+          sessionImage={data?.user?.image}
+          memberSince={
+            profile === undefined
+              ? undefined
+              : profile === 'failed'
+                ? null
+                : memberSince(profile.createdAt)
+          }
+        />
+      </div>
 
-      <CreditsSection />
+      {/* Full width so Security and Session still pair up on the row below. */}
+      <div className="lg:col-span-2">
+        <CreditsSection />
+      </div>
 
       <SettingsSection title={t('web.account.security')} panel>
         <SettingsSectionRow
@@ -127,21 +132,17 @@ export function AccountScreen() {
         </p>
       </SettingsSection>
 
-      <div className="flex flex-col gap-2">
-        <Button
-          id="sign-out-account"
-          variant="ghost"
-          size="sm"
-          className="self-start"
-          onClick={() => void signOutOfChatofy()}
+      <SettingsSection title={t('web.account.session')} panel>
+        <SettingsSectionRow
+          label={t('web.account.thisBrowser')}
+          note={t('web.account.signOutHint')}
         >
-          <LogOut aria-hidden />
-          {t('common.auth.signOut')}
-        </Button>
-        <p className="text-hint text-muted-foreground max-w-prose">
-          {t('web.account.signOutHint')}
-        </p>
-      </div>
+          <Button id="sign-out-account" variant="outline" onClick={() => void signOutOfChatofy()}>
+            <LogOut aria-hidden />
+            {t('common.auth.signOut')}
+          </Button>
+        </SettingsSectionRow>
+      </SettingsSection>
     </div>
   );
 }

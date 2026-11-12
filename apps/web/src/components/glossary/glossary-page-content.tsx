@@ -13,7 +13,7 @@ import { GlossaryListPanel } from './glossary-list-panel';
  * selection is purely a local UI concern while the glossary list is shared data.
  */
 export function GlossaryPageContent() {
-  const { glossaries, status, save, patch, remove } = useGlossaries();
+  const { glossaries, status, save, patch, remove, retry } = useGlossaries();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedGlossary = glossaries.find((g) => g.id === selectedId) ?? null;
@@ -25,10 +25,11 @@ export function GlossaryPageContent() {
   }
 
   return (
-    <div className="flex border rounded-lg overflow-hidden h-[calc(100svh-12rem)] -mx-6">
+    <div className="flex flex-col md:flex-row border rounded-lg overflow-hidden md:h-[max(28rem,calc(100svh-24rem))]">
       <GlossaryListPanel
         glossaries={glossaries}
         status={status}
+        onRetry={() => void retry()}
         selectedId={selectedId}
         onSelect={setSelectedId}
         onSave={save}

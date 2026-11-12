@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { Button, Skeleton } from '@chatofy/ui/react';
 import { GLOSSARY_LIMITS } from '@chatofy/types';
 import type { Glossary, SaveGlossaryRequest } from '@chatofy/types';
@@ -16,6 +17,8 @@ interface Props {
   onSave: (glossaryId: string, body: SaveGlossaryRequest) => Promise<void>;
   onToggleActive: (glossaryId: string) => Promise<void>;
   onDelete: (glossaryId: string) => Promise<void>;
+  /** Try loading again; shown beside the failure message. */
+  onRetry: () => void;
 }
 
 export function GlossaryListPanel({
@@ -26,6 +29,7 @@ export function GlossaryListPanel({
   onSave,
   onToggleActive,
   onDelete,
+  onRetry,
 }: Props) {
   const t = useTranslate();
   const [creating, setCreating] = useState(false);
@@ -38,7 +42,7 @@ export function GlossaryListPanel({
   }
 
   return (
-    <div className="flex flex-col w-72 shrink-0 border-r h-full">
+    <div className="flex flex-col w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r md:h-full max-h-72 md:max-h-none">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="font-semibold text-body">{t('web.glossary.title')}</h2>
         {!creating && !atLimit && (
@@ -61,11 +65,24 @@ export function GlossaryListPanel({
         )}
 
         {status === 'failed' && (
-          <p className="text-body text-destructive px-1">{t('web.glossary.loadFailed')}</p>
+          <div role="alert" className="flex flex-col items-start gap-2 px-1">
+            <p className="text-body text-destructive">{t('web.glossary.loadFailed')}</p>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              {t('web.error.retry')}
+            </Button>
+          </div>
         )}
 
         {status === 'ready' && glossaries.length === 0 && !creating && (
-          <p className="text-body text-muted-foreground px-1">{t('web.glossary.emptyList')}</p>
+          // The same shape as History's empty list: an icon, a bold title, one sentence.
+          <div
+            data-slot="glossary-empty"
+            className="flex flex-col items-center gap-3 px-2 pt-6 pb-4 text-center"
+          >
+            <BookOpen aria-hidden className="text-border-strong size-12" strokeWidth={1.25} />
+            <p className="text-body font-semibold">{t('web.glossary.emptyTitle')}</p>
+            <p className="text-muted-foreground text-body">{t('web.glossary.emptyList')}</p>
+          </div>
         )}
 
         {status === 'ready' &&

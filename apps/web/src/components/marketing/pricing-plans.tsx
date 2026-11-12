@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { Button } from '@chatofy/ui/react';
 import type { Plan } from '@chatofy/types';
+import { dawn } from '@chatofy/ui';
 import { auth } from '@/../auth';
+import { Reveal } from '@/components/motion/reveal';
+import { cn } from '@/lib/utils';
 import { getLocale, getT } from '@/i18n/server';
 import { pricingContent } from '@/lib/pricing-content';
 import { isLiveSession } from '@/lib/session-guard';
@@ -68,20 +71,34 @@ export async function PricingPlans({ plans }: { plans: Plan[] | null }) {
         </p>
       ) : null}
       <div className="grid gap-10 md:grid-cols-3 md:gap-8">
-        {content.bands.map((band) => (
-          <div key={band.id} className="border-hairline flex flex-col gap-3 border-t pt-6">
-            <h2 className="text-heading font-display tracking-tight">{band.title}</h2>
-            {band.summary ? <p className="text-prose text-body">{band.summary}</p> : null}
-            {band.lines.length > 0 ? (
-              <ul className="flex flex-col gap-2">
-                {band.lines.map((line) => (
-                  <li key={line} className="text-body text-foreground font-medium">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+        {content.bands.map((band, index) => (
+          <Reveal key={band.id} delay={index * 90}>
+            <div
+              className={cn(
+                'border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full flex-col gap-3 rounded-xl border p-6 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+                band.id === 'pro' && 'border-foreground/20',
+              )}
+            >
+              <span
+                aria-hidden
+                className="h-1 w-12 rounded-full"
+                style={{
+                  backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+                }}
+              />
+              <h2 className="text-heading font-display tracking-tight">{band.title}</h2>
+              {band.summary ? <p className="text-prose text-body">{band.summary}</p> : null}
+              {band.lines.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {band.lines.map((line) => (
+                    <li key={line} className="text-body text-foreground font-medium">
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </Reveal>
         ))}
       </div>
       <div className="mt-12 flex max-w-prose flex-col gap-2">

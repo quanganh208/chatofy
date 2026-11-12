@@ -22,7 +22,7 @@ export function GlossaryDetailPanel({ glossary }: Props) {
 
   if (glossary === null) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-32 p-4 text-center">
         <p className="text-body text-muted-foreground">{t('web.glossary.selectGlossary')}</p>
       </div>
     );

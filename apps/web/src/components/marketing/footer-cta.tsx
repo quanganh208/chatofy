@@ -3,6 +3,7 @@ import { Button } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
+import { LotusIllustration } from './lotus-illustration';
 import { isLiveSession } from '@/lib/session-guard';
 
 /**
@@ -34,6 +35,7 @@ export async function FooterCta() {
   return (
     <Section className="border-hairline mt-8 border-t text-center">
       <div className="flex flex-col items-center gap-4">
+        <LotusIllustration className="w-32" />
         <h2 className="text-title font-display font-light tracking-tight text-balance">
           {t('web.landing.ctaTitle')}
         </h2>

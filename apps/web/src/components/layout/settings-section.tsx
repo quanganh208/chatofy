@@ -32,7 +32,11 @@ export function SettingsSection({
   const rows = <div className="flex flex-col">{children}</div>;
 
   return (
-    <section className="flex flex-col gap-2.5">
+    // Each section settles in a beat after the one above it (see `globals.css`).
+    <section
+      data-slot="settings-section"
+      className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-col gap-2.5 duration-300 motion-reduce:animate-none"
+    >
       <div className="border-border flex flex-col gap-1 border-b pb-2.5">
         <h2 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
           {title}

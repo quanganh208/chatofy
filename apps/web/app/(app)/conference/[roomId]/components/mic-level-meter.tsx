@@ -5,7 +5,8 @@
  * being heard, so a moving bar reads as "it hears you" rather than as an action.
  */
 export function MicLevelMeter({ level, label }: { level: number; label: string }) {
-  const percent = Math.round(Math.max(0, Math.min(1, level)) * 100);
+  const clamped = Math.max(0, Math.min(1, level));
+  const percent = Math.round(clamped * 100);
   return (
     <div
       role="meter"
@@ -16,8 +17,10 @@ export function MicLevelMeter({ level, label }: { level: number; label: string }
       className="bg-muted h-1.5 w-full overflow-hidden rounded-full"
     >
       <div
-        className="bg-speaking h-full transition-[width] duration-75 motion-reduce:transition-none"
-        style={{ width: `${percent}%` }}
+        // Scaled, not resized: this moves many times a second, and a width change makes
+        // the browser lay the page out on every frame where a transform does not.
+        className="bg-speaking h-full w-full origin-left transition-transform duration-75 motion-reduce:transition-none"
+        style={{ transform: `scaleX(${clamped})` }}
       />
     </div>
   );

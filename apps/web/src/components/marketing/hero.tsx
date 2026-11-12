@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { dawn } from '@chatofy/ui';
 import { Button, Card, CardContent } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
 import { LotusIllustration } from './lotus-illustration';
@@ -34,8 +35,8 @@ export async function Hero() {
   const t = await getT();
 
   return (
-    <section className="grid items-center gap-12 py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:py-24">
-      <div className="flex flex-col gap-6">
+    <section className="grid items-center gap-12 py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 lg:py-24">
+      <div className="animate-rise-in flex flex-col gap-6 motion-reduce:animate-none">
         <h1 className="text-display font-display max-w-[16ch] font-light tracking-tight text-balance">
           <Headline
             title={t('web.landing.heroTitle')}
@@ -53,8 +54,17 @@ export async function Hero() {
         </div>
       </div>
 
-      <div className="flex flex-col">
-        <LotusIllustration className="mx-auto -mb-3 max-w-sm" />
+      <div className="relative flex flex-col">
+        {/* A dawn glow behind the lotus and the top of the card, never under a line of text:
+            the card below is opaque and starts where the glow fades. */}
+        <div
+          aria-hidden
+          className="animate-glow-drift pointer-events-none absolute inset-x-6 -top-6 h-64 rounded-[3rem] opacity-60 blur-3xl motion-reduce:animate-none dark:opacity-30"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+          }}
+        />
+        <LotusIllustration className="relative mx-auto -mb-3 max-w-sm" />
         <Card className="relative">
           <CardContent className="flex flex-col gap-5">
             <div className="flex items-center gap-3">

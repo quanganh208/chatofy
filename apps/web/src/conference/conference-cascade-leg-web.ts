@@ -19,8 +19,8 @@ import {
   type ConferenceCascadeLeg,
   type ConferenceLegEndReason,
 } from '@chatofy/realtime-client';
-import type { LanguageCode } from '@chatofy/types';
-import { chosenVoices, loadTranslateSettings } from '@/lib/translate-settings';
+import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
+import { loadTranslateSettings, sessionVoiceOptions } from '@/lib/translate-settings';
 import { send } from './conference-signaling';
 
 /** Served from `public/worklets` (copied by `scripts/copy-worklets.mjs`); /translate loads the same file. */
@@ -90,11 +90,9 @@ export function createWebConferenceLeg(options: WebConferenceLegOptions): WebCon
     sourceLanguage: options.sourceLanguage,
     roomLanguages: options.roomLanguages,
     // The /translate page's voice choices, so a speaker sounds the same in both.
-    voice: {
-      voiceGender: settings.voiceGender,
-      speed: settings.speed,
-      voices: chosenVoices(settings.voice),
-    },
+    // Every language's setup, since the room's languages change while the leg
+    // runs; the leg drops each `speak`, since who is listening decides that.
+    voice: sessionVoiceOptions(settings, meetingVoiceLanguages(options.sourceLanguage)),
     // Also how a translation that ended for good clears the indicator: the leg
     // closes every open turn when its session goes, which reports `false` here.
     onTranslatingChange: options.onTranslatingChange,
@@ -135,4 +133,12 @@ export function createWebConferenceLeg(options: WebConferenceLegOptions): WebCon
     setRoomLanguages: (languages) => leg.setRoomLanguages(languages),
     noteRelayError: (code) => leg.noteRelayError(code),
   };
+}
+
+/**
+ * Every registry language a speaker of `source` may be translated into, the
+ * first leading — whose setup the flat fields an older API reads are taken from.
+ */
+function meetingVoiceLanguages(source: LanguageCode): LanguageCode[] {
+  return LANGUAGE_CODES.filter((language) => language !== source);
 }

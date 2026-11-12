@@ -129,7 +129,10 @@ vi.mock('@/hooks/use-minutes', () => ({ useMinutes: () => useMinutes() }));
 // something `vi.hoisted` made. `/history` seeds its search term from here, which
 // is the only way to reach the "nothing matched" state — the same empty list
 // means something else entirely without a term in the URL.
-const url = vi.hoisted(() => ({ query: '' }));
+const url = vi.hoisted(() => {
+  const params: Record<string, string> = {};
+  return { query: '', params };
+});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -137,7 +140,15 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(url.query),
   // A cuid, because the room screen answers anything else as "room not found"
   // without asking the server.
-  useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho' }),
+  useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho', ...url.params }),
+}));
+
+// Whether History's content area is wide enough for two panes. A box-model fact
+// happy-dom does not have, so the rows that want the master–detail state say so.
+const historyBox = vi.hoisted(() => ({ wide: false }));
+vi.mock('@/components/history/use-container-wide', () => ({
+  WIDE_PROBE_CLASS: 'hidden @5xl:block',
+  useContainerWide: () => historyBox.wide,
 }));
 
 vi.mock('next-auth/react', () => ({
@@ -159,8 +170,7 @@ const useConferenceEnd = vi.hoisted(() => vi.fn<() => UseConferenceEnd>());
 vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConferenceEnd() }));
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
-const { HistoryScreen } = await import('@/components/history/history-screen');
-const { ConversationDetail } = await import('@/components/history/conversation-detail');
+const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
@@ -168,6 +178,7 @@ const { default: ConferenceLobbyPage } = await import('../../app/(app)/conferenc
 const { default: ConferenceEndedPage } =
   await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
   await import('@/lib/translate-settings');
 
@@ -320,7 +331,7 @@ const ALICE: UseConferenceReturn['peers'] = new Map([
     's-peer-1',
     {
       displayName: 'Alice',
-      stream: { getTracks: () => [] } as unknown as MediaStream,
+      stream: { getTracks: () => [], getVideoTracks: () => [{}] } as unknown as MediaStream,
       subtitle: undefined,
       muted: false,
       videoEnabled: true,
@@ -466,6 +477,29 @@ const VOICES = [
   { token: 'v-2', label: 'Minh', gender: 'male' },
 ];
 
+/**
+ * History as its routes render it: the layout draws the list AND the conversation
+ * (the one in `url.params`, or the newest at `/history`); the pages render nothing.
+ */
+function historyRoute() {
+  return <HistoryMasterDetail>{null}</HistoryMasterDetail>;
+}
+
+/** `/history/<id>` with the list loaded beside it and the conversation answering. */
+function openConversation(conversation: ReturnType<typeof stored>) {
+  url.params = { conversationId: String(conversation.conversationId) };
+  listConversations.mockResolvedValue({ conversations: STORED_CONVERSATIONS, nextCursor: null });
+  getConversation.mockResolvedValue({ conversation });
+}
+
+const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
+const MORE_ACTIONS = 'button[aria-label="More actions"]';
+/** A list row's `⋯` — named for its conversation, so never the header's. */
+const ROW_ACTIONS = 'button[aria-label^="More actions for"]';
+const MENU_ITEM = (action: string) => `[role="menuitem"][data-action="${action}"]`;
+/** The minutes region inside the open Minutes tab, named without a visible title. */
+const MINUTES_PANEL = '[role="tabpanel"] section[aria-label="Meeting minutes"]';
+
 /** One screen in one state: what it renders, and the two counts it is allowed. */
 interface ScreenState {
   name: string;
@@ -502,6 +536,16 @@ interface ScreenState {
    * passes silently and the table claims coverage it does not have.
    */
   shows?: string;
+  /**
+   * Controls to press in order, AS A POINTER does: `pointerdown`, `mousedown`, then
+   * `click`, with real time to settle after each.
+   *
+   * `press` above is a bare `.click()`, and Radix answers some triggers before the
+   * click ever arrives — a dropdown opens on `pointerdown`, a tab activates on
+   * `mousedown` — so a clicked `⋯` or tab is a state that was never reached. The
+   * time is for steps that land on a timeout, like a menu reporting it has closed.
+   */
+  steps?: string[];
 }
 
 /**
@@ -515,8 +559,9 @@ interface ScreenState {
  * grammar cannot creep back one card at a time.
  *
  * Zero is normal and correct. `/translate` is the whole screen, `/history` is a
- * list on the page ground; only the two records on a stored conversation and the
- * one settings panel each earn one.
+ * list on the page ground, and the minutes are a region on that ground wherever
+ * they render; a meeting's summary card, the settings and account panels, and an
+ * open popover are what earn one.
  */
 /**
  * The arrangements, added when `/translate` grew six display settings.
@@ -529,7 +574,7 @@ interface ScreenState {
  *
  * One turn in and stopped, so the counts are the ones the `ended` row above
  * already establishes: Start is back and spends the screen's one accent, and the
- * finished conversation earns its one surface below the dock. Identical in all
+ * minutes below the dock sit on the page ground, so no surface. Identical in all
  * three, and that is the assertion — an arrangement changes how the transcript is
  * laid out and nothing else, so a second card or a second filled control that
  * appears in ONE of them is exactly what these rows catch.
@@ -544,7 +589,8 @@ const ARRANGEMENTS = [
 ].map(({ name, settings }) => ({
   name,
   filled: 1,
-  surfaces: 1,
+  surfaces: 0,
+  shows: '[data-minutes-panel]',
   setup: idle,
   render: translate(settings),
 }));
@@ -856,7 +902,8 @@ const SCREENS: ScreenState[] = [
   {
     name: '/translate/one-way — ended, turns stored',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
+    shows: '[data-minutes-panel]',
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
@@ -876,7 +923,7 @@ const SCREENS: ScreenState[] = [
     // actually presses the code path that draws it.
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
@@ -912,13 +959,12 @@ const SCREENS: ScreenState[] = [
     setup() {
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
-    // The state this screen is actually FOR, and the one the empty row above
-    // cannot reach: day headings, rows on the page ground, a minutes badge, and
-    // "Load more" under a further cursor. Every one of those is where a card or a
-    // filled control would arrive, and none of them was ever mounted here.
+    // The state this screen is actually FOR on a phone: day headings, rows on the
+    // page ground, a minutes badge, and "Load more" under a further cursor. Every
+    // one of those is where a card or a filled control would arrive.
     name: '/history — days of conversations, and more behind them',
     filled: 0,
     surfaces: 0,
@@ -928,7 +974,8 @@ const SCREENS: ScreenState[] = [
         nextCursor: 'c-3',
       });
     },
-    render: () => <HistoryScreen />,
+    shows: 'a[href^="/history/"]',
+    render: historyRoute,
   },
   {
     // The first page failed, so the screen is a notice and a retry. Outline, not
@@ -939,7 +986,7 @@ const SCREENS: ScreenState[] = [
     setup() {
       listConversations.mockRejectedValue(new Error('offline'));
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
     // "Nothing matched" is a different fact from "nothing stored", and it is only
@@ -951,31 +998,106 @@ const SCREENS: ScreenState[] = [
       url.query = 'q=cảm ơn';
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
-    // The other half of the history criterion, and the half that had no gate: the
-    // "exactly one accent here" claim lived only in a doc comment. One, and it is
-    // the minutes generate button — back is ghost, delete is outline then
-    // `destructive`, which fills with `live-fill` rather than the accent.
-    name: '/history/[conversationId] — no minutes yet',
-    filled: 1,
-    surfaces: 2,
+    // The combined screen, and the one most likely to break both budgets: the list
+    // AND the newest conversation, open beside it at `/history`. Zero of each — the
+    // conversation opens on its transcript, which is on the page ground, and the
+    // one control that would spend the accent (Generate) is behind the Minutes tab.
+    name: '/history — wide, the newest conversation open beside the list',
+    filled: 0,
+    surfaces: 0,
     setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: 'c-3',
+      });
       getConversation.mockResolvedValue({ conversation: stored() });
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    // Proof the pane is up: the detail's own title, which only a loaded
+    // conversation draws. No steps to press — the empty list lets both fetches land.
+    shows: 'header h2',
+    steps: [],
+    render: historyRoute,
+  },
+  {
+    // The same screen on its Minutes tab: Generate is the one accent, and the
+    // minutes panel is on the page ground — with the whole list still beside it.
+    name: '/history — wide, the newest conversation on its Minutes tab',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: 'c-3',
+      });
+      getConversation.mockResolvedValue({ conversation: stored() });
+    },
+    steps: [MINUTES_TAB],
+    shows: MINUTES_PANEL,
+    render: historyRoute,
+  },
+  {
+    // Wide, with nothing stored: one column, the empty state, no reading pane.
+    name: '/history — wide, nothing stored yet',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    },
+    render: historyRoute,
+  },
+  {
+    // Wide, with a search that matched nothing: the list says so, the pane is empty.
+    name: '/history — wide, nothing matched the search',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      url.query = 'q=cảm ơn';
+      listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    },
+    render: historyRoute,
+  },
+  {
+    // A stored conversation on a phone, as it opens: header, tabs, the transcript
+    // on the ground. Nothing filled — back is ghost, play and `⋯` are outline — and
+    // no surface, because the transcript is not a card any more.
+    name: '/history/[conversationId] — on its transcript',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    shows: '[role="tab"][aria-selected="true"]',
+    render: historyRoute,
+  },
+  {
+    // The Minutes tab before anything was generated: exactly one accent, and it is
+    // Generate; no surface, because the minutes panel is not a card.
+    name: '/history/[conversationId] — no minutes yet',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MINUTES_TAB],
+    shows: MINUTES_PANEL,
+    render: historyRoute,
   },
   {
     // Minutes exist, so the panel draws its body and gains a copy control beside
-    // the button. Still one accent and still two surfaces: regenerate is the same
-    // default-variant control, copy is ghost, and the summary is content inside a
-    // card that was already counted.
+    // the button. Still one accent and no surface: regenerate is the same
+    // default-variant control, copy is ghost, and the body is on the page ground.
     name: '/history/[conversationId] — minutes generated',
     filled: 1,
-    surfaces: 2,
+    surfaces: 0,
     setup() {
-      getConversation.mockResolvedValue({ conversation: stored({ hasMinutes: true }) });
+      openConversation(stored({ hasMinutes: true }));
       useMinutes.mockReturnValue({
         minutes: READY_MINUTES,
         loading: false,
@@ -984,76 +1106,156 @@ const SCREENS: ScreenState[] = [
         reset: vi.fn(),
       });
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    steps: [MINUTES_TAB],
+    shows: MINUTES_PANEL,
+    render: historyRoute,
   },
   {
-    // The state this feature adds, and the one both budgets were most likely to
-    // break in. The recording bar draws a play button, a slider and a readout —
-    // and it draws them on the page GROUND between hairlines, not in a card,
-    // because the two surfaces are already spent on the transcript and the
-    // minutes. Play is `outline`; the accent stays with Generate.
-    //
-    // The slider is the interesting half: its filled range carries `bg-primary`,
-    // and it does NOT count, because `accentFilledControls` restricts to
-    // `button, a, [role="button"]` and the range is a `div`. That exemption is
-    // named in `accent-count.ts`'s own docblock as exactly this case, so this row
-    // is what proves the exemption still holds rather than merely asserting it.
+    // The recording controls in the header: a play button, a slider and a readout.
+    // Play is `outline`. The slider's filled range carries `bg-primary` and does
+    // NOT count, because `accentFilledControls` restricts to `button, a,
+    // [role="button"]` and the range is a `div` — this row is what proves that
+    // exemption still holds rather than merely asserting it.
     name: '/history/[conversationId] — with a recording',
-    filled: 1,
-    surfaces: 2,
+    filled: 0,
+    surfaces: 0,
     setup() {
-      getConversation.mockResolvedValue({
-        conversation: stored({
-          hasRecording: true,
-          audioOffsetMs: 1_400,
-          audioDurationMs: 600_000,
-        }),
-      });
+      openConversation(
+        stored({ hasRecording: true, audioOffsetMs: 1_400, audioDurationMs: 600_000 }),
+      );
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    shows: '[role="slider"]',
+    render: historyRoute,
   },
   {
-    // A recording the reader has PRESSED PLAY on, which is the state the bar
-    // spends most of its life in and the one the row above cannot reach: on a
-    // detail screen nobody has touched, the player has fetched nothing and the
-    // bar is identical to the row above.
-    //
-    // An earlier version of this row set `fetchConversationAudio` to reject and
-    // claimed the failed line rendered by itself. It does not — `failed` is only
-    // set inside `load()`, and `load()` only runs from `toggle` or `seekTo` —
-    // so the row asserted nothing the row above had not already asserted. The
-    // press is what makes it a distinct state.
+    // A recording the reader has PRESSED PLAY on and that failed to load. `failed`
+    // is only set inside the player's `load()`, which runs from a press, so the
+    // press is what makes this a distinct state — and the failure must not answer
+    // with a card or a filled retry.
     name: '/history/[conversationId] — the recording failed to load',
-    filled: 1,
-    surfaces: 2,
+    filled: 0,
+    surfaces: 0,
     setup() {
-      getConversation.mockResolvedValue({
-        conversation: stored({
-          hasRecording: true,
-          audioOffsetMs: 1_400,
-          audioDurationMs: 600_000,
-        }),
-      });
+      openConversation(
+        stored({ hasRecording: true, audioOffsetMs: 1_400, audioDurationMs: 600_000 }),
+      );
       fetchConversationAudio.mockRejectedValue(new Error('offline'));
     },
-    // Pressing play is what drives the player into its failed state, and the
-    // failure must not be allowed to answer with a card or a filled retry.
-    press: 'button[data-slot="button"][aria-label]',
-    // The proof the press landed. Without it this row would silently go back to
-    // counting the untouched bar the moment the selector stopped matching.
+    press: 'button[aria-label="Play the recording"]',
     shows: '[role="status"]',
-    render: () => <ConversationDetail conversationId="c-1" />,
+    render: historyRoute,
   },
   {
-    // A foreign or deleted id. Zero of both: the records that earn the two
-    // surfaces are the ones that did not load, and there is nothing to generate.
+    // The `⋯` menu open. Its content is the one elevated surface while it is open,
+    // and Delete in it is a menu item, not a filled control.
+    name: '/history/[conversationId] — the actions menu open',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS],
+    shows: '[role="menuitem"]',
+    render: historyRoute,
+  },
+  {
+    // Delete chosen, confirmation showing. The destructive press fills with
+    // `live-fill`, not the accent, and the strip is a region between hairlines.
+    name: '/history/[conversationId] — confirming a delete',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS, MENU_ITEM('delete')],
+    shows: '[role="alertdialog"]',
+    render: historyRoute,
+  },
+  {
+    // Rename chosen: the title is a field with Save and Cancel. Save is OUTLINE —
+    // a rename is not the screen's action — and the field is on the page ground.
+    name: '/history/[conversationId] — renaming the title',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS, MENU_ITEM('rename')],
+    shows: 'input[aria-label="Conversation title"]',
+    render: historyRoute,
+  },
+  {
+    // The Download transcript submenu open beside the menu: two elevated surfaces,
+    // the ceiling, and the reason nothing else on this screen may be one.
+    name: '/history/[conversationId] — the download submenu open',
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      openConversation(stored({ hasRecording: true, audioOffsetMs: 0, audioDurationMs: 600_000 }));
+    },
+    steps: [MORE_ACTIONS, '[data-action="download-transcript"]'],
+    shows: MENU_ITEM('download-srt'),
+    render: historyRoute,
+  },
+  {
+    // A row's own `⋯` open on the list: the same menu, one surface, nothing filled.
+    name: "/history — a row's actions menu open",
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS],
+    shows: MENU_ITEM('download-transcript'),
+    render: historyRoute,
+  },
+  {
+    // Delete chosen on a row: the same strip as the header's, under the row, on the
+    // page ground. The destructive press fills with `live-fill`, not the accent.
+    name: '/history — confirming a delete from a row',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, MENU_ITEM('delete')],
+    shows: 'li [role="alertdialog"]',
+    render: historyRoute,
+  },
+  {
+    // A deep link to an older conversation on a wide screen: the list beside it,
+    // that row marked, and the same zero counts as the phone's transcript view.
+    name: '/history/[conversationId] — wide, beside the list',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      openConversation(stored({ conversationId: 'c-2' }));
+    },
+    shows: 'a[aria-current="page"][href="/history/c-2"]',
+    render: historyRoute,
+  },
+  {
+    // A foreign or deleted id. Zero of both: the records that earn a surface are
+    // the ones that did not load, and there is nothing to generate.
     name: '/history/[conversationId] — no longer here',
     filled: 0,
     surfaces: 0,
     setup() {
+      url.params = { conversationId: 'c-1' };
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
       getConversation.mockRejectedValue(new Error('not found'));
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    render: historyRoute,
   },
   {
     // TWO surfaces since the AI Context library landed: the defaults panel and the
@@ -1071,14 +1273,8 @@ const SCREENS: ScreenState[] = [
     // The same screen with a backend that actually answers: the picker lists
     // voices instead of saying there are none.
     //
-    // en→zh deliberately, and it is load-bearing rather than decorative.
-    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
-    // the life of the tab — so a second row asking for English would be handed the
-    // empty answer the row above cached, and a fixture that cannot change what it
-    // renders proves nothing. It was en→vi until the default pair started asking
-    // for both ways, which lists Vietnamese voices too and cached that key empty
-    // as well. Chinese is a key nothing else in this table asks for, and a pair
-    // with it stays one way, so this panel asks for Chinese alone.
+    // Every row starts with no cached catalog (`show` forgets them), so this
+    // row's answer is what the panels list.
     name: '/preferences — voices listed',
     filled: 0,
     surfaces: 2,
@@ -1118,7 +1314,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/account',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -1135,7 +1331,7 @@ const SCREENS: ScreenState[] = [
     // open, and the form adds no surface because it sits in the existing panel.
     name: '/account — changing password',
     filled: 1,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -1151,11 +1347,11 @@ const SCREENS: ScreenState[] = [
   {
     // The credits region with checkout closed: the balance, the usage list and
     // four disabled buy actions, all on the page ground. Every action is
-    // outline, so the screen still spends nothing, and the one surface is still
-    // the security panel.
+    // outline, so the screen still spends nothing, and the two surfaces are still
+    // the security and session panels.
     name: '/account — credits, checkout closed',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockRejectedValue(new Error('not read in this row'));
     },
@@ -1164,10 +1360,10 @@ const SCREENS: ScreenState[] = [
   },
   {
     // An allowlisted account opened a VietQR checkout. The QR panel is a region
-    // with a hairline, not a card, and its controls are ghost: still 0 and 1.
+    // with a hairline, not a card, and its controls are ghost: still 0 and 2.
     name: '/account — SePay QR open',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockRejectedValue(new Error('not read in this row'));
       getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
@@ -1183,7 +1379,7 @@ const SCREENS: ScreenState[] = [
     // surface and sign-out is still ghost — a failure does not promote anything.
     name: '/account — the profile request failed',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       getMe.mockRejectedValue(new Error('unauthorized'));
     },
@@ -1217,18 +1413,12 @@ const SCREENS: ScreenState[] = [
     // dock. One surface — the popover — because `/translate` before a conversation
     // starts draws none of its own, and one accent, which is still Start behind it.
     //
-    // en→zh for the same reason the `/preferences — voices listed` row gives:
-    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
-    // the life of the file, and English and Vietnamese were cached EMPTY by the
-    // rows above. Asking for either here handed `VoicePicker` an empty catalog,
-    // which is its render-nothing case — so this row mounted an empty popover
-    // while being named for a full one, and the counts matched either way. `shows`
-    // is what keeps it honest: the voice Select exists only when there are voices
-    // to list.
+    // `shows` keeps it honest: the voice Select exists only when the catalog
+    // answered with voices, so an empty popover cannot pass for a full one.
     name: '/translate/one-way — voice settings open',
     filled: 1,
     surfaces: 1,
-    open: 'button[aria-label^="Voice settings"]',
+    open: 'button[data-voice-language="zh"]',
     shows: '[data-slot="popover-content"] [data-slot="select-trigger"]',
     setup() {
       useStreamingTranslate.mockReturnValue(conversation());
@@ -1241,6 +1431,27 @@ const SCREENS: ScreenState[] = [
       listVoices.mockResolvedValue({ voices: VOICES });
     },
     render: translate({ languagePair: { source: 'en', target: 'zh' } }),
+  },
+  {
+    // The two-way page's SECOND voice trigger, the one on the source header: each
+    // language opens its own popover now, so the screen gains a control, and it
+    // must spend no accent and add no surface beyond the popover itself.
+    name: '/translate/two-way — source voice settings open',
+    filled: 1,
+    surfaces: 1,
+    open: 'button[data-voice-language="vi"]',
+    shows: '[data-slot="popover-content"] [data-slot="select-trigger"]',
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+      listVoices.mockResolvedValue({ voices: VOICES });
+    },
+    render: twoWay({ twoWayPair: { source: 'vi', target: 'en' } }),
   },
   {
     // A context selected, with the picker CLOSED. An open `Select` renders its
@@ -1463,8 +1674,9 @@ const SCREENS: ScreenState[] = [
 
   // ---- /conference/[roomId]/ended end screen ----
   // Back to lobby is the one accent in every state. Loaded, the screen spends
-  // both surfaces: the summary card, and the minutes panel — whose Generate is
-  // outline here, because the screen's action is leaving, not summarizing.
+  // one surface, the summary card; the minutes panel sits on the page ground,
+  // and its Generate is outline here because the screen's action is leaving,
+  // not summarizing.
   {
     name: '/conference/[roomId]/ended — loading',
     filled: 1,
@@ -1482,15 +1694,17 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — no minutes yet',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup: ended(),
     render: () => <ConferenceEndedPage />,
-    shows: 'dl',
+    shows: '[data-minutes-panel]',
   },
   {
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
+    // Generate is disabled only while a pass runs, since this fixture can generate.
+    shows: '[data-minutes-panel] button:disabled',
     setup: ended({ generating: true }),
     render: () => <ConferenceEndedPage />,
   },
@@ -1498,7 +1712,7 @@ const SCREENS: ScreenState[] = [
     // The body and its copy control appear; copy is ghost, Regenerate outline.
     name: '/conference/[roomId]/ended — minutes ready',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
       // The same content as the history rows, under a room instead of a conversation.
       const { summary, keyPoints, decisions, actionItems, generatedAt, model } = READY_MINUTES;
@@ -1516,15 +1730,15 @@ const SCREENS: ScreenState[] = [
       })();
     },
     render: () => <ConferenceEndedPage />,
-    shows: 'ul',
+    shows: '[data-minutes-panel] ul',
   },
   {
     name: '/conference/[roomId]/ended — the last pass failed',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup: ended({ generateFailed: true }),
     render: () => <ConferenceEndedPage />,
-    shows: '.text-destructive',
+    shows: '[data-minutes-panel] .text-destructive',
   },
 ];
 
@@ -1565,6 +1779,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   localStorage.clear();
   url.query = '';
+  url.params = {};
+  historyBox.wide = false;
   // Here rather than in each `setup()`: a screen that forgot it would get
   // `undefined` back from the factory and the banner's `.catch` would throw.
   checkHealth.mockResolvedValue(undefined);
@@ -1622,6 +1838,9 @@ async function mount(element: React.ReactElement): Promise<void> {
  * apart.
  */
 async function show(screen: ScreenState): Promise<void> {
+  // Each row is its own backend: a catalog an earlier row cached must not
+  // answer for this one — `/preferences` asks for every language at once.
+  forgetVoiceCatalogs();
   screen.setup();
   await mount(screen.render());
 
@@ -1635,6 +1854,24 @@ async function show(screen: ScreenState): Promise<void> {
       await Promise.resolve();
       await Promise.resolve();
     });
+  }
+
+  if (screen.steps) {
+    // The list's page and then the conversation it opens are two fetches in a row,
+    // so a row with steps first lets both land.
+    await act(async () => {
+      for (let i = 0; i < 4; i += 1) await Promise.resolve();
+    });
+    for (const step of screen.steps) {
+      const control = document.querySelector<HTMLElement>(step);
+      expect(control, `${screen.name}: nothing matches ${step}`).not.toBeNull();
+      await act(async () => {
+        control?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+        control?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+        control?.click();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
   }
 
   if (screen.open) {
@@ -1651,10 +1888,22 @@ async function show(screen: ScreenState): Promise<void> {
   }
 
   if (!screen.shows) return;
-  expect(
-    document.querySelector(screen.shows),
-    `${screen.name}: nothing matches ${screen.shows}, so the row is not mounting what it is named for`,
-  ).not.toBeNull();
+  // Polled rather than read once: a menu item such as Rename acts in the menu's
+  // `onCloseAutoFocus`, which fires when its close animation ends — after the fixed
+  // 20ms a step waits on a loaded CI runner. The demand is unchanged: the element
+  // must mount, within a second.
+  const shows = screen.shows;
+  await act(async () => {
+    await vi.waitFor(
+      () => {
+        expect(
+          document.querySelector(shows),
+          `${screen.name}: nothing matches ${shows}, so the row is not mounting what it is named for`,
+        ).not.toBeNull();
+      },
+      { timeout: 1000, interval: 20 },
+    );
+  });
 }
 
 describe('the accent counter', () => {

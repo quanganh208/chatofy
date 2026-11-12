@@ -10,7 +10,12 @@ import {
   SegmentedControl,
 } from '@chatofy/ui/react';
 import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
-import { SPEED_PRESETS } from '@/lib/translate-settings';
+import {
+  SPEED_PRESETS,
+  everyLanguageVoicePatch,
+  type LanguageVoiceSetup,
+} from '@/lib/translate-settings';
+import { LANGUAGE_CODES } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -20,6 +25,11 @@ import { useTranslate } from '@/i18n/provider';
  * what it is for. It edits the one store `/translate` uses
  * (`chatofy.translate-settings`): the meeting's speaker leg reads that store
  * when it is built, so a speaker sounds the same in both places.
+ *
+ * One meeting voice, while `/translate` keeps one per language: this chip writes
+ * its gender and rate into EVERY language's setup, and names the first one's. A
+ * reader who set the languages apart on `/translate` sees them joined again the
+ * moment they change something here — which is what one chip for "the voice" says.
  *
  * The settings come from the pre-join stage rather than a hook call of its own:
  * two instances keep two copies, and the stage's save before joining would
@@ -34,6 +44,7 @@ export function ConferenceVoiceChip({
   // Defaults on the server render and the hydrating one; a chip shown against
   // them and corrected a frame later reads as the UI changing its mind.
   if (!ready) return null;
+  const shown: LanguageVoiceSetup = settings.voiceByLanguage[LANGUAGE_CODES[0]];
 
   const genderLabel = (gender: VoiceGender) =>
     gender === 'male' ? t('common.conference.voiceMale') : t('common.conference.voiceFemale');
@@ -44,8 +55,8 @@ export function ConferenceVoiceChip({
         <Button variant="outline" size="sm" data-conference-voice-chip>
           <Volume2 aria-hidden />
           {t('web.conference.translatedVoiceChip', {
-            gender: genderLabel(settings.voiceGender),
-            speed: String(settings.speed),
+            gender: genderLabel(shown.gender),
+            speed: String(shown.speed),
           })}
         </Button>
       </PopoverTrigger>
@@ -55,7 +66,7 @@ export function ConferenceVoiceChip({
         <SegmentedControl<VoiceGender>
           equalWidth
           label={t('common.conference.translatedVoice')}
-          value={settings.voiceGender}
+          value={shown.gender}
           options={[
             { value: 'female', label: genderLabel('female') },
             { value: 'male', label: genderLabel('male') },
@@ -64,18 +75,20 @@ export function ConferenceVoiceChip({
           // gender's default is what plays. Coarser than the /translate panel,
           // which clears only picks of the other gender — that needs the voice
           // catalogs, which this screen does not load.
-          onChange={(voiceGender) => set({ voiceGender, voice: {} })}
+          onChange={(gender) =>
+            set(everyLanguageVoicePatch(settings, { gender, voice: undefined }))
+          }
         />
         <SegmentedControl
           label={t('web.translate.speed')}
           density="compact"
           equalWidth
-          value={String(settings.speed)}
+          value={String(shown.speed)}
           options={SPEED_PRESETS.map((preset) => ({
             value: String(preset),
             label: `${preset}×`,
           }))}
-          onChange={(value) => set({ speed: Number(value) })}
+          onChange={(value) => set(everyLanguageVoicePatch(settings, { speed: Number(value) }))}
         />
       </PopoverContent>
     </Popover>

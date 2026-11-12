@@ -118,6 +118,8 @@ import {
   TranslationMeter,
   type CreditStopReason,
 } from '../../credits/translation-meter';
+import { creditMultiplier } from '../../credits/credit-pricing';
+import { resolveLanguageVoice } from '../session/language-voice';
 import {
   bufferStages,
   TurnTimeline,
@@ -510,10 +512,12 @@ export class TranslationSessionService implements OnModuleDestroy {
         this.languageSupport.refusal({
           recognition: turnPlan.recognition,
           spoken: turnPlan.spoken,
-          // Matches the default `TurnSession` applies below when the field is
-          // omitted; the refusal has to agree with the turn it would otherwise
-          // create, or an omitted `voiceOutput` would be checked as if it were off.
-          voiceOutput: options.voiceOutput ?? true,
+          // Resolved exactly as the `TurnSession` below will resolve it, per
+          // spoken language: a language the client muted is never synthesized,
+          // so an engine that cannot speak it right now refuses nothing.
+          voiceOutput:
+            turnPlan.spoken !== null &&
+            resolveLanguageVoice(options, turnPlan.spoken).speak,
         }),
       )
       .find((refusal) => refusal !== null);
@@ -556,7 +560,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.predecessors.set(session, predecessor);
     }
     this.logger.log(
-      `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} mode=${mode}${modeReason ? ` (${modeReason})` : ''} voice=${options.voiceGender} meeting=${options.meeting === true}`,
+      `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} mode=${mode}${modeReason ? ` (${modeReason})` : ''} voice=${options.voiceGender}${options.voiceByLanguage ? ` speak=${spokenFlags(options.voiceByLanguage)}` : ''} meeting=${options.meeting === true}`,
     );
     // Extra targets are extra translation and synthesis spend per turn, so who
     // asked for them is on record.
@@ -590,7 +594,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       const refusal = this.languageSupport.refusal({
         recognition: plan.recognition,
         spoken: language,
-        voiceOutput: options.voiceOutput ?? true,
+        voiceOutput: resolveLanguageVoice(options, language).speak,
       });
       if (refusal === null) return true;
       this.logger.warn(
@@ -1215,7 +1219,8 @@ export class TranslationSessionService implements OnModuleDestroy {
       let lineOut!: () => void;
       const afterLine = new Promise<void>((done) => (lineOut = done));
       const speaking =
-        session.voiceOutput && this.wantsRespelling(session, pieces)
+        session.speakingLanguages.length > 0 &&
+        this.wantsRespelling(session, pieces)
           ? Promise.resolve(split ? split.vectors : (vector ?? embedding)).then(
               () =>
                 this.speak(socket, session, translated, timeline, afterLine),
@@ -2366,7 +2371,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.
     const sessions = this.registry.closeAll(socket);
-    for (const session of sessions) this.meter.turnEnded(session.sessionId);
+    for (const session of sessions) this.settle(session);
     if (sessions.length === 0) return;
     this.logger.log(
       `session.disconnect ${sessions.map((s) => s.sessionId).join(' ')}`,
@@ -2416,20 +2421,28 @@ export class TranslationSessionService implements OnModuleDestroy {
     /** Settles once the turn's final line is out; see `end()`. */
     afterLine: Promise<void> = Promise.resolve(),
   ): Promise<ClauseDelivery> {
-    const { spoken, voiced } = session.languages;
+    const { spoken } = session.languages;
     // A transcript-only turn has nothing to speak: it is done the way a turn
     // that asked for text only is.
     if (spoken === null) return this.textOnly(socket, session);
-    if (voiced.length <= 1 || !session.voiceOutput) {
-      return this.speakIn(socket, session, translated, spoken, {
+    // The languages the client did not mute. A muted primary hands the lead to
+    // the first voiced extra rather than silencing the extras with it.
+    const speaking = session.speakingLanguages;
+    const primary = speaking.includes(spoken)
+      ? spoken
+      : (speaking[0] ?? spoken);
+    if (speaking.length <= 1) {
+      // One language, or none — a muted one still goes through `speakIn`, whose
+      // clause path reports the turn as `voice_off` exactly as it always has.
+      return this.speakIn(socket, session, translated, primary, {
         timeline,
         afterLine,
-        ...(session.tagsAudioLanguage ? { lang: spoken } : {}),
+        ...(session.tagsAudioLanguage ? { lang: primary } : {}),
       });
     }
     return speakEveryLanguage({
-      primary: spoken,
-      extras: voiced.filter((language) => language !== spoken),
+      primary,
+      extras: speaking.filter((language) => language !== primary),
       speakIn: (language, isPrimary, onFirstAudio) =>
         this.speakIn(socket, session, translated, language, {
           // The timeline measures the primary listener's experience only.
@@ -2474,28 +2487,23 @@ export class TranslationSessionService implements OnModuleDestroy {
     // speech, so a voice-off turn reports no such stage.
     if (session.voiceOutput) timeline?.markStage('ttsRequested');
     const spokenText = translated.translations[language] ?? '';
-    // The primary may fall back to the session's single voice; an extra
-    // language only takes a voice named for it, since that voice belongs to
-    // another language's engine.
-    const voice =
-      session.voices?.[language] ??
-      (language === session.languages.spoken ? session.voice : undefined);
+    // This language's own setting where the client chose per language. The
+    // declared target may still fall back to the session's single voice; any
+    // other language only takes a voice named for it — `resolveLanguageVoice`.
+    const spokenAs = session.voiceFor(language);
+    const { voice } = spokenAs;
     let stream: TtsAudioStream | null = null;
     // Blank text has nothing to stream, and the sidecar refuses it: it takes the
     // clause path, which speaks zero clauses and completes, as it always has.
     const speakable = spokenText.trim() !== '';
-    if (
-      speakable &&
-      session.voiceOutput &&
-      this.registry.holds(socket, session)
-    ) {
+    if (speakable && spokenAs.speak && this.registry.holds(socket, session)) {
       try {
         stream = await this.pipeline.synthesizeStream(
           {
             text: spokenText,
             language,
-            voiceGender: session.voiceGender,
-            speed: session.speed,
+            voiceGender: spokenAs.gender,
+            speed: spokenAs.speed,
             voice,
           },
           session.released,
@@ -2583,7 +2591,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     // Checked AFTER `holds`, not before. That check is the only in-turn signal
     // that the client is still there, so returning above it would file an
     // abandoned turn as completed and emit `ended` at a socket nobody holds.
-    if (!session.voiceOutput) return this.textOnly(socket, session);
+    const spokenAs = session.voiceFor(language);
+    if (!spokenAs.speak) return this.textOnly(socket, session);
 
     for (const clause of clauses) {
       // Checked every iteration: a client that left mid-turn must not keep the
@@ -2597,8 +2606,8 @@ export class TranslationSessionService implements OnModuleDestroy {
         speech = await this.pipeline.synthesize({
           text: clause,
           language,
-          voiceGender: session.voiceGender,
-          speed: session.speed,
+          voiceGender: spokenAs.gender,
+          speed: spokenAs.speed,
           voice,
         });
       } catch (err) {
@@ -2682,6 +2691,32 @@ export class TranslationSessionService implements OnModuleDestroy {
    * a client told "ended" before the eviction can carry on using a turn the
    * server has already reported closed.
    */
+  /**
+   * Bill a turn that is leaving the registry.
+   *
+   * A turn whose every voiced language the client muted was never synthesized,
+   * so it settles at the caption rate whatever admission priced it at. That
+   * price had to be the upper bound: a two-way turn's language is not known
+   * until it has been heard, and admission happens before the first frame. The
+   * meter only ever LOWERS a turn's rate here, so this can undercharge nothing.
+   *
+   * A turn that speaks nothing for other reasons (a detect turn heard in its own
+   * target) is left at the rate it opened with, as it always was.
+   */
+  private settle(session: TurnSession): void {
+    const { spoken, targets } = session.languages;
+    if (spoken !== null && session.speakingLanguages.length === 0) {
+      this.meter.repriceTurn(
+        session.sessionId,
+        creditMultiplier({
+          voiceOutput: false,
+          extraTargets: Math.max(0, targets.length - 1),
+        }),
+      );
+    }
+    this.meter.turnEnded(session.sessionId);
+  }
+
   private close(
     socket: StreamSocket,
     session: TurnSession,
@@ -2692,7 +2727,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     this.registry.close(socket, session.sessionId);
     // Every per-turn eviction comes through here, so this is where the turn's
     // audio is billed. Idempotent: a turn already settled is a no-op.
-    this.meter.turnEnded(session.sessionId);
+    this.settle(session);
     // A turn that ended without a transcript answers whoever waits on it now.
     this.context.closed(socket, session.sessionId);
     // A turn drained because credit ran out finished normally, but the client
@@ -2951,4 +2986,14 @@ function finalSourceOf(
       ? {}
       : { speechMs: translated.speechMs }),
   };
+}
+
+/** `vi:off,en:on` — which languages a start muted, for the start log line. */
+function spokenFlags(
+  voiceByLanguage: NonNullable<SessionOptions['voiceByLanguage']>,
+): string {
+  return Object.entries(voiceByLanguage)
+    .filter(([, entry]) => entry?.speak !== undefined)
+    .map(([language, entry]) => `${language}:${entry?.speak ? 'on' : 'off'}`)
+    .join(',');
 }
