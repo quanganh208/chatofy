@@ -18,7 +18,6 @@ import {
   type ConversationMode,
 } from '@/lib/translate-settings';
 import { cn } from '@/lib/utils';
-import { TopbarActions } from '@/components/layout/chrome-slots';
 
 interface PanelHeadersProps {
   languagePair: SessionLanguagePair;
@@ -134,158 +133,59 @@ export function PanelHeaders({
   // of BOTH rows now reach that corner on the two-way page, and the swap's half
   // above and below the seam would otherwise land on the speaker of each.
   const endClear = onSwap ? 'pr-4' : undefined;
-  const label = (
-    <div
-      data-slot="pane-label"
-      className="text-muted-foreground text-hint flex flex-wrap items-baseline gap-x-3 px-8 pt-4 pb-1"
-    >
-      <span className="font-medium">
-        {paneLabelText(t('web.translate.languagePairSource'), sideName(t, languagePair, 'source'))}
-      </span>
-      <span aria-hidden>→</span>
-      <span className="font-medium">
-        {paneLabelText(t('web.translate.languagePairTarget'), sideName(t, languagePair, 'target'))}
-      </span>
-      <LanguageModeHint mode={mode} />
+
+  return (
+    // The same left inset the turns below carry, so a header and the prose it
+    // names start at the same x.
+    <div className="border-hairline relative border-b px-8">
+      <Side
+        role={t('web.translate.languagePairSource')}
+        hint={<LanguageModeHint mode={mode} />}
+        language={
+          <SourceHeaderLanguage
+            languagePair={languagePair}
+            running={running}
+            onLanguagePair={onLanguagePair}
+            conversationMode={conversationMode}
+          />
+        }
+        className="border-hairline border-b"
+        end={sourceVoice}
+        endClassName={endClear}
+      />
+      <Side
+        role={t('web.translate.languagePairTarget')}
+        language={
+          <HeaderLanguage
+            languagePair={languagePair}
+            side="target"
+            running={running}
+            onLanguagePair={onLanguagePair}
+            conversationMode={conversationMode}
+          />
+        }
+        end={voiceControlFor?.(languagePair.target)}
+        endClassName={endClear}
+      />
+
+      {/* Centred on the pair with a negative margin rather than a translate: the
+          reduced-motion guard zeroes `transform`, and a control that moved to the
+          corner for a reader who asked for stillness would be a layout bug, not a
+          motion one.
+
+          32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
+          overrides the shared icon size. Half of that is the offset that actually
+          centres it. */}
+      {onSwap ? (
+        <LanguagePairSwap
+          languagePair={languagePair}
+          running={running}
+          onSwap={onSwap}
+          className="absolute top-1/2 right-3 z-[2] -mt-4"
+        />
+      ) : null}
     </div>
   );
-
-  // The fullscreen stage changes nothing, so it only ever needs the label.
-  if (!onLanguagePair) return label;
-
-  return (
-    <>
-      {/* Until the main column is 48rem wide the topbar has no room for the pair, so the pickers stay
-          here, over the stream they name. From there they are the topbar's
-          (`TranslateTopbarControls`) and this collapses to the quiet label. */}
-      <div className="border-hairline relative border-b px-8 @3xl/main:hidden">
-        <Side
-          role={t('web.translate.languagePairSource')}
-          hint={<LanguageModeHint mode={mode} />}
-          language={
-            <SourceHeaderLanguage
-              languagePair={languagePair}
-              running={running}
-              onLanguagePair={onLanguagePair}
-              conversationMode={conversationMode}
-            />
-          }
-          className="border-hairline border-b"
-          end={sourceVoice}
-          endClassName={endClear}
-        />
-        <Side
-          role={t('web.translate.languagePairTarget')}
-          language={
-            <HeaderLanguage
-              languagePair={languagePair}
-              side="target"
-              running={running}
-              onLanguagePair={onLanguagePair}
-              conversationMode={conversationMode}
-            />
-          }
-          end={voiceControlFor?.(languagePair.target)}
-          endClassName={endClear}
-        />
-
-        {/* Centred on the pair with a negative margin rather than a translate: the
-            reduced-motion guard zeroes `transform`, and a control that moved to the
-            corner for a reader who asked for stillness would be a layout bug, not a
-            motion one.
-
-            32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
-            overrides the shared icon size. Half of that is the offset that actually
-            centres it. */}
-        {onSwap ? (
-          <LanguagePairSwap
-            languagePair={languagePair}
-            running={running}
-            onSwap={onSwap}
-            className="absolute top-1/2 right-3 z-[2] -mt-4"
-          />
-        ) : null}
-      </div>
-      <div className="@max-3xl/main:hidden">{label}</div>
-    </>
-  );
-}
-
-/**
- * The pair as a page action: source, swap, target, and each spoken language's
- * voice beside it, at the right of the topbar once the main column is 48rem wide.
- *
- * The same pickers and the same swap the pane headers draw in a narrower column — one
- * component each, so the two places cannot offer different choices. Portalled
- * through `TopbarActions`, so it keeps this screen's state; outside the chrome (a
- * spec rendering the panel alone) it renders nothing and the pane headers are the
- * only copy.
- *
- * Hidden rather than unmounted in a narrower column, by a container query on the main column: a width check in JavaScript
- * would render one thing on the server and another on the client.
- */
-export function TranslateTopbarControls({
-  languagePair,
-  running,
-  onSwap,
-  onLanguagePair,
-  conversationMode,
-  voiceControlFor,
-}: {
-  languagePair: SessionLanguagePair;
-  running: boolean;
-  onSwap?: () => void;
-  onLanguagePair: (pair: SessionLanguagePair) => void;
-  conversationMode: ConversationMode;
-  voiceControlFor?: (language: LanguageCode) => React.ReactNode;
-}) {
-  return (
-    <TopbarActions>
-      <div
-        data-slot="translate-topbar-controls"
-        className="flex items-center gap-2 @max-3xl/main:hidden"
-      >
-        {sourceVoiceControl(languagePair, conversationMode, voiceControlFor)}
-        <SourceHeaderLanguage
-          languagePair={languagePair}
-          running={running}
-          onLanguagePair={onLanguagePair}
-          conversationMode={conversationMode}
-        />
-        {onSwap ? (
-          <LanguagePairSwap
-            languagePair={languagePair}
-            running={running}
-            onSwap={onSwap}
-            className="bg-background size-8 p-0"
-          />
-        ) : null}
-        <HeaderLanguage
-          languagePair={languagePair}
-          side="target"
-          running={running}
-          onLanguagePair={onLanguagePair}
-          conversationMode={conversationMode}
-        />
-        {voiceControlFor?.(languagePair.target)}
-      </div>
-    </TopbarActions>
-  );
-}
-
-/** "Source · Vietnamese": a pane's role and language, as one quiet line. */
-function paneLabelText(role: string, language: string): string {
-  return `${role} · ${language}`;
-}
-
-/** One side's language in words — "Auto-detect" for a detected source. */
-function sideName(
-  t: ReturnType<typeof useTranslate>,
-  languagePair: SessionLanguagePair,
-  side: 'source' | 'target',
-): string {
-  const code = languagePair[side];
-  return code === AUTO_DETECT ? t('web.translate.autoDetect') : languageNamer(t)(code);
 }
 
 /**
@@ -303,53 +203,33 @@ export function sourceVoiceControl(
 }
 
 /**
- * One pane's header, for `split`, where each pane names its own side.
+ * One side's header, for the arrangement where the two are not adjacent.
  *
- * A bar naming both at the top of the screen would sit above one pane and describe
- * the other once they stack, so each pane carries its own — the same `Side` the
- * pair uses in a narrower column, so the arrangements cannot drift into naming the languages
- * differently.
+ * `split` + `column` puts the source pane above the translation pane, so a bar
+ * naming both at the top of the screen would sit above one of them and describe
+ * the other. Each pane gets its own instead, which is the same `Side` the pair
+ * uses — the words, the sizes and the slot are shared, so the two arrangements
+ * cannot drift into naming the languages differently.
  *
- * In a main column 48rem or wider the pickers live in the topbar and this is only a quiet label —
- * "Source · Vietnamese" — on the region's own ground: the region is not a card,
- * so its header is not a bar.
+ * The swap has no natural home between two stacked panes, so it rides the source
+ * header's own end slot there. It is one control about the pair either way.
  */
 export function PanelHeader({
   role,
-  languagePair,
-  side,
-  controls,
+  language,
+  end,
   hint,
 }: {
   role: string;
-  languagePair: SessionLanguagePair;
-  side: 'source' | 'target';
-  /**
-   * The side's picker and its end slot, shown while the main column is under 48rem: from there they sit in
-   * the topbar. Absent on the fullscreen stage, which only names the language.
-   */
-  controls?: { language: React.ReactNode; end?: React.ReactNode };
+  language: React.ReactNode;
+  end?: React.ReactNode;
   /** A readout beside the role — the source side's {@link LanguageModeHint}. */
   hint?: React.ReactNode;
 }) {
-  const t = useTranslate();
-  const label = (
-    <div
-      data-slot="pane-label"
-      className="text-muted-foreground text-hint flex flex-wrap items-baseline gap-x-2 px-8 pt-4 pb-1"
-    >
-      <span className="font-medium">{paneLabelText(role, sideName(t, languagePair, side))}</span>
-      {hint}
-    </div>
-  );
-  if (!controls) return label;
   return (
-    <>
-      <div className="border-hairline border-b px-8 @3xl/main:hidden">
-        <Side role={role} language={controls.language} end={controls.end} hint={hint} />
-      </div>
-      <div className="@max-3xl/main:hidden">{label}</div>
-    </>
+    <div className="border-hairline border-b px-8">
+      <Side role={role} language={language} end={end} hint={hint} />
+    </div>
   );
 }
 

@@ -12,7 +12,6 @@ import {
   LanguageModeHint,
   PanelHeader,
   PanelHeaders,
-  TranslateTopbarControls,
   sourceVoiceControl,
   SourceHeaderLanguage,
 } from '@/components/translate/panel-headers';
@@ -115,16 +114,12 @@ interface TranscriptPanesProps {
  * same fault at a different breakpoint, so the exemption is now the rule for both
  * orientations rather than a special case for one.
  *
- * ## The pair is a page action in a 48rem column
+ * The swap rides the source header's end slot there. Between two panes it has
+ * nowhere to be, and one control about the pair belongs in the header of the side
+ * that is being translated FROM.
  *
- * In a main column 48rem or wider the pickers, the swap and the voices sit in the topbar
- * (`TranslateTopbarControls`), and every header here is a quiet label naming its
- * side. Until the main column is 48rem wide the topbar has no room, so each pane keeps its picker and
- * the swap sits on the seam between them. Both copies are rendered and CSS picks
- * one, so the server and the client agree on the markup.
- *
- * The single-stream arrangements keep one header for the pair: with one region
- * there is no pane for a header to be wrong about.
+ * The single-stream arrangements keep the bar: with one region there is no pane
+ * for a header to be wrong about.
  *
  * ## `translationOnly` collapses the arrangement
  *
@@ -213,58 +208,36 @@ export function TranscriptPanes({
     </TranscriptScroller>
   );
 
-  // The pickers, the swap and the voices move to the topbar once the main column is 48rem wide; the panes
-  // keep their own copy for the phone, where the topbar has no room. Never on the
-  // stage, which changes nothing.
-  const topbar =
-    !stage && onLanguagePair ? (
-      <TranslateTopbarControls
-        languagePair={languagePair}
-        running={running}
-        onSwap={onSwap ? shuffleThenSwap : undefined}
-        onLanguagePair={onLanguagePair}
-        conversationMode={conversationMode}
-        voiceControlFor={voiceControlFor}
-      />
-    ) : null;
-  const controls = !stage && onLanguagePair;
-
   if (split) {
-    // Two flat regions on the page ground, split by one hairline: vertical side by
-    // side, horizontal stacked. No sheet, no radius, no shadow — the screen IS the
-    // conversation, not an object on it. A reader who picked their own background
-    // keeps it on both (`--reading-bg`, set by `readingStyle` on the frame below).
+    // Two sheets rather than one box cut down the middle: each side is its own
+    // region, on its own ground — the side you speak into on `card`, the side you
+    // read on `muted` — so which is which reads before any word does. A reader who
+    // picked their own background keeps it on both (`--reading-bg`, set by
+    // `readingStyle` on the frame below). Hairline and no shadow: regions on the
+    // page ground, not elevated cards (`design/surface-count.ts`).
     //
-    // The ground is still painted, as the page's own colour: the swap flies the two
-    // regions through each other (`language-shuffle.ts`), and a transparent region
-    // would show the other's words through its own while they cross.
-    //
-    // `data-shuffle-card` names the language each region holds, so a swap can fly
-    // them into each other's places.
-    const region = 'reading-frame relative flex min-h-0 flex-1 flex-col overflow-hidden';
-    const ground = { backgroundColor: 'var(--reading-bg, var(--background))' };
+    // `data-shuffle-card` names the language each sheet holds, so a swap can fly
+    // the two sheets into each other's places — see `language-shuffle.ts`.
+    const sheet =
+      'reading-frame border-hairline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border';
     const source = (
-      <div data-shuffle-card={languagePair.source} className={region} style={ground}>
+      <div
+        data-shuffle-card={languagePair.source}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--card))' }}
+      >
         <PanelHeader
           role={t('web.translate.languagePairSource')}
-          languagePair={languagePair}
-          side="source"
           hint={<LanguageModeHint mode={languageMode} />}
-          controls={
-            controls
-              ? {
-                  language: (
-                    <SourceHeaderLanguage
-                      languagePair={languagePair}
-                      running={running}
-                      onLanguagePair={onLanguagePair}
-                      conversationMode={conversationMode}
-                    />
-                  ),
-                  end: sourceVoiceControl(languagePair, conversationMode, voiceControlFor),
-                }
-              : undefined
+          language={
+            <SourceHeaderLanguage
+              languagePair={languagePair}
+              running={running}
+              onLanguagePair={onLanguagePair}
+              conversationMode={conversationMode}
+            />
           }
+          end={sourceVoiceControl(languagePair, conversationMode, voiceControlFor)}
         />
         {pane('source', true, t('web.translate.paneSource'))}
       </div>
@@ -272,50 +245,36 @@ export function TranscriptPanes({
     const target = (
       <div
         data-shuffle-card={languagePair.target}
-        // The one divider: on the second region, so it reads as the seam between them.
-        className={cn(
-          region,
-          'border-hairline border-t',
-          column ? undefined : '@xl:border-t-0 @xl:border-l',
-        )}
-        style={ground}
+        className={sheet}
+        style={{ backgroundColor: 'var(--reading-bg, var(--muted))' }}
       >
         <PanelHeader
           role={t('web.translate.languagePairTarget')}
-          languagePair={languagePair}
-          side="target"
-          controls={
-            controls
-              ? {
-                  language: (
-                    <HeaderLanguage
-                      languagePair={languagePair}
-                      side="target"
-                      running={running}
-                      onLanguagePair={onLanguagePair}
-                      conversationMode={conversationMode}
-                    />
-                  ),
-                  end: voiceControlFor?.(languagePair.target),
-                }
-              : undefined
+          language={
+            <HeaderLanguage
+              languagePair={languagePair}
+              side="target"
+              running={running}
+              onLanguagePair={onLanguagePair}
+              conversationMode={conversationMode}
+            />
           }
+          end={voiceControlFor?.(languagePair.target)}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
       </div>
     );
 
     return (
-      // The query container for the row: whether two regions fit side by side is a
+      // The query container for the row: whether two sheets fit side by side is a
       // fact about the room this column has, not about the viewport. An open
-      // sidebar at 768px leaves the column ~512px — past `sm`, but two-way
+      // sidebar at 768px leaves the column ~464px — past `sm`, but two-way
       // headers need ~546px side by side, and the page scrolled sideways.
       <div className="@container flex min-h-0 flex-1 flex-col">
-        {topbar}
         <div
           ref={frame}
           className={cn(
-            'relative flex min-h-0 flex-1',
+            'relative flex min-h-0 flex-1 gap-4',
             scheme,
             // One column below a 36rem container and two above it for `row`, in CSS
             // rather than in JavaScript: a `ResizeObserver` fork would render one
@@ -325,16 +284,18 @@ export function TranscriptPanes({
           )}
           style={scale}
         >
-          {/* The swap on the seam, while the main column is under 48rem — wider, it is in the topbar.
-            Side by side it points across, stacked it points up and down. Above both
-            regions while they cross (`z-20` over their 11 and 12). */}
-          {onSwap && controls ? (
-            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 @3xl/main:hidden">
+          {/* The swap between the two languages, at the centre of the gap between the
+            sheets in every arrangement: side by side it points across, stacked it
+            points up and down. Raised on `card` with a control's depth so it reads as
+            a thing to press sitting over the seam, never as part of either sheet, and
+            above both sheets while they cross (`z-20` over their 11 and 12). */}
+          {onSwap ? (
+            <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
               <LanguagePairSwap
                 languagePair={languagePair}
                 running={running}
                 onSwap={shuffleThenSwap}
-                className="bg-background hover:bg-muted size-11 p-0"
+                className="bg-card hover:bg-muted size-11 p-0"
                 iconClassName={cn('size-5', column ? 'rotate-90' : '@max-xl:rotate-90')}
               />
             </div>
@@ -349,15 +310,17 @@ export function TranscriptPanes({
   return (
     <div
       ref={frame}
-      className={cn('reading-frame flex min-h-0 flex-1 flex-col overflow-hidden', scheme)}
+      className={cn(
+        'reading-frame border-hairline flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border',
+        scheme,
+      )}
       style={scale}
     >
-      {topbar}
       <PanelHeaders
         languagePair={languagePair}
         running={running}
         onSwap={onSwap ? shuffleThenSwap : undefined}
-        onLanguagePair={stage ? undefined : onLanguagePair}
+        onLanguagePair={onLanguagePair}
         conversationMode={conversationMode}
         mode={languageMode}
         voiceControlFor={voiceControlFor}
