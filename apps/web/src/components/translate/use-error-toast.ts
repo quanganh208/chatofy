@@ -20,7 +20,9 @@ import { notify } from '@/lib/notify';
  * a ref for that reason: the toast's button calls whatever the latest one is.
  *
  * Errors persist until dismissed (`notify.error`), and the stable `id` means a
- * second failure replaces the first instead of stacking beside it.
+ * second failure replaces the first instead of stacking beside it. They do not outlive
+ * the screen: leaving it takes the toast down, because its Retry would call a hook
+ * whose outcome nothing is left to show.
  */
 export function useErrorToast(id: string, message: string | null, retry?: () => void): void {
   const retryRef = useRef(retry);
@@ -42,4 +44,17 @@ export function useErrorToast(id: string, message: string | null, retry?: () => 
       ...(hasRetry ? { retry: () => retryRef.current?.() } : {}),
     });
   }, [id, message, hasRetry]);
+
+  // Unmount only: the effect above already replaces or clears the toast on change, and
+  // a cleanup there would flash it down and up on every new message.
+  const idRef = useRef(id);
+  useEffect(() => {
+    idRef.current = id;
+  });
+  useEffect(
+    () => () => {
+      if (shown.current) notify.dismiss(idRef.current);
+    },
+    [],
+  );
 }
