@@ -112,4 +112,20 @@ describe('useSettingSaver', () => {
     expect(apply).not.toHaveBeenCalled();
     expect(notify.success).not.toHaveBeenCalled();
   });
+
+  it('dismisses every toast it raised when the page that holds it unmounts', () => {
+    save('speed', 'Speed', { speed: 1.5 });
+    save('voice-en', 'Voice', { voices: { en: 'c', vi: 'b' } });
+    // Past the burst window: the toast can outlive the burst that raised it.
+    act(() => {
+      vi.advanceTimersByTime(SETTING_BURST_MS + 1);
+    });
+    expect(notify.dismiss).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    expect(notify.dismiss).toHaveBeenCalledWith('setting-speed');
+    expect(notify.dismiss).toHaveBeenCalledWith('setting-voice-en');
+    // The afterEach unmounts again; give it a fresh root to do so.
+    root = createRoot(container);
+  });
 });

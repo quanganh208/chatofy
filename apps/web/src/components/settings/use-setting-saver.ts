@@ -25,6 +25,11 @@ export const SETTING_BURST_MS = 4500;
  * nested inside a shared object (one language's voice in `voiceByLanguage`, one
  * processor in `micProcessing`) passes its own, so undoing it leaves its siblings —
  * possibly changed since — alone.
+ *
+ * **The toasts go when the saver does.** Undo calls `apply` from this instance; after
+ * the reader has left the page another instance (the translator's) has already loaded
+ * the pre-undo value and its next save would write it back, so an undo there would be
+ * lost. Leaving the page dismisses every `setting-*` toast it raised.
  */
 export function useSettingSaver<T extends object>(
   apply: (patch: Partial<T>) => void,
@@ -32,12 +37,17 @@ export function useSettingSaver<T extends object>(
 ) {
   const t = useTranslate();
   const bursts = useRef(new Map<string, { before: T; timer: ReturnType<typeof setTimeout> }>());
+  // Every toast this saver raised, which may outlive its burst.
+  const raised = useRef(new Set<string>());
 
   useEffect(() => {
     const open = bursts.current;
+    const toasts = raised.current;
     return () => {
       for (const burst of open.values()) clearTimeout(burst.timer);
       open.clear();
+      for (const toastId of toasts) notify.dismiss(toastId);
+      toasts.clear();
     };
   }, []);
 
@@ -63,6 +73,7 @@ export function useSettingSaver<T extends object>(
       apply(patch);
 
       const toastId = `setting-${id}`;
+      raised.current.add(toastId);
       notify.success(t('web.settings.saved', { setting: name }), {
         id: toastId,
         undo: () => {
