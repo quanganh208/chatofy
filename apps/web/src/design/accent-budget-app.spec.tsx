@@ -1614,8 +1614,9 @@ const SCREENS: ScreenState[] = [
 
   // ---- /conference/[roomId]/ended end screen ----
   // Back to lobby is the one accent in every state. Loaded, the screen spends
-  // both surfaces: the summary card, and the minutes panel — whose Generate is
-  // outline here, because the screen's action is leaving, not summarizing.
+  // one surface, the summary card; the minutes panel sits on the page ground,
+  // and its Generate is outline here because the screen's action is leaving,
+  // not summarizing.
   {
     name: '/conference/[roomId]/ended — loading',
     filled: 1,
@@ -1642,7 +1643,8 @@ const SCREENS: ScreenState[] = [
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
     surfaces: 1,
-    shows: '[data-minutes-panel]',
+    // Generate is disabled only while a pass runs, since this fixture can generate.
+    shows: '[data-minutes-panel] button:disabled',
     setup: ended({ generating: true }),
     render: () => <ConferenceEndedPage />,
   },
