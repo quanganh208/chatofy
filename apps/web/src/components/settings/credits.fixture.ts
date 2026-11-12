@@ -1,7 +1,7 @@
 import type { CreditBalance, CreditUsageListRead, Plan } from '@chatofy/types';
 
 /**
- * Test fixtures for the `/account` credits region, at the shapes the API
+ * Test fixtures for the `/settings/billing` credits region, at the shapes the API
  * answers. Shared by the section specs and the accent-budget rows so every one
  * counts the same screen. The plans mirror the rows the credits migration seeds.
  */

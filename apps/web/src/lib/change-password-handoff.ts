@@ -1,7 +1,7 @@
 import type { AuthSession } from '@chatofy/types';
 
 /**
- * The server half of changing a password from `/account`.
+ * The server half of changing a password from `/settings/security`.
  *
  * A password change revokes every credential issued before it — this browser's
  * included — and the API answers with a REPLACEMENT session. That session has to

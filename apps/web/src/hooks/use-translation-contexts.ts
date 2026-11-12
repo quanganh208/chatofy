@@ -156,14 +156,16 @@ function useOwnTranslationContexts(enabled: boolean): TranslationContextsValue {
 /**
  * One GET and one state for every mount underneath, instead of one each.
  *
- * `/preferences` mounts the editor and the picker that reads the same library
- * right below it. Each calling `useTranslationContexts` on its own used to mean
+ * For a screen that mounts the editor and a picker reading the same library
+ * together. Each calling `useTranslationContexts` on its own used to mean
  * two independent copies of the list: a context created in the editor was
  * invisible to the picker until ITS OWN unrelated refetch happened to run, and
  * one just deleted stayed selectable in it, naming a row that no longer existed.
  * Wrapping both under this provider gives the screen the one state it actually
  * has, so a write in either one is visible to both at once.
  *
+ * No screen does that today: the editor is on `/settings/ai-context` and the
+ * picker on `/settings/defaults`, separate pages that each fetch on mount.
  * `/translate` does not wrap `CascadePanel` in this: it is the only reader on
  * that page, so there is nothing on that screen for it to disagree with.
  */
@@ -178,7 +180,7 @@ export function TranslationContextsProvider({ children }: { children: ReactNode 
  *
  * Reads the nearest {@link TranslationContextsProvider} when one wraps this
  * call, so every mount under it shares one fetch and one state — see that
- * provider's docblock for why `/preferences` needs this. With no provider
+ * provider's docblock for when a screen needs this. With no provider
  * above it, this fetches on its own, once per mount: unlike the voice catalog,
  * this list is a property of the USER and changes while they are looking at
  * it, so an unscoped module cache would show a reader the library they had

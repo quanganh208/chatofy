@@ -193,8 +193,8 @@ describe('toHints', () => {
 });
 
 /**
- * `/preferences` mounts two readers of the same library side by side: the
- * editor, and the picker in the defaults panel below it. Each calling
+ * A screen that mounts two readers of the same library side by side (the
+ * editor, and a picker beside it) needs them to agree. Each calling
  * `useTranslationContexts` on its own meant two independent GETs and two copies
  * of the list — a context created in one was invisible to the other until ITS
  * OWN unrelated refetch happened to run.

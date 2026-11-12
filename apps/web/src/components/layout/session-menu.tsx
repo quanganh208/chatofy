@@ -36,7 +36,7 @@ import { IdentityAvatar, useSessionIdentity } from './session-identity';
  * `detail` is drawn under the name — the sidebar passes the credit line. A slot rather
  * than a fetch in here, so the menu stays about identity.
  *
- * The sign-out itself lives in `lib/sign-out.ts`, shared with `/account`, the More
+ * The sign-out itself lives in `lib/sign-out.ts`, shared with `/settings/security`, the More
  * sheet and the expired-token recovery path. This is a shortcut to that action, not a
  * second one. Renders a `SidebarMenuItem`; the caller supplies the `SidebarMenu`.
  */

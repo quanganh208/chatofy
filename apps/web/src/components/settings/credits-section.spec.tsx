@@ -7,7 +7,7 @@ import { ApiClientError } from '@chatofy/api-client';
 import { balanceFixture, PLANS, SEPAY_ORDER, USAGE_PAGE } from './credits.fixture';
 
 /**
- * "Credits & plan" on `/account`: what it shows, and who may press what.
+ * "Credits & plan" on `/settings/billing`: what it shows, and who may press what.
  *
  * The eligibility half matters most. `checkoutAllowed` is the API's answer; a
  * page that enabled buying for everyone would send every visitor into a 403,

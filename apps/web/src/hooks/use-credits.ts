@@ -10,7 +10,7 @@ import type {
 import { getCheckoutOrder, getCreditBalance, listCreditUsage } from '@/clients/api-client';
 
 /**
- * The caller's credits, as `/account` and the `/translate` readiness banner read
+ * The caller's credits, as `/settings/billing` and the `/translate` readiness banner read
  * them.
  *
  * Three small hooks rather than one: the banner needs only the balance, and
@@ -85,7 +85,7 @@ export interface UseCreditUsage {
 /**
  * `GET /billing/usage`, first page once `enabled`, older pages by cursor.
  *
- * `enabled` lets `/account` wait for its balance read: the first balance read
+ * `enabled` lets `/settings/billing` wait for its balance read: the first balance read
  * of a month is what writes that month's Free grant, so a usage page read in
  * parallel with it can miss the row that explains the balance beside it.
  */

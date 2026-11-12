@@ -59,11 +59,12 @@ const asksForRail = (pathname: string) =>
 const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
 
 /**
- * Routes laid out for the full page measure: the conference landing is a two-column
- * hero, and the content pages lay their sections out in columns from `lg` — a 672px
- * column would squeeze either back to a form. Every settings page takes it too: the
- * settings sub-navigation sits beside the content column, and 672px for both left the
- * content narrower than a phone held sideways.
+ * Routes laid out for the full page measure. The meetings lobby draws its own
+ * `max-w-2xl` column, left-aligned inside this one as the other content pages start,
+ * and the glossary lays its list beside the open glossary — a 672px column would leave
+ * that split no room. Every settings page takes it too: the settings sub-navigation
+ * sits beside the content column, and 672px for both left the content narrower than a
+ * phone held sideways.
  */
 const FULL_PAGE_ROUTES: readonly Route[] = ['/conference', '/glossary'];
 
