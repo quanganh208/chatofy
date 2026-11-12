@@ -49,4 +49,12 @@ describe('44px touch targets', () => {
     expect(src).toContain('after:-inset-y-3.5');
     expect(src).toContain('after:-inset-x-2');
   });
+
+  it('Dialog close button grows under a touch pointer', () => {
+    expect(read('dialog.tsx')).toContain('pointer-coarse:size-11');
+  });
+
+  it('Toast actions grow under a touch pointer', () => {
+    expect(read('sonner.tsx').match(/pointer-coarse:h-11!/g)?.length).toBe(2);
+  });
 });

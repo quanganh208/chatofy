@@ -22,6 +22,20 @@
 export { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './accordion.js';
 export { Alert, AlertDescription, AlertTitle } from './alert.js';
 export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './alert-dialog.js';
+export {
   Avatar,
   AvatarBadge,
   AvatarFallback,
@@ -30,6 +44,15 @@ export {
   AvatarImage,
 } from './avatar.js';
 export { Badge, badgeVariants } from './badge.js';
+export {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from './breadcrumb.js';
 export { Button, buttonVariants } from './button.js';
 export {
   Card,
@@ -41,6 +64,18 @@ export {
   CardTitle,
 } from './card.js';
 export { Checkbox } from './checkbox.js';
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from './dialog.js';
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -122,6 +157,11 @@ export {
 } from './sidebar.js';
 export { Skeleton } from './skeleton.js';
 export { Slider } from './slider.js';
+// `toast` is re-exported from here rather than imported from `sonner` by the app: the
+// function and the `Toaster` must share one module instance, or a toast is queued in
+// a store no mounted host is listening to.
+export { Toaster, type ToasterProps } from './sonner.js';
+export { toast } from 'sonner';
 export { Switch } from './switch.js';
 export { ResizeHandle } from './resize-handle.js';
 export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from './tabs.js';

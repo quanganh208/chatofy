@@ -29,6 +29,17 @@ describe('motion craft in shared components', () => {
     expect(read('sheet.tsx')).toContain('data-[state=closed]:duration-200');
   });
 
+  it.each(['dialog.tsx', 'alert-dialog.tsx'])(
+    '%s opens in 200ms on a decelerating curve and closes faster',
+    (file) => {
+      const src = read(file);
+      expect(src).toContain('data-[state=open]:duration-200');
+      expect(src).toContain('data-[state=closed]:duration-150');
+      expect(src).toContain('ease-enter');
+      expect(src).not.toContain('ease-in-out');
+    },
+  );
+
   it('Accordion trigger names the properties it transitions', () => {
     expect(read('accordion.tsx')).not.toMatch(/\btransition-all\b/);
   });
