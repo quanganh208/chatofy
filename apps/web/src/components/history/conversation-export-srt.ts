@@ -52,8 +52,9 @@ function cueLines(text: string): string[] {
  * Cues are sorted by start: turns are stored in display order, and two speakers
  * overlapping, or several turns clamped to 0 before the recording began, put a
  * later turn's start at or before an earlier one's. A cue runs until the next one
- * starts, so no two lines are up at once; when the next starts at the SAME moment
- * it runs for {@link MIN_CUE_MS} instead, because a zero-length cue is never shown.
+ * starts, but never for less than {@link MIN_CUE_MS}: a cue shorter than that
+ * cannot be read, and one of zero length is never shown at all. When starts
+ * cluster, cues therefore overlap, which SubRip allows and players draw stacked.
  * The last runs to the end of the conversation's ACTIVE time (paused time excluded,
  * as the recording pauses with it), moved onto the same clock, or for five seconds
  * — whichever is later, so a line spoken right at the end is still readable.
@@ -79,9 +80,7 @@ export function transcriptSrt(conversation: Conversation): string {
     const stop =
       next === undefined
         ? Math.max(start + LAST_CUE_MIN_MS, end)
-        : next > start
-          ? next
-          : start + MIN_CUE_MS;
+        : Math.max(next, start + MIN_CUE_MS);
     const text = [turnText(turn), ...turnTranslations(turn, conversation.languages)].flatMap(
       cueLines,
     );

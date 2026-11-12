@@ -198,6 +198,9 @@ describe('the Markdown export', () => {
     expect(escapeMarkdown('> quote')).toBe('\\> quote');
     expect(escapeMarkdown('- item')).toBe('\\- item');
     expect(escapeMarkdown('+ item')).toBe('\\+ item');
+    expect(escapeMarkdown('===')).toBe('\\===');
+    expect(escapeMarkdown('a <b>bold</b>')).toBe('a \\<b>bold\\</b>');
+    expect(escapeMarkdown('~~gone~~')).toBe('\\~\\~gone\\~\\~');
     expect(escapeMarkdown('* item')).toBe('\\* item');
     expect(escapeMarkdown('1. first')).toBe('1\\. first');
     expect(escapeMarkdown('a *b* _c_ `d` [e]')).toBe('a \\*b\\* \\_c\\_ \\`d\\` \\[e\\]');
@@ -305,6 +308,17 @@ describe('the subtitle export', () => {
       }),
     );
     expect(clamped).toContain('1\n00:00:00,000 --> 00:00:01,000\n');
+  });
+
+  it('holds a cue for a second even when the next starts sooner', () => {
+    const c = conversation({
+      audioOffsetMs: 0,
+      turns: [
+        turn({ sourceText: 'first', offsetMs: 1_000 }),
+        turn({ position: 1, sourceText: 'close behind', offsetMs: 1_040 }),
+      ],
+    });
+    expect(transcriptSrt(c)).toContain('1\n00:00:01,000 --> 00:00:02,000\nfirst');
   });
 
   it('writes a "-->" in cue text as an arrow', () => {

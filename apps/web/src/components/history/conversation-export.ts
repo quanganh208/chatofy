@@ -38,15 +38,15 @@ export function transcriptText(conversation: Conversation, t: Translate, locale:
 }
 
 /**
- * Text a reader typed or spoke, made inert in Markdown: inline emphasis, code and
- * link brackets are backslash-escaped, and so is a block marker that opens the
+ * Text a reader typed or spoke, made inert in Markdown: inline emphasis,
+ * strikethrough, code, inline HTML and link brackets are backslash-escaped, and so is a block marker that opens the
  * line — so a title "# Plan" or a turn "1. first" renders as written rather than
  * as a heading or a list.
  */
 export function escapeMarkdown(line: string): string {
   return line
-    .replace(/[\\`*_[\]]/g, '\\$&')
-    .replace(/^(\s*)([#>+-])/, '$1\\$2')
+    .replace(/[\\`*_~<[\]]/g, '\\$&')
+    .replace(/^(\s*)([#>+=-])/, '$1\\$2')
     .replace(/^(\s*\d+)([.)])/, '$1\\$2');
 }
 
