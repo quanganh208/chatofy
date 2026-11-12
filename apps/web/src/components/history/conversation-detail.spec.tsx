@@ -9,8 +9,9 @@ import type { Conversation } from '@chatofy/types';
  *
  * Loading and not-found used to render the same plain paragraph two branches
  * apart, so for the first frame a conversation that was gone looked exactly like
- * one that was arriving. Delete lives in the header's `⋯` menu, and is still two
- * presses with the consequence on screen before the one that acts.
+ * one that was arriving. The title and the actions are the topbar's — mounted here
+ * in a host with the topbar's two slots. Delete lives in the topbar's `⋯` menu, and
+ * is still two presses with the consequence on screen before the one that acts.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,6 +34,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { ConversationDetail } = await import('./conversation-detail');
+const { ChromeSlotsTestHost } = await import('./chrome-slots-test-host');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 const conversation: Conversation = {
@@ -87,15 +89,29 @@ async function mount(): Promise<void> {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <ConversationDetail conversationId="c-1" />
+        <ChromeSlotsTestHost>
+          <ConversationDetail conversationId="c-1" />
+        </ChromeSlotsTestHost>
       </LocaleProvider>,
     );
     await Promise.resolve();
   });
 }
 
+/** By its visible text, over the document: dialogs portal to `document.body`. */
 function buttonNamed(text: string): HTMLButtonElement | undefined {
-  return [...container.querySelectorAll('button')].find((b) => b.textContent === text);
+  return [...document.querySelectorAll('button')].find((b) => b.textContent === text);
+}
+
+const dialog = () => document.querySelector('[role="alertdialog"]');
+
+/** Real time for a step Radix finishes from a timeout or an animation end. */
+async function settle(until: () => boolean): Promise<void> {
+  await act(async () => {
+    for (let i = 0; i < 20 && !until(); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  });
 }
 
 function tab(name: string): HTMLElement | undefined {
@@ -115,15 +131,11 @@ async function chooseDelete(): Promise<void> {
     el.textContent?.includes('Delete'),
   );
   expect(item, 'the menu never opened').toBeDefined();
-  await act(async () => {
-    item?.click();
-    // The strip opens once the menu has CLOSED, which Radix reports from a timeout
-    // after its exit — so this waits out real time rather than a microtask.
-    for (let i = 0; i < 10 && !container.querySelector('[role="alertdialog"]'); i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-  });
-  expect(container.querySelector('[role="alertdialog"]'), 'the strip never opened').not.toBeNull();
+  act(() => item?.click());
+  // The dialog opens once the menu has CLOSED, which Radix reports from a timeout
+  // after its exit — so this waits out real time rather than a microtask.
+  await settle(() => dialog() !== null);
+  expect(dialog(), 'the confirmation never opened').not.toBeNull();
 }
 
 describe('ConversationDetail', () => {
@@ -144,23 +156,19 @@ describe('ConversationDetail', () => {
     // the sentence is on screen, and focus waits on Cancel so a held key cannot
     // take both steps.
     expect(deleteConversation).not.toHaveBeenCalled();
-    const strip = container.querySelector('[role="alertdialog"]');
-    expect(strip?.textContent).toContain('This cannot be undone');
+    expect(dialog()?.textContent).toContain('This cannot be undone');
+    expect(dialog()?.textContent).toContain('Delete “xin chào”?');
     expect(document.activeElement?.textContent).toBe('Cancel');
   });
 
-  it('attaches the consequence to the confirmation and its control', async () => {
+  it('attaches the consequence to the confirmation', async () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
     await chooseDelete();
 
-    const strip = container.querySelector('[role="alertdialog"]');
-    const remove = buttonNamed('Delete');
-    for (const element of [strip, remove]) {
-      const describedBy = element?.getAttribute('aria-describedby');
-      expect(describedBy, 'announced with no consequence').toBeTruthy();
-      expect(document.getElementById(describedBy!)?.textContent).toContain('This cannot be undone');
-    }
+    const describedBy = dialog()?.getAttribute('aria-describedby');
+    expect(describedBy, 'announced with no consequence').toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toContain('This cannot be undone');
   });
 
   it('puts focus back on the menu when the reader cancels', async () => {
@@ -169,7 +177,11 @@ describe('ConversationDetail', () => {
     await chooseDelete();
 
     act(() => buttonNamed('Cancel')?.click());
-    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+    await settle(
+      () =>
+        dialog() === null && document.activeElement?.getAttribute('aria-label') === 'More actions',
+    );
+    expect(dialog()).toBeNull();
     expect(document.activeElement?.getAttribute('aria-label')).toBe('More actions');
   });
 
@@ -201,7 +213,7 @@ describe('ConversationDetail', () => {
       await Promise.resolve();
     });
     expect(replace).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('still here');
+    expect(dialog()?.querySelector('[role="alert"]')?.textContent).toContain('still here');
   });
 
   it('opens on the transcript, on the page ground, with minutes one tab away', async () => {
@@ -275,17 +287,33 @@ describe('ConversationDetail', () => {
     expect(container.textContent).not.toMatch(/[→⇄]/);
   });
 
-  it('heads the page with the topic title, or the first line until there is one', async () => {
+  it('names the topbar crumb with the topic title, or the first line until there is one', async () => {
     getConversation.mockResolvedValue({
       conversation: { ...conversation, title: 'Hợp đồng thuê nhà' },
     });
     await mount();
-    expect(container.querySelector('header h2')?.textContent).toBe('Hợp đồng thuê nhà');
+    const crumb = () => container.querySelector('[data-slot="topbar-crumb"]')?.textContent;
+    expect(crumb()).toBe('Hợp đồng thuê nhà');
+    // The pane does not repeat it: the crumb is the screen's one heading.
+    expect(container.querySelector('section h2')).toBeNull();
+    expect(container.querySelector('section')?.getAttribute('aria-label')).toBe(
+      'Hợp đồng thuê nhà',
+    );
 
     act(() => root?.unmount());
     getConversation.mockResolvedValue({ conversation });
     await mount();
-    expect(container.querySelector('header h2')?.textContent).toBe(conversation.preview);
+    expect(crumb()).toBe(conversation.preview);
+  });
+
+  it('puts Rename, Download and the menu in the topbar, not in the pane', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    const topbar = container.querySelector('[data-slot="topbar-actions"]');
+    expect(topbar?.querySelector('[data-action="rename"]')).not.toBeNull();
+    expect(topbar?.querySelector('[data-action="download"]')).not.toBeNull();
+    expect(topbar?.querySelector('button[aria-label="More actions"]')).not.toBeNull();
+    expect(container.querySelector('section [data-action="rename"]')).toBeNull();
   });
 
   it('does not draw a conversation that is still arriving as one that is gone', async () => {
@@ -331,5 +359,7 @@ describe('ConversationDetail', () => {
     expect(container.textContent).toContain('could not reach the server');
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
     expect(container.querySelector('button[aria-label="More actions"]')).toBeNull();
+    // Nor a crumb naming something that is not there.
+    expect(container.querySelector('[data-slot="topbar-crumb"]')?.textContent).toBe('');
   });
 });

@@ -55,6 +55,7 @@ vi.mock('./use-container-wide', () => ({
 }));
 
 const { HistoryMasterDetail } = await import('./history-master-detail');
+const { ChromeSlotsTestHost } = await import('./chrome-slots-test-host');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -86,7 +87,9 @@ afterEach(() => {
 function screen() {
   return (
     <LocaleProvider>
-      <HistoryMasterDetail>{null}</HistoryMasterDetail>
+      <ChromeSlotsTestHost>
+        <HistoryMasterDetail>{null}</HistoryMasterDetail>
+      </ChromeSlotsTestHost>
     </LocaleProvider>
   );
 }
@@ -182,8 +185,11 @@ async function settle(): Promise<void> {
 }
 
 const current = () => container.querySelector('a[aria-current="page"]')?.getAttribute('href');
-// The detail's title; the list's day headings are `h2`s too.
-const heading = () => container.querySelector('header h2')?.textContent;
+// The open conversation's name: the topbar's last crumb, empty with none open.
+const heading = () =>
+  container.querySelector('[data-slot="topbar-crumb"]')?.textContent || undefined;
+// The open conversation's pane, named for it — what takes focus after a delete.
+const pane = () => container.querySelector('section[aria-label]');
 
 describe('the search field', () => {
   it('does not offer a search over an account with nothing in it', async () => {
@@ -273,9 +279,9 @@ describe('two panes on a wide content area', () => {
     const back = [...container.querySelectorAll('a')].find((a) =>
       a.textContent?.includes('Back to history'),
     );
-    // Hidden by the container width the panes switch at — a class, because the
-    // first paint must already be right.
-    expect(back?.className).toContain('@5xl:hidden');
+    // Hidden from `md`, where the topbar's "History" crumb is the way back — a
+    // class, because the first paint must already be right.
+    expect(back?.className).toContain('md:hidden');
   });
 
   it('opens the next newest after the newest is deleted from the menu', async () => {
@@ -290,13 +296,14 @@ describe('two panes on a wide content area', () => {
     expect(nav.push).not.toHaveBeenCalled();
     expect(container.querySelector('a[href="/history/c-1"]'), 'the deleted row').toBeNull();
     expect(heading()).toBe(OLDER.title);
-    // The next conversation's title takes the focus the delete took away.
-    expect(document.activeElement?.textContent).toBe(OLDER.title);
+    // The next conversation's pane takes the focus the delete took away.
+    expect(document.activeElement).toBe(pane());
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(OLDER.title);
   });
 
   it('keeps the newest open when it is opened from its own row', async () => {
     await mount();
-    const article = container.querySelector('header h2');
+    const article = pane();
     expect(getConversation).toHaveBeenCalledTimes(1);
 
     await navigate('c-1');
@@ -304,7 +311,7 @@ describe('two panes on a wide content area', () => {
     // `/history` and `/history/c-1` are one mounted conversation: no second fetch,
     // and the same element — its tab, scroll and audio with it.
     expect(getConversation).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('header h2')).toBe(article);
+    expect(pane()).toBe(article);
   });
 
   it('keeps its open tab when the newest is opened from its own row', async () => {
@@ -562,7 +569,7 @@ describe('focus after a delete', () => {
     // because the request was already spent.
     await navigate('c-1');
     expect(heading()).toBe(NEWEST.title);
-    expect(document.activeElement).not.toBe(container.querySelector('header h2'));
+    expect(document.activeElement).not.toBe(pane());
   });
 });
 
@@ -634,13 +641,13 @@ async function deleteOpenConversation(): Promise<void> {
   );
   await act(async () => {
     item?.click();
-    // The strip opens once the menu has CLOSED, which Radix reports from a timeout
+    // The dialog opens once the menu has CLOSED, which Radix reports from a timeout
     // after its exit — so this waits out real time rather than a microtask.
-    for (let i = 0; i < 10 && !container.querySelector('[role="alertdialog"]'); i += 1) {
+    for (let i = 0; i < 20 && !document.querySelector('[role="alertdialog"]'); i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
   });
-  const confirm = [...container.querySelectorAll<HTMLElement>('[role="alertdialog"] button')].find(
+  const confirm = [...document.querySelectorAll<HTMLElement>('[role="alertdialog"] button')].find(
     (button) => button.textContent === 'Delete',
   );
   expect(confirm, 'the confirming press').toBeDefined();

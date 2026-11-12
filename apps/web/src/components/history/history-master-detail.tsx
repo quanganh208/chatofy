@@ -134,7 +134,6 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
   const listHref = `/history${search.querySuffix}`;
   const rows = useHistoryRowActions({
     history,
-    search,
     selectedId,
     forget,
     listHref,

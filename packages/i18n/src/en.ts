@@ -655,7 +655,6 @@ export const en = {
   'web.history.preparingDownload': 'Preparing the download…',
   'web.history.copying': 'Copying…',
   // The delete strip under a row, named for the conversation it deletes.
-  'web.history.deleteNamed': 'Delete {title}',
   'web.history.downloadFailed': 'Could not download it. Try again.',
   // The menu item: the ellipsis says another step follows before anything goes.
   'web.history.deleteChoice': 'Delete…',
@@ -663,10 +662,15 @@ export const en = {
   'web.history.renameLabel': 'Conversation title',
   'web.history.renameSave': 'Save',
   'web.history.renameSaving': 'Saving…',
-  'web.history.renameHint': 'Enter to save, Esc to cancel. Up to {max} characters.',
+  'web.history.renameHint': 'Up to {max} characters.',
   'web.history.renameEmpty': 'A title cannot be empty.',
   'web.history.renameTooLong': 'Keep the title to {max} characters.',
   'web.history.renameFailed': 'Could not rename this conversation. Try again.',
+  'web.history.renameTitle': 'Rename conversation',
+  'web.history.renamed': 'Conversation renamed',
+  'web.history.deleted': 'Conversation deleted',
+  'web.history.download': 'Download',
+  'web.history.downloaded': 'Downloaded {file}',
   'web.history.tabMinutes': 'Minutes',
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(ready)',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { AudioLines, Copy, Ellipsis, Pencil, Trash2 } from 'lucide-react';
 import type { ConversationSummary } from '@chatofy/types';
 import {
@@ -15,30 +15,28 @@ import { useTranslate } from '@/i18n/provider';
 import { ConversationDownloadSubmenu } from './conversation-download-submenu';
 import { canExportSrt } from './conversation-export-srt';
 import type { useConversationFileActions } from './use-conversation-file-actions';
-
-/** The two items that act once the menu has closed — see `onCloseAutoFocus`. */
-export type DeferredChoice = 'rename' | 'delete';
+import { useDeferredMenuChoice, type DeferredChoice } from './use-deferred-menu-choice';
 
 interface ConversationActionsDropdownProps {
   conversation: ConversationSummary;
   files: ReturnType<typeof useConversationFileActions>;
-  /** A list row's ghost trigger, named for its conversation; else the header's outline one. */
-  row: boolean;
-  name?: string;
+  /** The row's visible name, for the trigger's accessible name. */
+  name: string;
   triggerRef: RefObject<HTMLButtonElement | null>;
   /** Rename or Delete was chosen, and the menu has closed. */
   onChoose: (choice: DeferredChoice) => void;
 }
 
 /**
- * The `⋯` trigger and the menu it opens: Rename, Copy transcript, Download
+ * A list row's `⋯` and the menu it opens: Rename, Copy transcript, Download
  * transcript ▸, Download recording (only with a recording), then Delete….
  *
- * Rename and Delete both move focus — into the title field, onto the strip's Cancel
- * — and doing that from the item itself raced the menu's focus trap: the target was
- * focused while the menu was still mounted, the trap pulled focus back, and its
- * unmount then dropped focus on `<body>`. So the item only records the choice; the
- * menu's close reports it and prevents its own return-to-trigger.
+ * Rename and Delete both open a dialog, which moves focus, and doing that from the
+ * item itself raced the menu's focus trap: the dialog took focus while the menu was
+ * still mounted, the trap pulled it back, and its unmount then dropped focus on
+ * `<body>`. So the item only records the choice; the menu's close reports it and
+ * prevents its own return-to-trigger. `useDeferredMenuChoice` holds the pattern,
+ * shared with the topbar's `⋯`.
  *
  * `data-action` names each item for the specs, which cannot pick a menu item by its
  * text with a selector and must not depend on the items' order.
@@ -46,13 +44,12 @@ interface ConversationActionsDropdownProps {
 export function ConversationActionsDropdown({
   conversation,
   files,
-  row,
   name,
   triggerRef,
   onChoose,
 }: ConversationActionsDropdownProps) {
   const t = useTranslate();
-  const deferred = useRef<DeferredChoice | null>(null);
+  const deferred = useDeferredMenuChoice(onChoose);
   // Read when the menu opens: whether Subtitles can be offered depends on turns a
   // row has not fetched yet, and an unknown answer offers it (see `download`).
   const [srtBlocked, setSrtBlocked] = useState(false);
@@ -68,42 +65,20 @@ export function ConversationActionsDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           ref={triggerRef}
-          variant={row ? 'ghost' : 'outline'}
+          variant="ghost"
           size="icon"
           // 32px drawn on every pointer, so it stays within the row's first line;
           // under `pointer-coarse` an invisible 6px rim widens what a finger can hit
           // to the 44px every touch target gets, without the button growing into
           // the preview line below it.
-          className={
-            row
-              ? "relative size-8 pointer-coarse:size-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 pointer-coarse:after:content-['']"
-              : undefined
-          }
-          aria-label={
-            row && name
-              ? t('web.history.rowActions', { title: name })
-              : t('web.history.moreActions')
-          }
+          className="relative size-8 pointer-coarse:size-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 pointer-coarse:after:content-['']"
+          aria-label={t('web.history.rowActions', { title: name })}
         >
           <Ellipsis aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        onCloseAutoFocus={(event) => {
-          const choice = deferred.current;
-          if (!choice) return;
-          deferred.current = null;
-          event.preventDefault();
-          onChoose(choice);
-        }}
-      >
-        <DropdownMenuItem
-          data-action="rename"
-          onSelect={() => {
-            deferred.current = 'rename';
-          }}
-        >
+      <DropdownMenuContent align="end" onCloseAutoFocus={deferred.onCloseAutoFocus}>
+        <DropdownMenuItem data-action="rename" onSelect={() => deferred.choose('rename')}>
           <Pencil aria-hidden />
           {t('web.history.rename')}
         </DropdownMenuItem>
@@ -138,9 +113,7 @@ export function ConversationActionsDropdown({
           data-action="delete"
           variant="destructive"
           disabled={files.busy}
-          onSelect={() => {
-            deferred.current = 'delete';
-          }}
+          onSelect={() => deferred.choose('delete')}
         >
           <Trash2 aria-hidden />
           {t('web.history.deleteChoice')}
