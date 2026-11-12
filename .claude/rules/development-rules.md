@@ -41,8 +41,8 @@ screen-state, sharing its accent counter with the marketing spec via
 is enforced in both directions, so the fix that cleared it was told to delete its own row.
 
 Zero is a normal answer to both. `/history` spends no accent, because the sidebar already
-offers the same destination on every screen; `/translate` is the whole screen rather than
-a card on one.
+offers the same destination on every screen; `/translate` is two hairline sheets on the page
+ground, not cards.
 
 Everything else in `docs/design-guidelines.md` is enforced by a spec — the skin guards,
 the contrast floors, the token parity, the type scale. These two used to be the exception

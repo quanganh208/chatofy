@@ -251,8 +251,8 @@ Four screens, each measured against the two gated budgets from
 screen-state** and **≤2 elevated surfaces per screen-state**. The accent is ink
 (`#1C1917` light / `#F5F5F4` dark); it marks the one action a screen exists to offer.
 Everything else is ghost/outline/readout. Video tiles are **not** surfaces in the card
-sense — they are media regions on the page ground, like `/translate` is the whole screen
-rather than a card.
+sense — they are media regions on the page ground, like `/translate`'s two hairline sheets
+are regions on the ground rather than cards.
 
 These are the same `(app)` chrome as the rest of web (sidebar + session menu), so the
 conference content area is what the budgets below count; the sidebar's own destinations
