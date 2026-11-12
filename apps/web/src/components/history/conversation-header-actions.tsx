@@ -32,10 +32,11 @@ interface ConversationHeaderActionsProps {
  * The open conversation's controls, drawn in the topbar: Rename, Download ▾, and a
  * `⋯` with Copy transcript and Delete….
  *
- * The same three at every width. Below `md` Rename and Download drop their words
- * and stay as 32px icons with the same accessible names — three icons beside a
+ * The same three at every width. Below `lg` Rename and Download drop their words
+ * and stay as 32px icons with the same accessible names: three icons beside a
  * truncating title fit a 375px bar, so the phone keeps the topbar rather than
- * growing a second header row inside the pane. Every one is outline: a rename or a
+ * growing a second header row inside the pane — and at 768px with the sidebar
+ * open, the worded buttons pushed the bar past the viewport. Every one is outline: a rename or a
  * file is not the screen's action, and Generate on the Minutes tab is.
  */
 export function ConversationHeaderActions({
@@ -52,7 +53,7 @@ export function ConversationHeaderActions({
   );
   // Read when the menu opens: whether Subtitles can be offered depends on turns.
   const [srtBlocked, setSrtBlocked] = useState(false);
-  const iconOnPhone = 'max-md:size-8 max-md:px-0';
+  const iconBelowLg = 'max-lg:size-8 max-lg:px-0';
 
   return (
     <div data-slot="conversation-header-actions" className="flex items-center gap-1.5">
@@ -61,12 +62,12 @@ export function ConversationHeaderActions({
         variant="outline"
         size="sm"
         data-action="rename"
-        className={iconOnPhone}
+        className={iconBelowLg}
         aria-label={t('web.history.rename')}
         onClick={onRename}
       >
         <Pencil aria-hidden />
-        <span className="max-md:sr-only">{t('web.history.rename')}</span>
+        <span className="max-lg:sr-only">{t('web.history.rename')}</span>
       </Button>
 
       <DropdownMenu
@@ -82,12 +83,12 @@ export function ConversationHeaderActions({
             size="sm"
             data-action="download"
             disabled={files.busy}
-            className={iconOnPhone}
+            className={iconBelowLg}
             aria-label={t('web.history.download')}
           >
             <Download aria-hidden />
-            <span className="max-md:sr-only">{t('web.history.download')}</span>
-            <ChevronDown aria-hidden className="max-md:hidden" />
+            <span className="max-lg:sr-only">{t('web.history.download')}</span>
+            <ChevronDown aria-hidden className="max-lg:hidden" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
