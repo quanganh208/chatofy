@@ -213,7 +213,6 @@ export const en = {
   'web.chrome.navConference': 'Meetings',
   'web.chrome.navHistory': 'History',
   'web.chrome.navGlossary': 'Glossary',
-  'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
   // control ("open your account menu"); this one names a destination, and a
   // locale may well want two different words.
@@ -316,8 +315,6 @@ export const en = {
   'web.meta.translate': 'One-way translation · Chatofy',
   'web.meta.translateTwoWay': 'Two-way translation · Chatofy',
   'web.meta.history': 'History · Chatofy',
-  'web.meta.preferences': 'Preferences · Chatofy',
-  'web.meta.account': 'Account · Chatofy',
   'web.meta.pricing': 'Pricing · Chatofy',
   'web.meta.pricingDescription':
     'Chatofy plans: a free monthly allowance, Pro, and top-ups that never expire. One credit is one minute of translated captions.',
@@ -722,13 +719,8 @@ export const en = {
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.preferences ----
-  // Named as DEFAULTS, because that is what this page holds now. The settings a
-  // running conversation can still change moved onto `/translate` itself, so a
-  // second copy of the same panel here needed a distinction a reader could say
-  // out loud — and "where a new conversation starts from" is it.
-  'web.preferences.conversation': 'Defaults for new conversations',
-  'web.preferences.conversationHint':
-    'A new conversation starts from these. While one is running you change what you can on the Translate page — languages and voice stay fixed until it ends.',
+  // Rows on Settings › Audio and Settings › AI context; the key names predate the
+  // move into Settings.
   'web.preferences.audioHint': 'Applies from the next start.',
   'web.preferences.audio.echoCancellationHint':
     'Reduces speaker sound picked up by the microphone while a translation plays. When off, the microphone pauses while a translation plays.',
@@ -787,7 +779,6 @@ export const en = {
     'Could not save this context. Your changes are still here.',
   'web.preferences.aiContext.loadFailed':
     'Could not load your contexts. Your session is still valid.',
-  'web.preferences.interface': 'Interface',
 
   // ---- web.account ----
   //
@@ -872,6 +863,43 @@ export const en = {
   'web.account.qrNeedsReview':
     "We received a payment we couldn't match automatically. It will be reviewed and credited by hand.",
   'web.account.qrClose': 'Close',
+
+  // ---- web.settings ----
+  // Settings: seven pages in two groups, reached from the sidebar footer. Each page
+  // opens with its name and one line saying what it holds.
+  'web.settings.nav': 'Settings sections',
+  'web.settings.groupPersonal': 'Personal',
+  'web.settings.groupAccount': 'Account',
+  // The browser tab. `{section}` is the page's own name.
+  'web.settings.metaTitle': '{section} · Settings · Chatofy',
+  'web.settings.appearance': 'Appearance',
+  'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
+  'web.settings.audio': 'Audio',
+  'web.settings.audioDescription':
+    'What the browser does to your microphone before anything is translated.',
+  'web.settings.defaults': 'Defaults',
+  'web.settings.defaultsDescription':
+    'What a new conversation starts with. Languages and voices stay fixed while one is running.',
+  'web.settings.profile': 'Profile',
+  'web.settings.profileDescription': 'Your photo, name and email address.',
+  'web.settings.billing': 'Billing',
+  'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
+  'web.settings.securityDescription': "Your password, and this browser's session.",
+  'web.settings.languageNote': 'Also the language of the emails we send you.',
+  // What a toast calls the two language-pair rows on Defaults.
+  'web.settings.oneWayPair': 'One-way languages',
+  'web.settings.twoWayPair': 'Two-way languages',
+  // Autosave, said once per setting. `{setting}` is the row's own label.
+  'web.settings.saved': '{setting} saved',
+  'web.settings.saveFailed': "Couldn't save {setting}. It still applies in this browser.",
+  'web.settings.photo': 'Photo',
+  'web.settings.photoChoose': 'Choose an image',
+  'web.settings.photoUpdated': 'Photo updated',
+  'web.settings.photoRemoved': 'Photo removed',
+  'web.settings.contextSaved': '“{name}” saved',
+  'web.settings.contextDeleted': '“{name}” deleted',
+  'web.settings.signOutTitle': 'Sign out of this browser?',
+  'web.settings.signOutFailed': "Couldn't sign out. Try again.",
 
   // ---- web.landing ----
   //
