@@ -59,9 +59,9 @@ export function ConversationMetaLine({
           <Fragment key={fact.key}>
             {index > 0 ? (
               <>
-                {/* The margin matches the `gap-1` the kind label puts around its
-                    own dot, so every separator on the line is the same width. */}{' '}
-                <Dot className="mx-1" />{' '}
+                {/* The margin evens these with the dots inside the kind label, whose
+                    flex `gap-1` sits beside a collapsed space rather than a full one. */}{' '}
+                <Dot className="mx-0.5" />{' '}
               </>
             ) : null}
             {fact}
