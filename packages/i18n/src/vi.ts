@@ -185,7 +185,6 @@ export const vi: Messages = {
   'web.chrome.navConference': 'Cuộc họp',
   'web.chrome.navHistory': 'Lịch sử',
   'web.chrome.navGlossary': 'Bảng thuật ngữ',
-  'web.chrome.navPreferences': 'Tuỳ chọn',
   'web.chrome.navAccount': 'Tài khoản',
   'web.chrome.toggleSidebar': 'Đóng mở thanh bên',
   'web.chrome.sidebarWidth': 'Độ rộng thanh bên',
@@ -272,8 +271,6 @@ export const vi: Messages = {
   'web.meta.translate': 'Dịch một chiều · Chatofy',
   'web.meta.translateTwoWay': 'Dịch hai chiều · Chatofy',
   'web.meta.history': 'Lịch sử · Chatofy',
-  'web.meta.preferences': 'Tuỳ chọn · Chatofy',
-  'web.meta.account': 'Tài khoản · Chatofy',
   'web.meta.pricing': 'Bảng giá · Chatofy',
   'web.meta.pricingDescription':
     'Các gói của Chatofy: hạn mức miễn phí hằng tháng, Pro và credit nạp thêm không bao giờ hết hạn. Một credit là một phút phụ đề đã dịch.',
@@ -564,9 +561,6 @@ export const vi: Messages = {
   'web.history.loadMore': 'Tải thêm',
   'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
 
-  'web.preferences.conversation': 'Mặc định cho hội thoại mới',
-  'web.preferences.conversationHint':
-    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — ngôn ngữ và giọng thì cố định cho tới khi cuộc đó kết thúc.',
   'web.preferences.audioHint': 'Áp dụng từ lần bắt đầu tiếp theo.',
   'web.preferences.audio.echoCancellationHint':
     'Giảm âm thanh loa bị micro thu lại khi phát bản dịch. Khi tắt, micro tạm dừng lúc bản dịch đang phát.',
@@ -617,7 +611,6 @@ export const vi: Messages = {
     'Không lưu được ngữ cảnh này. Những gì bạn vừa nhập vẫn còn nguyên.',
   'web.preferences.aiContext.loadFailed':
     'Không tải được danh sách ngữ cảnh. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
-  'web.preferences.interface': 'Giao diện',
 
   'web.account.memberSince': 'Tham gia từ',
   'web.account.nameUnset': 'Chưa đặt',
@@ -683,6 +676,38 @@ export const vi: Messages = {
   'web.account.qrNeedsReview':
     'Chúng tôi đã nhận được một khoản thanh toán nhưng chưa khớp được tự động. Khoản này sẽ được kiểm tra và cộng credit thủ công.',
   'web.account.qrClose': 'Đóng',
+
+  // ---- web.settings ----
+  'web.settings.nav': 'Các mục cài đặt',
+  'web.settings.groupPersonal': 'Cá nhân',
+  'web.settings.groupAccount': 'Tài khoản',
+  'web.settings.metaTitle': '{section} · Cài đặt · Chatofy',
+  'web.settings.appearance': 'Giao diện',
+  'web.settings.appearanceDescription': 'Ngôn ngữ hiển thị của Chatofy và giao diện sáng hay tối.',
+  'web.settings.audio': 'Âm thanh',
+  'web.settings.audioDescription': 'Trình duyệt xử lý micrô của bạn thế nào trước khi dịch.',
+  'web.settings.defaults': 'Mặc định',
+  'web.settings.defaultsDescription':
+    'Những gì một hội thoại mới bắt đầu với. Ngôn ngữ và giọng đọc giữ nguyên khi hội thoại đang chạy.',
+  'web.settings.profile': 'Hồ sơ',
+  'web.settings.profileDescription': 'Ảnh đại diện, tên và địa chỉ email của bạn.',
+  'web.settings.billing': 'Thanh toán',
+  'web.settings.billingDescription': 'Số credit, gói đang dùng và lịch sử sử dụng.',
+  'web.settings.securityDescription': 'Mật khẩu và phiên đăng nhập trên trình duyệt này.',
+  'web.settings.languageNote': 'Đây cũng là ngôn ngữ của email chúng tôi gửi cho bạn.',
+  'web.settings.oneWayPair': 'Ngôn ngữ dịch một chiều',
+  'web.settings.twoWayPair': 'Ngôn ngữ dịch hai chiều',
+  'web.settings.saved': 'Đã lưu: {setting}',
+  'web.settings.saveFailed':
+    'Không lưu được: {setting}. Trình duyệt này vẫn áp dụng lựa chọn của bạn.',
+  'web.settings.photo': 'Ảnh đại diện',
+  'web.settings.photoChoose': 'Chọn ảnh',
+  'web.settings.photoUpdated': 'Đã cập nhật ảnh đại diện',
+  'web.settings.photoRemoved': 'Đã gỡ ảnh đại diện',
+  'web.settings.contextSaved': 'Đã lưu “{name}”',
+  'web.settings.contextDeleted': 'Đã xoá “{name}”',
+  'web.settings.signOutTitle': 'Đăng xuất khỏi trình duyệt này?',
+  'web.settings.signOutFailed': 'Không đăng xuất được. Hãy thử lại.',
 
   'web.landing.heroTitle': 'Nói bằng ngôn ngữ của bạn. Được hiểu bằng ngôn ngữ của người nghe.',
   'web.landing.heroBody':

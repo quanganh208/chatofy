@@ -86,7 +86,7 @@ describe('the product sidebar', () => {
       '/conference',
       '/history',
       '/glossary',
-      '/preferences',
+      '/settings/appearance',
     ]);
   });
 
@@ -101,9 +101,9 @@ describe('the product sidebar', () => {
   });
 
   it('puts Settings in the footer, active on the routes it stands for', () => {
-    pathname.mockReturnValue('/account');
+    pathname.mockReturnValue('/settings/security');
     const footer = render().querySelector('[data-sidebar="footer"]');
-    const settings = footer?.querySelector('a[href="/preferences"]');
+    const settings = footer?.querySelector('a[href="/settings/appearance"]');
     expect(settings?.getAttribute('aria-label')).toBe('Settings');
     expect(settings?.getAttribute('aria-current')).toBe('page');
   });
@@ -290,8 +290,8 @@ describe('the breadcrumb', () => {
     ['/history', ['Library', 'History']],
     ['/history/abc', ['Library', 'History']],
     ['/glossary', ['Library', 'Glossary']],
-    ['/preferences', ['Settings', 'Preferences']],
-    ['/account', ['Settings', 'Account']],
+    ['/settings/appearance', ['Settings', 'Appearance']],
+    ['/settings/profile', ['Settings', 'Profile']],
   ])('reads %s as group › item, ending on the one h1', (route, trail) => {
     pathname.mockReturnValue(route);
     render();

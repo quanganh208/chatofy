@@ -29,7 +29,7 @@ import { navPlaceFor } from './nav-items';
  * so they keep the page's state. That reverses an earlier rule that this bar held only
  * what is true on every route: the frame now follows the Linear pattern, where the
  * topbar is the screen's toolbar, and language and theme moved to Settings ›
- * Appearance (until then they are on `/preferences`).
+ * Appearance.
  *
  * The sidebar trigger is gone below `md`: the bottom tab bar is the navigation there.
  */

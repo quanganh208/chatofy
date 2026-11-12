@@ -82,7 +82,7 @@ export class PolarProvider implements PaymentProvider {
       products: [productId],
       external_customer_id: user.id,
       metadata: { userId: user.id, planCode: plan.code },
-      success_url: `${this.env.WEB_BASE_URL}/account?checkout=done`,
+      success_url: `${this.env.WEB_BASE_URL}/settings/billing?checkout=done`,
     });
     const parsed = checkoutBodySchema.safeParse(body);
     if (!parsed.success) {
@@ -95,7 +95,7 @@ export class PolarProvider implements PaymentProvider {
   async createPortalUrl(userId: string): Promise<string> {
     const body = await this.post('/customer-sessions/', {
       external_customer_id: userId,
-      return_url: `${this.env.WEB_BASE_URL}/account`,
+      return_url: `${this.env.WEB_BASE_URL}/settings/billing`,
     });
     const parsed = customerSessionBodySchema.safeParse(body);
     if (!parsed.success) {

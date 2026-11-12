@@ -11,6 +11,7 @@ import { AppTopbar } from './app-topbar';
 import { ChromeSlotsProvider, useChromeSlots } from './chrome-slots';
 import { MobileTabBar } from './mobile-tab-bar';
 import { MEASURE } from './measures';
+import { isSettingsPath } from './nav-items';
 
 /**
  * The signed-in product frame: sidebar, topbar, and the measured content column.
@@ -60,14 +61,16 @@ const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/tw
 /**
  * Routes laid out for the full page measure: the conference landing is a two-column
  * hero, and the content pages lay their sections out in columns from `lg` — a 672px
- * column would squeeze either back to a form.
+ * column would squeeze either back to a form. Every settings page takes it too: the
+ * settings sub-navigation sits beside the content column, and 672px for both left the
+ * content narrower than a phone held sideways.
  */
-const FULL_PAGE_ROUTES: readonly Route[] = ['/conference', '/glossary', '/preferences', '/account'];
+const FULL_PAGE_ROUTES: readonly Route[] = ['/conference', '/glossary'];
 
 const measureFor = (pathname: string) =>
   WORKSPACE_ROUTES.some((route) => route === pathname)
     ? MEASURE.workspace
-    : FULL_PAGE_ROUTES.some((route) => route === pathname)
+    : FULL_PAGE_ROUTES.some((route) => route === pathname) || isSettingsPath(pathname)
       ? MEASURE.page
       : MEASURE.wide;
 
