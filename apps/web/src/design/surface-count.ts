@@ -29,6 +29,9 @@ export function elevatedSurfaces(root: ParentNode): Element[] {
   return Array.from(root.querySelectorAll('*')).filter(
     (el) =>
       el.getAttribute('data-slot') === 'card' ||
-      SURFACE_SHADOWS.some((shadow) => el.classList.contains(shadow)),
+      // A trailing `!` is Tailwind's important modifier, which a primitive styled
+      // against a library's attribute selectors needs (the sonner toast carries
+      // `shadow-elev-lg!`). It is the same shadow, so it is the same surface.
+      Array.from(el.classList).some((token) => SURFACE_SHADOWS.includes(token.replace(/!$/, ''))),
   );
 }
