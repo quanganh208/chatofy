@@ -22,11 +22,13 @@ export function TranslateSkeleton({ conversationMode }: { conversationMode: Conv
     // it will keep. A fixed-height placeholder under a panel that fills the
     // viewport is a jump on every load — the larger of the two shifts, since it
     // moves the dock rather than a line of text.
-    <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-4">
+    // Edge to edge like the real panel (`-mx-6 -my-8`), with the sheets put back
+    // inset on the ground by the same padding `cascade-panel.tsx` gives them.
+    <div aria-hidden className="-mx-6 -my-8 flex min-h-0 flex-1 flex-col">
       {/* The same bound the real section carries, so the dock sits at the height it
           will keep. See `cascade-panel.tsx` for why it is on the section. */}
-      <div className="relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col">
-        <div className="@container flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-64 flex-1 flex-col sm:max-h-[calc(100svh-7.25rem)] max-sm:max-h-[calc(100svh-14rem-env(safe-area-inset-bottom))]">
+        <div className="@container flex min-h-0 flex-1 flex-col px-6 pt-6 pb-4">
           <div className="relative flex min-h-0 flex-1 flex-col gap-4 @xl:flex-row">
             {/* The swap, at the centre of the gap between the sheets. */}
             <div className="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
@@ -42,14 +44,14 @@ export function TranslateSkeleton({ conversationMode }: { conversationMode: Conv
       </div>
 
       {/* The dock: readouts, Start, then the page's own controls. */}
-      <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="border-hairline grid grid-cols-[1fr_auto] items-center gap-3 border-t px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
         <div className="flex items-center gap-2.5">
           <Skeleton className="h-[23px] w-28" />
         </div>
-        <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">
+        <div className="col-span-2 row-start-1 flex items-center gap-2 sm:col-span-1 sm:col-start-2 sm:justify-self-center">
           <Skeleton className="h-11 w-full rounded-full sm:w-48" />
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1">
           <Skeleton className="size-10 pointer-coarse:size-11" />
           <Skeleton className="size-10 pointer-coarse:size-11" />
           <Skeleton className="size-10 pointer-coarse:size-11" />

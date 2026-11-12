@@ -114,9 +114,9 @@ interface TranscriptPanesProps {
  * same fault at a different breakpoint, so the exemption is now the rule for both
  * orientations rather than a special case for one.
  *
- * The swap rides the source header's end slot there. Between two panes it has
- * nowhere to be, and one control about the pair belongs in the header of the side
- * that is being translated FROM.
+ * The swap sits on the seam between the two sheets, above both, so it stays in
+ * place while the swap animation (`language-shuffle.ts`) flies the sheets through
+ * each other underneath it.
  *
  * The single-stream arrangements keep the bar: with one region there is no pane
  * for a header to be wrong about.
