@@ -34,7 +34,7 @@ export interface ReplacementCheck {
 /**
  * Has this browser's cookie already been given a different, live token?
  *
- * THE OTHER TAB OF A PASSWORD CHANGE. Changing the password on `/account` revokes
+ * THE OTHER TAB OF A PASSWORD CHANGE. Changing the password on `/settings/security` revokes
  * every credential issued before it, and the API closes this user's sockets AT
  * ONCE — including ones held by other tabs of the very browser making the change,
  * whose replacement session has not reached the cookie yet. Those tabs see a dead

@@ -27,6 +27,9 @@
  */
 export const en = {
   // ---- common: vocabulary a second surface could adopt unchanged ----
+  // Navigation labels both apps use for the same destination.
+  'common.nav.translate': 'Translate',
+  'common.nav.settings': 'Settings',
   'common.theme.light': 'Light',
   'common.theme.dark': 'Dark',
   'common.theme.system': 'Match system',
@@ -142,7 +145,7 @@ export const en = {
   'common.conference.chatNotSent': 'Message not sent.',
 
   // ---- common.billing: the credits words web and mobile both show ----
-  // The section and block title on web /account and mobile settings.
+  // The section and block title on web /settings/billing and mobile settings.
   'common.billing.title': 'Credits & plan',
   // Amounts are pre-formatted by the caller; English needs the singular by hand.
   'common.billing.creditAmount': '{credits} credits',
@@ -210,20 +213,37 @@ export const en = {
   // Two items, one per conversation mode: each is its own page.
   'web.chrome.navTranslate': 'One-way translation',
   'web.chrome.navTranslateTwoWay': 'Two-way translation',
-  'web.chrome.navConference': 'Conference',
+  'web.chrome.navConference': 'Meetings',
   'web.chrome.navHistory': 'History',
   'web.chrome.navGlossary': 'Glossary',
-  'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
   // control ("open your account menu"); this one names a destination, and a
   // locale may well want two different words.
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.sidebarWidth': 'Sidebar width',
-  'web.chrome.descGlossary': 'Names and terms you want translated your way, kept in one place.',
-  'web.chrome.descPreferences':
-    'How the microphone, the translator and the screen behave the next time you start.',
-  'web.chrome.descAccount': 'Who you are signed in as, and the settings that keep it safe.',
+  // The sidebar's two captions. Settings is not a group: it sits in the footer.
+  'web.chrome.navGroupTranslate': 'Translate',
+  'web.chrome.navGroupLibrary': 'Library',
+  'web.chrome.breadcrumb': 'Breadcrumb',
+  // The credit line under the name in the sidebar footer and the More sheet.
+  // `{amount}` is already a counted phrase ("74 credits").
+  'web.chrome.creditsLeft': '{amount} left',
+  // The bottom tab bar below 768px. Short on purpose: four fit across a phone.
+  'web.chrome.tabBar': 'Main',
+  'web.chrome.tabHistory': 'History',
+  'web.chrome.tabMore': 'More',
+  'web.chrome.close': 'Close',
+  // Toasts: the region's name, its close control, and the two actions a toast offers.
+  'web.chrome.notifications': 'Notifications',
+  'web.chrome.dismiss': 'Dismiss',
+  'web.chrome.undo': 'Undo',
+  'web.chrome.retry': 'Retry',
+  // A destructive confirmation's title and its fallback line. `{action}` is the
+  // caller's verb ("Delete"), `{name}` the thing it acts on.
+  'web.chrome.confirmTitle': '{action}?',
+  'web.chrome.confirmTitleNamed': '{action} “{name}”?',
+  'web.chrome.confirmIrreversible': 'This cannot be undone.',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
@@ -296,8 +316,6 @@ export const en = {
   'web.meta.translate': 'One-way translation · Chatofy',
   'web.meta.translateTwoWay': 'Two-way translation · Chatofy',
   'web.meta.history': 'History · Chatofy',
-  'web.meta.preferences': 'Preferences · Chatofy',
-  'web.meta.account': 'Account · Chatofy',
   'web.meta.pricing': 'Pricing · Chatofy',
   'web.meta.pricingDescription':
     'Chatofy plans: a free monthly allowance, Pro, and top-ups that never expire. One credit is one minute of translated captions.',
@@ -576,7 +594,8 @@ export const en = {
   'web.translate.minutesNeedsTurns':
     'Have a conversation first — there is nothing to summarize yet.',
   'web.translate.minutesCopy': 'Copy',
-  'web.translate.minutesCopied': 'Copied',
+  'web.translate.minutesCopiedToast': 'Minutes copied',
+  'web.translate.minutesCopyFailed': 'The minutes could not be copied.',
 
   // ---- web.error: the boundaries every route group now has ----
   'web.error.title': 'Something went wrong',
@@ -635,7 +654,6 @@ export const en = {
   'web.history.preparingDownload': 'Preparing the download…',
   'web.history.copying': 'Copying…',
   // The delete strip under a row, named for the conversation it deletes.
-  'web.history.deleteNamed': 'Delete {title}',
   'web.history.downloadFailed': 'Could not download it. Try again.',
   // The menu item: the ellipsis says another step follows before anything goes.
   'web.history.deleteChoice': 'Delete…',
@@ -643,10 +661,15 @@ export const en = {
   'web.history.renameLabel': 'Conversation title',
   'web.history.renameSave': 'Save',
   'web.history.renameSaving': 'Saving…',
-  'web.history.renameHint': 'Enter to save, Esc to cancel. Up to {max} characters.',
+  'web.history.renameHint': 'Up to {max} characters.',
   'web.history.renameEmpty': 'A title cannot be empty.',
   'web.history.renameTooLong': 'Keep the title to {max} characters.',
   'web.history.renameFailed': 'Could not rename this conversation. Try again.',
+  'web.history.renameTitle': 'Rename conversation',
+  'web.history.renamed': 'Conversation renamed',
+  'web.history.deleted': 'Conversation deleted',
+  'web.history.download': 'Download',
+  'web.history.downloaded': 'Downloaded {file}',
   'web.history.tabMinutes': 'Minutes',
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(ready)',
@@ -702,13 +725,8 @@ export const en = {
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.preferences ----
-  // Named as DEFAULTS, because that is what this page holds now. The settings a
-  // running conversation can still change moved onto `/translate` itself, so a
-  // second copy of the same panel here needed a distinction a reader could say
-  // out loud — and "where a new conversation starts from" is it.
-  'web.preferences.conversation': 'Defaults for new conversations',
-  'web.preferences.conversationHint':
-    'A new conversation starts from these. While one is running you change what you can on the Translate page — languages and voice stay fixed until it ends.',
+  // Rows on Settings › Audio and Settings › AI context; the key names predate the
+  // move into Settings.
   'web.preferences.audioHint': 'Applies from the next start.',
   'web.preferences.audio.echoCancellationHint':
     'Reduces speaker sound picked up by the microphone while a translation plays. When off, the microphone pauses while a translation plays.',
@@ -767,7 +785,6 @@ export const en = {
     'Could not save this context. Your changes are still here.',
   'web.preferences.aiContext.loadFailed':
     'Could not load your contexts. Your session is still valid.',
-  'web.preferences.interface': 'Interface',
 
   // ---- web.account ----
   //
@@ -797,7 +814,6 @@ export const en = {
   'web.account.avatarUnavailable':
     "Couldn't save that photo — nothing was changed. Try again; if it keeps failing, tell whoever runs this server.",
   'web.account.security': 'Security',
-  'web.account.session': 'Session',
   'web.account.thisBrowser': 'This browser',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':
@@ -823,7 +839,7 @@ export const en = {
     'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
-  // Credits & plan: buying. Every action is outline or ghost; /account spends no accent.
+  // Credits & plan: buying. Every action is outline or ghost; /settings/billing spends no accent.
   'web.account.buyTitle': 'Buy credits',
   'web.account.buyProCard': 'Pro by card — {price} a month',
   'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
@@ -852,6 +868,43 @@ export const en = {
   'web.account.qrNeedsReview':
     "We received a payment we couldn't match automatically. It will be reviewed and credited by hand.",
   'web.account.qrClose': 'Close',
+
+  // ---- web.settings ----
+  // Settings: seven pages in two groups, reached from the sidebar footer. Each page
+  // opens with its name and one line saying what it holds.
+  'web.settings.nav': 'Settings sections',
+  'web.settings.groupPersonal': 'Personal',
+  'web.settings.groupAccount': 'Account',
+  // The browser tab. `{section}` is the page's own name.
+  'web.settings.metaTitle': '{section} · Settings · Chatofy',
+  'web.settings.appearance': 'Appearance',
+  'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
+  'web.settings.audio': 'Audio',
+  'web.settings.audioDescription':
+    'What the browser does to your microphone before anything is translated.',
+  'web.settings.defaults': 'Defaults',
+  'web.settings.defaultsDescription':
+    'What a new conversation starts with. Languages and voices stay fixed while one is running.',
+  'web.settings.profile': 'Profile',
+  'web.settings.profileDescription': 'Your photo, name and email address.',
+  'web.settings.billing': 'Billing',
+  'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
+  'web.settings.securityDescription': "Your password, and this browser's session.",
+  'web.settings.languageNote': 'Also the language of the emails we send you.',
+  // What a toast calls the two language-pair rows on Defaults.
+  'web.settings.oneWayPair': 'One-way languages',
+  'web.settings.twoWayPair': 'Two-way languages',
+  // Autosave, said once per setting. `{setting}` is the row's own label.
+  'web.settings.saved': '{setting} saved',
+  'web.settings.saveFailed': "Couldn't save {setting}. It still applies in this browser.",
+  'web.settings.photo': 'Photo',
+  'web.settings.photoChoose': 'Choose an image',
+  'web.settings.photoUpdated': 'Photo updated',
+  'web.settings.photoRemoved': 'Photo removed',
+  'web.settings.contextSaved': '“{name}” saved',
+  'web.settings.contextDeleted': '“{name}” deleted',
+  'web.settings.signOutTitle': 'Sign out of this browser?',
+  'web.settings.signOutFailed': "Couldn't sign out. Try again.",
 
   // ---- web.landing ----
   //
@@ -1036,6 +1089,15 @@ export const en = {
   'web.conference.originalVolumeAria': 'Original voices volume',
   'web.conference.originalVolumeHint': 'Lower this to hear the translation more clearly.',
   'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
+  'web.conference.lobbyHeading': 'Start or join a meeting',
+  'web.conference.joinWithCode': 'Join with a code',
+  'web.conference.joinDialogTitle': 'Join a meeting',
+  'web.conference.joinDialogHint': 'Enter the meeting code, or paste the invite link.',
+  'web.conference.codeInvalid': 'That is not a meeting code or invite link.',
+  'web.conference.cancel': 'Cancel',
+  'web.conference.createFailedToast': 'Could not start a meeting',
+  'web.conference.minutesReady': 'Minutes are ready',
+  'web.conference.minutesFailedToast': 'Could not generate the minutes',
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
 
@@ -1064,9 +1126,7 @@ export const en = {
   'mobile.conference.minutesGenerating': 'Summarizing the meeting…',
   'mobile.conference.minutesEmpty':
     'No minutes yet. Anyone who was in the meeting can generate them.',
-  'mobile.tabs.translate': 'Translate',
   'mobile.tabs.conference': 'Conference',
-  'mobile.tabs.settings': 'Settings',
   'mobile.auth.noAccountPrompt': 'No account yet?',
   'mobile.auth.linkExpired': 'This link has expired or was already used. Ask for a new one.',
   'mobile.auth.fillAllFields': 'Fill in every field.',
@@ -1100,15 +1160,13 @@ export const en = {
 
   // ---- web.glossary ----
   'web.glossary.title': 'Glossaries',
-  'web.glossary.new': 'New',
+  'web.glossary.new': 'New glossary',
   'web.glossary.loadFailed': 'Could not load your glossaries.',
   'web.glossary.emptyTitle': 'No glossaries yet',
   'web.glossary.emptyList':
-    'A glossary keeps your names and terms translated the way you want. Press New to make one.',
+    'A glossary keeps your names and terms translated the way you want. Press New glossary to make one.',
   'web.glossary.termCount': '{count} terms',
-  'web.glossary.badgeActive': 'Active',
   'web.glossary.badgeInactive': 'Inactive',
-  'web.glossary.toggleActive': 'Toggle active',
   'web.glossary.delete': 'Delete',
   'web.glossary.nameLabel': 'Name',
   'web.glossary.descriptionLabel': 'Description',
@@ -1129,9 +1187,35 @@ export const en = {
   'web.glossary.loadTermsFailed': 'Could not load the terms.',
   'web.glossary.noTermsMatch': 'No terms match that.',
   'web.glossary.noTerms': 'No terms yet.',
-  'web.glossary.removeTerm': 'Remove term',
   'web.glossary.selectGlossary': 'Select a glossary to see its terms.',
   'web.glossary.termsHeading': 'Terms',
+  'web.glossary.createTitle': 'New glossary',
+  'web.glossary.createDescription': 'Name it for what it covers. You add terms after it is made.',
+  'web.glossary.created': 'Glossary “{name}” created',
+  'web.glossary.deleted': 'Glossary “{name}” deleted',
+  'web.glossary.deleting': 'Deleting…',
+  'web.glossary.deleteFailed': 'Could not delete the glossary. It is still here.',
+  'web.glossary.deleteConsequence':
+    'Every term in it is deleted too, and translation stops using them. This cannot be undone.',
+  'web.glossary.activeLabel': 'Use while translating',
+  'web.glossary.turnedOn': '“{name}” is used while translating',
+  'web.glossary.turnedOff': '“{name}” is no longer used while translating',
+  'web.glossary.toggleFailed': 'Could not change “{name}”.',
+  'web.glossary.back': 'All glossaries',
+  'web.glossary.editTerm': 'Edit',
+  'web.glossary.editTermNamed': 'Edit {term}',
+  'web.glossary.editTermTitle': 'Edit term',
+  'web.glossary.termDescription':
+    'The original is what is heard; the translation is what you want it to become.',
+  'web.glossary.save': 'Save',
+  'web.glossary.saving': 'Saving…',
+  'web.glossary.updateTermFailed': 'Could not save the term. Try again.',
+  'web.glossary.translatesTo': 'translates to',
+  'web.glossary.termAdded': 'Added “{term}”',
+  'web.glossary.termUpdated': 'Saved “{term}”',
+  'web.glossary.termDeleted': 'Deleted “{term}”',
+  'web.glossary.termDeleteFailed': 'Could not delete the term. It is still here.',
+  'web.glossary.oldTermKept': 'The new “{term}” is saved, but the old version is still listed.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

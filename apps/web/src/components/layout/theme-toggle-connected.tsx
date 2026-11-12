@@ -25,7 +25,21 @@ import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
  */
 const subscribeNever = () => () => {};
 
-export function ConnectedThemeToggle({ className }: { className?: string }) {
+/** What a caller hears after a pick: the choice, the one it replaced, and a way back. */
+export interface ThemeChange {
+  next: ThemeChoice;
+  previous: ThemeChoice;
+  revert: () => void;
+}
+
+export function ConnectedThemeToggle({
+  className,
+  onChange,
+}: {
+  className?: string;
+  /** Settings › Appearance confirms the pick with a toast that can undo it. */
+  onChange?: (change: ThemeChange) => void;
+}) {
   const stored = useSyncExternalStore<ThemeChoice | undefined>(
     subscribeNever,
     readChoice,
@@ -49,9 +63,14 @@ export function ConnectedThemeToggle({ className }: { className?: string }) {
         group: t('common.theme.label'),
       }}
       onChange={(next) => {
-        setPicked(next);
-        writeChoice(next);
-        applyChoice(next);
+        const previous = choice ?? readChoice();
+        const pick = (to: ThemeChoice) => {
+          setPicked(to);
+          writeChoice(to);
+          applyChoice(to);
+        };
+        pick(next);
+        onChange?.({ next, previous, revert: () => pick(previous) });
       }}
     />
   );

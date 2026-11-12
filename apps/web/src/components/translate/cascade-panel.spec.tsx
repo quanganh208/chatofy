@@ -6,6 +6,7 @@ import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConversationSave } from '@/hooks/use-conversation-save';
 import { CascadePanel } from './cascade-panel';
 import { LocaleProvider } from '@/i18n/provider';
+import { ChromeSlotsProvider, useChromeSlots } from '@/components/layout/chrome-slots';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   languageVoicePatch,
@@ -30,6 +31,15 @@ vi.mock('@/hooks/use-streaming-translate', () => ({ useStreamingTranslate }));
 const useConversationSave = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-conversation-save', () => ({ useConversationSave }));
 
+// Outcomes are toasts now; the host is not mounted here, so the calls are the claim.
+const notify = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn<(message: string, options?: { id?: string; retry?: () => void }) => void>(),
+  info: vi.fn(),
+  dismiss: vi.fn(),
+}));
+vi.mock('@/lib/notify', () => ({ notify }));
+
 // The readiness banner probes the service, and an unmocked `checkHealth` is a real
 // `fetch` at the API base URL — a suite that reaches the network, passes or fails on
 // whether a dev server happens to be up, and settles state outside `act`.
@@ -44,6 +54,12 @@ const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The banner's balance read. Never answering keeps it silent — a balance it has
 // not read is not a problem to report — without a promise settling outside `act`.
+// The shared balance's refresh, so a case can see the panel ask for it.
+const refreshCredits = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('@/hooks/use-credits', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/use-credits')>()),
+  useRefreshCreditBalance: () => refreshCredits,
+}));
 vi.mock('@/clients/api-client', () => ({
   getCreditBalance: () => new Promise(() => {}),
   checkHealth: () => checkHealth(),
@@ -187,6 +203,7 @@ beforeEach(() => {
   // Shared across cases, so the hints assertions below would otherwise read the
   // first case's call.
   (conversation.start as ReturnType<typeof vi.fn>).mockClear();
+  for (const fn of Object.values(notify)) fn.mockClear();
 });
 
 afterEach(() => {
@@ -232,10 +249,16 @@ describe('CascadePanel', () => {
       for (let i = 0; i < 5; i += 1) await Promise.resolve();
     });
 
+    // Said once, as the toast about the attempt just made; the pre-flight banner
+    // that would say the same sentence stays down.
     const alerts = [...container.querySelectorAll('[role="alert"]')].filter((el) =>
       el.textContent?.includes(en['web.translate.micDenied']),
     );
-    expect(alerts.length, 'the fault is reported once, by the reactive path').toBe(1);
+    expect(alerts, 'the banner repeated the fault').toHaveLength(0);
+    const toasts = notify.error.mock.calls.filter(
+      ([message]) => message === en['web.translate.micDenied'],
+    );
+    expect(toasts.length, 'the fault is reported once, by the reactive path').toBe(1);
   });
 
   it('says credits are low as a readout while the conversation keeps going', async () => {
@@ -344,11 +367,11 @@ describe('CascadePanel', () => {
 });
 
 /**
- * The recording's own failure alert — separate from the transcript's, and
- * gated on `uploading` as well as `failure` so pressing Retry has something to
- * show for itself instead of unmounting the whole alert until it fails again.
+ * The recording's own failure toast — separate from the transcript's — and the
+ * upload in flight said on the page, so pressing Retry has something to show for
+ * itself instead of nothing until it fails again.
  */
-describe('the recording upload alert', () => {
+describe('the recording upload toast', () => {
   const recordingConversation: UseStreamingTranslate = {
     ...conversation,
     recording: {
@@ -384,7 +407,7 @@ describe('the recording upload alert', () => {
     });
   }
 
-  it('stays on screen through a retry instead of vanishing until the next failure', async () => {
+  it('says the failure as a toast with Retry, and the retry in flight on the page', async () => {
     uploadConversationAudio.mockRejectedValueOnce(new Error('down'));
     await renderWithRecording({ saved: true, failure: null });
     // The automatic upload the effect fires on mount: the fetch starts, the
@@ -394,11 +417,12 @@ describe('the recording upload alert', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain(en['web.translate.recordingFailedRetryable']);
-    const retry = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes(en['web.translate.saveRetry']),
+    const failed = notify.error.mock.calls.find(
+      ([message]) => message === en['web.translate.recordingFailedRetryable'],
     );
-    expect(retry, 'no Retry control for a retryable recording failure').toBeDefined();
+    expect(failed, 'the failure was not said').toBeDefined();
+    const retry = failed?.[1]?.retry;
+    expect(retry, 'no Retry for a retryable recording failure').toBeTypeOf('function');
 
     // A resend that does not resolve on its own tick, so the transient
     // "uploading" frame is actually observable rather than settling in the same
@@ -411,31 +435,29 @@ describe('the recording upload alert', () => {
         }),
     );
     await act(async () => {
-      retry?.click();
+      retry?.();
       // `retry` clears `failure` synchronously before the resend settles — this
       // is the frame that used to render nothing at all.
       await Promise.resolve();
     });
+    // The upload in flight is a state, said on the page; the failure toast is down.
     expect(container.textContent).toContain(en['web.translate.recordingUploading']);
-    expect(container.textContent).not.toContain(en['web.translate.recordingFailedRetryable']);
+    expect(notify.dismiss).toHaveBeenCalledWith('translate-recording');
 
     await act(async () => {
       resolveResend();
       await Promise.resolve();
     });
-    expect(container.textContent).not.toContain(en['web.translate.recordingFailedRetryable']);
     expect(container.textContent).not.toContain(en['web.translate.recordingUploading']);
+    expect(
+      notify.error.mock.calls.filter(
+        ([message]) => message === en['web.translate.recordingFailedRetryable'],
+      ),
+      'a second failure toast after the retry succeeded',
+    ).toHaveLength(1);
   });
 });
 
-/**
- * The dock while a conversation is open.
- *
- * The thing worth guarding is not which words are on the buttons: it is that a
- * pause reads as a running conversation everywhere else on the screen. The save
- * fires on the falling edge of "running", so a paused state that looked idle
- * would file the conversation as finished halfway through it.
- */
 describe('the dock, pausing and resuming', () => {
   async function renderAt(
     status: UseStreamingTranslate['status'],
@@ -1056,5 +1078,151 @@ describe('CascadePanel asks for two-way only on the two-way page', () => {
       languagePair: { source: 'en', target: 'vi' },
       mode: 'two-way',
     });
+  });
+});
+
+/**
+ * The screen's other outcomes as toasts, and the tab bar stepping aside while a
+ * conversation is open.
+ */
+describe('outcomes and the frame', () => {
+  async function renderPanel(
+    streaming: Partial<UseStreamingTranslate>,
+    save: Pick<UseConversationSave, 'saved' | 'failure'> & { retry?: () => void },
+    wrap: (node: React.ReactNode) => React.ReactNode = (node) => node,
+  ): Promise<void> {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue({ ...conversation, ...streaming });
+    useConversationSave.mockReturnValue({ retry: vi.fn(), ...save, saving: false });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          {wrap(
+            <CascadePanel
+              conversationMode="one-way"
+              settings={DEFAULT_TRANSLATE_SETTINGS}
+              onChange={vi.fn()}
+              getVolume={() => 1}
+            />,
+          )}
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+  }
+
+  it('says a retryable failed save as a toast whose Retry resends it', async () => {
+    const retry = vi.fn();
+    await renderPanel({}, { saved: false, failure: 'retryable', retry });
+    const call = notify.error.mock.calls.find(
+      ([message]) => message === en['web.translate.saveFailedRetryable'],
+    );
+    expect(call?.[1]).toMatchObject({ id: 'translate-save' });
+    call?.[1]?.retry?.();
+    expect(retry).toHaveBeenCalledTimes(1);
+    // No inline alert says it a second time.
+    expect(container.querySelector('[data-slot="alert"]')).toBeNull();
+  });
+
+  it('offers no Retry for a save that can never succeed', async () => {
+    await renderPanel({}, { saved: false, failure: 'terminal' });
+    const call = notify.error.mock.calls.find(
+      ([message]) => message === en['web.translate.saveFailedTerminal'],
+    );
+    expect(call).toBeDefined();
+    expect(call?.[1]?.retry).toBeUndefined();
+  });
+
+  it('says a failed start as a toast, once, however often the screen renders', async () => {
+    await renderPanel(
+      { turns: [], error: 'The translation service is unavailable.' },
+      {
+        saved: false,
+        failure: null,
+      },
+    );
+    await renderPanel(
+      { turns: [], error: 'The translation service is unavailable.' },
+      {
+        saved: false,
+        failure: null,
+      },
+    );
+    expect(
+      notify.error.mock.calls.filter(
+        ([message]) => message === 'The translation service is unavailable.',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('hides the phone tab bar while a conversation is open, and gives it back after', async () => {
+    let immersive: boolean | undefined;
+    function Probe() {
+      immersive = useChromeSlots()?.immersive;
+      return null;
+    }
+    const wrap = (node: React.ReactNode) => (
+      <ChromeSlotsProvider>
+        {node}
+        <Probe />
+      </ChromeSlotsProvider>
+    );
+    await renderPanel({ status: 'listening' }, { saved: false, failure: null }, wrap);
+    expect(immersive).toBe(true);
+    await renderPanel({ status: 'idle' }, { saved: false, failure: null }, wrap);
+    expect(immersive).toBe(false);
+  });
+});
+
+describe('CascadePanel and the shared credit balance', () => {
+  async function renderStatus(status: UseStreamingTranslate['status']) {
+    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            conversationMode="one-way"
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+  }
+
+  beforeEach(() => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useConversationSave.mockReturnValue({
+      saved: null,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    refreshCredits.mockClear();
+  });
+
+  it('reads the balance again when a conversation ends, because it spent credits', async () => {
+    await renderStatus('listening');
+    expect(refreshCredits).not.toHaveBeenCalled();
+    await renderStatus('idle');
+    expect(refreshCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read it on a screen that never ran a conversation', async () => {
+    await renderStatus('idle');
+    await renderStatus('idle');
+    expect(refreshCredits).not.toHaveBeenCalled();
   });
 });

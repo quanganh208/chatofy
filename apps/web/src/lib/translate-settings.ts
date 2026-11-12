@@ -177,7 +177,7 @@ const voiceTokenSchema = z.string().max(VOICE_TOKEN_MAX).optional().catch(undefi
  * hear English and not Vietnamese, and a rate the English engine honours the
  * Vietnamese one ignores. Keyed by language rather than by page, so the English
  * voice set on `/translate/two-way` is the one `/translate/one-way` into English
- * speaks with, and `/preferences` edits the same thing.
+ * speaks with, and `/settings/defaults` edits the same thing.
  */
 export interface LanguageVoiceSetup {
   /** Whether translations into this language are spoken at all. */

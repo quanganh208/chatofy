@@ -2,8 +2,8 @@
  * The "Credits & plan" block of settings: what is left and where it comes from,
  * the plan, and the newest usage rows. Text on the ground, no card and no
  * accent — the screen's one accent stays the native switch. Buying is never done
- * here: an account let in to checkout gets an outline link to the web's account
- * page, everyone else the sentence saying why buying is closed.
+ * here: an account let in to checkout gets an outline link to the web's Settings ›
+ * Billing page, everyone else the sentence saying why buying is closed.
  */
 
 import { useCallback } from 'react';
@@ -40,9 +40,9 @@ function credits(amount: number): string {
   return t(message.key, message.vars);
 }
 
-function openAccountOnWeb(): void {
-  Linking.openURL(`${WEB_BASE_URL}/account`).catch((err: unknown) =>
-    console.warn('[settings] could not open the web account page', err),
+function openBillingOnWeb(): void {
+  Linking.openURL(`${WEB_BASE_URL}/settings/billing`).catch((err: unknown) =>
+    console.warn('[settings] could not open the web billing page', err),
   );
 }
 
@@ -131,7 +131,7 @@ function BalanceLines({ balance }: { balance: CreditBalance }) {
         <GhostButton
           variant="outline"
           label={t('mobile.settings.buyOnWeb')}
-          onPress={openAccountOnWeb}
+          onPress={openBillingOnWeb}
         />
       ) : (
         <Text style={[styles.hint, { color: colors.textSecondary }]}>

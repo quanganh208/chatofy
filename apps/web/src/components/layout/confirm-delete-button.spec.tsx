@@ -7,9 +7,12 @@ import { ConfirmDeleteButton } from './confirm-delete-button';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
- * The two-step, and what a failed delete says. The caller navigates away when
- * the delete works, so a button that just re-enables itself in silence is
- * indistinguishable from one that succeeded.
+ * The confirmation, and what a failed delete says. The caller navigates away when the
+ * delete works, so a button that just re-enables itself in silence is indistinguishable
+ * from one that succeeded.
+ *
+ * The dialog portals to `document.body`, so everything after the first press is looked
+ * up inside `[role="alertdialog"]` — the trigger behind it reads the same word.
  */
 
 let container: HTMLDivElement;
@@ -50,142 +53,175 @@ function render(
   });
 }
 
-function buttonNamed(label: string): HTMLButtonElement | undefined {
-  return [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(label));
+const dialog = () => document.querySelector<HTMLElement>('[role="alertdialog"]');
+
+function dialogButton(label: string): HTMLButtonElement | undefined {
+  return [...(dialog()?.querySelectorAll('button') ?? [])].find((b) =>
+    b.textContent?.includes(label),
+  );
 }
 
-function click(label: string): void {
-  const button = buttonNamed(label);
-  if (!button) throw new Error(`no button reading "${label}"`);
-  act(() => button.click());
+function openDialog(): void {
+  const trigger = container.querySelector('button');
+  if (!trigger) throw new Error('no trigger');
+  act(() => trigger.click());
+}
+
+async function pressDelete(): Promise<void> {
+  await act(async () => {
+    dialogButton('Delete')?.click();
+    await Promise.resolve();
+  });
 }
 
 describe('ConfirmDeleteButton', () => {
-  it('deletes nothing on the first press', () => {
+  it('deletes nothing on the first press, and asks in a dialog', () => {
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(onConfirm);
 
-    click('Delete');
+    openDialog();
 
     expect(onConfirm).not.toHaveBeenCalled();
-    // The step it opens instead: a second press, and a way out of it. The
-    // consequence sentence is the delete zone's, not this component's — see
-    // `conversation-detail.spec.tsx`, which holds it on screen from the start.
-    expect(container.textContent).toContain('Cancel');
+    expect(dialog()).not.toBeNull();
+    expect(dialogButton('Cancel')).toBeDefined();
   });
 
-  it('puts focus on the way out of the step it opens, not on the irreversible press', () => {
-    // The first press unmounts the button it was made on, so focus fell to
-    // `<body>` — the top of the document, above the whole sidebar, and before
-    // the confirmation the reader is now looking at.
-    //
-    // Cancel rather than Delete: the press that opens this step is as often a
-    // keyboard Enter as a click, and a key held a beat too long repeats. Focus
-    // on the destructive button would let one keystroke take both steps.
+  it('puts focus on the way out, not on the irreversible press', () => {
+    // A held Enter repeats; focus on Delete would let one keystroke take both steps.
     render(vi.fn().mockResolvedValue(undefined));
-
-    click('Delete');
-
-    expect(document.activeElement).toBe(buttonNamed('Cancel'));
+    openDialog();
+    expect(document.activeElement).toBe(dialogButton('Cancel'));
   });
 
-  it('puts focus back on the delete button when the confirmation is dismissed', () => {
-    // The same drop in the other direction: Cancel unmounts itself.
-    const onConfirm = vi.fn().mockResolvedValue(undefined);
-    render(onConfirm);
+  it('names what goes and what it costs', () => {
+    render(vi.fn().mockResolvedValue(undefined), { name: 'Client call' });
+    openDialog();
 
-    click('Delete');
-    click('Cancel');
+    expect(dialog()?.textContent).toContain('Delete “Client call”?');
+    // With no caller sentence the dialog still says the cost, never a title alone.
+    expect(dialog()?.textContent).toContain(en['web.chrome.confirmIrreversible']);
+    expect(dialogButton('Delete')?.getAttribute('aria-label')).toBe('Delete Client call');
+  });
+
+  it("reads the caller's consequence sentence with the dialog", () => {
+    const sentence = document.createElement('p');
+    sentence.id = 'cost';
+    sentence.textContent = 'The recording goes too.';
+    document.body.append(sentence);
+    render(vi.fn().mockResolvedValue(undefined), {
+      describedBy: 'cost',
+      description: 'Recording and minutes are deleted.',
+    });
+    openDialog();
+
+    expect(dialog()?.getAttribute('aria-describedby')?.split(' ')).toContain('cost');
+    expect(dialog()?.textContent).toContain('Recording and minutes are deleted.');
+    sentence.remove();
+  });
+
+  it('puts focus back on the trigger when the reader cancels', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onCancel = vi.fn();
+    render(onConfirm, { onCancel });
+
+    openDialog();
+    act(() => dialogButton('Cancel')?.click());
+    // Radix hands focus back a task after the dialog unmounts.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(buttonNamed('Delete'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector('button'));
   });
 
-  it('puts focus back on the retry when the delete fails', async () => {
-    // The drop nobody sees coming: the press disables BOTH buttons while the
-    // request is out, and a browser blurs an element that becomes disabled. So
-    // focus was on `<body>` for the length of the delete and stayed there when it
-    // failed — the alert speaks, and the reader is at the top of the document,
-    // pages away from the button it is asking them to press again.
+  it('keeps the dialog open on failure, says so out loud, and focuses the retry', async () => {
     const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
     render(onConfirm);
 
-    click('Delete');
-    await act(async () => {
-      click('Delete');
-      await Promise.resolve();
-    });
-
-    expect(document.activeElement).toBe(buttonNamed('Delete'));
-  });
-
-  it('says so when the delete fails, and lets it be pressed again', async () => {
-    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
-    render(onConfirm);
-
-    click('Delete');
-    await act(async () => {
-      click('Delete');
-      await Promise.resolve();
-    });
+    openDialog();
+    // Opening announces nothing: nothing has gone wrong yet.
+    expect(dialog()?.querySelector('[role="alert"]')).toBeNull();
+    await pressDelete();
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('Could not delete this conversation');
-    const confirm = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Delete'),
+    // Inserted as its own node, which is what makes it spoken.
+    expect(dialog()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not delete this conversation',
     );
-    expect(confirm?.disabled).toBe(false);
+    const retry = dialogButton('Delete');
+    expect(retry?.disabled).toBe(false);
+    expect(document.activeElement).toBe(retry);
   });
 
-  it('speaks the failure rather than only showing it', async () => {
-    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
-    render(onConfirm);
-
-    click('Delete');
-    // Opening the confirmation announces nothing: nothing has gone wrong yet.
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-
-    await act(async () => {
-      click('Delete');
-      await Promise.resolve();
-    });
-
-    // Inserted as its own node, which is what makes it spoken — swapping the
-    // sentence into the paragraph already on screen announces nothing.
-    const alert = container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('Could not delete this conversation');
-  });
-
-  it('stays quiet when the delete works, because the caller navigates away', async () => {
+  it('closes quietly when the delete works', async () => {
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(onConfirm);
 
-    click('Delete');
-    await act(async () => {
-      click('Delete');
-      await Promise.resolve();
-    });
+    openDialog();
+    await pressDelete();
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(container.textContent).not.toContain('Could not delete this conversation');
+    expect(dialog()).toBeNull();
+    expect(document.body.textContent).not.toContain('Could not delete this conversation');
   });
 
-  it('can open on the second step, for a caller whose first step is a menu item', () => {
+  it('cannot be dismissed while the request is out', async () => {
+    let finish: () => void = () => {};
+    const onConfirm = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    render(onConfirm);
+
+    openDialog();
+    await pressDelete();
+    act(() => {
+      dialog()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(dialog()).not.toBeNull();
+    expect(dialogButton('Deleting')?.disabled).toBe(true);
+    await act(() => {
+      finish();
+      return Promise.resolve();
+    });
+  });
+});
+
+describe('ConfirmDeleteButton, second step only', () => {
+  it('draws Delete and Cancel in place with focus on Cancel, for a caller that drew the strip', () => {
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(onConfirm, { startConfirming: true, onCancel: vi.fn() });
 
-    // Arriving deletes nothing, and focus waits on Cancel — not on the press that acts.
+    // No modal on top of the caller's own alertdialog strip.
+    expect(dialog()).toBeNull();
     expect(onConfirm).not.toHaveBeenCalled();
     expect(document.activeElement?.textContent).toBe('Cancel');
   });
 
-  it('hands a cancel back to the caller instead of drawing a trigger it never had', () => {
+  it('hands a cancel back to the caller', () => {
     const onCancel = vi.fn();
     render(vi.fn().mockResolvedValue(undefined), { startConfirming: true, onCancel });
 
-    click('Cancel');
+    const cancel = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Cancel',
+    );
+    act(() => cancel?.click());
     expect(onCancel).toHaveBeenCalledTimes(1);
-    // Still on the second step: the caller is what removes this component.
-    expect(buttonNamed('Cancel')).toBeDefined();
+  });
+
+  it('says a failure out loud and returns focus to the retry', async () => {
+    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
+    render(onConfirm, { startConfirming: true, onCancel: vi.fn() });
+
+    const remove = () =>
+      [...container.querySelectorAll('button')].find((b) => b.textContent === 'Delete');
+    await act(async () => {
+      remove()?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not delete this conversation',
+    );
+    expect(document.activeElement).toBe(remove());
   });
 });

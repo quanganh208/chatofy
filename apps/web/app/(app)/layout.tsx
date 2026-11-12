@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/../auth';
 import { AppChrome } from '@/components/layout/app-chrome';
+import { AppToaster } from '@/components/layout/app-toaster';
 import { SkipLink } from '@/components/layout/skip-link';
 import { SessionGuard } from '@/components/session-guard';
 import { isLiveSession } from '@/lib/session-guard';
@@ -42,6 +43,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           matcher gates. */}
       <SessionGuard />
       <AppChrome defaultOpen={sidebarOpen}>{children}</AppChrome>
+      {/* The one toast host for this surface, after the chrome so it stacks above it.
+          Screens speak through `lib/notify.ts`, never by mounting a second host. */}
+      <AppToaster />
     </>
   );
 }

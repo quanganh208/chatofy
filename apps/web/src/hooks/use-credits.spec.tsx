@@ -3,14 +3,17 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { balanceFixture, USAGE_PAGE } from '@/components/account/credits.fixture';
+import { balanceFixture, USAGE_PAGE } from '@/components/settings/credits.fixture';
 import {
+  AUTO_REFRESH_WINDOW_MS,
+  CreditBalanceProvider,
   EXPIRED_ORDER_POLL_MS,
   EXPIRED_ORDER_POLLS,
   ORDER_POLL_MS,
   useCheckoutOrder,
   useCreditBalance,
   useCreditUsage,
+  useRefreshCreditBalance,
   type UseCreditBalance,
   type UseCreditUsage,
 } from './use-credits';
@@ -31,6 +34,9 @@ vi.mock('@/clients/api-client', () => ({
   listCreditUsage: (cursor?: string) => listCreditUsage(cursor),
   getCheckoutOrder: (id: string) => getCheckoutOrder(id),
 }));
+
+const pathname = vi.hoisted(() => vi.fn(() => '/translate/one-way'));
+vi.mock('next/navigation', () => ({ usePathname: () => pathname() }));
 
 let root: Root;
 let container: HTMLElement;
@@ -90,10 +96,10 @@ describe('useCreditBalance', () => {
     expect(balance.state).toBe('failed');
     expect(balance.balance).toBeNull();
 
-    await act(() => balance.refetch());
+    await act(() => balance.refresh());
     expect(balance.state).toBe('ready');
     getCreditBalance.mockRejectedValueOnce(new Error('503'));
-    await act(() => balance.refetch());
+    await act(() => balance.refresh());
     expect(balance.state).toBe('failed');
     expect(balance.balance?.totalCredits).toBe(87.5);
   });
@@ -103,10 +109,145 @@ describe('useCreditBalance', () => {
     getCreditBalance.mockReturnValueOnce(new Promise((resolve) => (slow = resolve)));
     await mount();
     getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 337.5 }));
-    await act(() => balance.refetch());
+    await act(() => balance.refresh());
     slow(balanceFixture({ totalCredits: 1 }));
     await flush();
     expect(balance.balance?.totalCredits).toBe(337.5);
+  });
+});
+
+describe('CreditBalanceProvider', () => {
+  const readers: Record<string, UseCreditBalance> = {};
+  let refreshOnly: () => Promise<void> = () => Promise.resolve();
+
+  function Reader({ name }: { name: string }) {
+    const b = useCreditBalance();
+    React.useEffect(() => {
+      readers[name] = b;
+    });
+    return null;
+  }
+
+  function Refresher() {
+    const refresh = useRefreshCreditBalance();
+    React.useEffect(() => {
+      refreshOnly = refresh;
+    });
+    return null;
+  }
+
+  const shell = () => (
+    <CreditBalanceProvider>
+      <Reader name="sidebar" />
+      <Reader name="billing" />
+      <Refresher />
+    </CreditBalanceProvider>
+  );
+
+  async function mountShell() {
+    await act(async () => {
+      root.render(shell());
+      for (let i = 0; i < 4; i += 1) await Promise.resolve();
+    });
+  }
+
+  // The clock the freshness window reads; a row moves it past the window when it
+  // wants an automatic read to happen.
+  let now = 1_000_000;
+  const pastTheWindow = () => {
+    now += AUTO_REFRESH_WINDOW_MS + 1;
+  };
+
+  beforeEach(() => {
+    pathname.mockReturnValue('/translate/one-way');
+    now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+  });
+
+  afterEach(() => {
+    vi.mocked(Date.now).mockRestore();
+  });
+
+  it('reads once for every reader under it', async () => {
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+    expect(readers.sidebar?.balance?.totalCredits).toBe(87.5);
+    expect(readers.billing?.balance?.totalCredits).toBe(87.5);
+  });
+
+  it('updates every reader from one refresh, whoever asks', async () => {
+    await mountShell();
+    getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 337.5 }));
+    await act(() => readers.billing!.refresh());
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+    expect(readers.sidebar?.balance?.totalCredits).toBe(337.5);
+    expect(readers.billing?.balance?.totalCredits).toBe(337.5);
+
+    getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 12 }));
+    await act(() => refreshOnly());
+    expect(getCreditBalance).toHaveBeenCalledTimes(3);
+    expect(readers.sidebar?.balance?.totalCredits).toBe(12);
+  });
+
+  it('reads again on navigation, and not on a re-render of the same route', async () => {
+    await mountShell();
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+
+    getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 50 }));
+    pastTheWindow();
+    pathname.mockReturnValue('/settings/billing');
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+    expect(readers.sidebar?.balance?.totalCredits).toBe(50);
+  });
+
+  it('skips the automatic reads while the last answer is fresh, but never a refresh', async () => {
+    await mountShell();
+    pathname.mockReturnValue('/settings/billing');
+    await mountShell();
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+
+    // A payment landing inside the window still reads.
+    await act(() => readers.billing!.refresh());
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads again when the window comes back, once for focus and visibility together', async () => {
+    await mountShell();
+    pastTheWindow();
+    let answer: (value: unknown) => void = () => {};
+    getCreditBalance.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+    answer(balanceFixture({ totalCredits: 3 }));
+    await flush();
+    expect(readers.billing?.balance?.totalCredits).toBe(3);
+  });
+});
+
+describe('useRefreshCreditBalance', () => {
+  it('does nothing without a provider', async () => {
+    let refresh: () => Promise<void> = () => Promise.reject(new Error('unset'));
+    function Alone() {
+      const r = useRefreshCreditBalance();
+      React.useEffect(() => {
+        refresh = r;
+      });
+      return null;
+    }
+    await act(async () => {
+      root.render(<Alone />);
+      await Promise.resolve();
+    });
+    await act(() => refresh());
+    expect(getCreditBalance).not.toHaveBeenCalled();
   });
 });
 

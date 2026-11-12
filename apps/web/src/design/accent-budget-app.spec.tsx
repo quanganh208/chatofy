@@ -12,7 +12,7 @@ import {
   PLANS,
   SEPAY_ORDER,
   USAGE_PAGE,
-} from '@/components/account/credits.fixture';
+} from '@/components/settings/credits.fixture';
 
 /**
  * One accent-filled control per app screen, mechanically.
@@ -77,20 +77,23 @@ const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // presses play, so nothing should look loaded.
 const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
 // The recording upload. Resolving by default, like every other mock here — the
-// one row that wants the failure alert overrides it for itself.
+// one row that wants the failure toast overrides it for itself.
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The AI Context library, defaulting to an empty one in `beforeEach`.
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The conference lobby's "Create a room". Never pressed by a counting row except
 // the one that wants the failure line, which rejects it for itself.
 const createConference = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
-// The credits reads: `/account`'s region and the `/translate` readiness banner.
+// The credits reads: Settings › Billing and the `/translate` readiness banner.
 // Defaulted in `beforeEach` to a Free account with plenty left and checkout
 // closed, which is what every row sees unless it names another state.
 const getCreditBalance = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listCreditUsage = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listPlans = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const createCheckout = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The glossary library and the open glossary's terms.
+const listGlossaries = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listGlossaryItems = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   getCreditBalance: () => getCreditBalance(),
   listCreditUsage: () => listCreditUsage(),
@@ -114,7 +117,9 @@ vi.mock('@/clients/api-client', () => ({
   listTranslationContexts: () => listTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
-  listGlossaries: vi.fn().mockResolvedValue({ glossaries: [] }),
+  // Empty unless a `/glossary` row seeds some; the translate screens read it too.
+  listGlossaries: () => listGlossaries(),
+  listGlossaryItems: () => listGlossaryItems(),
   createConference: () => createConference(),
 }));
 
@@ -170,9 +175,25 @@ const useConferenceEnd = vi.hoisted(() => vi.fn<() => UseConferenceEnd>());
 vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConferenceEnd() }));
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
+const { AppToaster } = await import('@/components/layout/app-toaster');
 const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
-const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
-const { default: AccountPage } = await import('../../app/(app)/account/page');
+const { default: SettingsLayout } = await import('../../app/(app)/settings/layout');
+const { default: AppearancePage } = await import('../../app/(app)/settings/appearance/page');
+const { default: AudioPage } = await import('../../app/(app)/settings/audio/page');
+const { default: DefaultsPage } = await import('../../app/(app)/settings/defaults/page');
+const { default: AiContextPage } = await import('../../app/(app)/settings/ai-context/page');
+const { default: ProfilePage } = await import('../../app/(app)/settings/profile/page');
+const { default: BillingPage } = await import('../../app/(app)/settings/billing/page');
+const { default: SecurityPage } = await import('../../app/(app)/settings/security/page');
+
+/** A settings page inside its layout, so the sub-navigation is counted with it. */
+const settings = (Page: () => React.ReactElement) => () => (
+  <SettingsLayout>
+    <Page />
+  </SettingsLayout>
+);
+const { ChromeSlotsTestHost } = await import('@/components/history/chrome-slots-test-host');
+const { default: GlossaryPage } = await import('../../app/(app)/glossary/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
 const { default: ConferenceLobbyPage } = await import('../../app/(app)/conference/page');
 const { default: ConferenceEndedPage } =
@@ -482,8 +503,65 @@ const VOICES = [
  * (the one in `url.params`, or the newest at `/history`); the pages render nothing.
  */
 function historyRoute() {
-  return <HistoryMasterDetail>{null}</HistoryMasterDetail>;
+  // In a host with the topbar's slots: the open conversation's crumb and its
+  // Rename, Download and `⋯` live there, and outside the chrome they render nothing.
+  return (
+    <ChromeSlotsTestHost>
+      <HistoryMasterDetail>{null}</HistoryMasterDetail>
+    </ChromeSlotsTestHost>
+  );
 }
+
+/** `/glossary` as its route renders it, with the topbar slot its New glossary uses. */
+function glossaryRoute() {
+  return (
+    <ChromeSlotsTestHost>
+      <GlossaryPage />
+    </ChromeSlotsTestHost>
+  );
+}
+
+const GLOSSARY = {
+  id: '6f1c2b1e-3a4d-4e5f-8a9b-0c1d2e3f4a5b',
+  name: 'Thesis defense',
+  description: 'Terms the committee uses',
+  sourceLang: 'vi',
+  isActive: true,
+  itemCount: 2,
+  createdAt: '2026-11-01T08:00:00.000Z',
+  updatedAt: '2026-11-01T08:00:00.000Z',
+};
+
+const GLOSSARY_TERMS = [
+  {
+    id: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    glossaryId: GLOSSARY.id,
+    original: 'hội đồng phản biện',
+    translation: 'thesis defense committee',
+    targetLang: 'en',
+    notes: null,
+    createdAt: '2026-11-01T08:01:00.000Z',
+  },
+  {
+    id: '1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e',
+    glossaryId: GLOSSARY.id,
+    original: 'đồ án',
+    translation: 'capstone project',
+    targetLang: 'en',
+    notes: 'Not "thesis" — the committee is strict about it',
+    createdAt: '2026-11-01T08:02:00.000Z',
+  },
+];
+
+/** One glossary with two terms, opened from its row. */
+function glossaryWithTerms() {
+  listGlossaries.mockResolvedValue({ glossaries: [GLOSSARY] });
+  listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
+}
+
+const GLOSSARY_ROW = '[data-slot="glossary-row"]';
+const NEW_GLOSSARY = '[data-slot="topbar-actions"] button';
+const ADD_TERM = '[data-slot="glossary-detail-header"] button:last-child';
 
 /** `/history/<id>` with the list loaded beside it and the conversation answering. */
 function openConversation(conversation: ReturnType<typeof stored>) {
@@ -494,6 +572,9 @@ function openConversation(conversation: ReturnType<typeof stored>) {
 
 const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
 const MORE_ACTIONS = 'button[aria-label="More actions"]';
+/** The open conversation's Rename and Download, in the topbar. */
+const RENAME = 'button[data-action="rename"]';
+const DOWNLOAD = 'button[data-action="download"]';
 /** A list row's `⋯` — named for its conversation, so never the header's. */
 const ROW_ACTIONS = 'button[aria-label^="More actions for"]';
 const MENU_ITEM = (action: string) => `[role="menuitem"][data-action="${action}"]`;
@@ -918,12 +999,13 @@ const SCREENS: ScreenState[] = [
   {
     // The recording failed to upload — a reachable screen-state no row here
     // exercised before: every other `/translate` row leaves `recording: null`.
-    // The alert carries no elevation token, and its Retry is `outline`, so the
-    // counts are identical to the row above; what changes is that this row
-    // actually presses the code path that draws it.
+    // The failure is a toast now, so the row mounts the app's toast host beside
+    // the panel and counts what it draws: one surface — the toast, over the page —
+    // and no accent, because its Retry is the quiet action button. Start is still
+    // the screen's one.
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
@@ -943,11 +1025,19 @@ const SCREENS: ScreenState[] = [
         retry: vi.fn(),
       });
     },
-    // The alert only mounts once the automatic upload has fired and failed —
+    // The toast only mounts once the automatic upload has fired and failed —
     // proof the row actually reached that state rather than counting the
     // untouched screen above with a mock nobody exercised.
-    shows: '[data-slot="alert"]',
-    render: translate(),
+    shows: '[data-sonner-toast]',
+    render: function TranslateWithToasts() {
+      const Translate = translate();
+      return (
+        <>
+          <Translate />
+          <AppToaster />
+        </>
+      );
+    },
   },
   {
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it
@@ -1016,9 +1106,9 @@ const SCREENS: ScreenState[] = [
       });
       getConversation.mockResolvedValue({ conversation: stored() });
     },
-    // Proof the pane is up: the detail's own title, which only a loaded
-    // conversation draws. No steps to press — the empty list lets both fetches land.
-    shows: 'header h2',
+    // Proof the pane is up: the detail's facts, which only a loaded conversation
+    // draws. No steps to press — the empty list lets both fetches land.
+    shows: '[data-slot="conversation-detail-header"]',
     steps: [],
     render: historyRoute,
   },
@@ -1159,11 +1249,11 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Delete chosen, confirmation showing. The destructive press fills with
-    // `live-fill`, not the accent, and the strip is a region between hairlines.
+    // Delete chosen: the AlertDialog is the one elevated surface. The destructive
+    // press fills with `live-fill`, not the accent.
     name: '/history/[conversationId] — confirming a delete',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       openConversation(stored());
     },
@@ -1172,29 +1262,42 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Rename chosen: the title is a field with Save and Cancel. Save is OUTLINE —
-    // a rename is not the screen's action — and the field is on the page ground.
+    // Rename pressed in the topbar: the dialog is the one surface, and its Save is
+    // OUTLINE — a rename is not the screen's action.
     name: '/history/[conversationId] — renaming the title',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       openConversation(stored());
     },
-    steps: [MORE_ACTIONS, MENU_ITEM('rename')],
-    shows: 'input[aria-label="Conversation title"]',
+    steps: [RENAME],
+    shows: '[role="dialog"] input',
     render: historyRoute,
   },
   {
-    // The Download transcript submenu open beside the menu: two elevated surfaces,
-    // the ceiling, and the reason nothing else on this screen may be one.
-    name: '/history/[conversationId] — the download submenu open',
+    // Why Save is outline: renaming from the Minutes tab keeps Generate mounted
+    // behind the dialog, and a filled Save would make two.
+    name: '/history/[conversationId] — renaming over the Minutes tab',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MINUTES_TAB, RENAME],
+    shows: '[role="dialog"] input',
+    render: historyRoute,
+  },
+  {
+    // The topbar's Download menu open, with the recording item under the formats:
+    // one surface.
+    name: '/history/[conversationId] — the download menu open',
     filled: 0,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
       openConversation(stored({ hasRecording: true, audioOffsetMs: 0, audioDurationMs: 600_000 }));
     },
-    steps: [MORE_ACTIONS, '[data-action="download-transcript"]'],
-    shows: MENU_ITEM('download-srt'),
+    steps: [DOWNLOAD],
+    shows: MENU_ITEM('download-recording'),
     render: historyRoute,
   },
   {
@@ -1213,11 +1316,41 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // Delete chosen on a row: the same strip as the header's, under the row, on the
-    // page ground. The destructive press fills with `live-fill`, not the accent.
+    // A row's Download transcript submenu open beside its menu: two elevated
+    // surfaces, the ceiling, and the reason nothing else here may be one.
+    name: "/history — a row's download submenu open",
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, '[data-action="download-transcript"]'],
+    shows: MENU_ITEM('download-srt'),
+    render: historyRoute,
+  },
+  {
+    // Rename chosen on a row: the same dialog as the topbar's, one surface.
+    name: '/history — renaming from a row',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
+    },
+    steps: [ROW_ACTIONS, MENU_ITEM('rename')],
+    shows: '[role="dialog"] input',
+    render: historyRoute,
+  },
+  {
+    // Delete chosen on a row: the same AlertDialog as the topbar's, one surface.
     name: '/history — confirming a delete from a row',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
       listConversations.mockResolvedValue({
         conversations: STORED_CONVERSATIONS,
@@ -1225,7 +1358,7 @@ const SCREENS: ScreenState[] = [
       });
     },
     steps: [ROW_ACTIONS, MENU_ITEM('delete')],
-    shows: 'li [role="alertdialog"]',
+    shows: '[role="alertdialog"]',
     render: historyRoute,
   },
   {
@@ -1258,26 +1391,133 @@ const SCREENS: ScreenState[] = [
     render: historyRoute,
   },
   {
-    // TWO surfaces since the AI Context library landed: the defaults panel and the
-    // library, each a thing you sit down and work on as a unit. Two is the
-    // ceiling on this screen, which is why the context editor expands inline.
-    name: '/preferences — the catalog is empty',
+    // Nothing yet: the empty list, and New glossary in the topbar — outline, so
+    // the screen spends nothing until a dialog opens.
+    name: '/glossary — nothing yet',
     filled: 0,
-    surfaces: 2,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockResolvedValue({ glossaries: [] });
+    },
+    shows: '[data-slot="glossary-empty"]',
+    render: glossaryRoute,
+  },
+  {
+    // The list failed: a notice and an outline retry, inline.
+    name: '/glossary — the list failed',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockRejectedValue(new Error('offline'));
+    },
+    shows: '[role="alert"]',
+    render: glossaryRoute,
+  },
+  {
+    // Rows on the page ground, none open: no box per row, nothing filled.
+    name: '/glossary — glossaries listed',
+    filled: 0,
+    surfaces: 0,
+    setup: glossaryWithTerms,
+    shows: GLOSSARY_ROW,
+    render: glossaryRoute,
+  },
+  {
+    // A glossary open beside the list with its terms: the switch's fill is a
+    // state, Add term is outline, the term rows sit between hairlines.
+    name: '/glossary — a glossary open, with terms',
+    filled: 0,
+    surfaces: 0,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW],
+    shows: '[data-slot="glossary-term"]',
+    render: glossaryRoute,
+  },
+  {
+    // New glossary pressed: the dialog is the one surface and Create the one
+    // accent — the topbar button under it is outline.
+    name: '/glossary — creating a glossary',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [NEW_GLOSSARY],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Add term pressed: the same arithmetic as creating.
+    name: '/glossary — adding a term',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, ADD_TERM],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Edit on a term: the same dialog, filled with the term.
+    name: '/glossary — editing a term',
+    filled: 1,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, 'button[aria-label^="Edit "]'],
+    shows: '[role="dialog"] form',
+    render: glossaryRoute,
+  },
+  {
+    // Deleting the open glossary: the AlertDialog, one surface, and its press is
+    // `destructive`, not the accent.
+    name: '/glossary — confirming a glossary delete',
+    filled: 0,
+    surfaces: 1,
+    setup: glossaryWithTerms,
+    steps: [GLOSSARY_ROW, '[data-slot="glossary-detail-header"] button[aria-label^="Delete"]'],
+    shows: '[role="alertdialog"]',
+    render: glossaryRoute,
+  },
+  // ---- Settings ----
+  //
+  // ZERO surfaces on every settings page: no card anywhere, the rows sit on the page
+  // ground and the sub-navigation is links on the ground. The only elevation a
+  // settings page draws is an overlay it opened — the photo dialog, the password
+  // dialog, the sign-out confirmation — and each counts as exactly one.
+  //
+  // ZERO accent at rest on every page. The one filled control a settings state may
+  // spend belongs to the thing that state is for: Save in the context editor, the
+  // pick in the photo dialog, the submit in the password dialog, the confirm in the
+  // sign-out dialog. Each was a ceiling of one before and is still one.
+  {
+    name: '/settings/appearance',
+    filled: 0,
+    surfaces: 0,
+    setup() {},
+    render: settings(AppearancePage),
+    shows: '[data-settings-page="appearance"] [role="radiogroup"]',
+  },
+  {
+    name: '/settings/audio',
+    filled: 0,
+    surfaces: 0,
+    setup() {},
+    render: settings(AudioPage),
+    shows: '[role="switch"]',
+  },
+  {
+    name: '/settings/defaults — the catalog is empty',
+    filled: 0,
+    surfaces: 0,
     setup() {
       listVoices.mockResolvedValue({ voices: [] });
     },
-    render: () => <PreferencesPage />,
+    render: settings(DefaultsPage),
   },
   {
-    // The same screen with a backend that actually answers: the picker lists
-    // voices instead of saying there are none.
-    //
-    // Every row starts with no cached catalog (`show` forgets them), so this
-    // row's answer is what the panels list.
-    name: '/preferences — voices listed',
+    // The same page with a backend that actually answers: the picker lists voices
+    // instead of saying there are none. Every row starts with no cached catalog
+    // (`show` forgets them), so this row's answer is what the panels list.
+    name: '/settings/defaults — voices listed',
     filled: 0,
-    surfaces: 2,
+    surfaces: 0,
     setup() {
       saveTranslateSettings({
         ...DEFAULT_TRANSLATE_SETTINGS,
@@ -1285,36 +1525,39 @@ const SCREENS: ScreenState[] = [
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
-    render: () => <PreferencesPage />,
+    render: settings(DefaultsPage),
   },
   {
-    // The editor open, which is the ONE state on this screen that spends an
-    // accent: Save is the thing you came here to do and it exists only while
-    // there is something to save.
-    //
-    // Still TWO surfaces, and that is the assertion that matters. The editor
-    // expands INLINE — a `Dialog` would portal into `document.body`, which
-    // `surface-count.ts` queries precisely so portalled content is counted, and
-    // the screen would be at three.
-    //
-    // `press`/`shows` rather than `open`: the `open` helper asserts a
-    // `[data-slot="popover-content"]` appeared, and an inline editor portals
-    // nothing.
-    name: '/preferences — editing a context',
-    filled: 1,
-    surfaces: 2,
+    name: '/settings/ai-context',
+    filled: 0,
+    surfaces: 0,
     setup() {
-      listVoices.mockResolvedValue({ voices: [] });
+      listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
+    },
+    render: settings(AiContextPage),
+  },
+  {
+    // The editor open, the ONE state on this page that spends an accent: Save is
+    // the thing you came here to do and it exists only while there is something to
+    // save. It expands inline, so still no surface.
+    //
+    // `press`/`shows` rather than `open`: the `open` helper asserts a popover
+    // appeared, and an inline editor portals nothing. The first button on the page
+    // is the first context's Edit.
+    name: '/settings/ai-context — editing a context',
+    filled: 1,
+    surfaces: 0,
+    setup() {
       listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
     },
     press: 'button[data-slot="button"]',
     shows: '[data-slot="textarea"]',
-    render: () => <PreferencesPage />,
+    render: settings(AiContextPage),
   },
   {
-    name: '/account',
+    name: '/settings/profile',
     filled: 0,
-    surfaces: 2,
+    surfaces: 0,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -1323,67 +1566,83 @@ const SCREENS: ScreenState[] = [
         createdAt: '2026-01-09T00:00:00.000Z',
       });
     },
-    render: () => <AccountPage />,
+    render: settings(ProfilePage),
   },
   {
-    // The password form open inside the security panel. Its submit is the state's
-    // one filled control; the outline button that opened it is gone while it is
-    // open, and the form adds no surface because it sits in the existing panel.
-    name: '/account — changing password',
+    // The profile request failed: the join date says so and nothing is promoted.
+    name: '/settings/profile — the profile request failed',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      getMe.mockRejectedValue(new Error('unauthorized'));
+    },
+    render: settings(ProfilePage),
+  },
+  {
+    // The Change photo dialog: its surface is the dialog, and "Choose an image" is
+    // its one filled control; Remove is ghost.
+    name: '/settings/profile — change photo dialog open',
     filled: 1,
-    surfaces: 2,
-    setup() {
-      getMe.mockResolvedValue({
-        id: 'u1',
-        email: 'a@b.co',
-        name: 'Quang Anh',
-        createdAt: '2026-01-09T00:00:00.000Z',
-      });
-    },
-    press: '#change-password-open',
-    shows: '#change-password-submit',
-    render: () => <AccountPage />,
-  },
-  {
-    // The credits region with checkout closed: the balance, the usage list and
-    // four disabled buy actions, all on the page ground. Every action is
-    // outline, so the screen still spends nothing, and the two surfaces are still
-    // the security and session panels.
-    name: '/account — credits, checkout closed',
-    filled: 0,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
       getMe.mockRejectedValue(new Error('not read in this row'));
     },
-    render: () => <AccountPage />,
+    press: '#photo-change-open',
+    shows: '[role="dialog"] #photo-choose',
+    render: settings(ProfilePage),
+  },
+  {
+    // Checkout closed: the balance, the usage list and the disabled buy actions,
+    // all on the page ground and all outline.
+    name: '/settings/billing — checkout closed',
+    filled: 0,
+    surfaces: 0,
+    setup() {},
+    render: settings(BillingPage),
     shows: '[data-credit-buy-actions] button[disabled]',
   },
   {
     // An allowlisted account opened a VietQR checkout. The QR panel is a region
-    // with a hairline, not a card, and its controls are ghost: still 0 and 2.
-    name: '/account — SePay QR open',
+    // with a hairline, not a card, and its controls are ghost.
+    name: '/settings/billing — SePay QR open',
     filled: 0,
-    surfaces: 2,
+    surfaces: 0,
     setup() {
-      getMe.mockRejectedValue(new Error('not read in this row'));
       getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
       createCheckout.mockResolvedValue(SEPAY_ORDER);
     },
-    render: () => <AccountPage />,
+    render: settings(BillingPage),
     press: '[data-credit-buy-actions] button:last-child',
     shows: '[data-sepay-qr-panel]',
   },
   {
-    // The profile request failed, which on this screen means the join date holds
-    // a place and nothing else changes. The panel is still the screen's one
-    // surface and sign-out is still ghost — a failure does not promote anything.
-    name: '/account — the profile request failed',
+    name: '/settings/security',
     filled: 0,
-    surfaces: 2,
-    setup() {
-      getMe.mockRejectedValue(new Error('unauthorized'));
-    },
-    render: () => <AccountPage />,
+    surfaces: 0,
+    setup() {},
+    render: settings(SecurityPage),
+    shows: '#change-password-open',
+  },
+  {
+    // The password dialog: its submit is the state's one filled control.
+    name: '/settings/security — change password dialog open',
+    filled: 1,
+    surfaces: 1,
+    setup() {},
+    press: '#change-password-open',
+    shows: '[role="dialog"] #change-password-submit',
+    render: settings(SecurityPage),
+  },
+  {
+    // Sign out asks first. The confirm is the state's one filled control; Cancel
+    // is outline.
+    name: '/settings/security — confirming sign-out',
+    filled: 1,
+    surfaces: 1,
+    setup() {},
+    press: '#sign-out-account',
+    shows: '[role="alertdialog"] #sign-out-confirm',
+    render: settings(SecurityPage),
   },
   {
     // Open, because closed it renders nothing. Six settings sit behind this gear
@@ -1486,14 +1745,17 @@ const SCREENS: ScreenState[] = [
 
   // ---- /conference landing ----
   //
-  // "New meeting" is the one accent; Join is outline beside the code field.
+  // "New meeting" is the one accent; "Join with a code" is outline. Its dialog
+  // holds the code field, and while it is open the dialog's Join is the accent and
+  // New meeting steps down to outline behind the scrim; the dialog is the one
+  // elevated surface.
   {
     name: '/conference — lobby',
     filled: 1,
     surfaces: 0,
     setup() {},
     render: () => <ConferenceLobbyPage />,
-    shows: '#conf-room',
+    shows: '[data-join-by-code]',
   },
   {
     name: '/conference — lobby, opened from a shared room link',
@@ -1503,7 +1765,16 @@ const SCREENS: ScreenState[] = [
       url.query = 'room=cl9ebqhxk00003b600tymydho&lang=en';
     },
     render: () => <ConferenceLobbyPage />,
-    shows: '#conf-room',
+    shows: '[data-join-by-code]',
+  },
+  {
+    name: '/conference — join with a code dialog open',
+    filled: 1,
+    surfaces: 1,
+    setup() {},
+    render: () => <ConferenceLobbyPage />,
+    steps: ['[data-join-by-code]'],
+    shows: '[role="dialog"] #conf-room',
   },
 
   // ---- /conference/[roomId] pre-join screen ----
@@ -1673,10 +1944,9 @@ const SCREENS: ScreenState[] = [
   },
 
   // ---- /conference/[roomId]/ended end screen ----
-  // Back to lobby is the one accent in every state. Loaded, the screen spends
-  // one surface, the summary card; the minutes panel sits on the page ground,
-  // and its Generate is outline here because the screen's action is leaving,
-  // not summarizing.
+  // Back to lobby is the one accent in every state. No elevated surface: the
+  // summary is hairline rows and the minutes panel sits on the page ground, its
+  // Generate outline because the screen's action is leaving, not summarizing.
   {
     name: '/conference/[roomId]/ended — loading',
     filled: 1,
@@ -1694,7 +1964,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — no minutes yet',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup: ended(),
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel]',
@@ -1702,7 +1972,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     // Generate is disabled only while a pass runs, since this fixture can generate.
     shows: '[data-minutes-panel] button:disabled',
     setup: ended({ generating: true }),
@@ -1712,7 +1982,7 @@ const SCREENS: ScreenState[] = [
     // The body and its copy control appear; copy is ghost, Regenerate outline.
     name: '/conference/[roomId]/ended — minutes ready',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup() {
       // The same content as the history rows, under a room instead of a conversation.
       const { summary, keyPoints, decisions, actionItems, generatedAt, model } = READY_MINUTES;
@@ -1735,7 +2005,7 @@ const SCREENS: ScreenState[] = [
   {
     name: '/conference/[roomId]/ended — the last pass failed',
     filled: 1,
-    surfaces: 1,
+    surfaces: 0,
     setup: ended({ generateFailed: true }),
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel] .text-destructive',
@@ -1795,6 +2065,8 @@ beforeEach(() => {
   listCreditUsage.mockResolvedValue(USAGE_PAGE);
   listPlans.mockResolvedValue({ plans: PLANS });
   createCheckout.mockRejectedValue(new Error('not checked out in this test'));
+  listGlossaries.mockResolvedValue({ glossaries: [] });
+  listGlossaryItems.mockResolvedValue({ items: [] });
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.
@@ -1839,7 +2111,7 @@ async function mount(element: React.ReactElement): Promise<void> {
  */
 async function show(screen: ScreenState): Promise<void> {
   // Each row is its own backend: a catalog an earlier row cached must not
-  // answer for this one — `/preferences` asks for every language at once.
+  // answer for this one — Settings › Defaults asks for every language at once.
   forgetVoiceCatalogs();
   screen.setup();
   await mount(screen.render());
@@ -1908,14 +2180,13 @@ async function show(screen: ScreenState): Promise<void> {
 
 describe('the accent counter', () => {
   it('does not count a checked Switch, whose accent is a state variant', async () => {
-    // `/preferences` renders the speak-aloud Switch and `voiceOutput` defaults to
-    // true, so a CHECKED switch is on screen carrying
+    // Settings › Audio renders three processor switches, all on by default, so a
+    // CHECKED switch is on screen carrying
     // `data-[state=checked]:bg-primary` in its class attribute. The substring
     // selector this helper replaced counts that; `classList.contains` does not.
     // Without this test the helper could quietly regress to a substring match and
     // every screen with a switch would start failing for the wrong reason.
-    listVoices.mockResolvedValue({ voices: [] });
-    await mount(<PreferencesPage />);
+    await mount(<AudioPage />);
 
     const variantAccent = container.querySelectorAll('[class*="bg-primary"]');
     expect(variantAccent.length, 'expected a checked Switch on this screen').toBeGreaterThan(0);

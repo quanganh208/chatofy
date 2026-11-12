@@ -251,7 +251,7 @@ exactly how far that reaches. Production uses today:
   characters per provisional translation, per recognition language;
 - the per-language voice-token schema (`storedVoiceSelectionSchema` in
   `apps/web/src/lib/translate-settings.ts`) and the AI Context editor's glossary
-  row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
+  row (`GlossaryRow` in `apps/web/src/components/settings/ai-context-draft.ts`).
 
 **The rule this whole section exists to state: no branching on a language code
 outside a `LanguageTable`.** A `=== 'vi'`/`'en' ===` comparison is either a

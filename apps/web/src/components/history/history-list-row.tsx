@@ -137,7 +137,6 @@ export function HistoryListRow({
           placement="row"
           conversation={conversation}
           name={name}
-          onRename={() => panes.renameFromList(id)}
           onDelete={() => panes.deleteFromList(id)}
         />
       ) : null}

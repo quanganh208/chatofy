@@ -4,12 +4,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The `⋯` menu, in the header of the open conversation and on every list row.
+ * The open conversation's topbar controls (Rename, Download ▾, `⋯`) and every list
+ * row's `⋯` menu, with the rename and delete dialogs both open.
  *
- * Mounted through the whole History layout, wide, so the list and the open
- * conversation are on screen together: the claims worth testing are the ones that
- * cross the two — a rename in the header shows in the row, a row's rename opens
- * the conversation, a row's delete leaves the pane alone unless it was the one open.
+ * Mounted through the whole History layout, wide, inside a host with the topbar's
+ * two slots, so the list, the open conversation and its topbar are on screen
+ * together: the claims worth testing are the ones that cross them — a rename in the
+ * topbar shows in the row, a row's rename of the open conversation renames its
+ * crumb, a row's delete leaves the pane alone unless it was the one open.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,6 +32,14 @@ vi.mock('@/clients/api-client', () => ({
   fetchConversationAudio: (id: string) => api.fetchConversationAudio(id),
   getMinutes: (id: string) => api.getMinutes(id),
 }));
+
+const notify = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn<(message: string, options?: { retry?: () => void }) => void>(),
+  info: vi.fn(),
+  dismiss: vi.fn(),
+}));
+vi.mock('@/lib/notify', () => ({ notify }));
 
 const minutesState = vi.hoisted(() => ({ error: false }));
 vi.mock('@/hooks/use-minutes', () => ({
@@ -60,8 +70,12 @@ vi.mock('./use-container-wide', () => ({
   useContainerWide: () => true,
 }));
 
+/** Any callback — typed, so the matcher's `any` does not leak into the assertion. */
+const anyFunction = expect.any(Function) as unknown as () => void;
+
 const { HistoryMasterDetail } = await import('./history-master-detail');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { ChromeSlotsTestHost } = await import('./chrome-slots-test-host');
 
 const summary = (id: string, startedAt: string, title: string, hasRecording: boolean) => ({
   conversationId: id,
@@ -154,10 +168,21 @@ async function flush(): Promise<void> {
   for (let i = 0; i < 6; i += 1) await Promise.resolve();
 }
 
+/** Real time for a step Radix finishes from a timeout or an animation end. */
+async function settle(until: () => boolean): Promise<void> {
+  await act(async () => {
+    for (let i = 0; i < 40 && !until(); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  });
+}
+
 function screen() {
   return (
     <LocaleProvider>
-      <HistoryMasterDetail>{null}</HistoryMasterDetail>
+      <ChromeSlotsTestHost>
+        <HistoryMasterDetail>{null}</HistoryMasterDetail>
+      </ChromeSlotsTestHost>
     </LocaleProvider>
   );
 }
@@ -170,24 +195,25 @@ async function mount(): Promise<void> {
   });
 }
 
-async function navigate(conversationId: string): Promise<void> {
-  nav.params = { conversationId };
-  await act(async () => {
-    root?.render(screen());
-    await flush();
-  });
-}
-
-const headerMenu = () =>
-  container.querySelector<HTMLElement>('header button[aria-label="More actions"]');
+const topbar = (selector: string) =>
+  container.querySelector<HTMLElement>(`[data-slot="topbar-actions"] ${selector}`);
+const headerMenu = () => topbar('button[aria-label="More actions"]');
+const headerRename = () => topbar('[data-action="rename"]');
+const headerDownload = () => topbar('[data-action="download"]');
+const crumb = () => container.querySelector('[data-slot="topbar-crumb"]')?.textContent;
 const rowMenu = (title: string) =>
   container.querySelector<HTMLElement>(`button[aria-label="More actions for ${title}"]`);
 const item = (action: string) =>
   document.querySelector<HTMLElement>(`[role="menuitem"][data-action="${action}"]`);
+const menuActions = () =>
+  [...document.querySelectorAll('[role="menu"] [data-action]')].map((el) =>
+    el.getAttribute('data-action'),
+  );
 const rowTitle = (id: string) =>
   container.querySelector(`a[href^="/history/${id}"] p`)?.textContent;
-const titleField = () =>
-  container.querySelector<HTMLInputElement>('input[aria-label="Conversation title"]');
+const renameDialog = () => document.querySelector('[role="dialog"]');
+const titleField = () => renameDialog()?.querySelector<HTMLInputElement>('input') ?? null;
+const confirmDialog = () => document.querySelector('[role="alertdialog"]');
 
 /** Radix opens a menu on `pointerdown`, not on click. */
 async function open(trigger: HTMLElement | null): Promise<void> {
@@ -210,6 +236,12 @@ async function choose(action: string): Promise<void> {
   });
 }
 
+async function startRename(): Promise<void> {
+  act(() => headerRename()?.click());
+  await settle(() => titleField() !== null);
+  expect(titleField(), 'the rename dialog never opened').not.toBeNull();
+}
+
 function type(value: string): void {
   const input = titleField()!;
   act(() => {
@@ -225,14 +257,30 @@ async function submit(): Promise<void> {
   });
 }
 
-describe('the menu', () => {
-  it('offers the actions in order, with Download recording only for a recording', async () => {
+describe('the controls', () => {
+  it('puts Rename, Download and a short menu in the topbar', async () => {
     await mount();
+    expect(headerRename()?.textContent).toBe('Rename');
+    expect(headerDownload()?.textContent).toBe('Download');
     await open(headerMenu());
-    const actions = [...document.querySelectorAll('[data-action]')].map((el) =>
-      el.getAttribute('data-action'),
-    );
-    expect(actions).toEqual([
+    expect(menuActions()).toEqual(['copy', 'delete']);
+  });
+
+  it('downloads every format from the topbar, the recording only when there is one', async () => {
+    await mount();
+    await open(headerDownload());
+    expect(menuActions()).toEqual([
+      'download-txt',
+      'download-md',
+      'download-srt',
+      'download-recording',
+    ]);
+  });
+
+  it('offers a row everything in one menu, in order', async () => {
+    await mount();
+    await open(rowMenu('Đặt bàn nhà hàng'));
+    expect(menuActions()).toEqual([
       'rename',
       'copy',
       'download-transcript',
@@ -268,13 +316,12 @@ describe('the menu', () => {
 });
 
 describe('renaming', () => {
-  it('saves from the header, updates the header and the row, and returns to the title', async () => {
+  it('saves from the topbar, renames the crumb and the row, and says so', async () => {
     api.renameConversation.mockResolvedValue({
       conversation: { ...NEWEST, title: 'Đặt bàn tối thứ Năm' },
     });
     await mount();
-    await open(headerMenu());
-    await choose('rename');
+    await startRename();
 
     expect(titleField()?.value).toBe('Đặt bàn nhà hàng');
     expect(document.activeElement).toBe(titleField());
@@ -282,92 +329,122 @@ describe('renaming', () => {
     await submit();
 
     expect(api.renameConversation).toHaveBeenCalledWith('c-1', { title: 'Đặt bàn tối thứ Năm' });
-    expect(titleField()).toBeNull();
-    expect(container.querySelector('header h2')?.textContent).toBe('Đặt bàn tối thứ Năm');
+    await settle(() => renameDialog() === null && document.activeElement === headerRename());
+    expect(renameDialog()).toBeNull();
+    expect(crumb()).toBe('Đặt bàn tối thứ Năm');
     expect(rowTitle('c-1')).toBe('Đặt bàn tối thứ Năm');
-    expect(document.activeElement).toBe(container.querySelector('header h2'));
+    expect(notify.success).toHaveBeenCalledWith('Conversation renamed', expect.anything());
+    expect(document.activeElement).toBe(headerRename());
   });
 
   it('refuses an empty or over-long title without asking the server', async () => {
     await mount();
-    await open(headerMenu());
-    await choose('rename');
+    await startRename();
 
     type('   ');
     await submit();
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('A title cannot be empty.');
+    expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toBe(
+      'A title cannot be empty.',
+    );
     expect(titleField()?.getAttribute('aria-invalid')).toBe('true');
 
     type('a'.repeat(121));
     await submit();
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toBe(
       'Keep the title to 120 characters.',
     );
     expect(api.renameConversation).not.toHaveBeenCalled();
   });
 
-  it('keeps the field and says so when the save fails', async () => {
+  it('keeps the dialog and the typed title, and says so, when the save fails', async () => {
     api.renameConversation.mockRejectedValue(new Error('offline'));
     await mount();
-    await open(headerMenu());
-    await choose('rename');
+    await startRename();
     type('New name');
     await submit();
 
     expect(titleField()?.value).toBe('New name');
-    expect(titleField()?.disabled).toBe(false);
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not rename');
+    expect(titleField()?.readOnly).toBe(false);
+    expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not rename',
+    );
     expect(rowTitle('c-1')).toBe('Đặt bàn nhà hàng');
+    expect(notify.success).not.toHaveBeenCalled();
   });
 
-  it('cancels on Escape, back onto the unchanged title', async () => {
+  it('cancels on Escape, back onto Rename, with the title unchanged', async () => {
     await mount();
-    await open(headerMenu());
-    await choose('rename');
+    await startRename();
+    type('Abandoned');
     await act(async () => {
       titleField()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await flush();
     });
-    expect(titleField()).toBeNull();
-    expect(document.activeElement).toBe(container.querySelector('header h2'));
+    await settle(() => renameDialog() === null && document.activeElement === headerRename());
+    expect(renameDialog()).toBeNull();
+    expect(crumb()).toBe('Đặt bàn nhà hàng');
+    expect(document.activeElement).toBe(headerRename());
+
+    // Opened again, it starts from the stored title, not from what was abandoned.
+    await startRename();
+    expect(titleField()?.value).toBe('Đặt bàn nhà hàng');
   });
 
-  it('opens the conversation from a row and starts the edit in its header', async () => {
+  it('renames a row in the same dialog, without opening it', async () => {
+    api.renameConversation.mockResolvedValue({ conversation: { ...OLDER, title: 'Hỏi lối đi' } });
     await mount();
     await open(rowMenu('Hỏi đường'));
     await choose('rename');
-    expect(nav.push).toHaveBeenCalledWith('/history/c-2');
+    await settle(() => titleField() !== null);
 
-    await navigate('c-2');
+    expect(nav.push).not.toHaveBeenCalled();
     expect(titleField()?.value).toBe('Hỏi đường');
+    type('Hỏi lối đi');
+    await submit();
+
+    expect(api.renameConversation).toHaveBeenCalledWith('c-2', { title: 'Hỏi lối đi' });
+    expect(rowTitle('c-2')).toBe('Hỏi lối đi');
+    expect(crumb(), 'the open conversation is another one').toBe('Đặt bàn nhà hàng');
+  });
+
+  it('renames the crumb when a row renames the open conversation', async () => {
+    api.renameConversation.mockResolvedValue({ conversation: { ...NEWEST, title: 'Bàn tối' } });
+    await mount();
+    await open(rowMenu('Đặt bàn nhà hàng'));
+    await choose('rename');
+    await settle(() => titleField() !== null);
+    type('Bàn tối');
+    await submit();
+
+    expect(crumb()).toBe('Bàn tối');
+    expect(rowTitle('c-1')).toBe('Bàn tối');
   });
 });
 
 describe('copy and downloads', () => {
-  it('copies the text transcript and confirms it', async () => {
+  it('copies the text transcript and confirms it in a toast', async () => {
     await mount();
     await open(headerMenu());
     await choose('copy');
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0]?.[0]).toContain('[0:00] Speaker A\nxin chào\n→ hello');
-    expect(container.querySelector('header [aria-live="polite"]')?.textContent).toBe(
-      'Transcript copied',
-    );
+    expect(notify.success).toHaveBeenCalledWith('Transcript copied', {
+      id: 'conversation-file-c-1',
+    });
   });
 
-  it('downloads a .txt through an object URL, with a BOM, and revokes the URL', async () => {
+  it('downloads a .txt through an object URL, with a BOM, and names the file in a toast', async () => {
     await mount();
-    await open(headerMenu());
-    await act(async () => {
-      item('download-transcript')?.click();
-      await flush();
-    });
+    await open(headerDownload());
     await choose('download-txt');
 
     expect(saved.map((file) => file.name)).toEqual(['dat-ban-nha-hang-2026-11-12.txt']);
     const bytes = new Uint8Array(await saved[0]!.blob.arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(notify.success).toHaveBeenCalledWith('Downloaded dat-ban-nha-hang-2026-11-12.txt', {
+      id: 'conversation-file-c-1',
+    });
     // Not on the next tick: a slow engine may still be reading the blob. When it IS
     // revoked is `save-file.spec.ts`'s to pin.
     await act(async () => {
@@ -394,35 +471,47 @@ describe('copy and downloads', () => {
       },
     });
     await mount();
-    await open(headerMenu());
-    await act(async () => {
-      item('download-transcript')?.click();
-      await flush();
-    });
+    await open(headerDownload());
     await choose('download-md');
 
     expect(api.getMinutes).toHaveBeenCalledWith('c-1');
     expect(await saved[0]!.blob.text()).toContain('## Minutes\n\n### Summary\nA table was booked.');
   });
 
-  it('writes no .md, and says so, when those minutes fail to load again', async () => {
+  it('writes no .md, and offers a retry, when those minutes fail to load again', async () => {
     minutesState.error = true;
     api.getConversation.mockImplementation((id) =>
       Promise.resolve({ conversation: { ...stored(id), hasMinutes: true } }),
     );
     api.getMinutes.mockRejectedValue(new Error('offline'));
     await mount();
-    await open(headerMenu());
-    await act(async () => {
-      item('download-transcript')?.click();
-      await flush();
-    });
+    await open(headerDownload());
     await choose('download-md');
 
     expect(saved).toEqual([]);
-    expect(container.querySelector('header [aria-live="polite"]')?.textContent).toBe(
-      'Could not download it. Try again.',
-    );
+    expect(notify.error).toHaveBeenCalledWith('Could not download it. Try again.', {
+      id: 'conversation-file-c-1',
+      retry: anyFunction,
+    });
+
+    // The retry is the same download, and this time the minutes answer.
+    api.getMinutes.mockResolvedValue({
+      minutes: {
+        conversationId: 'c-1',
+        status: 'ready',
+        summary: 'Second try.',
+        keyPoints: [],
+        decisions: [],
+        actionItems: [],
+        generatedAt: null,
+        model: null,
+      },
+    });
+    await act(async () => {
+      notify.error.mock.calls[0]?.[1]?.retry?.();
+      await flush();
+    });
+    expect(await saved[0]!.blob.text()).toContain('Second try.');
   });
 
   it('offers Subtitles disabled, with the reason, when a line has no time', async () => {
@@ -430,11 +519,7 @@ describe('copy and downloads', () => {
       Promise.resolve({ conversation: stored(id, null) }),
     );
     await mount();
-    await open(headerMenu());
-    await act(async () => {
-      item('download-transcript')?.click();
-      await flush();
-    });
+    await open(headerDownload());
     const srt = item('download-srt');
     expect(srt?.getAttribute('aria-disabled')).toBe('true');
     expect(srt?.textContent).toContain('Needs a time on every line');
@@ -488,8 +573,7 @@ describe('copy and downloads', () => {
     await open(rowMenu('Hỏi đường'));
     await choose('copy');
 
-    const row = rowMenu('Hỏi đường')?.closest('li');
-    expect(row?.querySelector('[aria-live="polite"]')?.textContent).toBe('Copying…');
+    expect(notify.info).toHaveBeenCalledWith('Copying…', { id: 'conversation-file-c-2' });
     await open(rowMenu('Hỏi đường'));
     expect(item('delete')?.getAttribute('aria-disabled')).toBe('true');
   });
@@ -497,54 +581,22 @@ describe('copy and downloads', () => {
   it('saves the recording under the extension its type names', async () => {
     api.fetchConversationAudio.mockResolvedValue(new Blob(['x'], { type: 'audio/webm' }));
     await mount();
-    await open(headerMenu());
+    await open(headerDownload());
     await choose('download-recording');
     expect(api.fetchConversationAudio).toHaveBeenCalledWith('c-1');
     expect(saved.map((file) => file.name)).toEqual(['dat-ban-nha-hang-2026-11-12.webm']);
   });
 
-  it('says so when the recording cannot be fetched', async () => {
+  it('says so, with a retry, when the recording cannot be fetched', async () => {
     api.fetchConversationAudio.mockRejectedValue(new Error('offline'));
     await mount();
-    await open(headerMenu());
+    await open(headerDownload());
     await choose('download-recording');
     expect(saved).toEqual([]);
-    expect(container.querySelector('header [aria-live="polite"]')?.textContent).toBe(
-      'Could not download it. Try again.',
-    );
-  });
-});
-
-describe('a rename asked for on a row', () => {
-  it('is dropped when the reader opens another conversation first', async () => {
-    await mount();
-    await open(rowMenu('Hỏi đường'));
-    await choose('rename');
-    expect(nav.push).toHaveBeenCalledWith('/history/c-2');
-
-    // The reader went elsewhere before that navigation landed.
-    await navigate('c-3');
-    expect(titleField()).toBeNull();
-    await navigate('c-2');
-    expect(titleField(), 'an editor nobody asked for').toBeNull();
-  });
-
-  it('is dropped when the conversation turns out to be gone', async () => {
-    await mount();
-    api.getConversation.mockImplementation((id) =>
-      id === 'c-2'
-        ? Promise.reject(new Error('404'))
-        : Promise.resolve({ conversation: stored(id) }),
-    );
-    await open(rowMenu('Hỏi đường'));
-    await choose('rename');
-    await navigate('c-2');
-    expect(container.textContent).toContain('no longer here');
-
-    api.getConversation.mockImplementation((id) => Promise.resolve({ conversation: stored(id) }));
-    await navigate('c-1');
-    await navigate('c-2');
-    expect(titleField()).toBeNull();
+    expect(notify.error).toHaveBeenCalledWith('Could not download it. Try again.', {
+      id: 'conversation-file-c-1',
+      retry: anyFunction,
+    });
   });
 });
 
@@ -552,10 +604,12 @@ describe('deleting from a row', () => {
   async function confirmRowDelete(title: string): Promise<void> {
     await open(rowMenu(title));
     await choose('delete');
-    const strip = container.querySelector('li [role="alertdialog"]');
-    expect(strip, 'the strip under the row').not.toBeNull();
-    expect(strip?.getAttribute('aria-label')).toBe(`Delete ${title}`);
-    const press = [...strip!.querySelectorAll<HTMLElement>('button')].find(
+    await settle(() => confirmDialog() !== null);
+    const dialog = confirmDialog();
+    expect(dialog, 'the confirmation').not.toBeNull();
+    expect(dialog?.textContent).toContain(`Delete “${title}”?`);
+    expect(document.activeElement?.textContent).toBe('Cancel');
+    const press = [...dialog!.querySelectorAll<HTMLElement>('button')].find(
       (button) => button.textContent === 'Delete',
     );
     await act(async () => {
@@ -572,26 +626,33 @@ describe('deleting from a row', () => {
     expect(api.deleteConversation).toHaveBeenCalledWith('c-2');
     expect(container.querySelector('a[href^="/history/c-2"]')).toBeNull();
     expect(nav.replace).not.toHaveBeenCalled();
-    expect(container.querySelector('header h2')?.textContent).toBe('Đặt bàn nhà hàng');
+    expect(crumb()).toBe('Đặt bàn nhà hàng');
+    expect(notify.success).toHaveBeenCalledWith('Conversation deleted');
+    await settle(() => document.activeElement?.getAttribute('href') === '/history/c-3');
     expect(document.activeElement?.getAttribute('href')).toBe('/history/c-3');
   });
 
-  it('goes the header delete way when the row is the open conversation', async () => {
+  it('goes the topbar delete way when the row is the open conversation', async () => {
     api.deleteConversation.mockResolvedValue(undefined);
     await mount();
     await confirmRowDelete('Đặt bàn nhà hàng');
 
     expect(nav.replace).toHaveBeenCalledWith('/history');
     expect(container.querySelector('a[href^="/history/c-1"]')).toBeNull();
-    expect(container.querySelector('header h2')?.textContent).toBe('Hỏi đường');
-    expect(document.activeElement?.textContent).toBe('Hỏi đường');
+    await settle(() => crumb() === 'Hỏi đường');
+    expect(crumb()).toBe('Hỏi đường');
+    await settle(() => document.activeElement?.getAttribute('aria-label') === 'Hỏi đường');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Hỏi đường');
   });
 
-  it('keeps the row and says so when the server refuses', async () => {
+  it('keeps the row and says so in the dialog when the server refuses', async () => {
     api.deleteConversation.mockRejectedValue(new Error('offline'));
     await mount();
     await confirmRowDelete('Hỏi đường');
     expect(container.querySelector('a[href^="/history/c-2"]')).not.toBeNull();
-    expect(container.querySelector('li [role="alert"]')?.textContent).toContain('Could not delete');
+    expect(confirmDialog()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not delete',
+    );
+    expect(notify.success).not.toHaveBeenCalled();
   });
 });

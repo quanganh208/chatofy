@@ -3,7 +3,7 @@ import { creditsFromSeconds } from '@chatofy/types';
 import { creditAmount } from '@/lib/pricing-content';
 
 /**
- * Credit amounts and dates as `/account`, `/translate` and the QR panel say
+ * Credit amounts and dates as `/settings/billing`, `/translate` and the QR panel say
  * them. Prices and the credit plural come from `pricing-content.ts`, which
  * `/pricing` reads too, so a number is never formatted two ways.
  *

@@ -61,7 +61,7 @@ existed. Blocking any crawler is an owner decision.
 
 ## Signed-in pages
 
-`/translate/one-way`, `/translate/two-way`, `/conference`, `/history`, `/history/[id]`, `/preferences` and `/account`
+`/translate/one-way`, `/translate/two-way`, `/conference`, `/history`, `/history/[id]`, `/glossary` and `/settings/*`
 are behind sign-in, so the discovery surfaces don't apply. `robots.txt` disallows every
 one of them, and `robots-covers-signed-in-routes.spec.ts` fails when a sidebar
 destination is missing — `/conference` once shipped crawlable. Review them for UX only. First run and

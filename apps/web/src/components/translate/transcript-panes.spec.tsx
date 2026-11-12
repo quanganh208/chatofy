@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CapturesBySession, SessionSpeaker } from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 import { TranscriptPanes } from './transcript-panes';
+import { Fragment } from 'react';
 import { LocaleProvider } from '@/i18n/provider';
+import { ChromeSlotsProvider, useChromeSlots } from '@/components/layout/chrome-slots';
 import { DEFAULT_TRANSLATE_SETTINGS, type TranslateSettings } from '@/lib/translate-settings';
 
 /**
@@ -55,40 +57,54 @@ afterEach(() => {
   container.remove();
 });
 
+/** Stands in for the topbar: the box `TopbarActions` portals into. */
+function TopbarHost() {
+  return <div data-testid="topbar" ref={useChromeSlots()?.setActionsTarget} />;
+}
+
 function render(
   overrides: Partial<TranslateSettings> = {},
-  { conversationMode = 'one-way' }: { conversationMode?: 'one-way' | 'two-way' } = {},
+  {
+    conversationMode = 'one-way',
+    chrome = false,
+    stage = false,
+  }: { conversationMode?: 'one-way' | 'two-way'; chrome?: boolean; stage?: boolean } = {},
 ) {
+  const Frame = chrome ? ChromeSlotsProvider : Fragment;
   act(() => {
     root.render(
       <LocaleProvider>
-        <TranscriptPanes
-          conversationMode={conversationMode}
-          settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
-          running={false}
-          onSwap={vi.fn()}
-          onLanguagePair={vi.fn()}
-          voiceControlFor={(language) => (
-            <button type="button" data-voice-language={language}>
-              voice slot
-            </button>
-          )}
-          stream={{
-            turns: TURNS,
-            liveTurns: [],
-            captures: CAPTURES,
-            displays: {},
-            startedAtMs: null,
-            audioOffsetMs: null,
-            speakers: SPEAKERS,
-            attributions: {},
-            onAttribute: vi.fn(),
-            onUnattribute: vi.fn(),
-            onAddSpeaker: vi.fn(),
-            onRenameSpeaker: vi.fn(),
-            onRemoveSpeaker: vi.fn(),
-          }}
-        />
+        <Frame>
+          {chrome ? <TopbarHost /> : null}
+          <TranscriptPanes
+            stage={stage}
+            conversationMode={conversationMode}
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
+            running={false}
+            onSwap={vi.fn()}
+            onLanguagePair={vi.fn()}
+            voiceControlFor={(language) => (
+              <button type="button" data-voice-language={language}>
+                voice slot
+              </button>
+            )}
+            stream={{
+              turns: TURNS,
+              liveTurns: [],
+              captures: CAPTURES,
+              displays: {},
+              startedAtMs: null,
+              audioOffsetMs: null,
+              speakers: SPEAKERS,
+              attributions: {},
+              onAttribute: vi.fn(),
+              onUnattribute: vi.fn(),
+              onAddSpeaker: vi.fn(),
+              onRenameSpeaker: vi.fn(),
+              onRemoveSpeaker: vi.fn(),
+            }}
+          />
+        </Frame>
       </LocaleProvider>,
     );
   });
@@ -148,8 +164,15 @@ describe('TranscriptPanes arrangements', () => {
     render({ displayMode: 'split', paneLayout: 'row' });
     for (const pane of container.querySelectorAll('[role="region"]')) {
       // The region is the scroll area's viewport, so the pane's box is that area's root.
+      // In a 48rem main column the quiet label sits right above it; narrower, the picker header,
+      // one sibling up — CSS shows one of the two.
       const box = pane.closest('[data-slot="scroll-area"]');
-      expect(box?.previousElementSibling?.querySelector('[data-slot="pane-role"]')).not.toBeNull();
+      const label = box?.previousElementSibling;
+      expect(label?.querySelector('[data-slot="pane-label"]')).not.toBeNull();
+      expect(label?.className).toContain('@max-3xl/main:hidden');
+      const header = label?.previousElementSibling;
+      expect(header?.querySelector('[data-slot="pane-role"]')).not.toBeNull();
+      expect(header?.className).toContain('@3xl/main:hidden');
     }
   });
 
@@ -185,23 +208,38 @@ describe('TranscriptPanes arrangements', () => {
     ).toEqual(['vi', 'en']);
   });
 
-  it('draws a pair as two sheets on two grounds, and one stream as one sheet', () => {
-    // Each side is its own region rather than one box cut down the middle, so there
-    // is no divider; the sides are told apart by their grounds.
+  it('draws a pair as two flat regions split by one hairline, and one stream as one region', () => {
+    // No sheets: both regions sit on the page ground, and the seam between them is
+    // a single hairline on the second — across when stacked, down when side by side.
     render({ displayMode: 'split', paneLayout: 'row' });
-    expect(container.querySelectorAll('[aria-hidden].bg-hairline').length).toBe(0);
-    const sheets = [...container.querySelectorAll<HTMLElement>('[data-shuffle-card]')];
-    expect(sheets.map((sheet) => sheet.dataset.shuffleCard)).toEqual(['vi', 'en']);
-    expect(sheets.map((sheet) => sheet.style.backgroundColor)).toEqual([
-      'var(--reading-bg, var(--card))',
-      'var(--reading-bg, var(--muted))',
+    const regions = [...container.querySelectorAll<HTMLElement>('[data-shuffle-card]')];
+    expect(regions.map((region) => region.dataset.shuffleCard)).toEqual(['vi', 'en']);
+    expect(regions.map((region) => region.style.backgroundColor)).toEqual([
+      'var(--reading-bg, var(--background))',
+      'var(--reading-bg, var(--background))',
     ]);
+    expect(regions[0]!.className).not.toMatch(/\bborder\b|border-t|border-l/);
+    expect(regions[1]!.className).toContain('border-t');
+    expect(regions[1]!.className).toContain('@xl:border-l');
+    expect(container.querySelectorAll('.rounded-xl').length).toBe(0);
 
     act(() => root.unmount());
     root = createRoot(container);
     render({ displayMode: 'list' });
     expect(container.querySelectorAll('[data-shuffle-card]').length).toBe(0);
-    expect(container.querySelectorAll('.reading-frame.rounded-xl').length).toBe(1);
+    expect(container.querySelectorAll('.reading-frame').length).toBe(1);
+    expect(container.querySelectorAll('.rounded-xl').length).toBe(0);
+  });
+
+  it('names each side with a quiet label in a wide main column, and keeps the pickers for a narrow one', () => {
+    render({ displayMode: 'split', paneLayout: 'row' });
+    const labels = [...container.querySelectorAll('[data-slot="pane-label"]')].map(
+      (label) => label.textContent,
+    );
+    expect(labels).toEqual(['Source · Vietnamese', 'Translation · English']);
+    for (const picker of container.querySelectorAll('[data-slot="select-trigger"]')) {
+      expect(picker.closest('[class~="@3xl/main:hidden"]')).not.toBeNull();
+    }
   });
 });
 
@@ -392,4 +430,42 @@ describe('TranscriptPanes and the reader appearance', () => {
       for (const sheet of painted) expect(frame()?.contains(sheet)).toBe(true);
     },
   );
+});
+
+describe('the pair as a page action', () => {
+  const topbar = () => container.querySelector('[data-testid="topbar"]');
+
+  it('puts source, swap, target and voice in the topbar, hidden while the main column is under 48rem', () => {
+    render({ displayMode: 'split', paneLayout: 'row' }, { chrome: true });
+    act(() => {}); // the portal lands on the render after the host's ref
+    const controls = topbar()?.querySelector('[data-slot="translate-topbar-controls"]');
+    expect(controls?.className).toContain('@max-3xl/main:hidden');
+    expect(controls?.querySelectorAll('[data-slot="select-trigger"]')).toHaveLength(2);
+    expect(controls?.querySelector('button[aria-label^="Swap languages"]')).not.toBeNull();
+    expect(
+      [...(controls?.querySelectorAll<HTMLElement>('[data-voice-language]') ?? [])].map(
+        (button) => button.dataset.voiceLanguage,
+      ),
+    ).toEqual(['en']);
+  });
+
+  it('gives each language of a two-way pair its voice, beside its own picker', () => {
+    render({ displayMode: 'list' }, { chrome: true, conversationMode: 'two-way' });
+    act(() => {});
+    const controls = topbar()?.querySelector('[data-slot="translate-topbar-controls"]');
+    const order = [...(controls?.children ?? [])].map(
+      (child) => (child as HTMLElement).dataset.voiceLanguage ?? child.getAttribute('data-slot'),
+    );
+    expect(order[0]).toBe('vi');
+    expect(order.at(-1)).toBe('en');
+  });
+
+  it('adds nothing to the topbar on the fullscreen stage', () => {
+    render({ displayMode: 'split' }, { chrome: true, stage: true });
+    act(() => {});
+    expect(topbar()?.childElementCount).toBe(0);
+    // Labels only: the stage changes nothing.
+    expect(container.querySelectorAll('[data-slot="select-trigger"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-slot="pane-label"]')).toHaveLength(2);
+  });
 });

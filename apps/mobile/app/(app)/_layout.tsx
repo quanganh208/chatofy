@@ -42,7 +42,7 @@ export default function AppLayout() {
     <Tabs>
       <Tabs.Screen
         name="translate"
-        options={{ title: t('mobile.tabs.translate'), tabBarIcon: tabIcon('mic-outline') }}
+        options={{ title: t('common.nav.translate'), tabBarIcon: tabIcon('mic-outline') }}
       />
       <Tabs.Screen
         name="history"
@@ -59,7 +59,7 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="settings"
-        options={{ title: t('mobile.tabs.settings'), tabBarIcon: tabIcon('settings-outline') }}
+        options={{ title: t('common.nav.settings'), tabBarIcon: tabIcon('settings-outline') }}
       />
     </Tabs>
   );

@@ -34,9 +34,6 @@ function render(onRetry = vi.fn()) {
           status="failed"
           selectedId={null}
           onSelect={vi.fn()}
-          onSave={vi.fn()}
-          onToggleActive={vi.fn()}
-          onDelete={vi.fn()}
           onRetry={onRetry}
         />
       </LocaleProvider>,
@@ -55,9 +52,6 @@ describe('GlossaryListPanel empty list', () => {
             status="ready"
             selectedId={null}
             onSelect={vi.fn()}
-            onSave={vi.fn()}
-            onToggleActive={vi.fn()}
-            onDelete={vi.fn()}
             onRetry={vi.fn()}
           />
         </LocaleProvider>,
@@ -66,7 +60,7 @@ describe('GlossaryListPanel empty list', () => {
     const block = container.querySelector('[data-slot="glossary-empty"]');
     expect(block?.querySelector('svg')).not.toBeNull();
     expect(block?.querySelector('p.font-semibold')?.textContent).toBe('No glossaries yet');
-    expect(block?.textContent).toContain('Press New to make one.');
+    expect(block?.textContent).toContain('Press New glossary to make one.');
   });
 });
 

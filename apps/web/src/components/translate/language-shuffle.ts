@@ -1,5 +1,5 @@
 /**
- * The language swap, drawn as the two sheets trading places like cards.
+ * The language swap, drawn as the two regions trading places like cards.
  *
  * A swap changes which language each side holds. Without motion the two headers just
  * change their words in place, and the reader has to read both again to see what
@@ -89,8 +89,10 @@ export function playShuffle(root: HTMLElement | null, before: ShuffleSnapshot | 
     animation.addEventListener('cancel', settle);
   });
 
-  // The round swap turns half a turn with them, swelling slightly at the midpoint.
-  for (const button of root.querySelectorAll<HTMLElement>('[data-shuffle-icon]')) {
+  // The swap turns half a turn with them, swelling slightly at the midpoint. Looked
+  // up in the whole document, not under `root`: from `md` the swap is a page action
+  // in the topbar, outside the regions it moves.
+  for (const button of root.ownerDocument.querySelectorAll<HTMLElement>('[data-shuffle-icon]')) {
     if (typeof button.animate !== 'function') continue;
     button.animate(
       [

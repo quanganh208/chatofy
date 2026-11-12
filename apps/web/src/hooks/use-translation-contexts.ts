@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  createElement,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   deleteTranslationContext,
   listTranslationContexts,
@@ -74,7 +65,7 @@ export function toHints(context: TranslationContext | null): TranslationHints | 
   return Object.keys(hints).length ? hints : undefined;
 }
 
-/** What {@link useTranslationContexts} hands back, shared or owned. */
+/** What {@link useTranslationContexts} hands back. */
 export interface TranslationContextsValue {
   contexts: TranslationContext[];
   status: TranslationContextsState;
@@ -82,16 +73,17 @@ export interface TranslationContextsValue {
   remove: (contextId: string) => Promise<void>;
 }
 
-const SharedTranslationContexts = createContext<TranslationContextsValue | null>(null);
-
 /**
- * The fetch, the state and the writes underneath {@link useTranslationContexts}.
+ * The caller's AI Context library, with the writes that change it.
  *
- * `enabled` gates the fetch rather than the hook call itself: React requires the
- * same hooks in the same order on every render, so a caller that already has a
- * shared value from context still calls this — it just never fires its own GET.
+ * Fetches once per mount. Unlike the voice catalog, this list is a property of the
+ * USER and changes while they are looking at it, so an unscoped module cache would
+ * show a reader the library they had before their own edit. Each screen has one
+ * reader: the editor on `/settings/ai-context`, the picker on `/settings/defaults`
+ * and the translate panel are on separate pages, so nothing on one screen can
+ * disagree with another copy of the list.
  */
-function useOwnTranslationContexts(enabled: boolean): TranslationContextsValue {
+export function useTranslationContexts(): TranslationContextsValue {
   const [contexts, setContexts] = useState<TranslationContext[]>([]);
   const [status, setStatus] = useState<TranslationContextsState>('loading');
 
@@ -109,7 +101,6 @@ function useOwnTranslationContexts(enabled: boolean): TranslationContextsValue {
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
     let cancelled = false;
     listTranslationContexts()
       .then((result) => {
@@ -125,7 +116,7 @@ function useOwnTranslationContexts(enabled: boolean): TranslationContextsValue {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, []);
 
   /**
    * Save one context and refetch.
@@ -151,41 +142,4 @@ function useOwnTranslationContexts(enabled: boolean): TranslationContextsValue {
   );
 
   return { contexts, status, save, remove };
-}
-
-/**
- * One GET and one state for every mount underneath, instead of one each.
- *
- * `/preferences` mounts the editor and the picker that reads the same library
- * right below it. Each calling `useTranslationContexts` on its own used to mean
- * two independent copies of the list: a context created in the editor was
- * invisible to the picker until ITS OWN unrelated refetch happened to run, and
- * one just deleted stayed selectable in it, naming a row that no longer existed.
- * Wrapping both under this provider gives the screen the one state it actually
- * has, so a write in either one is visible to both at once.
- *
- * `/translate` does not wrap `CascadePanel` in this: it is the only reader on
- * that page, so there is nothing on that screen for it to disagree with.
- */
-export function TranslationContextsProvider({ children }: { children: ReactNode }): ReactElement {
-  const value = useOwnTranslationContexts(true);
-  // `createElement`, not JSX: this module is `.ts`, and JSX syntax needs `.tsx`.
-  return createElement(SharedTranslationContexts.Provider, { value }, children);
-}
-
-/**
- * The caller's AI Context library, with the writes that change it.
- *
- * Reads the nearest {@link TranslationContextsProvider} when one wraps this
- * call, so every mount under it shares one fetch and one state — see that
- * provider's docblock for why `/preferences` needs this. With no provider
- * above it, this fetches on its own, once per mount: unlike the voice catalog,
- * this list is a property of the USER and changes while they are looking at
- * it, so an unscoped module cache would show a reader the library they had
- * before their own edit on a screen that never asked to share it.
- */
-export function useTranslationContexts(): TranslationContextsValue {
-  const shared = useContext(SharedTranslationContexts);
-  const own = useOwnTranslationContexts(shared === null);
-  return shared ?? own;
 }

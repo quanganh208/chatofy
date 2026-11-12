@@ -2,6 +2,7 @@ import './load-root-env';
 
 import type { NextConfig } from 'next';
 
+import { LEGACY_SETTINGS_REDIRECTS } from './src/components/settings/legacy-settings-redirects';
 import { DEFAULT_API_BASE_URL } from './src/config/env';
 
 /**
@@ -101,7 +102,7 @@ function contentSecurityPolicy(): string {
       ? `script-src 'self' 'unsafe-inline' ${CLOUDFLARE_INSIGHTS.script}`
       : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${CLOUDFLARE_INSIGHTS.script}`,
     "style-src 'self' 'unsafe-inline'",
-    // vietqr.app renders the SePay payment QR on /account; the API builds that
+    // vietqr.app renders the SePay payment QR on /settings/billing; the API builds that
     // URL, so the origin is fixed rather than configured.
     `img-src 'self' data: blob: ${VIETQR_ORIGIN}${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
     "font-src 'self' data:",
@@ -132,6 +133,9 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@chatofy/types', '@chatofy/config'],
   typedRoutes: true,
+  // Preferences and Account became the seven pages of Settings; see the module for why
+  // these are config redirects and why `/account` goes to Billing.
+  redirects: async () => [...LEGACY_SETTINGS_REDIRECTS],
   headers: async () => [
     {
       source: '/:path*',

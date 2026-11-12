@@ -1,11 +1,8 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronsUpDown, LogOut, User } from 'lucide-react';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,123 +10,91 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Skeleton,
-  SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
+import { IdentityAvatar, useSessionIdentity } from './session-identity';
 
 /**
- * Who is signed in, and the way out — now the sidebar's footer.
+ * Who is signed in, and the way out — the sidebar footer's last row.
  *
- * This was a bare email string and a Sign out button sitting in a page header. Two
- * things changed and both were forced by the sidebar. The identity moved to the
- * footer, where the mockup puts it and where it stops competing with the page title.
- * And Sign out moved behind the avatar, because a rail 60px wide has no room for a
- * text button and an always-visible sign-out is not what a signed-in surface should
- * emphasise.
+ * Sign out sits behind the avatar, because a rail 60px wide has no room for a text
+ * button and an always-visible sign-out is not what a signed-in surface should
+ * emphasise. Account is beside it: Settings in the footer leads to preferences, and
+ * this is the one place in the frame that still names the account.
  *
  * **`DropdownMenuLabel` keeps its default treatment.** The project's pattern for a
  * tiny caption is `text-label tracking-wide uppercase`, and it is the wrong answer
  * here: what this label carries is an email address, not a section name, and
- * uppercasing an address makes it harder to read and slightly wrong. The rule is
- * about captions; this is data with a caption above it.
+ * uppercasing an address makes it harder to read and slightly wrong.
  *
- * **Loading renders the same shape, not nothing.** The old version returned `null`
- * while the session resolved, which was invisible for a text span and would now drop
- * the sidebar footer out and back in on every load.
+ * **Loading renders the same shape, not nothing**, or the footer would drop out and
+ * back in on every load.
  *
- * **The avatar image comes from the session, and only ever from the API.** `auth.ts`
- * copies `avatarUrl` off the API's own response into `user.image` on every sign-in —
- * unconditionally on the Google path, so a null overwrites the `lh3.googleusercontent.com`
- * URL Auth.js's Google provider puts there by default. That matters here: `img-src` in
- * `next.config.ts` names the R2 origin and nothing else, so a surviving Google URL
- * would be requested on every authenticated page and blocked.
+ * `detail` is drawn under the name — the sidebar passes the credit line. A slot rather
+ * than a fetch in here, so the menu stays about identity.
  *
- * Radix shows `AvatarFallback` on its own when the image is absent OR fails to load,
- * so the initials path needs no branching and a blocked URL degrades to initials
- * rather than a broken-image icon.
- *
- * The sign-out itself lives in `lib/sign-out.ts`, shared with `/account` and the
- * expired-token recovery path — including the note about what it does not do. This is
- * a shortcut to that action, not a second one.
+ * The sign-out itself lives in `lib/sign-out.ts`, shared with `/settings/security`, the More
+ * sheet and the expired-token recovery path. This is a shortcut to that action, not a
+ * second one. Renders a `SidebarMenuItem`; the caller supplies the `SidebarMenu`.
  */
-export function SessionMenu() {
-  const { data, status } = useSession();
+export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
+  const identity = useSessionIdentity();
   const t = useTranslate();
 
-  if (status === 'loading') {
+  if (identity.status === 'loading') {
     return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg" disabled aria-busy="true">
-            <Skeleton className="size-8 shrink-0 rounded-full" />
-            <Skeleton className="h-4 w-24" />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" disabled aria-busy="true">
+          <Skeleton className="size-8 shrink-0 rounded-full" />
+          <Skeleton className="h-4 w-24" />
+        </SidebarMenuButton>
+      </SidebarMenuItem>
     );
   }
 
-  if (status !== 'authenticated') return null;
-
-  const name = data.user?.name ?? undefined;
-  const email = data.user?.email ?? undefined;
-  const image = data.user?.image ?? undefined;
+  if (identity.status !== 'authenticated') return null;
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" aria-label={t('web.chrome.accountMenu')}>
-              <Avatar>
-                {/* `alt=""` because the name sits beside it and the trigger already
-                    carries an aria-label — announcing it again is noise. */}
-                <AvatarImage src={image} alt="" />
-                <AvatarFallback>{initials(name, email)}</AvatarFallback>
-              </Avatar>
-              {/* Truncated rather than wrapped: an address long enough to wrap would
-                  push the footer up and change the sidebar's height on some accounts
-                  and not others. */}
-              <span className="min-w-0 flex-1 truncate text-left">{name ?? email}</span>
-              <ChevronsUpDown aria-hidden className="ml-auto" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <span className="text-muted-foreground block">{t('web.chrome.signedInAs')}</span>
-              <span className="block truncate font-medium">{email}</span>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem id="sign-out" onSelect={() => void signOutOfChatofy()}>
-              <LogOut aria-hidden />
-              {t('common.auth.signOut')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <SidebarMenuItem>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SidebarMenuButton
+            size="lg"
+            aria-label={t('web.chrome.accountMenu')}
+            className="h-auto min-h-12 py-2"
+          >
+            <IdentityAvatar identity={identity} />
+            {/* Truncated rather than wrapped: an address long enough to wrap would
+                push the footer up and change the sidebar's height on some accounts
+                and not others. */}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+              <span className="truncate font-medium">{identity.name ?? identity.email}</span>
+              {detail}
+            </span>
+            <ChevronsUpDown aria-hidden className="ml-auto" />
+          </SidebarMenuButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <span className="text-muted-foreground block">{t('web.chrome.signedInAs')}</span>
+            <span className="block truncate font-medium">{identity.email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/settings/profile">
+              <User aria-hidden />
+              {t('web.chrome.navAccount')}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem id="sign-out" onSelect={() => void signOutOfChatofy()}>
+            <LogOut aria-hidden />
+            {t('common.auth.signOut')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </SidebarMenuItem>
   );
-}
-
-/**
- * Two letters for the avatar: the initials of a two-part name, else the first two
- * characters of whatever there is.
- *
- * `Array.from` rather than `slice`, because the name may be Vietnamese and a
- * precomposed character is one code point while a decomposed one is two — `slice(0, 2)`
- * would cut a diacritic off its vowel and render a lone combining mark.
- */
-function initials(name?: string, email?: string): string {
-  const source = (name ?? email ?? '').trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  const first = parts[0];
-  const last = parts[parts.length - 1];
-  const letters =
-    first !== undefined && last !== undefined && first !== last
-      ? [Array.from(first)[0] ?? '', Array.from(last)[0] ?? '']
-      : Array.from(source).slice(0, 2);
-  return letters.join('').toUpperCase();
 }

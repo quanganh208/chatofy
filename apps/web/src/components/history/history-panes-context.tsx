@@ -9,9 +9,8 @@ import type { ConversationCache } from './conversation-cache';
  *
  * The layout owns the list and the selection. The detail needs where to go after
  * a delete, how to take the deleted row out of the list or put a renamed one back,
- * and whether the layout asked it to take focus or to start a rename. The rows'
- * menus need the actions that only the layout can carry out — opening another
- * conversation, or deleting one that may be the one open.
+ * and whether the layout asked it to take focus. The rows' menus need the actions
+ * that only the layout can carry out — deleting one that may be the one open.
  */
 export interface HistoryPanes {
   /** Where "back" and a finished delete go: the list, keeping the search term. */
@@ -31,14 +30,11 @@ export interface HistoryPanes {
   /** A rename landed: the list row and the cache take the stored summary. */
   renamed: (conversation: ConversationSummary) => void;
   /**
-   * Rename chosen on a ROW: open that conversation — navigating to it unless it is
-   * the one open — and have its header start editing. There is no row editor.
+   * The last rename stored, from the topbar or from any row. The open
+   * conversation folds it into its title when it is the one renamed, so a row's
+   * rename of the open conversation renames its crumb too.
    */
-  renameFromList: (conversationId: string) => void;
-  /** The conversation whose header should open its title editor, or null. */
-  renameRequest: string | null;
-  /** The header started editing, so the request is spent. */
-  takeRenameRequest: () => void;
+  latestRename: ConversationSummary | null;
   /**
    * Delete chosen on a row, after its confirmation. The open conversation goes the
    * way the header's delete goes; any other row leaves focus on its neighbour.
