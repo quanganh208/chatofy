@@ -145,7 +145,7 @@ export const en = {
   'common.conference.chatNotSent': 'Message not sent.',
 
   // ---- common.billing: the credits words web and mobile both show ----
-  // The section and block title on web /account and mobile settings.
+  // The section and block title on web /settings/billing and mobile settings.
   'common.billing.title': 'Credits & plan',
   // Amounts are pre-formatted by the caller; English needs the singular by hand.
   'common.billing.creditAmount': '{credits} credits',
@@ -840,7 +840,7 @@ export const en = {
     'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
-  // Credits & plan: buying. Every action is outline or ghost; /account spends no accent.
+  // Credits & plan: buying. Every action is outline or ghost; /settings/billing spends no accent.
   'web.account.buyTitle': 'Buy credits',
   'web.account.buyProCard': 'Pro by card — {price} a month',
   'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
