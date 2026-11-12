@@ -1181,7 +1181,7 @@ const SCREENS: ScreenState[] = [
       openConversation(stored());
     },
     steps: [MORE_ACTIONS, MENU_ITEM('rename')],
-    shows: 'header form input[aria-label="Conversation title"]',
+    shows: 'input[aria-label="Conversation title"]',
     render: historyRoute,
   },
   {
