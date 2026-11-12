@@ -1,49 +1,49 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { ResizeHandle } from '@chatofy/ui/react';
 import { MEASURE } from '@/components/layout/measures';
 import { useConversationHistory } from '@/hooks/use-conversation-history';
 import { useStoredWidth } from '@/hooks/use-stored-width';
-import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
-import { HistoryList } from './history-list';
+import { ConversationDetail } from './conversation-detail';
+import { ConversationDetailLoading } from './conversation-detail-states';
+import { HistoryListPane, LIST_WIDTH_MAX, LIST_WIDTH_MIN } from './history-list-pane';
 import { HistoryPanesProvider, type HistoryPanes } from './history-panes-context';
-import { HistorySearchInput } from './history-search-input';
-import { useContainerWide } from './use-container-wide';
+import { useContainerWide, WIDE_PROBE_CLASS } from './use-container-wide';
 import { useHistorySearch } from './use-history-search';
+import { useHistorySelection } from './use-history-selection';
 
 const LIST_WIDTH_KEY = 'chatofy.history-list-width';
 const LIST_WIDTH_DEFAULT = 360;
-const LIST_WIDTH_MIN = 280;
-// Leaves the reading pane at least ~540px at the 1024px content width the layout
-// starts at — enough for a transcript turn at a readable measure.
-const LIST_WIDTH_MAX = 480;
 
 /**
  * History as one screen: the list on the left, the open conversation on the right.
  *
  * Rendered by `app/(app)/history/layout.tsx`, so it does NOT remount when the reader
  * moves between conversations — the search term, every page loaded so far and the
- * list's scroll position all survive a click on a row. `children` is the page: the
- * conversation at `/history/[id]`, or the newest one at `/history`.
+ * list's scroll position all survive a click on a row.
+ *
+ * **The conversation is rendered HERE, not by the pages**, keyed by the selected id.
+ * `/history` (the newest, opened by default) and `/history/<newest-id>` (its row,
+ * clicked) are different pages showing the same conversation; rendered by each page
+ * they were two elements, so the most natural click on the screen refetched what was
+ * already open, reset its tab and stopped its audio. Keyed here, they are one. The
+ * pages render nothing and exist for their URLs and metadata.
  *
  * ## Two panes from a 64rem CONTENT width, one page below it
  *
  * Measured on this element (`@container`, `@5xl:`), not the viewport, so a collapsed
- * sidebar counts. Below it the routes are two pages, exactly as before: `/history` is
- * the list and `/history/[id]` is the conversation with a back link. From it both
- * panes are drawn and each scrolls on its own; the frame pins itself to the viewport
- * (`app-chrome.tsx`) so the page itself does not scroll.
- *
- * The layout is CSS, so the first paint is already the right shape. JavaScript only
- * learns the width to decide what is worth fetching (`useContainerWide`).
+ * sidebar counts. Below it the routes are two pages: `/history` is the list and
+ * `/history/[id]` the conversation with a back link. From it both panes are drawn
+ * and each scrolls on its own; the frame pins itself to the viewport
+ * (`app-chrome.tsx`) so the page itself does not scroll. A probe carrying the same
+ * container query tells JavaScript which layout CSS chose (`useContainerWide`).
  *
  * ## The accent budget
  *
- * The list spends none: its job is finding, and the sidebar already offers a new
- * conversation on every screen. Whatever the reading pane spends is the screen's.
+ * The list spends none: its job is finding. Whatever the reading pane spends is the
+ * screen's.
  */
 export function HistoryMasterDetail({ children }: { children: ReactNode }) {
   return (
@@ -55,13 +55,14 @@ export function HistoryMasterDetail({ children }: { children: ReactNode }) {
 }
 
 function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
-  const t = useTranslate();
   const params = useParams<{ conversationId?: string }>();
   const openId = params?.conversationId;
 
   const frame = useRef<HTMLDivElement>(null);
+  const probe = useRef<HTMLDivElement>(null);
   const detail = useRef<HTMLDivElement>(null);
-  const wide = useContainerWide(frame);
+  const listRegion = useRef<HTMLDivElement>(null);
+  const wide = useContainerWide(frame, probe);
   const search = useHistorySearch();
   const history = useConversationHistory(search.debounced);
   const listWidth = useStoredWidth(
@@ -70,6 +71,7 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
     LIST_WIDTH_MIN,
     LIST_WIDTH_MAX,
   );
+  const { selectedId, unpin } = useHistorySelection(openId, wide, history.conversations);
 
   // Read off `debounced`, NOT `term`: the moment a reader backspaces their query
   // away both are empty, but `loading` only goes true when the debounce fires — so
@@ -81,13 +83,10 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
     !history.error &&
     history.conversations.length === 0;
 
-  // An account with nothing stored is one column even on a wide screen: there is
-  // nothing to open, and the empty state is the whole page rather than a 360px strip.
-  const solo = nothingToSearch;
-
-  // On `/history` the newest row is the one open beside the list — but only where
-  // the reading pane is drawn. On a phone `/history` is the list alone.
-  const selectedId = openId ?? (wide ? history.conversations[0]?.conversationId : undefined);
+  // An account with nothing stored is one column even on a wide screen — unless a
+  // URL names a conversation, which must still get its answer ("no longer here")
+  // rather than a list pane that is hidden on a phone and silent on a desktop.
+  const solo = nothingToSearch && !openId;
 
   // A new conversation starts at its top. The pane is the layout's, so it would
   // otherwise keep the scroll offset of whichever conversation was read before.
@@ -95,81 +94,63 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
     detail.current?.scrollTo?.({ top: 0 });
   }, [selectedId]);
 
+  // A deep link's row, brought into the list's view once the first page is in.
+  // `nearest`, so a row already on screen does not move.
+  const revealed = useRef(false);
+  useEffect(() => {
+    if (revealed.current || !openId || history.loading) return;
+    revealed.current = true;
+    listRegion.current
+      ?.querySelector('a[aria-current="page"]')
+      ?.scrollIntoView?.({ block: 'nearest' });
+  }, [openId, history.loading]);
+
+  // Focus after a delete: the control that had it is gone. The conversation that
+  // opens next takes it (see `takeFocusRequest`); when none does — a phone, or the
+  // last conversation deleted — the list does.
+  const focusRequested = useRef(false);
+  useEffect(() => {
+    if (!focusRequested.current || selectedId || history.loading) return;
+    focusRequested.current = false;
+    listRegion.current?.focus();
+  }, [selectedId, history.loading]);
+
+  const { forget: forgetRow } = history;
+  const forget = useCallback(
+    (conversationId: string) => {
+      focusRequested.current = true;
+      forgetRow(conversationId);
+      unpin(conversationId);
+    },
+    [forgetRow, unpin],
+  );
+  const takeFocusRequest = useCallback(() => {
+    const requested = focusRequested.current;
+    focusRequested.current = false;
+    return requested;
+  }, []);
+
   const panes = useMemo<HistoryPanes>(
-    () => ({
-      conversations: history.conversations,
-      loading: history.loading,
-      wide,
-      listHref: `/history${search.querySuffix}`,
-      forget: history.forget,
-    }),
-    [history.conversations, history.loading, wide, search.querySuffix, history.forget],
+    () => ({ listHref: `/history${search.querySuffix}`, forget, takeFocusRequest }),
+    [search.querySuffix, forget, takeFocusRequest],
   );
 
   return (
     <HistoryPanesProvider value={panes}>
       <div ref={frame} className="@container flex min-h-0 flex-1 flex-col">
-        <div
-          className="flex min-h-0 flex-1"
-          style={{ '--history-list-width': `${listWidth.width}px` } as CSSProperties}
-        >
-          <div
-            className={cn(
-              'relative min-h-0 w-full min-w-0 flex-col',
-              openId ? 'hidden @5xl:flex' : 'flex',
-              !solo && 'border-hairline @5xl:w-(--history-list-width) @5xl:shrink-0 @5xl:border-r',
-            )}
-          >
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div
-                className={cn(
-                  'mx-auto flex w-full flex-col gap-6 px-6 py-8',
-                  MEASURE.wide,
-                  !solo && '@5xl:max-w-none @5xl:gap-4 @5xl:px-3 @5xl:py-4',
-                )}
-              >
-                {/* Pinned to the top of the pane where the list scrolls on its own;
-                    in the one-page layout the field scrolls away with the page. */}
-                <div
-                  className={cn(
-                    !solo && 'bg-background @5xl:sticky @5xl:top-0 @5xl:z-20 @5xl:px-1',
-                  )}
-                >
-                  <HistorySearchInput
-                    value={search.term}
-                    onChange={search.setTerm}
-                    disabled={nothingToSearch}
-                  />
-                </div>
-                <HistoryList
-                  conversations={history.conversations}
-                  loading={history.loading}
-                  loadingMore={history.loadingMore}
-                  error={history.error}
-                  loadMoreError={history.loadMoreError}
-                  searching={history.searching}
-                  hasMore={history.hasMore}
-                  onLoadMore={history.loadMore}
-                  onRetry={history.reload}
-                  onClearSearch={search.clear}
-                  selectedId={selectedId}
-                  querySuffix={search.querySuffix}
-                />
-              </div>
-            </div>
-            {wide && !solo && listWidth.ready ? (
-              <ResizeHandle
-                label={t('web.history.listWidth')}
-                value={listWidth.width}
-                min={LIST_WIDTH_MIN}
-                max={LIST_WIDTH_MAX}
-                grow="right"
-                onChange={listWidth.setWidth}
-                onReset={listWidth.reset}
-                className="-right-1.5"
-              />
-            ) : null}
-          </div>
+        <div ref={probe} aria-hidden className={WIDE_PROBE_CLASS} />
+        <div className="flex min-h-0 flex-1">
+          <HistoryListPane
+            search={search}
+            history={history}
+            selectedId={selectedId}
+            hasOpenId={openId !== undefined}
+            solo={solo}
+            resizable={wide && !solo && listWidth.ready}
+            nothingToSearch={nothingToSearch}
+            listWidth={listWidth}
+            regionRef={listRegion}
+          />
 
           {solo ? null : (
             <div
@@ -186,6 +167,11 @@ function HistoryMasterDetailBody({ children }: { children: ReactNode }) {
                   '@5xl:max-w-none @5xl:px-10 @5xl:py-6',
                 )}
               >
+                {selectedId ? (
+                  <ConversationDetail key={selectedId} conversationId={selectedId} />
+                ) : wide && history.loading ? (
+                  <ConversationDetailLoading />
+                ) : null}
                 {children}
               </div>
             </div>

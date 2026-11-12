@@ -70,9 +70,9 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
 
   // Reset all three when the id changes, or a second `conversationId` inherits the
   // first one's verdict — a conversation that loads fine drawn as "no longer here",
-  // under the previous one's title. The pages key this component by id, so a switch
-  // remounts it; this keeps the guarantee for any caller that does not. Adjusted
-  // during render, so the stale verdict is never committed even for a frame.
+  // under the previous one's title. The History layout keys this component by id,
+  // so a switch remounts it; this keeps the guarantee for any caller that does not.
+  // Adjusted during render, so the stale verdict is never committed even for a frame.
   const [shownFor, setShownFor] = useState(conversationId);
   if (shownFor !== conversationId) {
     setShownFor(conversationId);
@@ -80,6 +80,14 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     setMissing(false);
     setConversation(null);
   }
+
+  // Opened in the place of one just deleted: the delete removed the control that
+  // had focus, so the next conversation's title takes it, where a reader expects
+  // to be — not `<body>`.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (conversation && panes?.takeFocusRequest()) heading.current?.focus();
+  }, [conversation, panes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,7 +111,9 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
     // Out of the list first, so the screen landed on is not still offering it — on
     // a wide `/history` the newest REMAINING conversation is what opens next.
     panes?.forget(conversationId);
-    router.push(listHref);
+    // `replace`: Back must not return to a conversation that no longer exists, and
+    // a delete on `/history` must not stack a second `/history` on the first.
+    router.replace(listHref);
   };
 
   return (
@@ -126,10 +136,12 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
           <header className="flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3">
             <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-1.5">
               <h2
+                ref={heading}
+                tabIndex={-1}
                 className={
                   conversation.title
-                    ? 'text-heading font-display font-normal tracking-tight text-balance'
-                    : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance'
+                    ? 'text-heading font-display font-normal tracking-tight text-balance outline-none'
+                    : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance outline-none'
                 }
               >
                 {conversation.title ?? (conversation.preview || t('web.history.untitled'))}

@@ -1,11 +1,16 @@
 'use client';
 
-import { MessagesSquare, SearchX } from 'lucide-react';
 import type { ConversationSummary } from '@chatofy/types';
-import { Button, Skeleton } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { groupByDay } from './conversation-formatting';
 import { HistoryListRow } from './history-list-row';
+import {
+  HistoryListEmpty,
+  HistoryListFailed,
+  HistoryListLoading,
+  HistoryListNoMatch,
+} from './history-list-states';
 
 interface HistoryListProps {
   conversations: ConversationSummary[];
@@ -26,6 +31,8 @@ interface HistoryListProps {
   selectedId?: string;
   /** `?q=…` while searching, carried into every row's link. */
   querySuffix?: string;
+  /** A row is being opened in place (a plain click, not a new tab). */
+  onOpen?: () => void;
 }
 
 /**
@@ -65,23 +72,12 @@ export function HistoryList({
   onClearSearch,
   selectedId,
   querySuffix = '',
+  onOpen,
 }: HistoryListProps) {
   const t = useTranslate();
   const locale = useLocale();
 
-  if (error) {
-    return (
-      <div
-        role="alert"
-        className="border-hairline -mx-2 flex flex-wrap items-center gap-3 border-y px-2 py-3.5"
-      >
-        <p className="text-destructive text-body flex-1 basis-60">{t('web.history.loadFailed')}</p>
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          {t('web.history.retry')}
-        </Button>
-      </div>
-    );
-  }
+  if (error) return <HistoryListFailed onRetry={onRetry} />;
 
   // Only when there is nothing to keep. A search term is part of the list key, so
   // `loading` goes true on every debounced keystroke — showing the skeleton here
@@ -89,7 +85,7 @@ export function HistoryList({
   // character typed. Rows that briefly belong to the previous query are the
   // better trade; they dim, and `aria-busy` says so without moving anything.
   if (loading && conversations.length === 0) {
-    return <LoadingRows label={t('web.history.loading')} />;
+    return <HistoryListLoading />;
   }
 
   if (conversations.length === 0) {
@@ -97,25 +93,7 @@ export function HistoryList({
     // are drawn at different sizes rather than only worded differently. The
     // search result belongs where row one would be, directly under the field
     // still being typed in; never having had a conversation is the whole page.
-    return searching ? (
-      <div className="border-hairline -mx-2 flex flex-wrap items-center gap-3 border-y px-2 py-3.5">
-        <SearchX aria-hidden className="text-muted-foreground size-[18px] shrink-0" />
-        <p className="text-muted-foreground text-body flex-1 basis-50">
-          {t('web.history.searchNoResults')}
-        </p>
-        <Button variant="ghost" size="sm" onClick={onClearSearch}>
-          {t('web.history.clearSearch')}
-        </Button>
-      </div>
-    ) : (
-      <div className="flex flex-col items-center gap-3 px-2 pt-8 pb-6 text-center">
-        <MessagesSquare aria-hidden className="text-border-strong size-16" strokeWidth={1.25} />
-        <p className="text-body font-semibold">{t('web.history.empty')}</p>
-        <p className="text-muted-foreground text-prose max-w-[46ch]">
-          {t('web.history.emptyBody')}
-        </p>
-      </div>
-    );
+    return searching ? <HistoryListNoMatch onClearSearch={onClearSearch} /> : <HistoryListEmpty />;
   }
 
   const groups = groupByDay(conversations, locale);
@@ -143,6 +121,7 @@ export function HistoryList({
                   conversation={conversation}
                   selected={conversation.conversationId === selectedId}
                   querySuffix={querySuffix}
+                  onOpen={onOpen}
                 />
               </li>
             ))}
@@ -170,44 +149,6 @@ export function HistoryList({
           ) : null}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * The first load, in the geometry of the list it becomes.
- *
- * Not the word "Loading" in a box: the first paint and the loaded paint are then
- * the same shape and nothing jumps. Six rows rather than three, because density
- * is the point of this screen and a skeleton showing less than a screenful
- * teaches the reader to expect less than one.
- *
- * The sentence is still said, to screen readers, where `aria-busy` alone would
- * leave a blank silence.
- */
-function LoadingRows({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p role="status" className="sr-only">
-        {label}
-      </p>
-      {[0, 1].map((group) => (
-        <section key={group} className="mt-5 first:mt-0">
-          <Skeleton className="mb-1.5 h-[11px] w-18" />
-          <ul aria-busy className="flex flex-col">
-            {[0, 1, 2].map((row) => (
-              <li key={row} className="flex flex-col gap-1.5 px-3 py-2.5">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-3.5 max-w-[28ch] flex-1" />
-                  <Skeleton className="h-3 w-12 shrink-0" />
-                </div>
-                <Skeleton className="h-3 w-full max-w-[36ch]" />
-                <Skeleton className="h-3 w-40" />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
     </div>
   );
 }

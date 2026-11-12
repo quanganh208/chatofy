@@ -147,6 +147,7 @@ vi.mock('next/navigation', () => ({
 // happy-dom does not have, so the rows that want the master–detail state say so.
 const historyBox = vi.hoisted(() => ({ wide: false }));
 vi.mock('@/components/history/use-container-wide', () => ({
+  WIDE_PROBE_CLASS: 'hidden @5xl:block',
   useContainerWide: () => historyBox.wide,
 }));
 
@@ -170,8 +171,6 @@ vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConfer
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
-const { HistoryNewestDetail } = await import('@/components/history/history-newest-detail');
-const { ConversationDetail } = await import('@/components/history/conversation-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
@@ -479,16 +478,11 @@ const VOICES = [
 ];
 
 /**
- * History as its routes render it: the layout's list, with the page in the pane —
- * the conversation in `url.params`, or the newest one at `/history`.
+ * History as its routes render it: the layout draws the list AND the conversation
+ * (the one in `url.params`, or the newest at `/history`); the pages render nothing.
  */
 function historyRoute() {
-  const id: string | undefined = url.params.conversationId;
-  return (
-    <HistoryMasterDetail>
-      {id ? <ConversationDetail conversationId={id} /> : <HistoryNewestDetail />}
-    </HistoryMasterDetail>
-  );
+  return <HistoryMasterDetail>{null}</HistoryMasterDetail>;
 }
 
 /** `/history/<id>` with the list loaded beside it and the conversation answering. */

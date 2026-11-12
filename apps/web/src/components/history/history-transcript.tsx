@@ -84,37 +84,37 @@ export function HistoryTranscript({
         return (
           <li key={turn.position} className="relative flex gap-3">
             {/* The gutter. Fixed width so every line of the transcript starts
-                    at the same x — a column that resized per row would make the
-                    left rule ragged, which is the one thing it exists to keep
-                    straight. A row with no time renders an empty cell rather than
-                    collapsing, for the same reason.
+                at the same x — a column that resized per row would make the
+                left rule ragged, which is the one thing it exists to keep
+                straight. A row with no time renders an empty cell rather than
+                collapsing, for the same reason.
 
-                    Wide enough for `formatOffset`'s longer form: past an hour it
-                    prints `h:mm:ss`, not `m:ss`, and a column sized only for the
-                    short form would wrap it.
+                Wide enough for `formatOffset`'s longer form: past an hour it
+                prints `h:mm:ss`, not `m:ss`, and a column sized only for the
+                short form would wrap it.
 
-                    `text-right` so the digits sit against the rule they belong to,
-                    and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
+                `text-right` so the digits sit against the rule they belong to,
+                and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
             <div className="absolute top-0 right-0 flex sm:static sm:block sm:w-16 sm:shrink-0 sm:pt-0.5 sm:text-right">
               {stamp}
             </div>
             {/* The block, unchanged: the left rule and the larger translation
-                    are what `conversation-transcript.tsx` established and what
-                    makes reading a stored conversation the same act as reading a
-                    live one. */}
+                are what `conversation-transcript.tsx` established and what
+                makes reading a stored conversation the same act as reading a
+                live one. */}
             <div className="border-primary flex max-w-[68ch] min-w-0 flex-1 flex-col gap-1 border-l-2 pl-3 sm:pl-4">
               {/* Below `sm` the gutter is lifted out of the row and pinned to the
-                      top right, on this label's line; the padding keeps a long label
-                      from running under it. A 64px gutter plus the rule left a 180px
-                      column at 375px — two or three words a line on a long turn. One
-                      element in both layouts, so it is focused and announced once. */}
+                  top right, on this label's line; the padding keeps a long label
+                  from running under it. A 64px gutter plus the rule left a 180px
+                  column at 375px — two or three words a line on a long turn. One
+                  element in both layouts, so it is focused and announced once. */}
               <p
                 data-slot="speaker-label"
                 className="text-hint text-muted-foreground wrap-anywhere font-semibold max-sm:pr-14"
               >
                 {/* The label the reader confirmed, or a fallback composed HERE from
-                        the role and the dictionary. Storing the fallback would have put
-                        an English name permanently into a Vietnamese reader's rows. */}
+                    the role and the dictionary. Storing the fallback would have put
+                    an English name permanently into a Vietnamese reader's rows. */}
                 {turn.speakerLabel ??
                   t(
                     turn.speakerRole === 'speaker_a'

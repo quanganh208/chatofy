@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { ConversationDetail } from '@/components/history/conversation-detail';
 import { getT } from '@/i18n/server';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -8,22 +7,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * One stored conversation.
+ * One stored conversation, by URL.
  *
- * `params` is awaited: it is a promise in this version of Next, and reading it
- * synchronously is the deprecation the framework warns about. The id is handed
- * to a client component because the fetch needs the caller's bearer token — the
- * ownership check is the API's, and a server fetch here would have to forward a
- * credential this layer does not hold.
+ * Renders nothing: the History layout reads the id (`useParams`) and draws the
+ * conversation in its reading pane, keyed by that id — so arriving here from the
+ * newest conversation already open at `/history` keeps the same element, its tab
+ * and its audio. The fetch is the client's because it needs the caller's bearer
+ * token; the ownership check is the API's. This page exists for its URL, its
+ * metadata and the dynamic segment the layout reads.
  */
-export default async function ConversationPage({
-  params,
-}: {
-  params: Promise<{ conversationId: string }>;
-}) {
-  const { conversationId } = await params;
-  // Keyed by id: moving between conversations stays under the same layout and the
-  // same page, so without a key the player, the minutes and the open tab of the
-  // conversation just left would carry over into the next one.
-  return <ConversationDetail key={conversationId} conversationId={conversationId} />;
+export default function ConversationPage() {
+  return null;
 }

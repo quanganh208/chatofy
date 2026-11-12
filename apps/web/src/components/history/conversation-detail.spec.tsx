@@ -17,7 +17,7 @@ import type { Conversation } from '@chatofy/types';
 
 const getConversation = vi.hoisted(() => vi.fn<() => Promise<{ conversation: Conversation }>>());
 const deleteConversation = vi.hoisted(() => vi.fn<() => Promise<void>>());
-const push = vi.hoisted(() => vi.fn());
+const replace = vi.hoisted(() => vi.fn());
 vi.mock('@/clients/api-client', () => ({
   getConversation: () => getConversation(),
   deleteConversation: () => deleteConversation(),
@@ -29,7 +29,7 @@ const useMinutes = vi.hoisted(() =>
 vi.mock('@/hooks/use-minutes', () => ({ useMinutes: () => useMinutes() }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ replace }),
 }));
 
 const { ConversationDetail } = await import('./conversation-detail');
@@ -185,7 +185,8 @@ describe('ConversationDetail', () => {
       await Promise.resolve();
     });
     expect(deleteConversation).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith('/history');
+    // Replaced, not pushed: Back must not lead to a conversation that is gone.
+    expect(replace).toHaveBeenCalledWith('/history');
   });
 
   it('keeps the confirmation open and says so when the delete is refused', async () => {
@@ -199,7 +200,7 @@ describe('ConversationDetail', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('still here');
   });
 

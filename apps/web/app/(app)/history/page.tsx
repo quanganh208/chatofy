@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { HistoryNewestDetail } from '@/components/history/history-newest-detail';
 import { getT } from '@/i18n/server';
 
 /**
@@ -15,14 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Conversations this account has finished and kept.
  *
- * The list itself is the History layout's (`layout.tsx`), so it survives moving
- * between conversations. This page is only what fills the reading pane at
- * `/history`: the newest conversation on a wide screen, nothing on a narrow one.
- *
- * A server component so it can export metadata. Session-gated by `proxy.ts`, which
- * allows only an explicit list of public paths, so this route needs no check of
- * its own.
+ * Renders nothing: the list AND the open conversation are the History layout's
+ * (`layout.tsx`), so the newest conversation opened here and the same conversation
+ * opened from its row are one mounted element. This page exists for its URL and
+ * its metadata. Session-gated by `proxy.ts`, which allows only an explicit list of
+ * public paths, so this route needs no check of its own.
  */
 export default function HistoryPage() {
-  return <HistoryNewestDetail />;
+  return null;
 }

@@ -20,9 +20,10 @@ describe('wide layouts', () => {
   it('lays History out as a list beside the open conversation from a 64rem content width', () => {
     // A container query, not a viewport one: a collapsed sidebar gives the content
     // more room at the same window size, and the panes should use it.
-    const src = read('../components/history/history-master-detail.tsx');
-    expect(src).toContain('@container');
-    expect(src).toContain('@5xl:w-(--history-list-width)');
+    expect(read('../components/history/history-master-detail.tsx')).toContain('@container');
+    expect(read('../components/history/history-list-pane.tsx')).toContain(
+      '@5xl:w-(--history-list-width)',
+    );
     // Rows in one column — the two-column grid of cards is what this replaced.
     expect(read('../components/history/history-list.tsx')).not.toContain('grid-cols-2');
   });

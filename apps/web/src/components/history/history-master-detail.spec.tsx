@@ -34,22 +34,23 @@ vi.mock('@/hooks/use-minutes', () => ({
 
 const nav = vi.hoisted(() => {
   const params: { conversationId?: string } = {};
-  return { params, push: vi.fn(), replace: vi.fn() };
+  return { params, query: '', push: vi.fn(), replace: vi.fn() };
 });
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: nav.push, replace: nav.replace }),
   usePathname: () =>
     nav.params.conversationId ? `/history/${nav.params.conversationId}` : '/history',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(nav.query),
   useParams: () => nav.params,
 }));
 
 const layout = vi.hoisted(() => ({ wide: false }));
-vi.mock('./use-container-wide', () => ({ useContainerWide: () => layout.wide }));
+vi.mock('./use-container-wide', () => ({
+  WIDE_PROBE_CLASS: 'hidden @5xl:block',
+  useContainerWide: () => layout.wide,
+}));
 
 const { HistoryMasterDetail } = await import('./history-master-detail');
-const { HistoryNewestDetail } = await import('./history-newest-detail');
-const { ConversationDetail } = await import('./conversation-detail');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -60,6 +61,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   nav.params = {};
+  nav.query = '';
   layout.wide = false;
   localStorage.clear();
   getConversation.mockImplementation((id) => Promise.resolve({ conversation: stored(id) }));
@@ -73,19 +75,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** The tree the two routes render: the layout, with the page in its reading pane. */
+/**
+ * The tree both routes render: the layout, which reads the id from the URL and draws
+ * the conversation itself. The pages render nothing.
+ */
 function screen() {
-  const openId = nav.params.conversationId;
-  const page = openId ? (
-    // Unkeyed, unlike the page: moving between conversations then also proves the
-    // detail resets itself when its id changes under it.
-    <ConversationDetail conversationId={openId} />
-  ) : (
-    <HistoryNewestDetail />
-  );
   return (
     <LocaleProvider>
-      <HistoryMasterDetail>{page}</HistoryMasterDetail>
+      <HistoryMasterDetail>{null}</HistoryMasterDetail>
     </LocaleProvider>
   );
 }
@@ -103,8 +100,9 @@ async function mount(): Promise<void> {
 }
 
 /** A client-side move to another conversation: same root, so the layout stays. */
-async function navigate(conversationId?: string): Promise<void> {
+async function navigate(conversationId?: string, query = nav.query): Promise<void> {
   nav.params = conversationId ? { conversationId } : {};
+  nav.query = query;
   await act(async () => {
     root?.render(screen());
     await flush();
@@ -280,39 +278,128 @@ describe('two panes on a wide content area', () => {
     deleteConversation.mockResolvedValue(undefined);
     await mount();
 
-    const more = container.querySelector<HTMLElement>('button[aria-label="More actions"]');
-    await act(async () => {
-      more?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
-      await flush();
-    });
-    const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((el) =>
-      el.textContent?.includes('Delete'),
-    );
-    await act(async () => {
-      item?.click();
-      // The strip opens once the menu has CLOSED, which Radix reports from a timeout
-      // after its exit — so this waits out real time rather than a microtask.
-      for (let i = 0; i < 10 && !container.querySelector('[role="alertdialog"]'); i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 5));
-      }
-    });
-    expect(
-      container.querySelector('[role="alertdialog"]'),
-      'the strip never opened',
-    ).not.toBeNull();
-    const confirm = [
-      ...container.querySelectorAll<HTMLElement>('[role="alertdialog"] button'),
-    ].find((button) => button.textContent === 'Delete');
-    expect(confirm, 'the confirming press').toBeDefined();
-    await act(async () => {
-      confirm?.click();
-      await flush();
-    });
+    await deleteOpenConversation();
 
     expect(deleteConversation).toHaveBeenCalledWith('c-1');
-    expect(nav.push).toHaveBeenCalledWith('/history');
+    // Replaced, not pushed: Back must not lead to a conversation that is gone.
+    expect(nav.replace).toHaveBeenCalledWith('/history');
+    expect(nav.push).not.toHaveBeenCalled();
     expect(container.querySelector('a[href="/history/c-1"]'), 'the deleted row').toBeNull();
     expect(heading()).toBe(OLDER.title);
+    // The next conversation's title takes the focus the delete took away.
+    expect(document.activeElement?.textContent).toBe(OLDER.title);
+  });
+
+  it('keeps the newest open when it is opened from its own row', async () => {
+    await mount();
+    const article = container.querySelector('header h2');
+    expect(getConversation).toHaveBeenCalledTimes(1);
+
+    await navigate('c-1');
+
+    // `/history` and `/history/c-1` are one mounted conversation: no second fetch,
+    // and the same element — its tab, scroll and audio with it.
+    expect(getConversation).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('header h2')).toBe(article);
+  });
+
+  it('keeps its open tab when the newest is opened from its own row', async () => {
+    await mount();
+    await act(async () => {
+      minutesTab()?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      await flush();
+    });
+    expect(minutesTab()?.getAttribute('aria-selected')).toBe('true');
+
+    await navigate('c-1');
+    expect(minutesTab()?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('does not swap the open conversation when a search changes the newest match', async () => {
+    await mount();
+    expect(heading()).toBe(NEWEST.title);
+
+    listConversations.mockResolvedValue({ conversations: [OLDER], nextCursor: null });
+    type('hỏi');
+    await settle();
+
+    // The list follows the search; the pane stays on what is being read.
+    expect(container.querySelector('a[href="/history/c-1"]')).toBeNull();
+    expect(heading()).toBe(NEWEST.title);
+    expect(getConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers a conversation id on an empty account with "no longer here"', async () => {
+    listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    getConversation.mockRejectedValue(new Error('404'));
+    nav.params = { conversationId: 'gone' };
+    await mount();
+
+    expect(container.textContent).toContain('no longer here');
+    expect(container.textContent).toContain('No conversations yet');
+  });
+
+  it('brings a deep-linked row into the list view once the list arrives', async () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const scrolled = () =>
+      scroll.mock.contexts.map((element) => (element as HTMLElement).getAttribute('href'));
+
+    nav.params = { conversationId: 'c-2' };
+    await mount();
+    expect(scrolled()).toEqual(['/history/c-2']);
+    await navigate('c-1');
+    expect(scrolled(), 'only on the first load').toEqual(['/history/c-2']);
+    scroll.mockRestore();
+  });
+});
+
+describe('a row clicked while a search is still being typed', () => {
+  beforeEach(() => {
+    layout.wide = true;
+    listConversations.mockResolvedValue({ conversations: [NEWEST, OLDER], nextCursor: null });
+  });
+
+  it('opens the row with the typed term, and the debounce does not overwrite it', async () => {
+    await mount();
+    type('xin');
+
+    // Inside the 250ms window: the row's link already carries what was typed.
+    const row = container.querySelector<HTMLAnchorElement>('a[href^="/history/c-2"]');
+    expect(row?.getAttribute('href')).toBe('/history/c-2?q=xin');
+
+    // The click itself; the browser default is prevented so happy-dom does not
+    // try to load the page, which leaves the row's own handler to run.
+    row?.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    act(() => {
+      row?.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    });
+    await settle();
+
+    // The navigation is still in flight (the pathname has not changed), so the
+    // search must not `replace` the list's own URL over it.
+    expect(nav.replace).not.toHaveBeenCalled();
+
+    await navigate('c-2', 'q=xin');
+    expect(nav.replace, 'the URL already says it').not.toHaveBeenCalled();
+    expect(field().value).toBe('xin');
+  });
+
+  it('writes the URL as usual when no row was clicked', async () => {
+    await mount();
+    type('xin');
+    await settle();
+    expect(nav.replace).toHaveBeenCalledWith('/history?q=xin');
+  });
+
+  it('lets a navigation without the term — the sidebar — reset the search', async () => {
+    nav.params = { conversationId: 'c-2' };
+    nav.query = 'q=xin';
+    await mount();
+    expect(field().value).toBe('xin');
+
+    await navigate(undefined, '');
+    expect(field().value).toBe('');
+    expect(nav.replace).not.toHaveBeenCalled();
   });
 });
 
@@ -326,8 +413,37 @@ describe('one page on a narrow content area', () => {
     expect(heading()).toBeUndefined();
   });
 
-  it('draws no reading pane at all for an account with nothing stored', async () => {
-    layout.wide = true;
+  it('answers a conversation id on an empty account with "no longer here" and a way back', async () => {
+    listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    getConversation.mockRejectedValue(new Error('404'));
+    nav.params = { conversationId: 'gone' };
+    await mount();
+
+    expect(container.textContent).toContain('no longer here');
+    expect(
+      [...container.querySelectorAll('a')].some((a) => a.textContent?.includes('Back to history')),
+    ).toBe(true);
+  });
+
+  it('lands on the list, with focus on it, after deleting the last conversation', async () => {
+    listConversations.mockResolvedValue({ conversations: [NEWEST], nextCursor: null });
+    deleteConversation.mockResolvedValue(undefined);
+    nav.params = { conversationId: 'c-1' };
+    await mount();
+
+    await deleteOpenConversation();
+    // Until the replace lands the URL still names it: the frame is not blank.
+    expect(container.textContent).toContain(NEWEST.title);
+
+    await navigate();
+    expect(container.textContent).toContain('No conversations yet');
+    expect(document.activeElement?.getAttribute('role')).toBe('region');
+  });
+});
+
+describe('an account with nothing stored', () => {
+  it.each([false, true])('draws no reading pane at all (wide: %s)', async (wide) => {
+    layout.wide = wide;
     listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     await mount();
 
@@ -338,3 +454,35 @@ describe('one page on a narrow content area', () => {
     expect(container.querySelector('[role="separator"]')).toBeNull();
   });
 });
+
+function minutesTab(): HTMLElement | null {
+  return container.querySelector<HTMLElement>('[role="tab"][id$="-trigger-minutes"]');
+}
+
+/** `⋯` → Delete → the destructive press, the way a pointer does it. */
+async function deleteOpenConversation(): Promise<void> {
+  const more = container.querySelector<HTMLElement>('button[aria-label="More actions"]');
+  await act(async () => {
+    more?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    await flush();
+  });
+  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((el) =>
+    el.textContent?.includes('Delete'),
+  );
+  await act(async () => {
+    item?.click();
+    // The strip opens once the menu has CLOSED, which Radix reports from a timeout
+    // after its exit — so this waits out real time rather than a microtask.
+    for (let i = 0; i < 10 && !container.querySelector('[role="alertdialog"]'); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  });
+  const confirm = [...container.querySelectorAll<HTMLElement>('[role="alertdialog"] button')].find(
+    (button) => button.textContent === 'Delete',
+  );
+  expect(confirm, 'the confirming press').toBeDefined();
+  await act(async () => {
+    confirm?.click();
+    await flush();
+  });
+}

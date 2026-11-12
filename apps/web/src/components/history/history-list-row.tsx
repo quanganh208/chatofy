@@ -16,6 +16,8 @@ interface HistoryListRowProps {
   selected: boolean;
   /** `?q=…` when a search is in effect, so opening a row keeps it in the URL. */
   querySuffix: string;
+  /** Called for a click that navigates in place — not one opening a new tab. */
+  onOpen?: () => void;
 }
 
 /**
@@ -30,7 +32,12 @@ interface HistoryListRowProps {
  * so "the thing open beside you" reads identically in the nav and in the list. The
  * bar is decoration; `aria-current` is what says it.
  */
-export function HistoryListRow({ conversation, selected, querySuffix }: HistoryListRowProps) {
+export function HistoryListRow({
+  conversation,
+  selected,
+  querySuffix,
+  onOpen,
+}: HistoryListRowProps) {
   const t = useTranslate();
   const locale = useLocale();
 
@@ -38,6 +45,19 @@ export function HistoryListRow({ conversation, selected, querySuffix }: HistoryL
     <Link
       href={`/history/${conversation.conversationId}${querySuffix}` as Route}
       aria-current={selected ? 'page' : undefined}
+      onClick={(event) => {
+        // A modified or middle click opens elsewhere and leaves this screen as it is.
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        onOpen?.();
+      }}
       className={cn(
         'animate-in fade-in fill-mode-both duration-300 motion-reduce:animate-none',
         'relative flex flex-col gap-0.5 rounded-md px-3 py-2.5',

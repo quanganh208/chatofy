@@ -1,27 +1,27 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import type { ConversationSummary } from '@chatofy/types';
 
 /**
- * What the History layout shares with the page rendered in its reading pane.
+ * What the History layout shares with the conversation it renders in its pane.
  *
- * The list lives in the layout so it survives moving between conversations; the
- * pages below it still need three facts from it — which conversation is newest
- * (what `/history` opens on a wide screen), whether the screen is wide at all, and
- * a way to drop a row once its conversation has been deleted.
+ * The layout owns the list and the selection; the detail needs only where to go
+ * after a delete, how to take the deleted row out of the list, and whether the
+ * layout asked it to take focus.
  */
 export interface HistoryPanes {
-  /** The rows loaded so far, newest first. */
-  conversations: readonly ConversationSummary[];
-  /** The first page has not arrived yet. */
-  loading: boolean;
-  /** The content area holds both panes side by side. */
-  wide: boolean;
   /** Where "back" and a finished delete go: the list, keeping the search term. */
   listHref: string;
-  /** Remove a deleted conversation from the list without refetching it. */
+  /**
+   * Remove a deleted conversation from the list without refetching it, and ask
+   * whatever opens next to take focus — the delete removed the control that had it.
+   */
   forget: (conversationId: string) => void;
+  /**
+   * `true` once, if a delete asked for focus and it has not been taken yet. The
+   * conversation that opens after a delete calls this when it has loaded.
+   */
+  takeFocusRequest: () => boolean;
 }
 
 const HistoryPanesContext = createContext<HistoryPanes | null>(null);
