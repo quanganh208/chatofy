@@ -28,7 +28,7 @@ import { LotusIllustration } from '@/components/marketing/lotus-illustration';
 
 function roomPath(roomId: string): Route {
   // `as Route`: typedRoutes cannot validate a path built at runtime (same
-  // pattern as history-screen.tsx).
+  // pattern as history/use-history-search.ts).
   return `/conference/${encodeURIComponent(roomId)}` as Route;
 }
 

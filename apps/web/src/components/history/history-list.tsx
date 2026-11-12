@@ -1,13 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import type { Route } from 'next';
-import { ChevronRight, MessagesSquare, SearchX } from 'lucide-react';
+import { MessagesSquare, SearchX } from 'lucide-react';
 import type { ConversationSummary } from '@chatofy/types';
-import { Badge, Button, Skeleton } from '@chatofy/ui/react';
+import { Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { formatTime, groupByDay } from './conversation-formatting';
-import { ConversationMetaLine } from './conversation-meta-line';
+import { groupByDay } from './conversation-formatting';
+import { HistoryListRow } from './history-list-row';
 
 interface HistoryListProps {
   conversations: ConversationSummary[];
@@ -24,10 +22,15 @@ interface HistoryListProps {
   onRetry: () => void;
   /** Empty the search box. The only way back to the full list without editing text. */
   onClearSearch: () => void;
+  /** The conversation open beside the list, marked as the current one. */
+  selectedId?: string;
+  /** `?q=…` while searching, carried into every row's link. */
+  querySuffix?: string;
 }
 
 /**
- * Past conversations, newest first — rows on the page ground.
+ * Past conversations, newest first — rows on the page ground, one column whether
+ * the list is the whole page or the pane beside an open conversation.
  *
  * ## Why nothing here is a card
  *
@@ -60,6 +63,8 @@ export function HistoryList({
   onLoadMore,
   onRetry,
   onClearSearch,
+  selectedId,
+  querySuffix = '',
 }: HistoryListProps) {
   const t = useTranslate();
   const locale = useLocale();
@@ -119,7 +124,7 @@ export function HistoryList({
     <div className="flex flex-col gap-1">
       {groups.map((group) => (
         <section key={group.id} className="mt-5 first:mt-0">
-          <h2 className="text-label text-muted-foreground pb-1.5 uppercase">{group.label}</h2>
+          <h2 className="text-label text-muted-foreground px-3 pb-1.5 uppercase">{group.label}</h2>
           <ul
             aria-busy={loading}
             // Retained under a search that is in flight, and NOT dimmed to say
@@ -130,14 +135,15 @@ export function HistoryList({
             // That spec checks tokens and cannot see a composited alpha, so this
             // would have passed every gate while breaking the rule they exist for.
             // `aria-busy` carries the same fact at no cost.
-            className="grid gap-3 lg:grid-cols-2"
+            className="flex flex-col"
           >
             {group.conversations.map((conversation) => (
-              <li
-                key={conversation.conversationId}
-                className="border-hairline overflow-hidden rounded-xl border px-3"
-              >
-                <Row conversation={conversation} />
+              <li key={conversation.conversationId}>
+                <HistoryListRow
+                  conversation={conversation}
+                  selected={conversation.conversationId === selectedId}
+                  querySuffix={querySuffix}
+                />
               </li>
             ))}
           </ul>
@@ -145,7 +151,7 @@ export function HistoryList({
       ))}
 
       {hasMore ? (
-        <div className="flex flex-wrap items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 px-3 pt-2">
           <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore}>
             {t('web.history.loadMore')}
           </Button>
@@ -169,69 +175,6 @@ export function HistoryList({
 }
 
 /**
- * One conversation.
- *
- * The whole row is the link and therefore one tab stop — someone scanning does
- * not want to hunt for the few characters of date text that happened to be
- * anchored. **It does not lift on hover.** Lifting is what a button does, and
- * the control vocabulary rests on that asymmetry; a row that lifted would make
- * eight objects out of eight regions. Hover and focus are one step up the
- * neutral scale, and nothing moves.
- */
-function Row({ conversation }: { conversation: ConversationSummary }) {
-  const t = useTranslate();
-  const locale = useLocale();
-
-  return (
-    <Link
-      href={`/history/${conversation.conversationId}` as Route}
-      className="animate-in fade-in fill-mode-both duration-300 motion-reduce:animate-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-ring/50 -mx-2 grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 rounded-md px-2 py-2.5 duration-fast ease-standard transition-colors motion-reduce:transition-none focus-visible:ring-[3px] focus-visible:outline-none max-[460px]:grid-cols-[minmax(0,1fr)_auto]"
-    >
-      <time
-        dateTime={conversation.startedAt}
-        className="text-hint text-muted-foreground col-start-1 row-start-1 pt-px text-right tabular-nums whitespace-nowrap max-[460px]:text-left"
-      >
-        {formatTime(conversation.startedAt, locale)}
-      </time>
-
-      <div className="col-start-2 row-start-1 min-w-0 max-[460px]:col-start-1 max-[460px]:col-end-3 max-[460px]:row-start-2">
-        {/* The title is what IDENTIFIES a conversation — its topic, written by
-            the API after the save — so it is the ink line; the time only orders
-            them. Until a title exists, or when none could be written, the first
-            line stands in, drawn at regular weight so a reader can tell a guess
-            at the topic from what someone actually said. With a title, that
-            first line follows it in grey: it is what jogs the memory once the
-            topic has narrowed it down. */}
-        {conversation.title ? (
-          <>
-            <p className="text-body truncate font-medium">{conversation.title}</p>
-            {conversation.preview ? (
-              <p className="text-hint text-muted-foreground truncate">{conversation.preview}</p>
-            ) : null}
-          </>
-        ) : (
-          <p className="text-body truncate">{conversation.preview || t('web.history.untitled')}</p>
-        )}
-        <div className="mt-0.5">
-          <ConversationMetaLine conversation={conversation} />
-        </div>
-      </div>
-
-      <span className="col-start-3 row-start-1 flex items-center gap-2 pt-px max-[460px]:col-start-2">
-        {/* Only when minutes actually exist — the field is read from the
-            relation, so this cannot claim a summary nobody ran. On the right
-            edge, so their presence reads down one column instead of being
-            hunted inside eight meta lines. */}
-        {conversation.hasMinutes ? (
-          <Badge variant="secondary">{t('web.history.minutesReady')}</Badge>
-        ) : null}
-        <ChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0" />
-      </span>
-    </Link>
-  );
-}
-
-/**
  * The first load, in the geometry of the list it becomes.
  *
  * Not the word "Loading" in a box: the first paint and the loaded paint are then
@@ -251,14 +194,15 @@ function LoadingRows({ label }: { label: string }) {
       {[0, 1].map((group) => (
         <section key={group} className="mt-5 first:mt-0">
           <Skeleton className="mb-1.5 h-[11px] w-18" />
-          <ul aria-busy className="grid gap-3 lg:grid-cols-2">
+          <ul aria-busy className="flex flex-col">
             {[0, 1, 2].map((row) => (
-              <li key={row} className="flex items-start gap-3 px-0 py-2.5">
-                <Skeleton className="mt-px h-3 w-9 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton className="h-3.5 w-full max-w-[34ch]" />
-                  <Skeleton className="mt-1.5 h-3 w-32" />
+              <li key={row} className="flex flex-col gap-1.5 px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-3.5 max-w-[28ch] flex-1" />
+                  <Skeleton className="h-3 w-12 shrink-0" />
                 </div>
+                <Skeleton className="h-3 w-full max-w-[36ch]" />
+                <Skeleton className="h-3 w-40" />
               </li>
             ))}
           </ul>

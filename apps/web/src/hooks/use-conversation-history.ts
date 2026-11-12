@@ -21,6 +21,12 @@ export interface UseConversationHistory {
   loadMore: () => void;
   /** Re-fetch from the first page. */
   reload: () => void;
+  /**
+   * Drop one conversation from the rows already loaded — what a delete elsewhere on
+   * the screen calls, so the list beside it stops offering a row that no longer
+   * exists without refetching (and losing) every page read so far.
+   */
+  forget: (conversationId: string) => void;
   /** The term actually sent — empty while one is too short to be searched. */
   searching: boolean;
 }
@@ -140,6 +146,12 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     setGeneration((n) => n + 1);
   }, []);
 
+  const forget = useCallback((conversationId: string) => {
+    setConversations((current) =>
+      current.filter((conversation) => conversation.conversationId !== conversationId),
+    );
+  }, []);
+
   return {
     conversations,
     loading,
@@ -150,5 +162,6 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     hasMore: cursor !== null,
     loadMore,
     reload,
+    forget,
   };
 }

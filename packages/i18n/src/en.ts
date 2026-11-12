@@ -220,8 +220,6 @@ export const en = {
   'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.sidebarWidth': 'Sidebar width',
-  'web.chrome.descHistory':
-    'Every conversation you finish, ready to read again, search and summarize.',
   'web.chrome.descGlossary': 'Names and terms you want translated your way, kept in one place.',
   'web.chrome.descPreferences':
     'How the microphone, the translator and the screen behave the next time you start.',
@@ -615,6 +613,13 @@ export const en = {
   // back to the full list is selecting the field and deleting what you typed.
   'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
+  // The detail's overflow menu; Delete is its one item, and the second step
+  // happens under the header, beside the sentence saying what it costs.
+  'web.history.moreActions': 'More actions',
+  'web.history.tabMinutes': 'Minutes',
+  // Read after the tab's name when minutes exist; the dot beside it is decoration.
+  'web.history.tabMinutesReady': '(ready)',
+  'web.history.listWidth': 'Conversation list width',
   'web.history.turnCount': '{count} lines',
   'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',

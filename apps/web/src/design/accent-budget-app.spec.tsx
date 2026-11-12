@@ -129,7 +129,10 @@ vi.mock('@/hooks/use-minutes', () => ({ useMinutes: () => useMinutes() }));
 // something `vi.hoisted` made. `/history` seeds its search term from here, which
 // is the only way to reach the "nothing matched" state — the same empty list
 // means something else entirely without a term in the URL.
-const url = vi.hoisted(() => ({ query: '' }));
+const url = vi.hoisted(() => {
+  const params: Record<string, string> = {};
+  return { query: '', params };
+});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -137,7 +140,14 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(url.query),
   // A cuid, because the room screen answers anything else as "room not found"
   // without asking the server.
-  useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho' }),
+  useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho', ...url.params }),
+}));
+
+// Whether History's content area is wide enough for two panes. A box-model fact
+// happy-dom does not have, so the rows that want the master–detail state say so.
+const historyBox = vi.hoisted(() => ({ wide: false }));
+vi.mock('@/components/history/use-container-wide', () => ({
+  useContainerWide: () => historyBox.wide,
 }));
 
 vi.mock('next-auth/react', () => ({
@@ -159,7 +169,8 @@ const useConferenceEnd = vi.hoisted(() => vi.fn<() => UseConferenceEnd>());
 vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConferenceEnd() }));
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
-const { HistoryScreen } = await import('@/components/history/history-screen');
+const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
+const { HistoryNewestDetail } = await import('@/components/history/history-newest-detail');
 const { ConversationDetail } = await import('@/components/history/conversation-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
@@ -467,6 +478,29 @@ const VOICES = [
   { token: 'v-2', label: 'Minh', gender: 'male' },
 ];
 
+/**
+ * History as its routes render it: the layout's list, with the page in the pane —
+ * the conversation in `url.params`, or the newest one at `/history`.
+ */
+function historyRoute() {
+  const id: string | undefined = url.params.conversationId;
+  return (
+    <HistoryMasterDetail>
+      {id ? <ConversationDetail conversationId={id} /> : <HistoryNewestDetail />}
+    </HistoryMasterDetail>
+  );
+}
+
+/** `/history/<id>` with the list loaded beside it and the conversation answering. */
+function openConversation(conversation: ReturnType<typeof stored>) {
+  url.params = { conversationId: String(conversation.conversationId) };
+  listConversations.mockResolvedValue({ conversations: STORED_CONVERSATIONS, nextCursor: null });
+  getConversation.mockResolvedValue({ conversation });
+}
+
+const MINUTES_TAB = '[role="tab"][id$="-trigger-minutes"]';
+const MORE_ACTIONS = 'button[aria-label="More actions"]';
+
 /** One screen in one state: what it renders, and the two counts it is allowed. */
 interface ScreenState {
   name: string;
@@ -503,6 +537,16 @@ interface ScreenState {
    * passes silently and the table claims coverage it does not have.
    */
   shows?: string;
+  /**
+   * Controls to press in order, AS A POINTER does: `pointerdown`, `mousedown`, then
+   * `click`, with real time to settle after each.
+   *
+   * `press` above is a bare `.click()`, and Radix answers some triggers before the
+   * click ever arrives — a dropdown opens on `pointerdown`, a tab activates on
+   * `mousedown` — so a clicked `⋯` or tab is a state that was never reached. The
+   * time is for steps that land on a timeout, like a menu reporting it has closed.
+   */
+  steps?: string[];
 }
 
 /**
@@ -913,13 +957,12 @@ const SCREENS: ScreenState[] = [
     setup() {
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
-    // The state this screen is actually FOR, and the one the empty row above
-    // cannot reach: day headings, rows on the page ground, a minutes badge, and
-    // "Load more" under a further cursor. Every one of those is where a card or a
-    // filled control would arrive, and none of them was ever mounted here.
+    // The state this screen is actually FOR on a phone: day headings, rows on the
+    // page ground, a minutes badge, and "Load more" under a further cursor. Every
+    // one of those is where a card or a filled control would arrive.
     name: '/history — days of conversations, and more behind them',
     filled: 0,
     surfaces: 0,
@@ -929,7 +972,8 @@ const SCREENS: ScreenState[] = [
         nextCursor: 'c-3',
       });
     },
-    render: () => <HistoryScreen />,
+    shows: 'a[href^="/history/"]',
+    render: historyRoute,
   },
   {
     // The first page failed, so the screen is a notice and a retry. Outline, not
@@ -940,7 +984,7 @@ const SCREENS: ScreenState[] = [
     setup() {
       listConversations.mockRejectedValue(new Error('offline'));
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
     // "Nothing matched" is a different fact from "nothing stored", and it is only
@@ -952,31 +996,106 @@ const SCREENS: ScreenState[] = [
       url.query = 'q=cảm ơn';
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
-    render: () => <HistoryScreen />,
+    render: historyRoute,
   },
   {
-    // The other half of the history criterion, and the half that had no gate: the
-    // "exactly one accent here" claim lived only in a doc comment. One, and it is
-    // the minutes generate button — back is ghost, delete is outline then
-    // `destructive`, which fills with `live-fill` rather than the accent.
-    name: '/history/[conversationId] — no minutes yet',
-    filled: 1,
-    surfaces: 2,
+    // The combined screen, and the one most likely to break both budgets: the list
+    // AND the newest conversation, open beside it at `/history`. Zero of each — the
+    // conversation opens on its transcript, which is on the page ground, and the
+    // one control that would spend the accent (Generate) is behind the Minutes tab.
+    name: '/history — wide, the newest conversation open beside the list',
+    filled: 0,
+    surfaces: 0,
     setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: 'c-3',
+      });
       getConversation.mockResolvedValue({ conversation: stored() });
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    // Proof the pane is up: the detail's own title, which only a loaded
+    // conversation draws. No steps to press — the empty list lets both fetches land.
+    shows: 'header h2',
+    steps: [],
+    render: historyRoute,
+  },
+  {
+    // The same screen on its Minutes tab: Generate is the one accent and the
+    // minutes panel the one surface — with the whole list still beside it.
+    name: '/history — wide, the newest conversation on its Minutes tab',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: 'c-3',
+      });
+      getConversation.mockResolvedValue({ conversation: stored() });
+    },
+    steps: [MINUTES_TAB],
+    shows: '[data-slot="card"]',
+    render: historyRoute,
+  },
+  {
+    // Wide, with nothing stored: one column, the empty state, no reading pane.
+    name: '/history — wide, nothing stored yet',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    },
+    render: historyRoute,
+  },
+  {
+    // Wide, with a search that matched nothing: the list says so, the pane is empty.
+    name: '/history — wide, nothing matched the search',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      url.query = 'q=cảm ơn';
+      listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    },
+    render: historyRoute,
+  },
+  {
+    // A stored conversation on a phone, as it opens: header, tabs, the transcript
+    // on the ground. Nothing filled — back is ghost, play and `⋯` are outline — and
+    // no surface, because the transcript is not a card any more.
+    name: '/history/[conversationId] — on its transcript',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    shows: '[role="tab"][aria-selected="true"]',
+    render: historyRoute,
+  },
+  {
+    // The Minutes tab before anything was generated: exactly one accent, and it is
+    // Generate; exactly one surface, and it is the minutes panel.
+    name: '/history/[conversationId] — no minutes yet',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MINUTES_TAB],
+    shows: '[data-slot="card"]',
+    render: historyRoute,
   },
   {
     // Minutes exist, so the panel draws its body and gains a copy control beside
-    // the button. Still one accent and still two surfaces: regenerate is the same
-    // default-variant control, copy is ghost, and the summary is content inside a
-    // card that was already counted.
+    // the button. Still one accent and one surface: regenerate is the same
+    // default-variant control, copy is ghost, and the summary is inside the card.
     name: '/history/[conversationId] — minutes generated',
     filled: 1,
-    surfaces: 2,
+    surfaces: 1,
     setup() {
-      getConversation.mockResolvedValue({ conversation: stored({ hasMinutes: true }) });
+      openConversation(stored({ hasMinutes: true }));
       useMinutes.mockReturnValue({
         minutes: READY_MINUTES,
         loading: false,
@@ -985,76 +1104,99 @@ const SCREENS: ScreenState[] = [
         reset: vi.fn(),
       });
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    steps: [MINUTES_TAB],
+    shows: '[data-slot="card"]',
+    render: historyRoute,
   },
   {
-    // The state this feature adds, and the one both budgets were most likely to
-    // break in. The recording bar draws a play button, a slider and a readout —
-    // and it draws them on the page GROUND between hairlines, not in a card,
-    // because the two surfaces are already spent on the transcript and the
-    // minutes. Play is `outline`; the accent stays with Generate.
-    //
-    // The slider is the interesting half: its filled range carries `bg-primary`,
-    // and it does NOT count, because `accentFilledControls` restricts to
-    // `button, a, [role="button"]` and the range is a `div`. That exemption is
-    // named in `accent-count.ts`'s own docblock as exactly this case, so this row
-    // is what proves the exemption still holds rather than merely asserting it.
+    // The recording controls in the header: a play button, a slider and a readout.
+    // Play is `outline`. The slider's filled range carries `bg-primary` and does
+    // NOT count, because `accentFilledControls` restricts to `button, a,
+    // [role="button"]` and the range is a `div` — this row is what proves that
+    // exemption still holds rather than merely asserting it.
     name: '/history/[conversationId] — with a recording',
-    filled: 1,
-    surfaces: 2,
+    filled: 0,
+    surfaces: 0,
     setup() {
-      getConversation.mockResolvedValue({
-        conversation: stored({
-          hasRecording: true,
-          audioOffsetMs: 1_400,
-          audioDurationMs: 600_000,
-        }),
-      });
+      openConversation(
+        stored({ hasRecording: true, audioOffsetMs: 1_400, audioDurationMs: 600_000 }),
+      );
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    shows: '[role="slider"]',
+    render: historyRoute,
   },
   {
-    // A recording the reader has PRESSED PLAY on, which is the state the bar
-    // spends most of its life in and the one the row above cannot reach: on a
-    // detail screen nobody has touched, the player has fetched nothing and the
-    // bar is identical to the row above.
-    //
-    // An earlier version of this row set `fetchConversationAudio` to reject and
-    // claimed the failed line rendered by itself. It does not — `failed` is only
-    // set inside `load()`, and `load()` only runs from `toggle` or `seekTo` —
-    // so the row asserted nothing the row above had not already asserted. The
-    // press is what makes it a distinct state.
+    // A recording the reader has PRESSED PLAY on and that failed to load. `failed`
+    // is only set inside the player's `load()`, which runs from a press, so the
+    // press is what makes this a distinct state — and the failure must not answer
+    // with a card or a filled retry.
     name: '/history/[conversationId] — the recording failed to load',
-    filled: 1,
-    surfaces: 2,
+    filled: 0,
+    surfaces: 0,
     setup() {
-      getConversation.mockResolvedValue({
-        conversation: stored({
-          hasRecording: true,
-          audioOffsetMs: 1_400,
-          audioDurationMs: 600_000,
-        }),
-      });
+      openConversation(
+        stored({ hasRecording: true, audioOffsetMs: 1_400, audioDurationMs: 600_000 }),
+      );
       fetchConversationAudio.mockRejectedValue(new Error('offline'));
     },
-    // Pressing play is what drives the player into its failed state, and the
-    // failure must not be allowed to answer with a card or a filled retry.
-    press: 'button[data-slot="button"][aria-label]',
-    // The proof the press landed. Without it this row would silently go back to
-    // counting the untouched bar the moment the selector stopped matching.
+    press: 'button[aria-label="Play the recording"]',
     shows: '[role="status"]',
-    render: () => <ConversationDetail conversationId="c-1" />,
+    render: historyRoute,
   },
   {
-    // A foreign or deleted id. Zero of both: the records that earn the two
-    // surfaces are the ones that did not load, and there is nothing to generate.
+    // The `⋯` menu open. Its content is the one elevated surface while it is open,
+    // and Delete in it is a menu item, not a filled control.
+    name: '/history/[conversationId] — the actions menu open',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS],
+    shows: '[role="menuitem"]',
+    render: historyRoute,
+  },
+  {
+    // Delete chosen, confirmation showing. The destructive press fills with
+    // `live-fill`, not the accent, and the strip is a region between hairlines.
+    name: '/history/[conversationId] — confirming a delete',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      openConversation(stored());
+    },
+    steps: [MORE_ACTIONS, '[role="menuitem"]'],
+    shows: '[role="alertdialog"]',
+    render: historyRoute,
+  },
+  {
+    // A deep link to an older conversation on a wide screen: the list beside it,
+    // that row marked, and the same zero counts as the phone's transcript view.
+    name: '/history/[conversationId] — wide, beside the list',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      historyBox.wide = true;
+      openConversation(stored({ conversationId: 'c-2' }));
+    },
+    shows: 'a[aria-current="page"][href="/history/c-2"]',
+    render: historyRoute,
+  },
+  {
+    // A foreign or deleted id. Zero of both: the records that earn a surface are
+    // the ones that did not load, and there is nothing to generate.
     name: '/history/[conversationId] — no longer here',
     filled: 0,
     surfaces: 0,
     setup() {
+      url.params = { conversationId: 'c-1' };
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: null,
+      });
       getConversation.mockRejectedValue(new Error('not found'));
     },
-    render: () => <ConversationDetail conversationId="c-1" />,
+    render: historyRoute,
   },
   {
     // TWO surfaces since the AI Context library landed: the defaults panel and the
@@ -1575,6 +1717,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   localStorage.clear();
   url.query = '';
+  url.params = {};
+  historyBox.wide = false;
   // Here rather than in each `setup()`: a screen that forgot it would get
   // `undefined` back from the factory and the banner's `.catch` would throw.
   checkHealth.mockResolvedValue(undefined);
@@ -1648,6 +1792,24 @@ async function show(screen: ScreenState): Promise<void> {
       await Promise.resolve();
       await Promise.resolve();
     });
+  }
+
+  if (screen.steps) {
+    // The list's page and then the conversation it opens are two fetches in a row,
+    // so a row with steps first lets both land.
+    await act(async () => {
+      for (let i = 0; i < 4; i += 1) await Promise.resolve();
+    });
+    for (const step of screen.steps) {
+      const control = document.querySelector<HTMLElement>(step);
+      expect(control, `${screen.name}: nothing matches ${step}`).not.toBeNull();
+      await act(async () => {
+        control?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+        control?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+        control?.click();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
   }
 
   if (screen.open) {

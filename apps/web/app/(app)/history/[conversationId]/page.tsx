@@ -22,5 +22,8 @@ export default async function ConversationPage({
   params: Promise<{ conversationId: string }>;
 }) {
   const { conversationId } = await params;
-  return <ConversationDetail conversationId={conversationId} />;
+  // Keyed by id: moving between conversations stays under the same layout and the
+  // same page, so without a key the player, the minutes and the open tab of the
+  // conversation just left would carry over into the next one.
+  return <ConversationDetail key={conversationId} conversationId={conversationId} />;
 }

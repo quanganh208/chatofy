@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { ArrowLeftRight, ArrowRight, AudioLines } from 'lucide-react';
 import type { ConversationSummary, LanguageCode } from '@chatofy/types';
 import type { Translate } from '@chatofy/i18n';
@@ -17,6 +17,13 @@ interface ConversationMetaLineProps {
   showTimeRange?: boolean;
   /** A fact printed before the kind, on the same line — the detail page's date. */
   leading?: ReactNode;
+  /**
+   * One line that never wraps, for a list row: the kind, the length and the line
+   * count, and nothing that only the open conversation needs (speakers, recording).
+   * In a pane as narrow as the list a wrapping line strands its last fact alone on a
+   * line of its own; this one gives up its tail to an ellipsis instead.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -32,9 +39,35 @@ export function ConversationMetaLine({
   conversation,
   showTimeRange,
   leading,
+  compact,
 }: ConversationMetaLineProps) {
   const t = useTranslate();
   const locale = useLocale();
+
+  if (compact) {
+    const facts = [
+      <KindLabel key="kind" conversation={conversation} />,
+      <span key="duration">
+        {t('web.history.duration', { minutes: durationMinutes(conversation) })}
+      </span>,
+      <span key="turns">{turnCountLabel(t, conversation.turnCount)}</span>,
+    ];
+    return (
+      <p className="text-hint text-muted-foreground min-w-0 truncate">
+        {facts.map((fact, index) => (
+          <Fragment key={fact.key}>
+            {index > 0 ? (
+              <>
+                {' '}
+                <Dot />{' '}
+              </>
+            ) : null}
+            {fact}
+          </Fragment>
+        ))}
+      </p>
+    );
+  }
 
   const parts = [
     leading ? <span key="leading">{leading}</span> : null,

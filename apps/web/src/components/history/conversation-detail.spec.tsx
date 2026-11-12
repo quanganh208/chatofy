@@ -5,29 +5,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Conversation } from '@chatofy/types';
 
 /**
- * The detail screen's three states, and the one thing that moved between them.
+ * The detail screen's three states, its two tabs, and its delete.
  *
  * Loading and not-found used to render the same plain paragraph two branches
  * apart, so for the first frame a conversation that was gone looked exactly like
- * one that was arriving. And delete used to sit second on the screen, opposite
- * "back", above the transcript the reader opened the page for.
+ * one that was arriving. Delete lives in the header's `⋯` menu, and is still two
+ * presses with the consequence on screen before the one that acts.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const getConversation = vi.hoisted(() => vi.fn<() => Promise<{ conversation: Conversation }>>());
 const deleteConversation = vi.hoisted(() => vi.fn<() => Promise<void>>());
+const push = vi.hoisted(() => vi.fn());
 vi.mock('@/clients/api-client', () => ({
   getConversation: () => getConversation(),
   deleteConversation: () => deleteConversation(),
 }));
 
-vi.mock('@/hooks/use-minutes', () => ({
-  useMinutes: () => ({ minutes: null, loading: false, error: false, generate: vi.fn() }),
-}));
+const useMinutes = vi.hoisted(() =>
+  vi.fn(() => ({ minutes: null, loading: false, error: false, generate: vi.fn() })),
+);
+vi.mock('@/hooks/use-minutes', () => ({ useMinutes: () => useMinutes() }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 const { ConversationDetail } = await import('./conversation-detail');
@@ -92,48 +94,154 @@ async function mount(): Promise<void> {
   });
 }
 
+function buttonNamed(text: string): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll('button')].find((b) => b.textContent === text);
+}
+
+function tab(name: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find((el) =>
+    el.textContent?.startsWith(name),
+  );
+}
+
+/** The quiet first step: open `⋯` (Radix opens on pointerdown) and choose Delete. */
+async function chooseDelete(): Promise<void> {
+  const more = container.querySelector<HTMLElement>('button[aria-label="More actions"]');
+  await act(async () => {
+    more?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    await Promise.resolve();
+  });
+  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((el) =>
+    el.textContent?.includes('Delete'),
+  );
+  expect(item, 'the menu never opened').toBeDefined();
+  await act(async () => {
+    item?.click();
+    // The strip opens once the menu has CLOSED, which Radix reports from a timeout
+    // after its exit — so this waits out real time rather than a microtask.
+    for (let i = 0; i < 10 && !container.querySelector('[role="alertdialog"]'); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  });
+  expect(container.querySelector('[role="alertdialog"]'), 'the strip never opened').not.toBeNull();
+}
+
 describe('ConversationDetail', () => {
-  it('states what deleting costs before anything is pressed', async () => {
-    // The sentence used to arrive WITH the confirming button, which is a warning
-    // shown only to someone who has already decided to look at it. It now lives
-    // in the delete zone, so it is on screen from the first paint.
+  it('keeps delete in the actions menu, not on the page', async () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
 
-    expect(container.textContent).toContain('This cannot be undone');
-    const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent);
-    expect(buttons.some((label) => label?.includes('Cancel'))).toBe(false);
+    expect(buttonNamed('Delete'), 'a delete button on the page').toBeUndefined();
+    expect(container.querySelector('button[aria-label="More actions"]')).not.toBeNull();
   });
 
-  it('puts delete after every record it destroys', async () => {
+  it('states what deleting costs before the press that deletes', async () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
+    await chooseDelete();
 
-    // The LAST card, not the first. Anchored on the transcript alone, a delete
-    // sitting between the transcript and the minutes passes — which is the one
-    // placement this assertion exists to rule out, since the minutes go with the
-    // conversation.
-    const cards = [...container.querySelectorAll('[data-slot="card"]')];
-    expect(cards.length, 'transcript and minutes').toBe(2);
-    const remove = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Delete'),
-    );
-    expect(remove).toBeDefined();
-    expect(cards.at(-1)!.compareDocumentPosition(remove!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // Choosing Delete in the menu is the quiet first press: nothing is gone yet,
+    // the sentence is on screen, and focus waits on Cancel so a held key cannot
+    // take both steps.
+    expect(deleteConversation).not.toHaveBeenCalled();
+    const strip = container.querySelector('[role="alertdialog"]');
+    expect(strip?.textContent).toContain('This cannot be undone');
+    expect(document.activeElement?.textContent).toBe('Cancel');
   });
 
-  it('attaches the consequence to the control, not only to the layout', async () => {
+  it('attaches the consequence to the confirmation and its control', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    await chooseDelete();
+
+    const strip = container.querySelector('[role="alertdialog"]');
+    const remove = buttonNamed('Delete');
+    for (const element of [strip, remove]) {
+      const describedBy = element?.getAttribute('aria-describedby');
+      expect(describedBy, 'announced with no consequence').toBeTruthy();
+      expect(document.getElementById(describedBy!)?.textContent).toContain('This cannot be undone');
+    }
+  });
+
+  it('puts focus back on the menu when the reader cancels', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    await chooseDelete();
+
+    act(() => buttonNamed('Cancel')?.click());
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('More actions');
+  });
+
+  it('deletes on the second press and goes back to the list', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    deleteConversation.mockResolvedValue(undefined);
+    await mount();
+    await chooseDelete();
+
+    await act(async () => {
+      buttonNamed('Delete')?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(deleteConversation).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/history');
+  });
+
+  it('keeps the confirmation open and says so when the delete is refused', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    deleteConversation.mockRejectedValue(new Error('500'));
+    await mount();
+    await chooseDelete();
+
+    await act(async () => {
+      buttonNamed('Delete')?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(push).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('still here');
+  });
+
+  it('opens on the transcript, on the page ground, with minutes one tab away', async () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
 
-    const remove = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Delete'),
+    const tabs = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent);
+    expect(tabs).toEqual(['Transcript', 'Minutes']);
+    expect(container.textContent).toContain('hello');
+    // No card anywhere on the transcript view — the minutes panel is the screen's
+    // one surface, and it is not mounted until its tab is chosen.
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(0);
+
+    await act(async () => {
+      tab('Minutes')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      await Promise.resolve();
+    });
+    expect(tab('Minutes')?.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(1);
+    expect(container.textContent).toContain('Meeting minutes');
+    expect(container.textContent).not.toContain('hello');
+  });
+
+  it('marks the Minutes tab when minutes exist, in words as well as a dot', async () => {
+    getConversation.mockResolvedValue({ conversation: { ...conversation, hasMinutes: true } });
+    await mount();
+    expect(tab('Minutes')?.textContent).toContain('(ready)');
+
+    act(() => root?.unmount());
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    expect(tab('Minutes')?.textContent).toBe('Minutes');
+  });
+
+  it('offers a way back to the list in the one-page layout', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    const back = [...container.querySelectorAll('a')].find((a) =>
+      a.textContent?.includes('Back to history'),
     );
-    const describedBy = remove?.getAttribute('aria-describedby');
-    expect(describedBy, 'delete announces itself with no consequence').toBeTruthy();
-    expect(container.querySelector(`#${describedBy}`)?.textContent).toContain(
-      'This cannot be undone',
-    );
+    expect(back?.getAttribute('href')).toBe('/history');
   });
 
   it('names which conversation opened, so arriving from a row is confirmed', async () => {
@@ -152,12 +260,12 @@ describe('ConversationDetail', () => {
       conversation: { ...conversation, title: 'Hợp đồng thuê nhà' },
     });
     await mount();
-    expect(container.querySelector('h2')?.textContent).toBe('Hợp đồng thuê nhà');
+    expect(container.querySelector('header h2')?.textContent).toBe('Hợp đồng thuê nhà');
 
     act(() => root?.unmount());
     getConversation.mockResolvedValue({ conversation });
     await mount();
-    expect(container.querySelector('h2')?.textContent).toBe(conversation.preview);
+    expect(container.querySelector('header h2')?.textContent).toBe(conversation.preview);
   });
 
   it('does not draw a conversation that is still arriving as one that is gone', async () => {
@@ -202,9 +310,6 @@ describe('ConversationDetail', () => {
     // deleted or the link was stale — those were only two of three.
     expect(container.textContent).toContain('could not reach the server');
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
-    const remove = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Delete'),
-    );
-    expect(remove).toBeUndefined();
+    expect(container.querySelector('button[aria-label="More actions"]')).toBeNull();
   });
 });

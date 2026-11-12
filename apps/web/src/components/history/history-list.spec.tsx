@@ -319,6 +319,54 @@ describe('HistoryList', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it('marks the open conversation as current, and only that one', () => {
+    render({
+      conversations: [summary({ conversationId: 'a' }), summary({ conversationId: 'b' })],
+      selectedId: 'b',
+    });
+    const current = [...container.querySelectorAll('a[aria-current]')];
+    expect(current.map((a) => a.getAttribute('href'))).toEqual(['/history/b']);
+    expect(current[0]?.getAttribute('aria-current')).toBe('page');
+    // The sidebar's dawn bar, on the selected row alone — decoration, so hidden.
+    const bars = [...container.querySelectorAll('[data-slot="history-row-active-bar"]')];
+    expect(bars.length).toBe(1);
+    expect(bars[0]?.getAttribute('aria-hidden')).toBe('true');
+    expect(current[0]?.className).toContain('bg-muted');
+  });
+
+  it('marks nothing when no conversation is open', () => {
+    render({ conversations: [summary({ conversationId: 'a' })] });
+    expect(container.querySelector('a[aria-current]')).toBeNull();
+    expect(container.querySelector('[data-slot="history-row-active-bar"]')).toBeNull();
+  });
+
+  it('carries the search into every row it opens', () => {
+    render({ conversations: [summary({ conversationId: 'a' })], querySuffix: '?q=xin' });
+    expect(rows()).toEqual(['/history/a?q=xin']);
+  });
+
+  it('draws rows on the page ground, one column, with no box per row', () => {
+    render({
+      conversations: [summary({ conversationId: 'a' }), summary({ conversationId: 'b' })],
+    });
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(0);
+    for (const item of container.querySelectorAll('li')) {
+      expect(item.className).not.toMatch(/\bborder\b|rounded-xl/);
+    }
+    expect(container.innerHTML).not.toContain('grid-cols-2');
+  });
+
+  it('keeps the meta line to one line, without the facts only the open conversation needs', () => {
+    render({
+      conversations: [summary({ speakerCount: 2, speakers: ['Lan', 'John'], hasRecording: true })],
+    });
+    const meta = [...container.querySelectorAll('a[href^="/history/"] p')].at(-1);
+    expect(meta?.className).toContain('truncate');
+    expect(meta?.textContent).toContain('12 lines');
+    expect(meta?.textContent).not.toContain('Lan');
+    expect(meta?.textContent).not.toContain('Recording');
+  });
+
   it('spends no accent on this screen', () => {
     // The filled "Start a conversation" is gone: it invited the same destination
     // the sidebar's Translate entry does on every app screen. Held here as well

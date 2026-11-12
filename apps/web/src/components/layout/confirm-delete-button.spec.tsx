@@ -28,11 +28,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function render(onConfirm: () => Promise<void>) {
+function render(
+  onConfirm: () => Promise<void>,
+  extra: Partial<Parameters<typeof ConfirmDeleteButton>[0]> = {},
+) {
   act(() => {
     root.render(
       <LocaleProvider>
         <ConfirmDeleteButton
+          {...extra}
           onConfirm={onConfirm}
           labels={{
             action: en['web.history.delete'],
@@ -164,5 +168,24 @@ describe('ConfirmDeleteButton', () => {
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain('Could not delete this conversation');
+  });
+
+  it('can open on the second step, for a caller whose first step is a menu item', () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    render(onConfirm, { startConfirming: true, onCancel: vi.fn() });
+
+    // Arriving deletes nothing, and focus waits on Cancel — not on the press that acts.
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(document.activeElement?.textContent).toBe('Cancel');
+  });
+
+  it('hands a cancel back to the caller instead of drawing a trigger it never had', () => {
+    const onCancel = vi.fn();
+    render(vi.fn().mockResolvedValue(undefined), { startConfirming: true, onCancel });
+
+    click('Cancel');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    // Still on the second step: the caller is what removes this component.
+    expect(buttonNamed('Cancel')).toBeDefined();
   });
 });
