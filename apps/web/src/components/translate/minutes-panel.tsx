@@ -116,6 +116,9 @@ export function MinutesPanel({
 
   return (
     <section
+      // A hook for the accent-budget gate, which has to prove the panel mounted:
+      // with no card, its surface count is the same whether it renders or not.
+      data-minutes-panel=""
       // Named by the visible heading when there is one, and by the same string
       // otherwise, so the region is announced identically on every screen.
       {...(showTitle

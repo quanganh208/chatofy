@@ -587,6 +587,7 @@ const ARRANGEMENTS = [
   name,
   filled: 1,
   surfaces: 0,
+  shows: '[data-minutes-panel]',
   setup: idle,
   render: translate(settings),
 }));
@@ -899,6 +900,7 @@ const SCREENS: ScreenState[] = [
     name: '/translate/one-way — ended, turns stored',
     filled: 1,
     surfaces: 0,
+    shows: '[data-minutes-panel]',
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
@@ -919,6 +921,7 @@ const SCREENS: ScreenState[] = [
     name: '/translate/one-way — the recording failed to upload',
     filled: 1,
     surfaces: 0,
+    shows: '[data-minutes-panel]',
     setup() {
       uploadConversationAudio.mockRejectedValue(new Error('down'));
       useStreamingTranslate.mockReturnValue(
@@ -1634,12 +1637,13 @@ const SCREENS: ScreenState[] = [
     surfaces: 1,
     setup: ended(),
     render: () => <ConferenceEndedPage />,
-    shows: 'dl',
+    shows: '[data-minutes-panel]',
   },
   {
     name: '/conference/[roomId]/ended — generating minutes',
     filled: 1,
     surfaces: 1,
+    shows: '[data-minutes-panel]',
     setup: ended({ generating: true }),
     render: () => <ConferenceEndedPage />,
   },
@@ -1665,7 +1669,7 @@ const SCREENS: ScreenState[] = [
       })();
     },
     render: () => <ConferenceEndedPage />,
-    shows: 'ul',
+    shows: '[data-minutes-panel] ul',
   },
   {
     name: '/conference/[roomId]/ended — the last pass failed',
@@ -1673,7 +1677,7 @@ const SCREENS: ScreenState[] = [
     surfaces: 1,
     setup: ended({ generateFailed: true }),
     render: () => <ConferenceEndedPage />,
-    shows: '.text-destructive',
+    shows: '[data-minutes-panel] .text-destructive',
   },
 ];
 
