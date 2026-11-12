@@ -30,6 +30,9 @@ Use this file when editing code, tests, scripts, or configuration.
 `/settings/*` page; everything else is ghost, outline, or a readout. A card is for a thing you
 act on as a unit — everything else is a list, a bar, or a region on the page ground. App screens
 draw no card at rest; what they spend a surface on is an open dialog, menu, popover or toast.
+The one exception is `/translate`: its two sides are hairline sheets with no shadow (source on
+`card`, translation on `muted`), because the swap flies one sheet into the other's place and
+that motion needs two objects to move. They are not elevated, so the surface gate does not count them.
 
 **Both have a gate.** `apps/web/src/design/accent-budget-app.spec.tsx` counts them per
 screen-state, sharing its accent counter with the marketing spec via
