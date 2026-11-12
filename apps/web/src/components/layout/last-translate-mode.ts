@@ -14,7 +14,7 @@ import { useSyncExternalStore } from 'react';
  * server and the first client render both answer one-way, so hydration agrees; the
  * stored choice arrives on the render after.
  */
-export const TRANSLATE_MODES = ['/translate/one-way', '/translate/two-way'] as const;
+const TRANSLATE_MODES = ['/translate/one-way', '/translate/two-way'] as const;
 export type TranslateMode = (typeof TRANSLATE_MODES)[number];
 
 const KEY = 'chatofy.translate-mode';
