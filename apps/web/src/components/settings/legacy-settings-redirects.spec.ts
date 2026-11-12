@@ -6,8 +6,8 @@ import { SETTINGS_SECTIONS } from './settings-sections';
  * The retired routes answer with redirects to pages that exist.
  *
  * The real 308s are checked against a running server; this holds the table: every
- * destination is a settings page, the old routes are permanent, and the Polar return
- * to `/account` lands on Billing because it is matched before the plain `/account`.
+ * destination is a settings page, the old routes are permanent, and `/account` — a
+ * bookmark, the mobile buy link or a Polar return — lands on Billing.
  */
 const pages = new Set<string>(SETTINGS_SECTIONS.map((section) => section.href));
 const first = (source: string, query: Record<string, string> = {}) =>
@@ -22,12 +22,12 @@ describe('legacy settings redirects', () => {
     for (const rule of LEGACY_SETTINGS_REDIRECTS) expect(pages.has(rule.destination)).toBe(true);
   });
 
-  it('moves Preferences to Appearance and Account to Profile permanently (308)', () => {
+  it('moves Preferences to Appearance and Account to Billing permanently (308)', () => {
     expect(first('/preferences')).toMatchObject({
       destination: '/settings/appearance',
       permanent: true,
     });
-    expect(first('/account')).toMatchObject({ destination: '/settings/profile', permanent: true });
+    expect(first('/account')).toMatchObject({ destination: '/settings/billing', permanent: true });
   });
 
   it('lands a Polar return to /account on Billing, where the return is read', () => {

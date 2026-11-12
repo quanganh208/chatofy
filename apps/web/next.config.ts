@@ -134,7 +134,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@chatofy/types', '@chatofy/config'],
   typedRoutes: true,
   // Preferences and Account became the seven pages of Settings; see the module for why
-  // these are config redirects and why `/account?checkout=…` goes to Billing.
+  // these are config redirects and why `/account` goes to Billing.
   redirects: async () => [...LEGACY_SETTINGS_REDIRECTS],
   headers: async () => [
     {
