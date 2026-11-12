@@ -1,6 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { usePathname } from 'next/navigation';
 import type {
   CheckoutOrder,
   CheckoutOrderStatus,
@@ -10,8 +21,8 @@ import type {
 import { getCheckoutOrder, getCreditBalance, listCreditUsage } from '@/clients/api-client';
 
 /**
- * The caller's credits, as `/settings/billing` and the `/translate` readiness banner read
- * them.
+ * The caller's credits, as the sidebar meter, `/settings/billing` and the `/translate`
+ * readiness banner read them.
  *
  * Three small hooks rather than one: the banner needs only the balance, and
  * fetching a page of usage it never shows on every `/translate` mount would be a
@@ -23,50 +34,127 @@ export type LoadState = 'loading' | 'ready' | 'failed';
 export interface UseCreditBalance {
   balance: CreditBalance | null;
   state: LoadState;
-  /** Read the balance again — after a payment lands, or on return from Polar. */
-  refetch: () => Promise<void>;
+  /**
+   * Read the balance again — after a payment lands, on return from Polar, at the end
+   * of a conversation. Under {@link CreditBalanceProvider} every reader updates from
+   * the one read.
+   */
+  refresh: () => Promise<void>;
 }
 
 /**
- * `GET /billing/me`, on mount and on demand.
+ * One `GET /billing/me` state: on mount when `enabled`, and on demand.
  *
- * A refetch that fails keeps the last balance on screen and only flips `state`:
+ * A read that fails keeps the last balance on screen and only flips `state`:
  * a number that was right a minute ago is more useful than a blank, and the
  * failure line beside it says it may be stale.
  */
-export function useCreditBalance(): UseCreditBalance {
+function useBalanceRead(enabled: boolean): UseCreditBalance & { inFlight: () => boolean } {
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const alive = useRef(true);
   // Which read is the current answer: a slow first read must not overwrite the
-  // refetch a payment just triggered.
+  // refresh a payment just triggered.
   const seq = useRef(0);
+  const pending = useRef(0);
 
   // State is only ever set in the read's own callbacks, never synchronously.
-  const refetch = useCallback((): Promise<void> => {
+  const refresh = useCallback((): Promise<void> => {
     const id = (seq.current += 1);
     const current = () => alive.current && id === seq.current;
-    return getCreditBalance().then(
-      (next) => {
-        if (!current()) return;
-        setBalance(next);
-        setState('ready');
-      },
-      () => {
-        if (current()) setState('failed');
-      },
-    );
+    pending.current += 1;
+    return getCreditBalance()
+      .then(
+        (next) => {
+          if (!current()) return;
+          setBalance(next);
+          setState('ready');
+        },
+        () => {
+          if (current()) setState('failed');
+        },
+      )
+      .finally(() => {
+        pending.current -= 1;
+      });
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     alive.current = true;
-    void refetch();
+    void refresh();
     return () => {
       alive.current = false;
     };
-  }, [refetch]);
+  }, [refresh, enabled]);
 
-  return { balance, state, refetch };
+  const inFlight = useCallback(() => pending.current > 0, []);
+  return { balance, state, refresh, inFlight };
+}
+
+const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
+
+/**
+ * The signed-in shell's one balance, mounted once in `AppChrome`.
+ *
+ * The chrome never remounts on client navigation, so a balance read once by the sidebar
+ * would say the pre-conversation number for the rest of the session, and disagree with
+ * Billing beside it the moment a payment landed. Here every reader shares one state,
+ * and it is read again:
+ *
+ * - on every route change (the mount read covers the first route);
+ * - when the window comes back into view — focus and `visibilitychange` both fire on a
+ *   tab switch, so a return while a read is already in the air does not start another;
+ * - whenever a reader calls `refresh()`.
+ */
+export function CreditBalanceProvider({ children }: { children: ReactNode }) {
+  const { balance, state, refresh, inFlight } = useBalanceRead(true);
+  const pathname = usePathname();
+  const lastPath = useRef(pathname);
+
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    void refresh();
+  }, [pathname, refresh]);
+
+  useEffect(() => {
+    const onReturn = () => {
+      if (document.visibilityState !== 'visible' || inFlight()) return;
+      void refresh();
+    };
+    window.addEventListener('focus', onReturn);
+    document.addEventListener('visibilitychange', onReturn);
+    return () => {
+      window.removeEventListener('focus', onReturn);
+      document.removeEventListener('visibilitychange', onReturn);
+    };
+  }, [refresh, inFlight]);
+
+  const value = useMemo(() => ({ balance, state, refresh }), [balance, state, refresh]);
+  return createElement(CreditBalanceContext.Provider, { value }, children);
+}
+
+/**
+ * The balance: the shell's shared one under {@link CreditBalanceProvider}, or a read of
+ * this component's own on mount without one (a component mounted alone, as in a spec).
+ */
+export function useCreditBalance(): UseCreditBalance {
+  const shared = useContext(CreditBalanceContext);
+  const own = useBalanceRead(shared === null);
+  if (shared) return shared;
+  return { balance: own.balance, state: own.state, refresh: own.refresh };
+}
+
+const NO_REFRESH = (): Promise<void> => Promise.resolve();
+
+/**
+ * Only the shared balance's `refresh`, for a screen that changes the balance without
+ * showing it (a translate conversation spends credits). A no-op without a provider:
+ * there is no shared reader to update, and a read here would be one nobody shows.
+ */
+export function useRefreshCreditBalance(): () => Promise<void> {
+  return useContext(CreditBalanceContext)?.refresh ?? NO_REFRESH;
 }
 
 export interface UseCreditUsage {

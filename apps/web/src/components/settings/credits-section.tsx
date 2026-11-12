@@ -42,7 +42,7 @@ export function CreditsSection() {
   // rather than copied into state; the query stays, so a reload says it again
   // and reads the balance again, both of which are still true.
   const returned = useSearchParams()?.get('checkout') === 'done';
-  const { refetch: refetchBalance } = credits;
+  const { refresh: refreshBalance } = credits;
   const { refetch: refetchUsage } = usage;
 
   // Polar adds its customer session token to the success URL; nothing here
@@ -57,11 +57,11 @@ export function CreditsSection() {
     // stacking a second one.
     notify.success(t('web.account.checkoutReturned'), { id: 'checkout-returned' });
     const timer = setTimeout(() => {
-      void refetchBalance();
+      void refreshBalance();
       void refetchUsage();
     }, ORDER_POLL_MS);
     return () => clearTimeout(timer);
-  }, [returned, refetchBalance, refetchUsage, t]);
+  }, [returned, refreshBalance, refetchUsage, t]);
 
   const openPortal = async () => {
     notify.dismiss('billing-portal');
@@ -162,7 +162,7 @@ export function CreditsSection() {
                 order={qr}
                 onPaid={() => {
                   notify.success(t('web.account.qrPaid'), { id: 'sepay-paid' });
-                  void refetchBalance();
+                  void refreshBalance();
                   void refetchUsage();
                 }}
                 onClose={() => setQr(null)}

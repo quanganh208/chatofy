@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import { SidebarInset, SidebarProvider } from '@chatofy/ui/react';
 import { cn } from '@/lib/utils';
+import { CreditBalanceProvider } from '@/hooks/use-credits';
 import { useStoredWidth } from '@/hooks/use-stored-width';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
@@ -137,17 +138,21 @@ export function AppChrome({
   // variable, so the sidebar, its gap and the page beside it all follow one number.
   const sidebarWidth = useStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT, 200, 360);
 
+  // One balance for every reader in the frame (sidebar meter, More sheet, Billing,
+  // the translate banner); see `CreditBalanceProvider`.
   return (
-    <ChromeSlotsProvider>
-      <SidebarProvider
-        open={open}
-        onOpenChange={setOpen}
-        style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
-      >
-        <AppSidebar resize={sidebarWidth} />
-        <ChromeContent pathname={pathname}>{children}</ChromeContent>
-      </SidebarProvider>
-    </ChromeSlotsProvider>
+    <CreditBalanceProvider>
+      <ChromeSlotsProvider>
+        <SidebarProvider
+          open={open}
+          onOpenChange={setOpen}
+          style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
+        >
+          <AppSidebar resize={sidebarWidth} />
+          <ChromeContent pathname={pathname}>{children}</ChromeContent>
+        </SidebarProvider>
+      </ChromeSlotsProvider>
+    </CreditBalanceProvider>
   );
 }
 

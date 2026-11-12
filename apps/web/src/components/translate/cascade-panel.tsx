@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useRefreshCreditBalance } from '@/hooks/use-credits';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
@@ -176,6 +177,15 @@ export function CascadePanel({
   // fires on its falling edge above all — must not fire when the microphone goes
   // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
+
+  // A conversation spends credits, so its end reads the shared balance again: the
+  // sidebar meter and the readiness banner then show what is left, not what was.
+  const refreshCredits = useRefreshCreditBalance();
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) void refreshCredits();
+    wasRunning.current = running;
+  }, [running, refreshCredits]);
 
   // Minutes are summarized after the talking stops, from the STORED transcript —
   // the client no longer sends the turns, it names the conversation. Keyed by the

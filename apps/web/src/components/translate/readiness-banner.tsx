@@ -79,8 +79,8 @@ const LOW_CREDITS = 2;
  * The balance, when it is a definite problem: under one credit (the server will
  * refuse Start) or at two or fewer (a conversation will stop soon).
  *
- * Read once per mount, which is once per visit and once after every
- * conversation — the banner unmounts while one runs. A balance that could not be
+ * The shell's shared balance, read again on every visit and at the end of every
+ * conversation (the panel refreshes it as one stops). A balance that could not be
  * read says nothing: Start is never disabled here, the server decides, and its
  * refusal is reported by the conversation itself.
  */
