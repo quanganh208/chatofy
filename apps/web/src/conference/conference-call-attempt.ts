@@ -10,7 +10,7 @@ import { z } from 'zod';
 import type { LanguageCode, MicProcessing } from '@chatofy/types';
 import { ConferenceIceServerSchema } from '@chatofy/types/events';
 import { TranslationAudioSink } from '@/hooks/use-translation-audio-sink';
-import { loadTranslateSettings } from '@/lib/translate-settings';
+import { loadMicProcessing } from '@/lib/mic-processing-store';
 import { acquireLocalMedia, type PreferredDevices } from './acquire-local-media';
 import { conferenceDebug } from './conference-debug-log';
 import { createWebConferenceLeg, type WebConferenceLeg } from './conference-cascade-leg-web';
@@ -76,7 +76,7 @@ export class CallAttempt {
   private readonly peerLanguages = new Map<string, LanguageCode>();
   private readonly departed = new Set<string>();
   /** The reader's mic processing, read once per attempt: a change applies to the next call. */
-  private readonly micProcessing: MicProcessing = loadTranslateSettings().micProcessing;
+  private readonly micProcessing: MicProcessing = loadMicProcessing();
   /**
    * Other peers' received voices, watched only with echo cancellation off. Their
    * voice then reaches our microphone from the loudspeaker, and this keeps it

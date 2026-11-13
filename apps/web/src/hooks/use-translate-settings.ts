@@ -1,157 +1,73 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { usePreferences } from '@/hooks/use-preferences';
 import {
-  DEFAULT_TRANSLATE_SETTINGS,
-  loadTranslateSettings,
-  saveTranslateSettings,
-  type TranslateSettings,
-} from '@/lib/translate-settings';
-
-/**
- * How long a burst of changes settles before it is written.
- *
- * A slider reports every pointer move, and this page schedules translated audio on
- * the same main thread. Writing on each tick means a `JSON.stringify` plus a
- * synchronous `localStorage.setItem` per frame, competing with playback for the
- * thread that must not stall. Long enough to collapse a drag into one write.
- *
- * Nothing is lost to the delay: the flush effect below writes any pending change on
- * unmount and on the page going away.
- */
-const PERSIST_DEBOUNCE_MS = 200;
-
-/**
- * Every change, told to every other owner in this document.
- *
- * Each `useTranslateSettings` holds its own copy of the whole stored object and writes
- * all of it, so two owners mounted at once — a translate page, and the Settings dialog
- * opened over it — would each overwrite the other's change with a stale copy, and the
- * page would keep using the old value until a reload. A patch made in one is applied
- * to the others as it is made; whichever writes next writes the merge.
- */
-const CHANGE_EVENT = 'chatofy:translate-settings-change';
-
-interface ChangeDetail {
-  /** The owner that made the change, which does not apply it twice. */
-  source: object;
-  patch: Partial<TranslateSettings>;
-}
-
-/** Nothing outside this hook changes the answer to "has this client hydrated". */
-const subscribeNever = () => () => {};
+  loadMicProcessing,
+  saveMicProcessing,
+  subscribeMicProcessing,
+} from '@/lib/mic-processing-store';
+import { activePreferences } from '@/lib/preferences/active-preferences';
+import { DEFAULT_TRANSLATE_SETTINGS, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  currentTranslateSettings,
+  preferencesPatchFromTranslateSettings,
+  translateSettingsOf,
+} from '@/lib/translate-settings-preferences';
 
 export interface UseTranslateSettings {
   settings: TranslateSettings;
   /**
-   * False until the stored settings have been read.
+   * False until the reader's own setup has been read — from this browser's copy of
+   * the account's preferences, or failing that from the server.
    *
-   * The server has no storage, so the server render and the hydrating render show
-   * defaults; `useSyncExternalStore` flips this the render after hydration, and a
-   * mount that is not hydrating (client-side navigation) is ready on its first
-   * render. A control rendered against those defaults and then corrected a frame
+   * The server has neither, so the server render and the hydrating render show
+   * defaults. A control rendered against those defaults and then corrected a frame
    * later reads as the UI changing its own mind, so callers wait on this instead.
    */
   ready: boolean;
-  /** Merge a patch into the settings. State updates now; storage settles. */
+  /** Merge a patch into the settings. State updates now; the account settles. */
   set: (patch: Partial<TranslateSettings>) => void;
   /**
    * The current settings, readable from a closure that outlives a render.
    *
    * This exists for one specific consumer: `useStreamingTranslate` builds its
-   * `ConversationSession` ONCE, on first render, which is before this hook has
-   * read storage. Anything that closure captures by value is frozen at the
-   * defaults for the lifetime of the page — the same trap the access token has,
-   * and solved the same way, by handing over a reader instead of a value.
+   * `ConversationSession` ONCE, on first render, which is before the preferences
+   * are ready. Anything that closure captures by value is frozen at the defaults
+   * for the lifetime of the page — the same trap the access token has, and solved
+   * the same way, by handing over a reader instead of a value.
    */
   current: () => TranslateSettings;
 }
 
+/**
+ * The translator's settings, read from the account's preferences.
+ *
+ * Every owner reads the same store, so the translate page and the Settings dialog
+ * opened over it cannot hold diverging copies: a change made in one is in the
+ * other's next render, and in every other tab of this browser through the store's
+ * channel. The save is debounced inside the store, so a dragged slider is one
+ * request, not one per frame.
+ */
 export function useTranslateSettings(): UseTranslateSettings {
-  // Read once, in the initializer. The server answers defaults without touching
-  // storage: Node 26 defines a global `localStorage` that prints an
-  // ExperimentalWarning when read without a backing file. On a hydrating client it
-  // is the real stored value, held back from the output by `ready` below so the
-  // hydrating render still matches what the server sent.
-  const [settings, setSettings] = useState<TranslateSettings>(() =>
-    typeof window === 'undefined' ? DEFAULT_TRANSLATE_SETTINGS : loadTranslateSettings(),
+  const { preferences, ready } = usePreferences();
+  const mic = useSyncExternalStore(
+    subscribeMicProcessing,
+    loadMicProcessing,
+    () => DEFAULT_TRANSLATE_SETTINGS.micProcessing,
   );
-  const ready = useSyncExternalStore(
-    subscribeNever,
-    () => true,
-    () => false,
+  const settings = useMemo(
+    () => (ready ? translateSettingsOf(preferences, mic) : DEFAULT_TRANSLATE_SETTINGS),
+    [ready, preferences, mic],
   );
 
-  // Mirrors state so a closure built before the first commit still sees the
-  // latest value. Written synchronously in `set` rather than in an effect,
-  // because a consumer may read it in the same tick a change is made.
-  const settingsRef = useRef(settings);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // This owner's identity on the change event; see `CHANGE_EVENT`.
-  const [self] = useState<object>(() => ({}));
-
-  useEffect(() => {
-    const onChange = (event: Event) => {
-      const { source, patch } = (event as CustomEvent<ChangeDetail>).detail;
-      if (source === self) return;
-      settingsRef.current = { ...settingsRef.current, ...patch };
-      setSettings(settingsRef.current);
-    };
-    window.addEventListener(CHANGE_EVENT, onChange);
-    return () => window.removeEventListener(CHANGE_EVENT, onChange);
-  }, [self]);
-
-  const set = useCallback(
-    (patch: Partial<TranslateSettings>) => {
-      const next = { ...settingsRef.current, ...patch };
-      settingsRef.current = next;
-      setSettings(next);
-      window.dispatchEvent(
-        new CustomEvent<ChangeDetail>(CHANGE_EVENT, { detail: { source: self, patch } }),
-      );
-
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        // The REF, not the `next` this closure captured, so the timer and `flush`
-        // write from the same place: whatever the ref holds is the merge of every
-        // patch so far, over what was stored.
-        saveTranslateSettings(settingsRef.current);
-      }, PERSIST_DEBOUNCE_MS);
-    },
-    [self],
-  );
-
-  const flush = useCallback(() => {
-    if (!timerRef.current) return;
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
-    saveTranslateSettings(settingsRef.current);
+  const set = useCallback((patch: Partial<TranslateSettings>) => {
+    if (patch.micProcessing) saveMicProcessing(patch.micProcessing);
+    const documentPatch = preferencesPatchFromTranslateSettings(patch);
+    if (Object.keys(documentPatch).length > 0) activePreferences().update(documentPatch);
   }, []);
 
-  /**
-   * A pending write must survive the page going away, not just the component.
-   *
-   * React cleanup covers unmount and client-side navigation. It does NOT run on a
-   * tab close, a reload, or bfcache eviction — so without this, dragging the volume
-   * slider and immediately closing the tab loses the change. `pagehide` is the event
-   * that fires in all three cases; `visibilitychange` catches the mobile case where
-   * the tab is backgrounded and later killed without ever firing `pagehide`.
-   */
-  useEffect(() => {
-    const onHidden = () => {
-      if (document.visibilityState === 'hidden') flush();
-    };
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onHidden);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onHidden);
-      flush();
-    };
-  }, [flush]);
+  const current = useCallback(() => currentTranslateSettings(), []);
 
-  const current = useCallback(() => settingsRef.current, []);
-
-  return { settings: ready ? settings : DEFAULT_TRANSLATE_SETTINGS, ready, set, current };
+  return { settings, ready, set, current };
 }

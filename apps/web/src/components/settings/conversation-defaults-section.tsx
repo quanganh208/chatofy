@@ -42,8 +42,8 @@ const DISPLAY_LABEL = {
  * **One component per concern, the shared panels inside.** The voice and display
  * panels are the ones the `/translate` popovers render; they supply no surface of
  * their own, so here each sits inside a group's hairline box. There is one settings
- * object in storage (`chatofy.translate-settings`), so a "defaults" copy and a
- * "live" copy would be a distinction the storage cannot make.
+ * object, in the account's preferences, so a "defaults" copy and a "live" copy would
+ * be a distinction the store cannot make.
  *
  * **`running`** is true while a conversation runs on the page under the Settings
  * dialog. The pairs, the context and the voice ride `client.session.start` and are

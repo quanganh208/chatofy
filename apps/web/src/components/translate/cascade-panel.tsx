@@ -190,7 +190,7 @@ export function CascadePanel({
   // Volume is the one voice control that stays live mid-conversation, and it can
   // change from two places: this page's popover, which moves the gain stage itself,
   // and Settings opened over this page, whose change arrives only as new `settings`
-  // through the owner sync. A gain stage reads its volume once, when it is built, so
+  // through the shared preferences store. A gain stage reads its volume once, when it is built, so
   // without this a volume moved in Settings would be saved and toasted but not heard
   // until the next conversation. Each language whose volume changed since the last
   // render is pushed to its stage (the popover's own change lands twice, harmlessly).

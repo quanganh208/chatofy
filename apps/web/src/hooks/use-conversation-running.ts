@@ -8,8 +8,8 @@ import { useEffect, useSyncExternalStore } from 'react';
  * The Settings dialog opens over whatever page is showing, including `/translate`
  * mid-conversation. The pair, the voice and the starting context ride
  * `client.session.start`, so the page freezes them while it runs — and the dialog
- * writes the same stored settings, which the page picks up through the owner sync in
- * `use-translate-settings.ts`. A dialog that left them live would accept a change the
+ * writes the same account preferences the page reads (`use-translate-settings.ts`).
+ * A dialog that left them live would accept a change the
  * running conversation ignores and then silently apply it to the next one.
  *
  * A module store rather than a context: the dialog is mounted by the app frame,
