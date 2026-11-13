@@ -1,31 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Badge, Button, Skeleton } from '@chatofy/ui/react';
+import { Skeleton } from '@chatofy/ui/react';
 import { getBillingPortal } from '@/clients/api-client';
-import { CreditBuyActions, type SepayCheckout } from './credit-buy-actions';
+import { CheckoutNotice } from './credit-checkout-notice';
+import { CreditPlanComparison } from './credit-plan-comparison';
+import { CreditTopupPacks } from './credit-topup-packs';
 import { CreditUsageList } from './credit-usage-list';
 import { SepayQrPanel } from './sepay-qr-panel';
 import { BalanceSummary } from './credit-balance-summary';
 import { notify } from '@/lib/notify';
-import { SettingsSection, SettingsSectionRow } from './settings-section';
+import { SettingsSection } from './settings-section';
 import { ORDER_POLL_MS, useCreditBalance, useCreditUsage } from '@/hooks/use-credits';
-import { useLocale, useTranslate } from '@/i18n/provider';
-import { formatDay } from '@/lib/credit-format';
+import { useTranslate } from '@/i18n/provider';
 import { stripPolarSessionToken } from '@/lib/strip-polar-session-token';
+import {
+  useBillingPlans,
+  useCreditCheckout,
+  type CheckoutTarget,
+  type SepayCheckout,
+} from './use-credit-checkout';
+
+/** An open VietQR order, and whether it came from Upgrade or from a top-up tile. */
+interface OpenQr {
+  order: SepayCheckout;
+  from: 'plan' | 'topup';
+}
 
 /**
- * Settings › Billing: what is left, which plan, how to buy more, and what it went on —
- * three hairline groups, in the order a reader asks those questions.
+ * Settings › Billing: what is left, which plan against the other, how to buy more,
+ * and what it went on — four hairline groups, in the order a reader asks.
  *
- * **No cards.** A balance and a list are readouts, not an object worked on as a unit,
- * so they are rows in a hairline group. The QR panel opens as a row of the buy group
- * for the same reason.
+ * **No cards.** The balance and the usage list are readouts; the plan columns and the
+ * top-up tiles are hairline regions inside their group's box with no shadow. The QR
+ * panel opens as a row of the group whose button made the order.
  *
- * **At most one accent.** When checkout is open the first buy option is the tab's one
- * filled control (`credit-buy-actions.tsx` says why); closed, nothing is filled.
- * Manage, show-more and the QR panel's controls are outline or ghost.
+ * **At most one accent.** A Free account with checkout open fills Upgrade (card
+ * first); a Pro account fills nothing, and neither does a closed checkout — every
+ * Upgrade and Buy is outline and disabled, described by one muted line that ends the
+ * Plan group. Manage, show-more and the QR panel's controls are outline or ghost.
  *
  * **Outcomes are toasts.** A checkout or portal that would not open says so with
  * Retry; coming back from Polar (`?checkout=done`, which `/account?checkout=done`
@@ -34,11 +48,11 @@ import { stripPolarSessionToken } from '@/lib/strip-polar-session-token';
  */
 export function CreditsSection() {
   const t = useTranslate();
-  const locale = useLocale();
   const credits = useCreditBalance();
   // After the balance answered either way; see `useCreditUsage`.
   const usage = useCreditUsage(credits.state !== 'loading');
-  const [qr, setQr] = useState<SepayCheckout | null>(null);
+  const [qr, setQr] = useState<OpenQr | null>(null);
+  const closedId = `${useId()}-closed`;
   // Back from Polar's hosted checkout (its success URL). Read from the address
   // rather than copied into state; the query stays, so a reload says it again
   // and reads the balance again, both of which are still true.
@@ -77,12 +91,20 @@ export function CreditsSection() {
     }
   };
 
+  const plans = useBillingPlans();
+  // The panel opens in the group whose button made the order.
+  const checkout = useCreditCheckout((order: SepayCheckout, target: CheckoutTarget) => {
+    const kind = plans?.find((plan) => plan.code === target.planCode)?.kind;
+    setQr({ order, from: kind === 'topup' ? 'topup' : 'plan' });
+  });
+
   const { balance, state } = credits;
+  const closed = balance ? !balance.checkoutAllowed : true;
 
   const qrPanel = qr ? (
     <SepayQrPanel
-      key={qr.orderId}
-      order={qr}
+      key={qr.order.orderId}
+      order={qr.order}
       onPaid={() => {
         notify.success(t('web.account.qrPaid'), { id: 'sepay-paid' });
         void refreshBalance();
@@ -108,21 +130,6 @@ export function CreditsSection() {
         ) : (
           <>
             <BalanceSummary balance={balance} />
-            <SettingsSectionRow
-              label={t('common.billing.currentPlan')}
-              note={proSourceNote(t, locale, balance.proSource, balance.planResetsAt)}
-            >
-              <Badge variant="outline">
-                {balance.plan === 'pro'
-                  ? t('common.billing.planPro')
-                  : t('common.billing.planFree')}
-              </Badge>
-              {balance.proSource === 'polar' ? (
-                <Button variant="outline" size="sm" onClick={() => void openPortal()}>
-                  {t('web.account.manageSubscription')}
-                </Button>
-              ) : null}
-            </SettingsSectionRow>
             {/* A re-read failed after one succeeded: the figures above are the last
                 ones known, and this says so. */}
             {state === 'failed' ? (
@@ -134,25 +141,37 @@ export function CreditsSection() {
         )}
       </SettingsSection>
 
-      {balance ? <CreditBuyActions balance={balance} onSepayOrder={setQr} after={qrPanel} /> : null}
+      {balance ? (
+        <CreditPlanComparison
+          balance={balance}
+          plans={plans}
+          checkout={checkout}
+          closed={closed}
+          closedId={closedId}
+          onManage={() => void openPortal()}
+          footer={
+            <>
+              <CheckoutNotice balance={balance} closedId={closedId} refused={checkout.refused} />
+              {qr?.from === 'plan' ? qrPanel : null}
+            </>
+          }
+        />
+      ) : null}
+
+      {balance && plans ? (
+        <CreditTopupPacks
+          balance={balance}
+          plans={plans}
+          checkout={checkout}
+          closed={closed}
+          closedId={closedId}
+          after={qr?.from === 'topup' ? qrPanel : null}
+        />
+      ) : null}
 
       <SettingsSection title={t('common.billing.usageTitle')}>
         <CreditUsageList usage={usage} />
       </SettingsSection>
     </div>
   );
-}
-
-/** Where Pro came from, under the plan badge; nothing on Free. */
-function proSourceNote(
-  t: ReturnType<typeof useTranslate>,
-  locale: ReturnType<typeof useLocale>,
-  source: 'polar' | 'sepay' | null,
-  endsAt: string | null,
-): string | undefined {
-  if (source === 'polar') return t('common.billing.proSourcePolar');
-  if (source === 'sepay' && endsAt) {
-    return t('common.billing.proSourceSepay', { date: formatDay(locale, endsAt) });
-  }
-  return undefined;
 }
