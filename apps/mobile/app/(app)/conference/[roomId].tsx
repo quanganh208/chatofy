@@ -27,6 +27,7 @@ import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
 import { parseVoiceGenderParam } from '@/conference/conference-voice-param';
+import { useHoldAccountPreferences } from '@/preferences/use-hold-account-preferences';
 import { useTranslateSettings } from '@/translate/use-translate-settings';
 import {
   startMeetingForegroundService,
@@ -122,6 +123,8 @@ export default function ConferenceCallScreen() {
   // The translation recorder opens with the processing chosen in Settings, read
   // when it opens rather than at render, so a reconnect opens it the same way.
   const { settings: translateSettings } = useTranslateSettings();
+  // The room's voice and language stay as joined until the call ends.
+  useHoldAccountPreferences(true);
   const micProcessingRef = useRef(translateSettings.micProcessing);
   useEffect(() => {
     micProcessingRef.current = translateSettings.micProcessing;

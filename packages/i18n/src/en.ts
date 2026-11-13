@@ -1180,6 +1180,15 @@ export const en = {
   // Buying happens on the web; the phone only links there.
   'mobile.settings.buyOnWeb': 'Buy credits on the web',
 
+  // Account preferences on the phone's Settings.
+  'mobile.settings.sync.note': 'Your translation settings sync across your devices.',
+  'mobile.settings.sync.error': 'Could not save your settings. Retrying automatically.',
+  'mobile.settings.sync.reset': 'Reset to defaults',
+  'mobile.settings.sync.resetTitle': 'Reset all settings?',
+  'mobile.settings.sync.resetBody':
+    'Your language pairs, voices and call options go back to their defaults on every device.',
+  'mobile.settings.sync.resetFailed': 'Could not reset your settings. Check your connection.',
+
   // ---- web.glossary ----
   'web.glossary.title': 'Glossaries',
   'web.glossary.new': 'New glossary',
