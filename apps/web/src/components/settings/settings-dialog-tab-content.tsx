@@ -1,6 +1,9 @@
 'use client';
 
+import { Lock } from 'lucide-react';
+import { useConversationRunning } from '@/hooks/use-conversation-running';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import { useTranslate } from '@/i18n/provider';
 import { AccountTabContent } from './account-tab-content';
 import { AiContextSection } from './ai-context-section';
 import { AppearanceSection } from './appearance-section';
@@ -32,17 +35,34 @@ export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
 }
 
 /**
- * What a new conversation starts with, then the microphone processors.
+ * What a new conversation starts with, then the microphone processors, as named
+ * groups.
  *
  * ONE `useTranslateSettings` for both sections: each owner holds a copy of the whole
  * stored object and writes all of it, so two owners in one tab would each overwrite
  * the other's change.
+ *
+ * While a conversation runs on the page under the dialog, the pair, voice and
+ * context freeze as they do on `/translate`, and one line at the top says why — the
+ * reader opened Settings to change something, and a grey control with no reason is
+ * the thing they would otherwise have to work out.
  */
 function TranslationTab() {
+  const t = useTranslate();
   const settings = useTranslateSettings();
+  const running = useConversationRunning();
   return (
-    <div className="flex flex-col gap-8">
-      <ConversationDefaultsSection {...settings} />
+    <div className="flex flex-col gap-6">
+      {running ? (
+        <p
+          data-settings-locked
+          className="text-muted-foreground text-hint flex items-start gap-2 px-1"
+        >
+          <Lock aria-hidden className="mt-px size-3.5 shrink-0" />
+          {t('web.settings.lockedWhileRunning')}
+        </p>
+      ) : null}
+      <ConversationDefaultsSection {...settings} running={running} />
       <AudioProcessingSection {...settings} />
     </div>
   );

@@ -83,6 +83,15 @@ describe('the settings dialog', () => {
     );
   });
 
+  it('puts focus on the current tab when it opens, not on the first one', async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    await openAt('?settings=translation');
+    expect(document.activeElement).toBe(tabButton('translation'));
+    // Nobody pressed a key, so the browser is told not to draw the keyboard ring.
+    const call = focus.mock.contexts.findIndex((el) => el === tabButton('translation'));
+    expect(focus.mock.calls[call]?.[0]).toMatchObject({ focusVisible: false });
+  });
+
   it('lists five tabs in two captioned groups', async () => {
     await openAt('?settings=general');
     const nav = document.querySelector('[role="dialog"] nav');
@@ -186,6 +195,7 @@ describe('the settings dialog', () => {
 
     it('opens straight on the tab an address names', async () => {
       await openAt('?settings=account');
+      expect(document.activeElement).toBe(paneTitle());
       expect(listColumn()?.className).toContain('max-sm:hidden');
       expect(paneTitle()?.textContent).toBe('Account');
     });

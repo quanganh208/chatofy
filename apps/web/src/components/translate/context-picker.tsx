@@ -53,6 +53,12 @@ interface ContextPickerProps {
   running?: boolean;
   /** Draw the label visually. Defaults to true — see the docblock above. */
   showLabel?: boolean;
+  /**
+   * Whether this picker says why it is fixed while running. On by default: on
+   * `/translate` it is the only thing saying it. A host that says it once for
+   * several frozen controls (the Settings dialog's Translation tab) turns it off.
+   */
+  lockNote?: boolean;
   onChange: (contextId: string | null) => void;
 }
 
@@ -62,6 +68,7 @@ export function ContextPicker({
   value,
   running,
   showLabel = true,
+  lockNote = true,
   onChange,
 }: ContextPickerProps) {
   const t = useTranslate();
@@ -101,7 +108,7 @@ export function ContextPicker({
       </Select>
       {/* Words explain a refusal, never a function: the hint exists only while the
           control is actually refusing. */}
-      {running ? (
+      {running && lockNote ? (
         <span className="text-muted-foreground text-hint">{t('web.translate.contextLocked')}</span>
       ) : null}
     </div>

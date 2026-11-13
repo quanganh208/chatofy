@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRefreshCreditBalance } from '@/hooks/use-credits';
+import { useReportConversationRunning } from '@/hooks/use-conversation-running';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
@@ -182,6 +183,9 @@ export function CascadePanel({
   // fires on its falling edge above all — must not fire when the microphone goes
   // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
+  // Settings opens over this page; while this runs, its Translation tab freezes the
+  // pair, voice and context the way this page's own controls do.
+  useReportConversationRunning(running);
 
   // A conversation spends credits, so its end reads the shared balance again: the
   // sidebar meter and the readiness banner then show what is left, not what was.
