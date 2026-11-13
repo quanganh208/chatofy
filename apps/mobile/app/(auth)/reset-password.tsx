@@ -1,5 +1,6 @@
 /**
- * Opened by the reset link in the mail (`chatofy://reset-password?token=…`). Sets
+ * Opened by `chatofy://reset-password?token=…`. Mailed links are web links now, so
+ * this screen is reached only by a link opened by hand or from an older mail. Sets
  * the new password with that token; the API signs nobody in afterwards, so the next
  * step is sign-in. The token is never logged or stored.
  */

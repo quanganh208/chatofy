@@ -1,7 +1,7 @@
 /**
  * Registration. The API creates no account here: it mails a verification link and
- * the account exists once the link is followed (it opens this app on
- * `verify-email`). So a successful submit shows a "check your email" notice and a
+ * the account exists once the link is followed (a web link, opened in the
+ * browser). So a successful submit shows a "check your email" notice and a
  * way back to sign-in, and never a session.
  */
 

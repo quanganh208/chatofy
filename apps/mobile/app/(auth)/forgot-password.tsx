@@ -1,7 +1,8 @@
 /**
  * Asks for a password-reset link. The API answers the same for an address with
  * no account, so the notice is neutral: it never says whether the address exists.
- * The mailed link opens this app on `reset-password`.
+ * The mailed link is a web link: the new password is set in the browser, and the
+ * reader signs in here afterwards.
  */
 
 import { useState } from 'react';

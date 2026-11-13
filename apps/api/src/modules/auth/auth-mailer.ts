@@ -1,13 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { RequestClient } from '@chatofy/types';
 import type { Env } from '../../config/env.schema';
-
-/**
- * The URL scheme the phone app registers (`scheme` in `apps/mobile/app.json`). A fact
- * about the app rather than about a deployment, so it is a constant, not an env key.
- */
-const MOBILE_LINK_SCHEME = 'chatofy';
 import {
   MAIL_SENDER,
   type MailDispatch,
@@ -47,27 +40,16 @@ export class AuthMailer {
    *
    * This class takes no request object at all, so the header is not merely
    * unused here — it is out of reach.
-   */
-  link(path: string, token?: string, client: RequestClient = 'web'): string {
-    if (client === 'mobile') return this.mobileLink(path, token);
-    const url = new URL(path, this.webBaseUrl);
-    if (token !== undefined) url.searchParams.set('token', token);
-    return url.toString();
-  }
-
-  /**
-   * The same destination as a link into the phone app: `<scheme>://<screen>`.
    *
-   * `client` only chooses between this and the web link above. The scheme is
-   * a constant and the path is one of ours, so a request still cannot steer
-   * where a mailed token lands. The app names its register screen `sign-up`
-   * where the web calls it `register`.
+   * Every link is a web link, including for a request the phone app made. A
+   * custom-scheme link (`chatofy://…`) is a dead button in webmail that drops
+   * schemes it does not know, and any other Android app can register the same
+   * scheme and receive the token. The web pages redeem the same tokens with the
+   * same endpoints, so the reader confirms or resets there and signs in on the
+   * app afterwards.
    */
-  private mobileLink(path: string, token?: string): string {
-    const screen = path.replace(/^\//, '');
-    const url = new URL(
-      `${MOBILE_LINK_SCHEME}://${screen === 'register' ? 'sign-up' : screen}`,
-    );
+  link(path: string, token?: string): string {
+    const url = new URL(path, this.webBaseUrl);
     if (token !== undefined) url.searchParams.set('token', token);
     return url.toString();
   }

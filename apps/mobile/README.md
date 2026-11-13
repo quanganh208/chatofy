@@ -54,12 +54,12 @@ app/
     settings.tsx            account and sign out
 ```
 
-**Email links open the app.** Registering or asking for a reset sends `client: 'mobile'`,
-so the mail carries `chatofy://verify-email?token=…` (or `reset-password`). The api
-chooses that link from its own `MOBILE_LINK_SCHEME`; see
-`docs/architecture/authentication.md`. To try it without mail, open the link the api
-prints to its console: `xcrun simctl openurl booted "chatofy://verify-email?token=…"`
-or `adb shell am start -a android.intent.action.VIEW -d "chatofy://verify-email?token=…"`.
+**Email links open the web.** Verification and reset mails always carry a web link
+(`<WEB_BASE_URL>/verify-email?token=…`), even when the app asked; the reader finishes
+in the browser and signs in here. Why: `docs/architecture/authentication.md`, "Every
+mailed link is a web link". The `verify-email` and `reset-password` screens still open
+from `chatofy://`, e.g.
+`adb shell am start -a android.intent.action.VIEW -d "chatofy://verify-email?token=…"`.
 
 **Google sign-in** shows only on a platform that has a client id in `.env`
 (`EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS` / `_ANDROID` / `_WEB`); the api must list the same

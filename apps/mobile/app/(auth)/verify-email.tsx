@@ -1,5 +1,6 @@
 /**
- * Opened by the verification link in the mail (`chatofy://verify-email?token=…`).
+ * Opened by `chatofy://verify-email?token=…`. Mailed links are web links now, so
+ * this screen is reached only by a link opened by hand or from an older mail.
  * Confirms the address as soon as the screen opens, since following the link is the
  * user's intent; nothing here signs anyone in. The token is never logged or stored.
  */

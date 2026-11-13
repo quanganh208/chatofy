@@ -53,7 +53,7 @@ export function ForgotPasswordForm() {
             const email = formText(form, 'email');
             setSubmitting(true);
             setError(undefined);
-            forgotPassword({ email, locale, client: 'web' })
+            forgotPassword({ email, locale })
               .then(() => setSubmitted(true))
               .catch((err: unknown) => {
                 setError(authErrorMessage(err, t, 'web.auth.sendResetFailed'));

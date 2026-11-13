@@ -101,8 +101,8 @@ export function escapeHtml(value: string): string {
 
 /**
  * The logo's absolute URL. `webBaseUrl` is the configured WEB_BASE_URL — the
- * image has to load from somewhere public, and the link cannot supply it: a
- * mobile link's origin is `chatofy://`.
+ * image has to load from somewhere public, and where that is belongs to the
+ * deployment, so it is read from configuration rather than parsed out of a link.
  */
 export function brandedMailLogoUrl(webBaseUrl: string): string {
   return new URL(LOGO_PATH, webBaseUrl).toString();

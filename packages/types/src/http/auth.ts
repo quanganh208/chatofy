@@ -130,22 +130,6 @@ export const requestLocaleSchema = z
   .optional()
   .transform((value) => value ?? 'en');
 
-/**
- * Which of our own clients is asking, for the mail it causes.
- *
- * It picks between two origins the OPERATOR configured (the web's, and the
- * app's custom scheme); it never names one. Optional and coerced to `web`, never
- * rejected, for the same reason as the locale above: it is attacker-controlled,
- * the routes that take it answer identically either way, and an unknown value
- * falling back to the web link is the safe reading.
- */
-export const requestClientSchema = z
-  .enum(['web', 'mobile'])
-  .catch('web')
-  .optional()
-  .transform((value) => value ?? 'web');
-export type RequestClient = z.infer<typeof requestClientSchema>;
-
 export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
@@ -168,7 +152,8 @@ export const registerRequestSchema = z.object({
   // this request eventually creates, and the verification mail goes out before it
   // does. It is persisted with the row, so every later mail reads the column.
   locale: requestLocaleSchema,
-  client: requestClientSchema,
+  // App builds before every mailed link became a web link still send `client`.
+  // `z.object` drops keys it does not declare, so that field is ignored, not refused.
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
@@ -189,7 +174,6 @@ export const forgotPasswordRequestSchema = z.object({
   // whole point: a language difference between the two answers would be the
   // account-existence oracle the uniform response exists to close.
   locale: requestLocaleSchema,
-  client: requestClientSchema,
 });
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
 

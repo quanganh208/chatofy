@@ -222,7 +222,7 @@ describe('HttpAuthClient', () => {
     assert.equal(await client(broken, impl).getSession(), null);
   });
 
-  it('asks the API for an app link when registering and when asking for a reset', async () => {
+  it('sends no client field when registering or asking for a reset, so the mail links the web', async () => {
     const message = { code: 'REGISTRATION_ACCEPTED', message: 'ok' };
     const f = fakeFetch({
       '/auth/register': () => envelope(message, 202),
@@ -237,9 +237,8 @@ describe('HttpAuthClient', () => {
       email: 'a@example.com',
       password: 'a long password',
       name: 'A',
-      client: 'mobile',
     });
-    assert.deepEqual(f.calls[1]?.body, { email: 'a@example.com', client: 'mobile' });
+    assert.deepEqual(f.calls[1]?.body, { email: 'a@example.com' });
   });
 
   it('redeems mailed tokens without signing anyone in', async () => {

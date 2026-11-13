@@ -273,10 +273,9 @@ export function buildMailContent(
  *
  * `webBaseUrl` is where the logo image is fetched from, and it must be the
  * configured WEB_BASE_URL — never a request header, for the reason `AuthMailer.link`
- * gives, and never the link's own origin: a mobile link is `chatofy://…`, which
- * no mail client can load an image from. It is a separate parameter rather than
- * a field of MailDispatch because it is a fact about the deployment, not about
- * the send.
+ * gives, and never parsed out of the link: the link is the one value per send,
+ * and the logo's home is a fact about the deployment. It is a separate parameter rather than
+ * a field of MailDispatch for the same reason.
  */
 export function buildMailMessage(
   purpose: MailPurpose,
