@@ -52,7 +52,7 @@ function read(raw: Record<string, unknown>): TranslateSettings {
 
 /** Write settings as a PATCH over the defaults, then read them back. */
 function roundTrip(settings: TranslateSettings): TranslateSettings {
-  const patch = preferencesPatchFromTranslateSettings(settings);
+  const patch = preferencesPatchFromTranslateSettings(settings, BASE);
   const stored: UserPreferences = mergePreferences(BASE, patch);
   return translateSettingsFromPreferences(stored, settings.micProcessing);
 }
@@ -204,35 +204,58 @@ describe('writing a change', () => {
     ).toEqual({});
   });
 
-  it('writes only what the contract accepts, so a save is never refused for ever', () => {
-    // A PATCH the API refuses is retried with backoff indefinitely; the values a
-    // settings object can legally hold but the contract cannot must not reach it.
-    const patch = preferencesPatchFromTranslateSettings({
-      ...DEFAULT_TRANSLATE_SETTINGS,
-      contextId: '',
-      voiceByLanguage: {
-        ...DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage,
-        en: { ...DEFAULT_LANGUAGE_VOICE, voice: '' },
-        vi: { ...DEFAULT_LANGUAGE_VOICE, voice: 'x'.repeat(65), speed: 3, volume: 4 },
+  it('writes only what the contract accepts, so a save is never refused', () => {
+    // A PATCH the API refuses is dropped with the reader's change in it; the values
+    // a settings object can legally hold but the contract cannot must not reach it.
+    const named = mergePreferences(BASE, { voices: { vi: { voice: 'Mai Anh' } } });
+    const patch = preferencesPatchFromTranslateSettings(
+      {
+        ...DEFAULT_TRANSLATE_SETTINGS,
+        contextId: '',
+        voiceByLanguage: {
+          ...DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage,
+          en: { ...DEFAULT_LANGUAGE_VOICE, voice: '' },
+          vi: { ...DEFAULT_LANGUAGE_VOICE, voice: 'x'.repeat(65), speed: 3, volume: -4 },
+        },
       },
-    });
+      named,
+    );
     expect(userPreferencesPatchSchema.safeParse(patch).success).toBe(true);
     expect(patch.contextId).toBeNull();
-    expect(patch.voices?.en?.voice).toBeNull();
-    expect(patch.voices?.vi).toMatchObject({ speed: 2, volume: 1, voice: null });
+    // No token stored and none representable: nothing to clear.
+    expect(patch.voices?.en).toBeUndefined();
+    expect(patch.voices?.vi).toEqual({ speed: 2, volume: 0, voice: null });
   });
 
-  it('writes a full setup per language, so another client reads it unchanged', () => {
+  it('sends only the language and field that changed', () => {
     const patch = preferencesPatchFromTranslateSettings(
-      languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'en', { gender: 'male', speed: 1.5 }),
+      languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'vi', { volume: 0.4 }),
+      BASE,
     );
-    expect(patch.voices?.en).toEqual({
-      speak: true,
-      gender: 'male',
-      speed: 1.5,
-      volume: 1,
-      voice: null,
-    });
+    expect(patch).toEqual({ voices: { vi: { volume: 0.4 } } });
+  });
+
+  it("never overwrites another device's change to a language this tab did not touch", () => {
+    // This tab rendered before the phone picked an English voice; the reader then
+    // moves the Vietnamese volume. The server must keep the phone's pick.
+    const stale = translateSettingsFromPreferences(BASE, DEFAULT_MIC_PROCESSING);
+    const server = mergePreferences(BASE, { voices: { en: { voice: 'af_bella', speed: 1.5 } } });
+    const patch = preferencesPatchFromTranslateSettings(
+      languageVoicePatch(stale, 'vi', { volume: 0.4 }),
+      BASE,
+    );
+    const stored = mergePreferences(server, patch);
+    expect(stored.voices.en).toEqual({ voice: 'af_bella', speed: 1.5 });
+    expect(stored.voices.vi).toEqual({ volume: 0.4 });
+  });
+
+  it('sends nothing for a change back to what is already shown', () => {
+    expect(
+      preferencesPatchFromTranslateSettings(
+        { voiceByLanguage: DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage },
+        BASE,
+      ),
+    ).toEqual({});
   });
 
   it('removes a named voice when the gender changes, rather than keeping it', () => {
@@ -244,7 +267,9 @@ describe('writing a change', () => {
         gender: 'male',
         voice: undefined,
       }),
+      named,
     );
+    expect(patch).toEqual({ voices: { en: { gender: 'male', voice: null } } });
     const stored = mergePreferences(named, patch);
     expect(stored.voices.en).not.toHaveProperty('voice');
     expect(

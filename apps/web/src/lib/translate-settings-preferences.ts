@@ -18,9 +18,9 @@
  *
  * Reading goes through the same whitelist the local store used, field by field, so
  * one value this build cannot represent costs that value and nothing else. Writing
- * produces a PATCH that the API validates whole — so it must never carry a value the
- * contract refuses (an empty voice token, a rate outside 0.5..2), or the save would
- * be refused and retried forever.
+ * produces a PATCH of only what changed, which the API validates whole — so it must
+ * never carry a value the contract refuses (an empty voice token, a rate outside
+ * 0.5..2), or the save would be refused and the reader's change dropped.
  */
 import {
   DEFAULT_LANGUAGE_PAIR,
@@ -54,6 +54,18 @@ const DEFAULT_READING: Record<string, unknown> = Object.fromEntries(
   READING_FIELDS.map((field) => [field, DEFAULT_TRANSLATE_SETTINGS[field]]),
 );
 
+/** Every language's setup as the page shows it: the document's fields over the defaults. */
+function voiceByLanguageOf(preferences: UserPreferences): VoiceByLanguage {
+  return storedVoiceByLanguageSchema.parse(
+    Object.fromEntries(
+      LANGUAGE_CODES.map((code) => [
+        code,
+        { ...DEFAULT_LANGUAGE_VOICE, ...preferences.voices[code] },
+      ]),
+    ),
+  );
+}
+
 /**
  * The web settings a document describes.
  *
@@ -67,14 +79,7 @@ export function translateSettingsFromPreferences(
     ...DEFAULT_READING,
     ...(isPlainObject(preferences.reading) ? preferences.reading : {}),
   });
-  const voiceByLanguage = storedVoiceByLanguageSchema.parse(
-    Object.fromEntries(
-      LANGUAGE_CODES.map((code) => [
-        code,
-        { ...DEFAULT_LANGUAGE_VOICE, ...preferences.voices[code] },
-      ]),
-    ),
-  ) as VoiceByLanguage;
+  const voiceByLanguage = voiceByLanguageOf(preferences);
   const twoWay = preferences.pairs.webTwoWay;
   return {
     // A stored pair the current UI cannot show is a state the reader cannot leave;
@@ -113,22 +118,37 @@ export function currentTranslateSettings(): TranslateSettings {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
- * One language's setup as the contract accepts it.
+ * The fields of one language's setup that differ from what the page shows now,
+ * as the contract accepts them — or null when nothing changed.
  *
- * Every field present, so a setup written here reads back the same on a client
- * that fills absent fields with a different default. No token is sent as
- * `voice: null`, which REMOVES the stored one: a gender change means "that gender's
- * default voice", and leaving the field out would keep the old voice named.
+ * Only changed fields, never the whole setup: the server merges voices per
+ * language and then per field, so a field this tab did not change must not be
+ * sent, or a stale copy here would overwrite a choice made on another device. A
+ * field the document leaves out stays out (absent means "that client's default")
+ * unless the reader actually changed what it shows.
+ *
+ * A token removed or replaced by one the contract refuses (empty, over-long) is
+ * sent as `voice: null`, which REMOVES the stored one: a gender change means
+ * "that gender's default voice", and leaving the field out would keep the old
+ * voice named.
  */
-function voicePreference(setup: LanguageVoiceSetup): LanguageVoicePatch {
-  const voice = setup.voice;
-  return {
-    speak: setup.speak,
-    gender: setup.gender,
-    speed: clamp(setup.speed, PREFERENCES_LIMITS.MIN_SPEED, PREFERENCES_LIMITS.MAX_SPEED),
-    volume: clamp(setup.volume, 0, 1),
-    voice: voice && voice.length <= PREFERENCES_LIMITS.MAX_VOICE_TOKEN_CHARS ? voice : null,
-  };
+function changedVoiceFields(
+  setup: LanguageVoiceSetup,
+  shown: LanguageVoiceSetup,
+): LanguageVoicePatch | null {
+  const out: LanguageVoicePatch = {};
+  if (setup.speak !== shown.speak) out.speak = setup.speak;
+  if (setup.gender !== shown.gender) out.gender = setup.gender;
+  const speed = clamp(setup.speed, PREFERENCES_LIMITS.MIN_SPEED, PREFERENCES_LIMITS.MAX_SPEED);
+  if (speed !== shown.speed) out.speed = speed;
+  const volume = clamp(setup.volume, 0, 1);
+  if (volume !== shown.volume) out.volume = volume;
+  const voice =
+    setup.voice && setup.voice.length <= PREFERENCES_LIMITS.MAX_VOICE_TOKEN_CHARS
+      ? setup.voice
+      : null;
+  if (voice !== (shown.voice ?? null)) out.voice = voice;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /**
@@ -136,9 +156,14 @@ function voicePreference(setup: LanguageVoiceSetup): LanguageVoicePatch {
  *
  * Only the fields the change names, so two devices editing different settings do
  * not overwrite each other. `micProcessing` is dropped: it never leaves the device.
+ *
+ * `voiceByLanguage` arrives as a whole map (every caller builds the next map from
+ * the one it rendered), so it is diffed against `base` — the document this tab
+ * holds — and only the languages and fields that changed are sent.
  */
 export function preferencesPatchFromTranslateSettings(
   patch: Partial<TranslateSettings>,
+  base: UserPreferences = currentPreferences(),
 ): UserPreferencesPatch {
   const out: UserPreferencesPatch = {};
 
@@ -148,12 +173,14 @@ export function preferencesPatchFromTranslateSettings(
   if (Object.keys(pairs).length > 0) out.pairs = pairs;
 
   if (patch.voiceByLanguage) {
+    const shown = voiceByLanguageOf(base);
     const voices: NonNullable<UserPreferencesPatch['voices']> = {};
     for (const code of LANGUAGE_CODES) {
       const setup = patch.voiceByLanguage[code];
-      if (setup) voices[code] = voicePreference(setup);
+      const changed = setup ? changedVoiceFields(setup, shown[code]) : null;
+      if (changed) voices[code] = changed;
     }
-    out.voices = voices;
+    if (Object.keys(voices).length > 0) out.voices = voices;
   }
 
   if (patch.contextId !== undefined) {
