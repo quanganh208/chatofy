@@ -661,6 +661,9 @@ The old addresses redirect onto their tab (`settings/legacy-settings-redirects.t
   not cards; the photo, password and sign-out dialogs layered over it are the second.
   The active tab is a quiet ground, never `bg-primary`. The theme is picked from visual
   tiles.
+- **Accent** — most tabs spend none. Billing fills its first Buy only while checkout is
+  open (a disabled filled button reads as available, so a closed checkout shows every
+  Buy outlined); AI Context fills Save only while its editor is open.
 - **A running conversation** — while one runs, the Translation tab freezes the language
   pairs and the voice controls except volume, as the voice popover on `/translate`
   does. Settings opens over the conversation, so a change there would otherwise reach
