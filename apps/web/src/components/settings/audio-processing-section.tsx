@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import type { MicProcessing } from '@chatofy/types';
 import { Switch } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/settings/settings-section';
-import { useTranslateSettings, type UseTranslateSettings } from '@/hooks/use-translate-settings';
+import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslate } from '@/i18n/provider';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { useSettingSaver } from './use-setting-saver';
@@ -49,11 +49,6 @@ type AudioProcessingSectionProps = Pick<
   UseTranslateSettings,
   'settings' | 'ready' | 'set' | 'current'
 >;
-
-/** Settings › Audio: the page's one owner of the stored translate settings. */
-export function AudioSettings() {
-  return <AudioProcessingSection {...useTranslateSettings()} />;
-}
 
 /**
  * The three processors the browser applies to the microphone, as Saydi offers them.

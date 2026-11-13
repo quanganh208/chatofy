@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import { ChevronsUpDown, LogOut, User } from 'lucide-react';
+import { useRef } from 'react';
+import { ChevronsUpDown, CreditCard, LogOut, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,8 @@ import {
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
+import type { SettingsTabId } from '@/components/settings/settings-tab-ids';
+import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
 import { IdentityAvatar, useSessionIdentity } from './session-identity';
 
 /**
@@ -36,13 +38,20 @@ import { IdentityAvatar, useSessionIdentity } from './session-identity';
  * `detail` is drawn under the name — the sidebar passes the credit line. A slot rather
  * than a fetch in here, so the menu stays about identity.
  *
- * The sign-out itself lives in `lib/sign-out.ts`, shared with `/settings/security`, the More
+ * **Account and Billing open the Settings dialog** on their tab, over the current page.
+ * The dialog opens once the menu has finished closing and handed focus back to its
+ * trigger, so closing Settings returns focus here rather than to nowhere.
+ *
+ * The sign-out itself lives in `lib/sign-out.ts`, shared with Settings › Account, the More
  * sheet and the expired-token recovery path. This is a shortcut to that action, not a
  * second one. Renders a `SidebarMenuItem`; the caller supplies the `SidebarMenu`.
  */
 export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
   const identity = useSessionIdentity();
   const t = useTranslate();
+  const trigger = useRef<HTMLButtonElement>(null);
+  // The tab an item asked for, opened by `onCloseAutoFocus` below.
+  const pendingTab = useRef<SettingsTabId | null>(null);
 
   if (identity.status === 'loading') {
     return (
@@ -62,6 +71,7 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
+            ref={trigger}
             size="lg"
             aria-label={t('web.chrome.accountMenu')}
             className="h-auto min-h-12 py-2"
@@ -77,17 +87,42 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
             <ChevronsUpDown aria-hidden className="ml-auto" />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="w-56">
+        <DropdownMenuContent
+          side="top"
+          align="start"
+          className="w-56"
+          onCloseAutoFocus={(event) => {
+            const tab = pendingTab.current;
+            if (!tab) return;
+            pendingTab.current = null;
+            // Focus the trigger first, so it is what the dialog returns focus to.
+            event.preventDefault();
+            trigger.current?.focus();
+            openSettingsDialog(tab);
+          }}
+        >
           <DropdownMenuLabel className="font-normal">
             <span className="text-muted-foreground block">{t('web.chrome.signedInAs')}</span>
             <span className="block truncate font-medium">{identity.email}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/settings/profile">
-              <User aria-hidden />
-              {t('web.chrome.navAccount')}
-            </Link>
+          <DropdownMenuItem
+            data-settings-tab="account"
+            onSelect={() => {
+              pendingTab.current = 'account';
+            }}
+          >
+            <User aria-hidden />
+            {t('web.chrome.navAccount')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-settings-tab="billing"
+            onSelect={() => {
+              pendingTab.current = 'billing';
+            }}
+          >
+            <CreditCard aria-hidden />
+            {t('web.settings.billing')}
           </DropdownMenuItem>
           <DropdownMenuItem id="sign-out" onSelect={() => void signOutOfChatofy()}>
             <LogOut aria-hidden />

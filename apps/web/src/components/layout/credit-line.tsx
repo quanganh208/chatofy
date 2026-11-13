@@ -11,12 +11,12 @@ import { cn } from '@/lib/utils';
  * The balance in one line and a hairline meter, for the sidebar footer and the More sheet.
  *
  * **Gone on failure, not an error.** The chrome is on every screen; a billing read that
- * failed is `/settings/billing`'s to explain, and a red line under your name on the translator
+ * failed is Settings › Billing's to explain, and a red line under your name on the translator
  * would say something is wrong with the conversation. Loading holds the line's height
  * so the footer does not jump when the number lands.
  *
  * **What the meter measures.** The balance carries no allowance to divide by, so the
- * bar is the same split `/settings/billing` draws: this period's plan credits in the dawn,
+ * bar is the same split Settings › Billing draws: this period's plan credits in the dawn,
  * top-ups in the muted track. Decorative — the text says the number, so a screen reader
  * hears it once.
  */

@@ -3,16 +3,22 @@
 import { cn } from '@/lib/utils';
 
 /**
- * A named group of settings rows, on the page ground.
+ * A named group of settings rows: a small heading, then the rows inside one rounded
+ * hairline box with a divider between each.
  *
- * The settings screens were once a card per concern. A card is for a thing you act
- * on as a unit, and a list of unrelated switches is not one — so the grouping is a
- * heading and a rule, and Settings draws no elevated surface of its own at all: the
- * only elevation on a settings page is an overlay (a dialog, a menu, a toast).
+ * The box has NO shadow and no fill of its own — it is the same hairline sheet the two
+ * sides of `/translate` are drawn as, and for the same reason it is not an elevated
+ * surface: the Settings dialog is already the one thing over the page, and a card in
+ * it would be a second. `design/surface-count.ts` counts shadows, so it does not count
+ * this box.
  *
- * `title` is optional because a settings page already opens with its own title and
- * one-line description (`SettingsPage`); a page that is one group needs no second
- * heading saying the same, and a page with several (Billing) names each.
+ * Every direct child is a row: the box pads each one to the same inset and draws the
+ * divider between them, so a group can hold a readout or a list beside its
+ * `SettingsSectionRow`s and they line up.
+ *
+ * `title` is optional because the dialog's pane already opens with the tab's title and
+ * one-line description; a tab that is one group needs no second heading saying the
+ * same, and a tab with several (Billing) names each.
  */
 export function SettingsSection({
   title,
@@ -28,19 +34,24 @@ export function SettingsSection({
     // Each section settles in a beat after the one above it (see `globals.css`).
     <section
       data-slot="settings-section"
-      className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-col gap-2.5 duration-300 motion-reduce:animate-none"
+      className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-col gap-2 duration-300 motion-reduce:animate-none"
     >
-      {title ? (
-        <div className="border-border flex flex-col gap-1 border-b pb-2.5">
-          <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-            {title}
-          </h3>
+      {title || note ? (
+        <div className="flex flex-col gap-1 px-1">
+          {title ? (
+            <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
+              {title}
+            </h3>
+          ) : null}
           {note ? <p className="text-prose text-hint max-w-[62ch]">{note}</p> : null}
         </div>
-      ) : note ? (
-        <p className="text-prose text-hint max-w-[62ch]">{note}</p>
       ) : null}
-      <div className="flex flex-col">{children}</div>
+      <div
+        data-slot="settings-section-box"
+        className="border-hairline divide-hairline flex flex-col divide-y rounded-lg border [&>*]:px-4"
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -80,7 +91,8 @@ export function SettingsSectionRow({
   return (
     <div
       className={cn(
-        'border-hairline grid items-center gap-x-6 gap-y-2 border-b py-3.5 last:border-b-0',
+        // The divider between rows is the box's (`SettingsSection`), not the row's.
+        'grid items-center gap-x-6 gap-y-2 py-3.5',
         block
           ? 'grid-cols-1'
           : // A row with a note stacks on a phone. Beside its control, a note was a

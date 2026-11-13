@@ -20,7 +20,8 @@ import {
 import { useTranslate } from '@/i18n/provider';
 import { Brand } from './brand';
 import { CreditLine } from './credit-line';
-import { isSettingsPath, navGroups, navItemFor, SETTINGS_ITEM, type NavItem } from './nav-items';
+import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
+import { navGroups, navItemFor, SETTINGS_ENTRY, type NavItem } from './nav-items';
 import { SessionMenu } from './session-menu';
 
 /**
@@ -40,6 +41,12 @@ import { SessionMenu } from './session-menu';
  * from the accessibility tree until it opens, and it never opens for a screen reader.
  * The label is on the link itself, so the name is the same whether the sidebar is open,
  * collapsed, or being read aloud.
+ *
+ * ## Settings is a button, not a link
+ *
+ * It opens the Settings dialog over the current page (`?settings=`, see
+ * `settings/use-settings-dialog.ts`) rather than leaving it, so it never carries
+ * `aria-current` or the dawn bar: the page you are on is still the one underneath.
  */
 interface SidebarResize {
   width: number;
@@ -90,7 +97,7 @@ export function AppSidebar({ resize }: { resize: SidebarResize }) {
 
       <SidebarFooter>
         <SidebarMenu>
-          <NavLink item={SETTINGS_ITEM} active={isSettingsPath(pathname)} />
+          <SettingsEntry />
           <SessionMenu detail={<CreditLine />} />
         </SidebarMenu>
       </SidebarFooter>
@@ -137,6 +144,26 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
           <item.icon aria-hidden />
           <span>{label}</span>
         </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+/** The footer's Settings entry: opens the dialog over the current page. */
+function SettingsEntry() {
+  const t = useTranslate();
+  const label = t(SETTINGS_ENTRY.labelKey);
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip={label}
+        aria-label={label}
+        aria-haspopup="dialog"
+        data-settings-entry
+        onClick={() => openSettingsDialog()}
+      >
+        <SETTINGS_ENTRY.icon aria-hidden />
+        <span>{label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );

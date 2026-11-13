@@ -23,6 +23,8 @@ const pathname = vi.fn(() => '/translate/one-way');
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname(),
   useRouter: () => ({ refresh: vi.fn() }),
+  // The Settings dialog the frame mounts reads `?settings=`; closed in these cases.
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 // The footer's credit line reads the balance; a fixed answer keeps the frame's tests
@@ -79,8 +81,8 @@ function render(page: React.ReactNode = <p>page</p>, defaultOpen?: boolean) {
 describe('the product sidebar', () => {
   it('lists exactly the routes that exist, and only those', () => {
     const links = [...render().querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
-    // The brand is a link too, so the nav items are what remains after it. The last
-    // is the footer's Settings entry; Account moved into the session menu.
+    // The brand is a link too, so the nav items are what remains after it. Settings is
+    // not among them: the footer entry opens a dialog over the page, so it is a button.
     const navLinks = links.filter((href) => href !== '/');
     expect(navLinks).toEqual([
       '/translate/one-way',
@@ -88,7 +90,6 @@ describe('the product sidebar', () => {
       '/conference',
       '/history',
       '/glossary',
-      '/settings/appearance',
     ]);
   });
 
@@ -102,12 +103,21 @@ describe('the product sidebar', () => {
     expect(sidebar.querySelector('[data-sidebar="separator"]')).toBeNull();
   });
 
-  it('puts Settings in the footer, active on the routes it stands for', () => {
-    pathname.mockReturnValue('/settings/security');
+  it('puts Settings in the footer as a button that opens the dialog over this page', () => {
+    window.history.replaceState(null, '', '/translate/one-way?keep=1');
     const footer = render().querySelector('[data-sidebar="footer"]');
-    const settings = footer?.querySelector('a[href="/settings/appearance"]');
+    const settings = footer?.querySelector<HTMLButtonElement>('button[data-settings-entry]');
     expect(settings?.getAttribute('aria-label')).toBe('Settings');
-    expect(settings?.getAttribute('aria-current')).toBe('page');
+    expect(settings?.getAttribute('aria-haspopup')).toBe('dialog');
+    // Never the current page: the page underneath stays the one you are on.
+    expect(settings?.hasAttribute('aria-current')).toBe(false);
+
+    act(() => settings?.click());
+    const url = new URL(window.location.href);
+    expect(url.pathname).toBe('/translate/one-way');
+    expect(url.searchParams.get('keep')).toBe('1');
+    expect(url.searchParams.has('settings')).toBe(true);
+    window.history.replaceState(null, '', '/');
   });
 
   it('names its icon-only items without relying on the tooltip', () => {
@@ -312,8 +322,6 @@ describe('the breadcrumb', () => {
     ['/history', ['Library', 'History']],
     ['/history/abc', ['Library', 'History']],
     ['/glossary', ['Library', 'Glossary']],
-    ['/settings/appearance', ['Settings', 'Appearance']],
-    ['/settings/profile', ['Settings', 'Profile']],
   ])('reads %s as group › item, ending on the one h1', (route, trail) => {
     pathname.mockReturnValue(route);
     render();
@@ -409,8 +417,8 @@ describe('the mobile tab bar', () => {
     expect(container.querySelector('#main')?.className).toContain('max-md:pb-');
   });
 
-  it('marks More as current on the routes it covers, for assistive tech too', () => {
-    for (const path of ['/glossary', '/settings/profile']) {
+  it('marks More as current on the route it covers, for assistive tech too', () => {
+    for (const path of ['/glossary']) {
       pathname.mockReturnValue(path);
       render();
       const current = [...(bar()?.querySelectorAll('[aria-current="page"]') ?? [])];

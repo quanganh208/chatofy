@@ -685,7 +685,14 @@ export const vi: Messages = {
   'web.settings.nav': 'Các mục cài đặt',
   'web.settings.groupPersonal': 'Cá nhân',
   'web.settings.groupAccount': 'Tài khoản',
-  'web.settings.metaTitle': '{section} · Cài đặt · Chatofy',
+  'web.settings.general': 'Chung',
+  'web.settings.translation': 'Dịch',
+  'web.settings.translationDescription':
+    'Những gì một hội thoại mới bắt đầu với, và cách trình duyệt xử lý micrô của bạn.',
+  'web.settings.account': 'Tài khoản',
+  'web.settings.accountDescription':
+    'Ảnh đại diện, tên và email, mật khẩu, và phiên đăng nhập trên trình duyệt này.',
+  'web.settings.backToList': 'Quay lại tất cả cài đặt',
   'web.settings.appearance': 'Giao diện',
   'web.settings.appearanceDescription': 'Ngôn ngữ hiển thị của Chatofy và giao diện sáng hay tối.',
   'web.settings.audio': 'Âm thanh',

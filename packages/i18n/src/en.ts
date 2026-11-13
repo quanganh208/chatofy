@@ -870,13 +870,21 @@ export const en = {
   'web.account.qrClose': 'Close',
 
   // ---- web.settings ----
-  // Settings: seven pages in two groups, reached from the sidebar footer. Each page
-  // opens with its name and one line saying what it holds.
+  // Settings: one dialog of five tabs in two groups, opened from the sidebar footer
+  // over the current page. Each tab opens with its name and one line saying what it
+  // holds.
   'web.settings.nav': 'Settings sections',
   'web.settings.groupPersonal': 'Personal',
   'web.settings.groupAccount': 'Account',
-  // The browser tab. `{section}` is the page's own name.
-  'web.settings.metaTitle': '{section} · Settings · Chatofy',
+  'web.settings.general': 'General',
+  'web.settings.translation': 'Translation',
+  'web.settings.translationDescription':
+    'What a new conversation starts with, and what the browser does to your microphone.',
+  'web.settings.account': 'Account',
+  'web.settings.accountDescription':
+    "Your photo, name and email, your password, and this browser's session.",
+  // The phone's back button from one tab to the list of all of them.
+  'web.settings.backToList': 'Back to all settings',
   'web.settings.appearance': 'Appearance',
   'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
   'web.settings.audio': 'Audio',

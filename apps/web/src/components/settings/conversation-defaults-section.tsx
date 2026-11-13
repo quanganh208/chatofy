@@ -12,7 +12,7 @@ import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import type { MessageKey } from '@chatofy/i18n';
-import { useTranslateSettings, type UseTranslateSettings } from '@/hooks/use-translate-settings';
+import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
 import {
   canAutoDetectInto,
   pairPatchFor,
@@ -34,11 +34,6 @@ const DISPLAY_LABEL = {
   textSize: 'web.translate.textSize',
 } as const satisfies Partial<Record<keyof TranslateSettings, MessageKey>>;
 
-/** Settings › Defaults: the page's one owner of the stored translate settings. */
-export function DefaultsSettings() {
-  return <ConversationDefaultsSection {...useTranslateSettings()} />;
-}
-
 /**
  * Where a new conversation starts from.
  *
@@ -53,8 +48,9 @@ export function DefaultsSettings() {
  * conversation, so the popover disables them; here there is no conversation, so they
  * are editable.
  *
- * The rule is one `useTranslateSettings` call site per PAGE: `DefaultsSettings` is
- * this page's. A settings summary in a layout or in the chrome would break that.
+ * The rule is one `useTranslateSettings` call site per surface: the Settings dialog's
+ * Translation tab owns one (`settings-dialog-tab-content.tsx`) and hands it to this
+ * and to the audio section, so the two never hold diverging copies.
  *
  * **Every change confirms with a toast that can undo it**, one toast per setting
  * (see `use-setting-saver.ts`). A voice is undone per language, so undoing English

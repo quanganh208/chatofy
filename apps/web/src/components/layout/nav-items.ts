@@ -9,7 +9,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
-import { SETTINGS_SECTIONS } from '@/components/settings/settings-sections';
 
 /**
  * The product navigation, in one list, read by the sidebar, the topbar's breadcrumb
@@ -75,29 +74,19 @@ const GROUPS: readonly NavGroup[] = [
 ];
 
 /**
- * Where the footer's Settings entry leads, and the routes it stands for.
+ * The footer's Settings entry: a name and an icon, and no `href`.
  *
- * Not a sidebar group: settings are reached from the footer beside who you are, the
- * way Linear and Notion place them. The group still exists for the breadcrumb and for
- * marking the footer entry active. `href` is the first section rather than `/settings`
- * itself: that bare path is only a redirect, and `typedRoutes` knows pages, not redirects.
+ * Not a sidebar group and not a route: Settings is one dialog over whatever page the
+ * reader is on (`settings/settings-dialog.tsx`), opened from the footer beside who you
+ * are, the way Linear and Notion place it. So it has no breadcrumb and marks no page
+ * active — the page underneath stays the one you are on.
  */
-export const SETTINGS_ITEM: NavItem = {
-  href: '/settings/appearance',
+export const SETTINGS_ENTRY: Pick<NavItem, 'labelKey' | 'icon'> = {
   labelKey: 'common.nav.settings',
   icon: Settings,
 };
 
-const SETTINGS_GROUP: NavGroup = {
-  labelKey: 'common.nav.settings',
-  // The settings pages themselves, so the breadcrumb reads Settings › Appearance in the
-  // words the settings sub-navigation uses. `settings-sections.ts` owns the list.
-  items: SETTINGS_SECTIONS.map(({ href, labelKey, icon }) => ({ href, labelKey, icon })),
-};
-
-const ALL_GROUPS: readonly NavGroup[] = [...GROUPS, SETTINGS_GROUP];
-
-/** The groups the sidebar draws. Settings is not among them; see `SETTINGS_ITEM`. */
+/** The groups the sidebar draws. Settings is not among them; see `SETTINGS_ENTRY`. */
 export function navGroups(): readonly NavGroup[] {
   return GROUPS;
 }
@@ -107,7 +96,7 @@ export function navGroups(): readonly NavGroup[] {
  * item by IDENTITY against what `navItemFor` returns, so both must hand out the same
  * objects.
  */
-const ITEMS = ALL_GROUPS.flatMap((group) => group.items);
+const ITEMS = GROUPS.flatMap((group) => group.items);
 
 export function navItems(): readonly NavItem[] {
   return ITEMS;
@@ -129,14 +118,9 @@ export function navItemFor(
 
 /** Where a path sits: its group and its item, or nothing for a route under no item. */
 export function navPlaceFor(pathname: string): { group: NavGroup; item: NavItem } | undefined {
-  for (const group of ALL_GROUPS) {
+  for (const group of GROUPS) {
     const item = navItemFor(pathname, group.items);
     if (item) return { group, item };
   }
   return undefined;
-}
-
-/** True on any route the footer's Settings entry stands for. */
-export function isSettingsPath(pathname: string): boolean {
-  return navItemFor(pathname, SETTINGS_GROUP.items) !== undefined;
 }

@@ -31,9 +31,10 @@ export default function robots(): MetadataRoute.Robots {
         '/conference',
         '/history',
         '/glossary',
+        // These three only redirect now, to the Settings dialog over `/translate`.
+        // Kept so a crawler holding an old link does not follow it into a sign-in
+        // redirect it can only collect.
         '/settings',
-        // Redirects to `/settings/*` now. Kept so a crawler holding an old link does
-        // not follow it into a sign-in redirect it can only collect.
         '/preferences',
         '/account',
         '/api/',

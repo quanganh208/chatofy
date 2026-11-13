@@ -177,21 +177,8 @@ vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConfer
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { AppToaster } = await import('@/components/layout/app-toaster');
 const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
-const { default: SettingsLayout } = await import('../../app/(app)/settings/layout');
-const { default: AppearancePage } = await import('../../app/(app)/settings/appearance/page');
-const { default: AudioPage } = await import('../../app/(app)/settings/audio/page');
-const { default: DefaultsPage } = await import('../../app/(app)/settings/defaults/page');
-const { default: AiContextPage } = await import('../../app/(app)/settings/ai-context/page');
-const { default: ProfilePage } = await import('../../app/(app)/settings/profile/page');
-const { default: BillingPage } = await import('../../app/(app)/settings/billing/page');
-const { default: SecurityPage } = await import('../../app/(app)/settings/security/page');
-
-/** A settings page inside its layout, so the sub-navigation is counted with it. */
-const settings = (Page: () => React.ReactElement) => () => (
-  <SettingsLayout>
-    <Page />
-  </SettingsLayout>
-);
+const { SettingsDialog } = await import('@/components/settings/settings-dialog');
+const { SettingsTabContent } = await import('@/components/settings/settings-dialog-tab-content');
 const { ChromeSlotsTestHost } = await import('@/components/history/chrome-slots-test-host');
 const { default: GlossaryPage } = await import('../../app/(app)/glossary/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
@@ -510,6 +497,27 @@ function historyRoute() {
       <HistoryMasterDetail>{null}</HistoryMasterDetail>
     </ChromeSlotsTestHost>
   );
+}
+
+/**
+ * The Settings dialog over a page, as the signed-in frame mounts it: `/history` with
+ * nothing stored, which draws no accent and no surface, so the counts are the dialog's.
+ */
+function settingsOverAPage() {
+  return (
+    <>
+      {historyRoute()}
+      <SettingsDialog />
+    </>
+  );
+}
+
+/** A `setup` that opens Settings on `tab` over an empty `/history`. */
+function settingsOn(tab: string) {
+  return () => {
+    url.query = `settings=${tab}`;
+    listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+  };
 }
 
 /** `/glossary` as its route renders it, with the topbar slot its New glossary uses. */
@@ -1477,88 +1485,90 @@ const SCREENS: ScreenState[] = [
   },
   // ---- Settings ----
   //
-  // ZERO surfaces on every settings page: no card anywhere, the rows sit on the page
-  // ground and the sub-navigation is links on the ground. The only elevation a
-  // settings page draws is an overlay it opened — the photo dialog, the password
-  // dialog, the sign-out confirmation — and each counts as exactly one.
+  // Settings is one dialog over whatever page is open, so each state is the dialog on
+  // one tab over a page — `/history` with nothing stored, which spends no accent and no
+  // surface of its own, so every count below is the dialog's.
   //
-  // ZERO accent at rest on every page. The one filled control a settings state may
+  // ONE surface in every state at rest: the dialog itself. Its groups are hairline
+  // boxes with no shadow and its tab list is buttons on its own ground. A nested
+  // dialog opened from a tab — the photo dialog, the password dialog, the sign-out
+  // confirmation — is the second, and the ceiling.
+  //
+  // ZERO accent at rest on every tab. The one filled control a settings state may
   // spend belongs to the thing that state is for: Save in the context editor, the
   // pick in the photo dialog, the submit in the password dialog, the confirm in the
-  // sign-out dialog. Each was a ceiling of one before and is still one.
+  // sign-out dialog.
   {
-    name: '/settings/appearance',
+    name: 'settings dialog › general, over /history',
     filled: 0,
-    surfaces: 0,
-    setup() {},
-    render: settings(AppearancePage),
-    shows: '[data-settings-page="appearance"] [role="radiogroup"]',
+    surfaces: 1,
+    setup: settingsOn('general'),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="general"] [role="radiogroup"]',
   },
   {
-    name: '/settings/audio',
+    name: 'settings dialog › translation — the catalog is empty',
     filled: 0,
-    surfaces: 0,
-    setup() {},
-    render: settings(AudioPage),
-    shows: '[role="switch"]',
-  },
-  {
-    name: '/settings/defaults — the catalog is empty',
-    filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('translation')();
       listVoices.mockResolvedValue({ voices: [] });
     },
-    render: settings(DefaultsPage),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="translation"] [role="switch"]',
   },
   {
-    // The same page with a backend that actually answers: the picker lists voices
+    // The same tab with a backend that actually answers: the picker lists voices
     // instead of saying there are none. Every row starts with no cached catalog
     // (`show` forgets them), so this row's answer is what the panels list.
-    name: '/settings/defaults — voices listed',
+    name: 'settings dialog › translation — voices listed',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('translation')();
       saveTranslateSettings({
         ...DEFAULT_TRANSLATE_SETTINGS,
         languagePair: { source: 'en', target: 'zh' },
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
-    render: settings(DefaultsPage),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="translation"] [role="switch"]',
   },
   {
-    name: '/settings/ai-context',
+    name: 'settings dialog › ai-context',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('ai-context')();
       listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
     },
-    render: settings(AiContextPage),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="ai-context"] li button[data-slot="button"]',
   },
   {
-    // The editor open, the ONE state on this page that spends an accent: Save is
-    // the thing you came here to do and it exists only while there is something to
-    // save. It expands inline, so still no surface.
+    // The editor open, the ONE state on this tab that spends an accent: Save is the
+    // thing you came here to do and it exists only while there is something to save.
+    // It expands inline, so still only the dialog's surface.
     //
-    // `press`/`shows` rather than `open`: the `open` helper asserts a popover
-    // appeared, and an inline editor portals nothing. The first button on the page
-    // is the first context's Edit.
-    name: '/settings/ai-context — editing a context',
+    // The first button in a row of the list is the first context's Edit.
+    name: 'settings dialog › ai-context — editing a context',
     filled: 1,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('ai-context')();
       listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
     },
-    press: 'button[data-slot="button"]',
-    shows: '[data-slot="textarea"]',
-    render: settings(AiContextPage),
+    press: '[data-settings-pane="ai-context"] li button[data-slot="button"]',
+    shows: '[data-settings-pane="ai-context"] [data-slot="textarea"]',
+    render: settingsOverAPage,
   },
   {
-    name: '/settings/profile',
+    name: 'settings dialog › account',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('account')();
       getMe.mockResolvedValue({
         id: 'u1',
         email: 'a@b.co',
@@ -1566,83 +1576,86 @@ const SCREENS: ScreenState[] = [
         createdAt: '2026-01-09T00:00:00.000Z',
       });
     },
-    render: settings(ProfilePage),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="account"] #change-password-open',
   },
   {
     // The profile request failed: the join date says so and nothing is promoted.
-    name: '/settings/profile — the profile request failed',
+    name: 'settings dialog › account — the profile request failed',
     filled: 0,
-    surfaces: 0,
-    setup() {
-      getMe.mockRejectedValue(new Error('unauthorized'));
-    },
-    render: settings(ProfilePage),
-  },
-  {
-    // The Change photo dialog: its surface is the dialog, and "Choose an image" is
-    // its one filled control; Remove is ghost.
-    name: '/settings/profile — change photo dialog open',
-    filled: 1,
     surfaces: 1,
     setup() {
+      settingsOn('account')();
+      getMe.mockRejectedValue(new Error('unauthorized'));
+    },
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="account"] #photo-change-open',
+  },
+  {
+    // The Change photo dialog, over Settings: its surface is the second, and "Choose
+    // an image" is its one filled control; Remove is ghost.
+    name: 'settings dialog › account — change photo dialog open',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      settingsOn('account')();
       getMe.mockRejectedValue(new Error('not read in this row'));
     },
     press: '#photo-change-open',
     shows: '[role="dialog"] #photo-choose',
-    render: settings(ProfilePage),
+    render: settingsOverAPage,
+  },
+  {
+    // The password dialog: its submit is the state's one filled control.
+    name: 'settings dialog › account — change password dialog open',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      settingsOn('account')();
+      getMe.mockRejectedValue(new Error('not read in this row'));
+    },
+    press: '#change-password-open',
+    shows: '[role="dialog"] #change-password-submit',
+    render: settingsOverAPage,
+  },
+  {
+    // Sign out asks first. The confirm is the state's one filled control; Cancel
+    // is outline.
+    name: 'settings dialog › account — confirming sign-out',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      settingsOn('account')();
+      getMe.mockRejectedValue(new Error('not read in this row'));
+    },
+    press: '#sign-out-account',
+    shows: '[role="alertdialog"] #sign-out-confirm',
+    render: settingsOverAPage,
   },
   {
     // Checkout closed: the balance, the usage list and the disabled buy actions,
-    // all on the page ground and all outline.
-    name: '/settings/billing — checkout closed',
+    // all in hairline groups and all outline.
+    name: 'settings dialog › billing — checkout closed',
     filled: 0,
-    surfaces: 0,
-    setup() {},
-    render: settings(BillingPage),
+    surfaces: 1,
+    setup: settingsOn('billing'),
+    render: settingsOverAPage,
     shows: '[data-credit-buy-actions] button[disabled]',
   },
   {
     // An allowlisted account opened a VietQR checkout. The QR panel is a region
     // with a hairline, not a card, and its controls are ghost.
-    name: '/settings/billing — SePay QR open',
+    name: 'settings dialog › billing — SePay QR open',
     filled: 0,
-    surfaces: 0,
+    surfaces: 1,
     setup() {
+      settingsOn('billing')();
       getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
       createCheckout.mockResolvedValue(SEPAY_ORDER);
     },
-    render: settings(BillingPage),
+    render: settingsOverAPage,
     press: '[data-credit-buy-actions] button:last-child',
     shows: '[data-sepay-qr-panel]',
-  },
-  {
-    name: '/settings/security',
-    filled: 0,
-    surfaces: 0,
-    setup() {},
-    render: settings(SecurityPage),
-    shows: '#change-password-open',
-  },
-  {
-    // The password dialog: its submit is the state's one filled control.
-    name: '/settings/security — change password dialog open',
-    filled: 1,
-    surfaces: 1,
-    setup() {},
-    press: '#change-password-open',
-    shows: '[role="dialog"] #change-password-submit',
-    render: settings(SecurityPage),
-  },
-  {
-    // Sign out asks first. The confirm is the state's one filled control; Cancel
-    // is outline.
-    name: '/settings/security — confirming sign-out',
-    filled: 1,
-    surfaces: 1,
-    setup() {},
-    press: '#sign-out-account',
-    shows: '[role="alertdialog"] #sign-out-confirm',
-    render: settings(SecurityPage),
   },
   {
     // Open, because closed it renders nothing. Six settings sit behind this gear
@@ -2180,13 +2193,14 @@ async function show(screen: ScreenState): Promise<void> {
 
 describe('the accent counter', () => {
   it('does not count a checked Switch, whose accent is a state variant', async () => {
-    // Settings › Audio renders three processor switches, all on by default, so a
+    // Settings › Translation renders three processor switches, all on by default, so a
     // CHECKED switch is on screen carrying
     // `data-[state=checked]:bg-primary` in its class attribute. The substring
     // selector this helper replaced counts that; `classList.contains` does not.
     // Without this test the helper could quietly regress to a substring match and
     // every screen with a switch would start failing for the wrong reason.
-    await mount(<AudioPage />);
+    listVoices.mockResolvedValue({ voices: [] });
+    await mount(<SettingsTabContent tab="translation" />);
 
     const variantAccent = container.querySelectorAll('[class*="bg-primary"]');
     expect(variantAccent.length, 'expected a checked Switch on this screen').toBeGreaterThan(0);
