@@ -9,7 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
+import { UserThrottlerGuard } from '../auth/user-throttler.guard';
 import type { Request } from 'express';
 import type { PreferencesResponse } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
@@ -25,14 +26,17 @@ import { PreferencesService } from './preferences.service';
  * the extension.
  *
  * Authenticated: `JwtAuthGuard` is a global `APP_GUARD` and nothing here is
- * `@Public()`. `ThrottlerGuard` is applied here because there is no global
- * throttle in this app — a route that does not ask for a limit has none.
+ * `@Public()`. A throttle is applied here because there is no global throttle in
+ * this app — a route that does not ask for a limit has none. It counts per
+ * ACCOUNT (`UserThrottlerGuard`), not per address: every client reads this on
+ * focus, so a per-IP cap would be shared by everyone behind one office NAT, and by
+ * the whole web user base behind the Next server.
  *
  * The owner is `req.auth!.userId` on every route, never a path or body field.
  */
 @ApiTags('preferences')
 @Controller('me/preferences')
-@UseGuards(ThrottlerGuard)
+@UseGuards(UserThrottlerGuard)
 export class PreferencesController {
   constructor(private readonly preferences: PreferencesService) {}
 
