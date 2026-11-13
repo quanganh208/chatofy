@@ -127,6 +127,27 @@ describe('Account preferences (db-e2e)', () => {
     expect(dataOf(await get(alice).expect(200)).updatedAt).toBeNull();
   });
 
+  it('clears a voice token with voice: null and stores no voice key', async () => {
+    await patch(alice, { voices: { en: { voice: 'x', speed: 1.5 } } }).expect(
+      200,
+    );
+    await patch(alice, { voices: { en: { voice: null } } }).expect(200);
+
+    expect(dataOf(await get(alice).expect(200)).preferences.voices.en).toEqual({
+      speed: 1.5,
+    });
+    // Read from the row itself: a GET parses tolerantly, so only the stored
+    // JSON can show the key is really gone rather than read past.
+    const row = await prisma.userPreferences.findUniqueOrThrow({
+      where: { userId: alice.userId },
+    });
+    const stored = (row.data as { voices: Record<string, object> }).voices.en;
+    expect(stored).toEqual({ speed: 1.5 });
+    expect(stored).not.toHaveProperty('voice');
+
+    await reset(alice).expect(200);
+  });
+
   it("keeps each account's document to itself", async () => {
     await patch(bob, { theme: 'light' }).expect(200);
     await patch(alice, { theme: 'dark' }).expect(200);

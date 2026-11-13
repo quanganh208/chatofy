@@ -144,6 +144,21 @@ describe('PreferencesService', () => {
     expect(result.updatedAt).toBe(STAMP.toISOString());
   });
 
+  it('clears a voice token with voice: null, so the stored entry holds no voice key', async () => {
+    const { store, rows } = fakeStore();
+    const prefs = service(store);
+
+    await prefs.update(MINE, { voices: { en: { voice: 'x', speed: 1.5 } } });
+    const result = await prefs.update(MINE, {
+      voices: { en: { voice: null } },
+    });
+
+    expect(result.preferences.voices.en).toEqual({ speed: 1.5 });
+    const stored = (rows.get(MINE)?.data as UserPreferences).voices.en;
+    expect(stored).toEqual({ speed: 1.5 });
+    expect(stored).not.toHaveProperty('voice');
+  });
+
   it('sets a nullable field to null when the patch says null', async () => {
     const { store } = fakeStore({
       [MINE]: {
