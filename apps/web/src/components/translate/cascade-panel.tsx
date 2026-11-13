@@ -649,8 +649,9 @@ export function CascadePanel({
       {/* The dock: a bar under one hairline, full width. Status and elapsed time at
           one end, the action in the middle, the page's own controls as ghost icons
           at the other — so the action sits in the same place whether or not there
-          is anything to report beside it. Below `sm` the action takes the first row
-          on its own and the two ends share the second.
+          is anything to report beside it. Below 46rem of column width — the column, not the
+          window, because the sidebar takes 280px of a 768px one — the action takes
+          the first row on its own and the two ends share the second.
 
           The middle holds TWO buttons while a conversation is open, which is the
           one place this layout bends. They are a pair rather than two controls:
@@ -663,11 +664,11 @@ export function CascadePanel({
       <div
         inert={fullscreenActive}
         data-slot="translate-dock"
-        className="border-hairline grid grid-cols-[1fr_auto] items-center gap-3 border-t px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6"
+        className="border-hairline grid grid-cols-[1fr_auto] items-center gap-3 border-t px-4 py-3 @[46rem]/main:grid-cols-[1fr_auto_1fr] @[46rem]/main:px-6"
       >
         <SessionReadouts conversation={conversation} />
 
-        <div className="col-span-2 row-start-1 flex items-center gap-2 sm:col-span-1 sm:col-start-2 sm:justify-self-center">
+        <div className="col-span-2 row-start-1 flex items-center gap-2 @[46rem]/main:col-span-1 @[46rem]/main:col-start-2 @[46rem]/main:justify-self-center">
           {/* Rendered once on the screen: here, or in the fullscreen bar. Both at
               once would be two Starts, which the accent budget counts. */}
           {fullscreenActive ? null : (
@@ -680,17 +681,21 @@ export function CascadePanel({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex min-w-0 items-center justify-end gap-1">
           {/* Renders nothing when the account has authored no contexts, so the
               dock is unchanged for everyone who does not use this. A `Select`, so
               it spends no accent — Start is still the screen's one. */}
-          <ContextPicker
-            contexts={contexts}
-            status={contextStatus}
-            value={settings.contextId}
-            running={running}
-            onChange={(contextId) => onChange({ contextId })}
-          />
+          {/* Capped only in the narrow dock, where its row shares the width with the
+              stage icons; the wide dock has room for the context's whole name. */}
+          <div className="max-w-32 min-w-0 empty:hidden @[46rem]/main:max-w-none">
+            <ContextPicker
+              contexts={contexts}
+              status={contextStatus}
+              value={settings.contextId}
+              running={running}
+              onChange={(contextId) => onChange({ contextId })}
+            />
+          </div>
           <StageControls
             onFullscreen={enterFullscreen}
             windowKind={captionWindow.kind}

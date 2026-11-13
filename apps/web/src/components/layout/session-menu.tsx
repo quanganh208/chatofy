@@ -18,6 +18,7 @@ import { signOutOfChatofy } from '@/lib/sign-out';
 import type { SettingsTabId } from '@/components/settings/settings-tab-ids';
 import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
 import { IdentityAvatar, useSessionIdentity } from './session-identity';
+import { PlanBadgeButton, PlanDot, usePlan, usePlanName } from './plan-badge';
 
 /**
  * Who is signed in, and the way out — the sidebar footer's last row.
@@ -38,6 +39,15 @@ import { IdentityAvatar, useSessionIdentity } from './session-identity';
  * `detail` is drawn under the name — the sidebar passes the credit line. A slot rather
  * than a fetch in here, so the menu stays about identity.
  *
+ * **The plan pill is a sibling of the trigger, not inside it.** It opens Settings ›
+ * Billing on its own, and a button inside the trigger button is invalid HTML that
+ * screen readers flatten. So the row is two layers in one grid cell: the trigger
+ * underneath (avatar, chevron, and the whole row as its hit area and hover) and the
+ * name, pill and credit line above it with `pointer-events-none`, which the pill alone
+ * turns back on. Clicks anywhere but the pill fall through to the trigger. The text is
+ * outside the button, so it reads as text beside it; the trigger's name carries the
+ * plan, which is all the rail has once the text layer is hidden there.
+ *
  * **Account and Billing open the Settings dialog** on their tab, over the current page.
  * The dialog opens once the menu has finished closing and handed focus back to its
  * trigger, so closing Settings returns focus here rather than to nowhere.
@@ -52,6 +62,8 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
   const trigger = useRef<HTMLButtonElement>(null);
   // The tab an item asked for, opened by `onCloseAutoFocus` below.
   const pendingTab = useRef<SettingsTabId | null>(null);
+  const plan = usePlan();
+  const planName = usePlanName();
 
   if (identity.status === 'loading') {
     return (
@@ -69,24 +81,43 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
   return (
     <SidebarMenuItem>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <SidebarMenuButton
-            ref={trigger}
-            size="lg"
-            aria-label={t('web.chrome.accountMenu')}
-            className="h-auto min-h-12 py-2"
+        {/* `group/session`: the text layer is outside the trigger, so it follows the
+            row's hover through the group rather than inheriting the button's colour. */}
+        <div className="group/session grid">
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              ref={trigger}
+              size="lg"
+              aria-label={
+                plan === null
+                  ? t('web.chrome.accountMenu')
+                  : t('web.chrome.planAccountMenu', { plan: planName(plan) })
+              }
+              className="col-start-1 row-start-1 h-auto min-h-12 py-2"
+            >
+              <span className="relative shrink-0">
+                <IdentityAvatar identity={identity} />
+                <PlanDot plan={plan} />
+              </span>
+              <ChevronsUpDown aria-hidden className="ml-auto" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          {/* The text layer: clear of the avatar (`p-2` + 32px + `gap-2`) and the
+              chevron, and hidden on the rail where only the avatar fits. Truncated
+              rather than wrapped: an address long enough to wrap would push the
+              footer up and change the sidebar's height on some accounts and not
+              others. */}
+          <span
+            data-slot="session-text"
+            className="text-body group-hover/session:text-sidebar-accent-foreground pointer-events-none col-start-1 row-start-1 flex min-w-0 flex-col justify-center gap-0.5 py-2 pr-8 pl-12 group-data-[collapsible=icon]:hidden"
           >
-            <IdentityAvatar identity={identity} />
-            {/* Truncated rather than wrapped: an address long enough to wrap would
-                push the footer up and change the sidebar's height on some accounts
-                and not others. */}
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+            <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-medium">{identity.name ?? identity.email}</span>
-              {detail}
+              <PlanBadgeButton className="pointer-events-auto" />
             </span>
-            <ChevronsUpDown aria-hidden className="ml-auto" />
-          </SidebarMenuButton>
-        </DropdownMenuTrigger>
+            {detail}
+          </span>
+        </div>
         <DropdownMenuContent
           side="top"
           align="start"

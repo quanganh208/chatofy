@@ -20,6 +20,7 @@ import type { SettingsTabId } from '@/components/settings/settings-tab-ids';
 import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
 import { SETTINGS_ENTRY } from './nav-items';
 import { IdentityAvatar, useSessionIdentity } from './session-identity';
+import { PlanBadge, usePlan } from './plan-badge';
 import { TAB_CLASS } from './tab-bar-styles';
 
 /**
@@ -34,6 +35,10 @@ import { TAB_CLASS } from './tab-bar-styles';
  * other tabs' links do, so a screen reader hears which tab is current there too;
  * `data-active` alone only draws it.
  *
+ * The identity row carries the same plan pill as the sidebar footer, as text: the row
+ * is already the button that opens Billing, so a second control inside it would be
+ * both invalid and redundant.
+ *
  * Settings and the credit line open the Settings dialog — on the list of tabs and on
  * Billing — over the current page. The dialog opens once the sheet has closed and
  * handed focus back to the More tab, so closing Settings returns focus there.
@@ -44,6 +49,7 @@ const ROW =
 export function MoreSheet({ active }: { active: boolean }) {
   const t = useTranslate();
   const identity = useSessionIdentity();
+  const plan = usePlan();
   const trigger = useRef<HTMLButtonElement>(null);
   // What a row asked to open: the list (`null`) or a tab. `undefined` is nothing.
   const pending = useRef<SettingsTabId | null | undefined>(undefined);
@@ -119,8 +125,11 @@ export function MoreSheet({ active }: { active: boolean }) {
               >
                 <IdentityAvatar identity={identity} />
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-body truncate font-medium">
-                    {identity.name ?? identity.email}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="text-body truncate font-medium">
+                      {identity.name ?? identity.email}
+                    </span>
+                    {plan === null ? null : <PlanBadge plan={plan} />}
                   </span>
                   <CreditLine />
                 </span>

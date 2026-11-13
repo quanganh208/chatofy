@@ -1520,7 +1520,7 @@ const SCREENS: ScreenState[] = [
   //
   // ZERO accent at rest on every tab but Billing with checkout open. The one filled
   // control a settings state may spend belongs to the thing that state is for: the
-  // first offer's Buy when the account can check out, Save in the context editor, the pick in the photo dialog, the submit in
+  // Upgrade by card when a Free account can check out, Save in the context editor, the pick in the photo dialog, the submit in
   // the password dialog, the confirm in the sign-out dialog.
   {
     name: 'settings dialog › general, over /history',
@@ -1767,20 +1767,64 @@ const SCREENS: ScreenState[] = [
     shows: '[role="dialog"] [data-sonner-toast]',
   },
   {
-    // Checkout closed: the balance, the disabled buy actions and the usage list, all
-    // in hairline groups and all outline — a disabled filled Buy would read as
-    // available.
-    name: 'settings dialog › billing — checkout closed',
+    // Checkout closed: the balance, the plan columns, the top-up tiles and the usage
+    // list, all hairline regions with no shadow, and every Upgrade and Buy outline —
+    // a disabled filled button would read as available.
+    name: 'settings dialog › billing — Free, checkout closed',
     filled: 0,
     surfaces: 1,
     setup: settingsOn('billing'),
     render: settingsOverAPage,
-    shows: '[data-credit-buy-actions] button[disabled]',
+    shows: '[data-credit-topups] button[disabled]',
   },
   {
-    // An allowlisted account opened a VietQR checkout. The QR panel is a row of the
-    // buy group, not a card, and its controls are ghost: the first Buy is still the
-    // one filled control.
+    // An allowlisted Free account: Upgrade by card is the tab's one filled control;
+    // Upgrade by VietQR, the payment-method segments and every Buy are quiet.
+    name: 'settings dialog › billing — Free, checkout open',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      settingsOn('billing')();
+      getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
+    },
+    render: settingsOverAPage,
+    shows: '[data-credit-topups] button:not([disabled])',
+  },
+  {
+    // Pro by card subscription: the Pro column marked "Your plan" by an edge and a
+    // check, Manage outline, no Upgrade — nothing on the tab outranks the rest.
+    name: 'settings dialog › billing — Pro by card subscription',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      settingsOn('billing')();
+      getCreditBalance.mockResolvedValue(
+        balanceFixture({ checkoutAllowed: true, plan: 'pro', proSource: 'polar' }),
+      );
+    },
+    render: settingsOverAPage,
+    shows: '[data-plan-column="pro"][data-current-plan]',
+  },
+  {
+    // Pro by a VietQR pass: the same, with its end date and no Manage.
+    // Renew by VietQR is outline: renewing a pass is housekeeping, not the thing the
+    // tab is for, so nothing is filled.
+    name: 'settings dialog › billing — Pro by VietQR pass',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      settingsOn('billing')();
+      getCreditBalance.mockResolvedValue(
+        balanceFixture({ checkoutAllowed: true, plan: 'pro', proSource: 'sepay' }),
+      );
+    },
+    render: settingsOverAPage,
+    shows: '[data-plan-column="pro"][data-current-plan] [data-plan-checkout="sepay"]',
+  },
+  {
+    // An allowlisted account bought a pack by VietQR. The QR panel is a hairline
+    // region under the tiles, not a card, and its controls are ghost: Upgrade by card is still
+    // the one filled control.
     name: 'settings dialog › billing — SePay QR open',
     filled: 1,
     surfaces: 1,
@@ -1790,8 +1834,27 @@ const SCREENS: ScreenState[] = [
       createCheckout.mockResolvedValue(SEPAY_ORDER);
     },
     render: settingsOverAPage,
-    press: '[data-credit-buy-actions] button:last-child',
-    shows: '[data-sepay-qr-panel]',
+    steps: [
+      '[data-credit-topups] [data-value="sepay"]',
+      '[data-credit-topups] li:first-child button',
+    ],
+    shows: '[data-credit-topups] [data-sepay-qr-panel]',
+  },
+  {
+    // A Free account chose Upgrade by VietQR: the QR panel opens under the plan
+    // columns, a hairline region with ghost controls, and Upgrade by card is still
+    // the one filled control.
+    name: 'settings dialog › billing — QR open from Upgrade by VietQR',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      settingsOn('billing')();
+      getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed: true }));
+      createCheckout.mockResolvedValue({ ...SEPAY_ORDER, amountVnd: 249000 });
+    },
+    render: settingsOverAPage,
+    steps: ['[data-plan-column="pro"] [data-plan-checkout="sepay"]'],
+    shows: '[data-credit-plans] ~ [data-sepay-qr-panel]',
   },
   {
     // Open, because closed it renders nothing. Six settings sit behind this gear
