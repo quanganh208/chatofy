@@ -81,6 +81,7 @@ describe('reading a document', () => {
       speakerLabels: false,
       translationOnly: true,
       freeScroll: true,
+      transcriptOrder: 'newest-first',
       textSize: 7,
       contextId: 'ctx-1',
       appearance: {
@@ -139,6 +140,16 @@ describe('reading a document', () => {
     expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
     expect(loaded.textSize).toBe(DEFAULT_TRANSLATE_SETTINGS.textSize);
     expect(loaded.paneLayout).toBe('column');
+    expect(loaded.freeScroll).toBe(true);
+  });
+
+  it('reads the transcript order, oldest first when absent or unreadable', () => {
+    expect(read({}).transcriptOrder).toBe('oldest-first');
+    expect(read({ reading: { transcriptOrder: 'newest-first' } }).transcriptOrder).toBe(
+      'newest-first',
+    );
+    const loaded = read({ reading: { transcriptOrder: 'sideways', freeScroll: true } });
+    expect(loaded.transcriptOrder).toBe('oldest-first');
     expect(loaded.freeScroll).toBe(true);
   });
 

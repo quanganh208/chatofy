@@ -401,12 +401,23 @@ export const en = {
   'web.translate.paneLayout': 'Layout',
   'web.translate.paneLayoutRow': 'Row',
   'web.translate.paneLayoutColumn': 'Column',
+  // Which end of the transcript the newest turn sits at, and the two headings the
+  // arrangement tab groups its rows under.
+  'web.translate.transcriptOrder': 'Transcript order',
+  'web.translate.transcriptOrderOldest': 'Oldest first',
+  'web.translate.transcriptOrderNewest': 'Newest first',
+  'web.translate.displayGroupTranscript': 'Transcript',
+  'web.translate.displayGroupPresentation': 'Presentation',
   // Two gears' worth of settings, named for what each is about. They were one,
   // which meant the icon at the bottom covered both the voice and the page layout
   // while the speaker in the panel header configured nothing.
   'web.translate.voiceSettings': 'Voice settings',
   'web.translate.voiceSettingsFor': 'Voice for {language}',
   'web.translate.displaySettings': 'Display settings',
+  // The dock's visible button words. Each is contained in that button's accessible
+  // name, so what a voice-control user reads is what they can say.
+  'web.translate.dockDisplay': 'Display',
+  'web.translate.dockCaptions': 'Captions',
   // ---- fullscreen, the caption window, and the reader's appearance ----
   // One button opens the floating captions; it is called picture-in-picture
   // where the browser can keep it on top and a mini window where it cannot.

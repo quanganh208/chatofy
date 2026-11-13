@@ -6,9 +6,8 @@ import { LocaleProvider } from '@/i18n/provider';
 import { StageControls } from './stage-controls';
 
 /**
- * The two icon-only buttons beside the display gear carry an accessible name but no
- * visible word, so a sighted new user had to guess what an arrow-out icon does. The
- * name is repeated as a hover and long-press tooltip.
+ * Outline buttons, not ghost: grey icons beside Start read as disabled. Each shows its
+ * word above the dock's wide breakpoint and keeps an accessible name that contains it.
  */
 let container: HTMLDivElement;
 let root: Root;
@@ -26,7 +25,39 @@ afterEach(() => {
 });
 
 describe('StageControls', () => {
-  it('shows each button name as a tooltip as well as an accessible name', () => {
+  it('renders outline buttons whose accessible name contains the visible word', () => {
+    act(() => {
+      root.render(
+        <LocaleProvider locale="en">
+          <StageControls
+            onFullscreen={vi.fn()}
+            windowKind="pip"
+            windowOpen
+            onToggleWindow={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+    });
+    const buttons = [...container.querySelectorAll('button')];
+    expect(buttons.length).toBe(2);
+    for (const button of buttons) {
+      expect(button.getAttribute('data-variant')).toBe('outline');
+      expect(button.className).toContain('text-foreground');
+      const word = button.querySelector('span')?.textContent;
+      expect(word).toBeTruthy();
+      expect(button.getAttribute('aria-label')).toContain(word);
+    }
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('Full screen');
+    expect(buttons[1]?.getAttribute('aria-label')).toMatch(/^Captions: /);
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  /**
+   * The tooltip portals outside the dock's container, so it decides for itself
+   * whether the word is on screen: open only while it is hidden, and then saying
+   * the whole name — which window the caption button opens, not just "Captions".
+   */
+  function renderControls() {
     act(() => {
       root.render(
         <LocaleProvider locale="en">
@@ -39,12 +70,29 @@ describe('StageControls', () => {
         </LocaleProvider>,
       );
     });
-    const buttons = [...container.querySelectorAll('button')];
-    expect(buttons.length).toBe(2);
-    for (const button of buttons) {
-      const name = button.getAttribute('aria-label');
-      expect(name).toBeTruthy();
-      expect(button.getAttribute('title')).toBe(name);
+    return [...container.querySelectorAll('button')];
+  }
+
+  const tooltipText = () => document.querySelector('[role="tooltip"]')?.textContent ?? null;
+
+  it('opens no tooltip while the word is showing beside the icon', () => {
+    const [, captions] = renderControls();
+    act(() => captions?.focus());
+    expect(tooltipText()).toBeNull();
+  });
+
+  it('names the whole window in the tooltip while the word is hidden', () => {
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = real(element, pseudo);
+      return element.tagName === 'SPAN' ? { ...style, display: 'none' } : style;
+    });
+    try {
+      const [, captions] = renderControls();
+      act(() => captions?.focus());
+      expect(tooltipText()).toBe('Captions: Picture-in-picture');
+    } finally {
+      vi.restoreAllMocks();
     }
   });
 });

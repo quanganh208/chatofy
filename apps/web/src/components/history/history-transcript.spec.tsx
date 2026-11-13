@@ -75,6 +75,18 @@ describe('HistoryTranscript', () => {
     for (const p of prose) expect(p.className).toContain('wrap-anywhere');
   });
 
+  it('reads a stored conversation oldest first, whatever the live views are set to', () => {
+    // The reading order is a setting of the LIVE views; this component takes no
+    // settings at all, so a record always reads from its beginning.
+    const text = render([
+      turn({ position: 0, sourceText: 'mot', translations: { en: 'one' } }),
+      turn({ position: 1, sourceText: 'hai', translations: { en: 'two' } }),
+      turn({ position: 2, sourceText: 'ba', translations: { en: 'three' } }),
+    ]).textContent;
+    expect(text.indexOf('one')).toBeLessThan(text.indexOf('two'));
+    expect(text.indexOf('two')).toBeLessThan(text.indexOf('three'));
+  });
+
   it('renders displayText when it is present', () => {
     const text = render([turn({ sourceText: 'xin chao', displayText: 'xin chào' })]).textContent;
     expect(text).toContain('xin chào');

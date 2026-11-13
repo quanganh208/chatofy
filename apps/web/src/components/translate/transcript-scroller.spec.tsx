@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptScroller } from './transcript-scroller';
+import type { TranscriptOrder } from '@/lib/translate-settings';
 
 /**
  * The region follows the conversation, and stops when the reader is reading.
@@ -57,11 +58,16 @@ function region(): HTMLElement {
  */
 const geometry = { scrollHeight: 0, clientHeight: 400 };
 
-function render(content: string, contentHeight: number, freeScroll = false): void {
+function render(
+  content: string,
+  contentHeight: number,
+  freeScroll = false,
+  order: TranscriptOrder = 'oldest-first',
+): void {
   geometry.scrollHeight = contentHeight;
   act(() => {
     root.render(
-      <TranscriptScroller label="Transcript" freeScroll={freeScroll}>
+      <TranscriptScroller label="Transcript" freeScroll={freeScroll} order={order}>
         {content}
       </TranscriptScroller>,
     );
@@ -186,5 +192,286 @@ describe('TranscriptScroller with free scroll on', () => {
 
     render('first and second', 1200, false);
     expect(node.scrollTop).toBe(1200);
+  });
+});
+
+/**
+ * Newest first, the newest edge is the TOP: the line being spoken sits above
+ * everything, so following means holding `scrollTop` at 0 — and the same slack,
+ * remembered anchoring and `freeScroll` apply, measured from that edge.
+ */
+describe('TranscriptScroller newest first', () => {
+  const scrollTo = (node: HTMLElement, top: number) => {
+    node.scrollTop = top;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+  };
+
+  it('holds the top while the conversation grows', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    // Something (a browser keeping its anchor) moved the view a nudge down.
+    scrollTo(node, 20);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('stops following once the reader scrolls down to re-read', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 300);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'the reader was yanked back up').toBe(300);
+  });
+
+  it('does not treat parking at the BOTTOM as following', () => {
+    // The oldest-first rule measured from the wrong edge would pin here.
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 900 - 400);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(500);
+  });
+
+  it('resumes following when the reader returns to the top', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 300);
+    scrollTo(node, 10);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('never follows with free scroll on, even parked at the top', () => {
+    render('a conversation', 900, true, 'newest-first');
+    const node = region();
+    scrollTo(node, 30);
+
+    render('a new turn, then the conversation', 1200, true, 'newest-first');
+    expect(node.scrollTop).toBe(30);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+});
+
+/**
+ * Switching the order flips the list under the reader, so wherever they were no
+ * longer means anything: the switch is a request to see the newest turn.
+ */
+describe('TranscriptScroller order switch', () => {
+  it('follows the newest edge again after the order flips, wherever the reader was', () => {
+    render('a conversation', 900);
+    const node = region();
+    // Oldest first, scrolled up to the very first turn: not following.
+    node.scrollTop = 0;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    render('a conversation, newest first', 900, false, 'newest-first');
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'new turns did not pin to the top after the switch').toBe(0);
+  });
+
+  it('jumps to the newest edge on a switch even with free scroll on', () => {
+    render('a conversation', 900, true);
+    const node = region();
+    node.scrollTop = 200;
+
+    render('a conversation, newest first', 900, true, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('follows the top after a switch from a reader parked mid-way, not just at 0', () => {
+    render('a conversation', 900);
+    const node = region();
+    // 200px from the bottom: oldest first, not following.
+    node.scrollTop = 300;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    render('a conversation, newest first', 900, false, 'newest-first');
+    expect(node.scrollTop, 'the switch did not jump to the newest edge').toBe(0);
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'following was not switched back on').toBe(0);
+  });
+
+  it('leaves oldest first to the browser and turns anchoring off newest first', () => {
+    render('a conversation', 900);
+    expect(region().className).not.toContain('overflow-anchor');
+    render('a conversation', 900, false, 'newest-first');
+    expect(region().className).toContain('[overflow-anchor:none]');
+  });
+});
+
+/**
+ * Newest first keeps a scrolled-away reader on the turn they were reading, by
+ * hand and in every browser (the region turns native anchoring off). happy-dom
+ * has no layout, so each turn's place comes from `data-top`/`data-height`.
+ */
+describe('TranscriptScroller newest-first place-keeping', () => {
+  const turn = (id: string, top: number, height: number) => (
+    <li key={id} data-id={id} data-top={top} data-height={height} />
+  );
+
+  function renderTurns(turns: React.ReactNode[], contentHeight: number, freeScroll = false) {
+    geometry.scrollHeight = contentHeight;
+    act(() => {
+      root.render(
+        <TranscriptScroller label="Transcript" order="newest-first" freeScroll={freeScroll}>
+          <ol>{turns}</ol>
+        </TranscriptScroller>,
+      );
+    });
+  }
+
+  function scrollTo(node: HTMLElement, top: number) {
+    node.scrollTop = top;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+  }
+
+  const layoutProperties = ['offsetTop', 'offsetHeight', 'offsetParent'] as const;
+  const originals = layoutProperties.map((property) => [
+    property,
+    Object.getOwnPropertyDescriptor(HTMLElement.prototype, property),
+  ]);
+  afterEach(() => {
+    for (const [property, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, property as string, descriptor);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property as string];
+    }
+  });
+
+  beforeEach(() => {
+    const read = (attribute: string) =>
+      function (this: HTMLElement) {
+        return Number(this.getAttribute(attribute) ?? 0);
+      };
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      get: read('data-top'),
+      configurable: true,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: read('data-height'),
+      configurable: true,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+      get: () => null,
+      configurable: true,
+    });
+  });
+
+  it('holds the turn being read when a new one lands above it', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400); // reading turn a, 100px into it
+
+    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200);
+    expect(node.scrollTop).toBe(700);
+  });
+
+  it('does not move the reader when a turn BELOW them grows', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 100); // reading turn b
+
+    // A late translation lengthens turn a, which is below b.
+    renderTurns([turn('b', 0, 300), turn('a', 300, 900)], 1200);
+    expect(node.scrollTop).toBe(100);
+  });
+
+  it('falls back to the turn below when the one being read is merged away', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 100); // reading b; a is the spare
+
+    // b merges into a block above, which is now taller: a moved down 150px.
+    renderTurns([turn('c', 0, 450), turn('a', 450, 600)], 1050);
+    expect(node.scrollTop).toBe(250);
+  });
+
+  it('holds the reader when text above them grows without the scroller rendering', () => {
+    // The live line types in and a polished translation morphs on their own
+    // state, frame by frame; only a resize of the content can report that.
+    let onResize: (() => void) | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          onResize = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    try {
+      renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+      const node = region();
+      scrollTo(node, 400); // reading turn a, 100px into it
+
+      // Turn b, above the reader, grows by 50px as its text types in.
+      const below = node.querySelector<HTMLElement>('[data-id="a"]')!;
+      below.setAttribute('data-top', '350');
+      act(() => onResize?.());
+      expect(node.scrollTop).toBe(450);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not let its own hold switch following back on', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400); // reading a, not following
+
+    // Something above a shrinks by 350px: the hold lowers the reader to 50,
+    // inside the follow slack, through a scroll event of its own.
+    renderTurns([turn('b', 0, 300), turn('a', -50, 600)], 550);
+    expect(node.scrollTop).toBe(50);
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    renderTurns([turn('c', 0, 100), turn('a', 50, 600)], 650);
+    expect(node.scrollTop, 'the reader was pulled to the top').not.toBe(0);
+  });
+
+  it('still follows when the READER scrolls to the top right after a hold', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400);
+
+    renderTurns([turn('b', 0, 300), turn('a', -50, 600)], 550);
+    expect(node.scrollTop).toBe(50);
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+    scrollTo(node, 10); // the reader's own scroll, into the slack
+
+    renderTurns([turn('c', 0, 100), turn('a', 50, 600)], 650);
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('holds a free-scroll reader parked at the top instead of following', () => {
+    // Native anchoring skips scrollTop 0, which is why this is done by hand.
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900, true);
+    const node = region();
+
+    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200, true);
+    expect(node.scrollTop).toBe(300);
+  });
+
+  it('turns the browser anchoring off so the reader is not moved twice', () => {
+    renderTurns([turn('a', 0, 300)], 300);
+    expect(region().className).toContain('[overflow-anchor:none]');
   });
 });

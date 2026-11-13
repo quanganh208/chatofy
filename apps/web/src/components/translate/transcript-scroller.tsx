@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { ScrollArea } from '@chatofy/ui/react';
+import type { TranscriptOrder } from '@/lib/translate-settings';
 
 /**
- * How far from the end still counts as reading the newest turn.
+ * How far from the newest edge still counts as reading the newest turn.
  *
  * Two lines, not a screenful. The threshold decides what a reader is taken to
  * have MEANT by scrolling: a nudge from a trackpad, or the last few pixels of a
@@ -16,6 +17,15 @@ const ANCHOR_SLACK_PX = 64;
 
 /**
  * The transcript's one scroll region, following the conversation as it grows.
+ *
+ * ## Which edge it follows
+ *
+ * The NEWEST edge, wherever `order` puts it. Oldest first, that is the bottom:
+ * the conversation grows downward and the region keeps the end in view. Newest
+ * first, it is the top: the line being spoken sits above everything else, so the
+ * region holds `scrollTop` at 0 while the reader is within the slack of it. Every
+ * rule below — remembered anchoring, the slack, `freeScroll` — is the same rule
+ * measured from that edge; "the end" in what follows means whichever one it is.
  *
  * ## The cap lives above this, and it has to BE a cap
  *
@@ -62,7 +72,11 @@ const ANCHOR_SLACK_PX = 64;
  * so a measure-afterwards check concludes they had scrolled away.
  *
  * The scroll this component performs re-enters the handler with a distance of
- * zero, so following stays on.
+ * zero, so following stays on. Newest first, the turn that lands lands ABOVE the
+ * reader; one scrolled away to re-read, or parked at the top with free scroll on,
+ * is held on the turn they are reading by hand, in every browser. Switching the
+ * order resets following, because a flipped list makes the old position
+ * meaningless.
  *
  * ## `freeScroll` is the reader saying it in advance
  *
@@ -82,27 +96,112 @@ const ANCHOR_SLACK_PX = 64;
 export function TranscriptScroller({
   label,
   freeScroll = false,
+  order = 'oldest-first',
   children,
 }: {
   label: string;
-  /** Never follow the conversation, even from the very bottom. */
+  /** Never follow the conversation, even from the newest edge. */
   freeScroll?: boolean;
+  /** Which edge holds the newest turn: the bottom oldest first, the top newest first. */
+  order?: TranscriptOrder;
   children: React.ReactNode;
 }) {
   const region = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const followsTop = order === 'newest-first';
+
+  // The turn the reader is looking at and where its top sat in the content, for
+  // the place-keeping below. Recorded after every commit and every scroll, and
+  // only newest first while the reader is away from the top — nothing reads it
+  // otherwise, and it measures every turn above the view.
+  const anchor = useRef<Anchor[] | null>(null);
+  // The offset the last hold wrote, so its own scroll event can be told apart.
+  const heldAt = useRef<number | null>(null);
+  const recordAnchor = useCallback(() => {
+    const node = region.current;
+    anchor.current =
+      node && followsTop && (freeScroll || !following.current) ? readingAnchor(node) : null;
+  }, [followsTop, freeScroll]);
 
   const onScroll = useCallback(() => {
     const node = region.current;
     if (!node) return;
-    following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= ANCHOR_SLACK_PX;
+    const fromNewest = followsTop
+      ? node.scrollTop
+      : node.scrollHeight - node.scrollTop - node.clientHeight;
+    // A scroll this component's own hold caused is not the reader moving: a hold
+    // that lowers the offset into the slack must not switch following back on and
+    // have the next commit pull them to the top.
+    if (node.scrollTop !== heldAt.current) following.current = fromNewest <= ANCHOR_SLACK_PX;
+    heldAt.current = null;
+    recordAnchor();
+  }, [followsTop, recordAnchor]);
+
+  // Newest first grows at the TOP, so a reader not following would see the turn
+  // they are reading slide away under every new one. Held here, by that turn
+  // rather than by total height: a late translation growing a turn BELOW the
+  // reader must not move them. Done by hand in every browser, with the browser's
+  // own anchoring switched off on this region (below): native anchoring skips a
+  // reader at scrollTop 0 — exactly free scroll parked at the top — and leaving
+  // it on as well would move the others twice.
+  //
+  // The turn after it is held as a spare: a block that a newer turn merges into
+  // the one before it unmounts (its key was its first turn), and the reader is
+  // then kept by the turn below instead of not at all.
+  const holdPlace = useCallback(() => {
+    const node = region.current;
+    const held = anchor.current?.find(({ element }) => element.isConnected);
+    if (!node || !held) return;
+    // Only when something moved: a write of the same offset still interrupts a
+    // touch fling in WebKit, and this runs every frame while text types in.
+    const delta = contentTop(node, held.element) - held.top;
+    if (!delta) return;
+    const before = node.scrollTop;
+    node.scrollTop += delta;
+    // Only a write that moved fires a scroll event to consume this; one clamped to
+    // the same offset fires none, and a value left behind would swallow the
+    // reader's next scroll if it landed on exactly that offset.
+    heldAt.current = node.scrollTop !== before ? node.scrollTop : null;
   }, []);
+
+  // The order the last commit drew, so a switch can be told apart from an update.
+  const drawnOrder = useRef(order);
 
   useLayoutEffect(() => {
     const node = region.current;
-    if (!node || freeScroll || !following.current) return;
-    node.scrollTop = node.scrollHeight;
+    if (!node) return;
+    if (drawnOrder.current !== order) {
+      // Switching the order is asking to see the newest turn, wherever the reader
+      // was — free scroll or not: their old position means something else once
+      // the list has flipped, and no scroll event fires to re-decide it.
+      drawnOrder.current = order;
+      following.current = true;
+      anchor.current = null;
+      heldAt.current = null;
+      node.scrollTop = followsTop ? 0 : node.scrollHeight;
+    } else if (!freeScroll && following.current) {
+      node.scrollTop = followsTop ? 0 : node.scrollHeight;
+    } else if (followsTop) {
+      holdPlace();
+    }
+    recordAnchor();
   });
+
+  // Text above the reader also grows WITHOUT this component rendering: the live
+  // line types itself in and a polished translation morphs, both frame by frame
+  // on their own state. A commit here would never see that growth, so newest
+  // first also holds the place whenever the content changes size.
+  useEffect(() => {
+    const content = region.current?.firstElementChild;
+    if (!followsTop || !content || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (!freeScroll && following.current) return;
+      holdPlace();
+      recordAnchor();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [followsTop, freeScroll, holdPlace, recordAnchor]);
 
   return (
     // shadcn's scroll area for a thin themed bar instead of the browser's. The element
@@ -119,10 +218,58 @@ export function TranscriptScroller({
         tabIndex: 0,
         role: 'region',
         'aria-label': label,
-        className: 'overscroll-contain',
+        // Newest first keeps the reader's place by hand (the effect above), so the
+        // browser's anchoring is off there; oldest first leaves it to the browser.
+        className: followsTop ? 'overscroll-contain [overflow-anchor:none]' : 'overscroll-contain',
       }}
     >
       {children}
     </ScrollArea>
   );
+}
+
+interface Anchor {
+  element: HTMLElement;
+  top: number;
+}
+
+/**
+ * The first turn whose bottom is still inside the view — the one being read —
+ * and the turn after it as a spare. `li` because every turn is a list item and
+ * nothing else in the region is.
+ */
+function readingAnchor(node: HTMLElement): Anchor[] | null {
+  const turns = node.querySelectorAll<HTMLElement>('li');
+  for (let index = 0; index < turns.length; index++) {
+    const element = turns[index]!;
+    const top = contentTop(node, element);
+    if (top + element.offsetHeight <= node.scrollTop) continue;
+    const spare = turns[index + 1];
+    return spare
+      ? [
+          { element, top },
+          { element: spare, top: contentTop(node, spare) },
+        ]
+      : [{ element, top }];
+  }
+  return null;
+}
+
+/**
+ * Where an element sits in the region's content, from layout offsets rather than
+ * `getBoundingClientRect`: a finished turn slides in with a transform
+ * (`flip-from-live-line.ts`), and a rect taken mid-slide would hold the reader to
+ * where the turn was drawn, not where it is. Offsets also ignore the region's own
+ * scroll, so the two page positions subtract to a content position.
+ */
+function contentTop(node: HTMLElement, element: HTMLElement): number {
+  return pageTop(element) - pageTop(node);
+}
+
+function pageTop(element: HTMLElement): number {
+  let top = 0;
+  for (let at: HTMLElement | null = element; at; at = at.offsetParent as HTMLElement | null) {
+    top += at.offsetTop;
+  }
+  return top;
 }

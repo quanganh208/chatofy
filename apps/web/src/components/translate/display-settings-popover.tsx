@@ -2,7 +2,6 @@
 
 import { Settings2 } from 'lucide-react';
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -11,6 +10,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@chatofy/ui/react';
+import { DockActionButton } from '@/components/translate/dock-action-button';
 import { AppearanceSettingsPanel } from '@/components/translate/appearance-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { StageSettingsPanel } from '@/components/translate/stage-settings-panel';
@@ -43,6 +43,7 @@ export function DisplaySettingsPopover({
   container,
   open,
   onOpenChange,
+  dock = false,
 }: {
   settings: TranslateSettings;
   onChange: (patch: Partial<TranslateSettings>) => void;
@@ -55,6 +56,11 @@ export function DisplaySettingsPopover({
   /** Controlled by the stage, which keeps its bar up while the panel is open. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * True for the page dock, where the trigger shows its word (or a tooltip when
+   * narrow). The fullscreen bar leaves it off: icon-only, no body-portalled tooltip.
+   */
+  dock?: boolean;
 }) {
   const t = useTranslate();
   const label = t('web.translate.displaySettings');
@@ -63,12 +69,12 @@ export function DisplaySettingsPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        {/* Ghost: the dock is a bar under a hairline, and its secondary controls are
-            icons in it rather than boxes on the page. Never accent — the screen's
-            one filled control is Start. */}
-        <Button variant="ghost" size="icon" aria-label={label}>
+        {/* Outline, never ghost: a grey icon beside a live Start reads as disabled.
+            In the dock it carries the word "Display" when wide and a tooltip when
+            narrow. Never accent — the screen's one filled control is Start. */}
+        <DockActionButton dock={dock} label={t('web.translate.dockDisplay')} aria-label={label}>
           <Settings2 aria-hidden />
-        </Button>
+        </DockActionButton>
       </PopoverTrigger>
       <PopoverContent
         align="end"

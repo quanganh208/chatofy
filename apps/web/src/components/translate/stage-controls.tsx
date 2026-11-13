@@ -1,20 +1,23 @@
 'use client';
 
 import { Maximize2, PictureInPicture2 } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
+import { DockActionButton } from '@/components/translate/dock-action-button';
 import type { CaptionWindowKind } from '@/hooks/use-caption-window';
 import { useTranslate } from '@/i18n/provider';
 
 /**
  * The two ways out of the page: fullscreen, and the floating caption window.
  *
- * In the dock beside the display gear, ghost like it: the dock is a bar on the page
- * ground under a hairline, and its secondary controls are icons in that bar rather
- * than boxes floating on it. Never accent: the screen's one filled control is Start.
+ * In the dock beside the display gear, as outline buttons with a visible word
+ * above the dock's wide breakpoint and a tooltip below it (see `DockActionButton`
+ * for why: ghost icons read as disabled). Never accent: the screen's one filled
+ * control is Start.
  *
  * The window button is named for the window it will actually open. "Picture-in
  * -picture" promises a window that stays on top; a popup does not, and calling
- * it that would be a promise the browser then breaks.
+ * it that would be a promise the browser then breaks. Its visible word is the
+ * generic "Captions", and the specific window name stays in the accessible name
+ * after it, so the name contains the word.
  *
  * `aria-pressed` on the window button, because it is a toggle: pressed again it
  * closes the window it opened.
@@ -33,27 +36,28 @@ export function StageControls({
   const t = useTranslate();
   const windowLabel = t(windowKind === 'pip' ? 'web.translate.pip' : 'web.translate.miniWindow');
 
+  const fullscreenLabel = t('web.translate.fullscreen');
+  const captions = t('web.translate.dockCaptions');
+
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={t('web.translate.fullscreen')}
-        title={t('web.translate.fullscreen')}
+      <DockActionButton
+        dock
+        label={fullscreenLabel}
+        aria-label={fullscreenLabel}
         onClick={onFullscreen}
       >
         <Maximize2 aria-hidden />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={windowLabel}
-        title={windowLabel}
+      </DockActionButton>
+      <DockActionButton
+        dock
+        label={captions}
+        aria-label={`${captions}: ${windowLabel}`}
         aria-pressed={windowOpen}
         onClick={onToggleWindow}
       >
         <PictureInPicture2 aria-hidden />
-      </Button>
+      </DockActionButton>
     </>
   );
 }

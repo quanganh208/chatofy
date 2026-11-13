@@ -29,6 +29,7 @@ const DISPLAY_LABEL = {
   speakerLabels: 'web.translate.speakerLabels',
   translationOnly: 'web.translate.translationOnly',
   freeScroll: 'web.translate.freeScroll',
+  transcriptOrder: 'web.translate.transcriptOrder',
   displayMode: 'web.translate.displayMode',
   paneLayout: 'web.translate.paneLayout',
   textSize: 'web.translate.textSize',

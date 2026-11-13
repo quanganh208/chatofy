@@ -174,8 +174,12 @@ export function FullscreenStage({
           />
           <Button
             ref={exitButton}
-            variant="ghost"
+            // Outline in foreground, like the Display gear beside it: a ghost icon
+            // in muted text reads as disabled.
+            variant="outline"
             size="icon"
+            className="text-foreground"
+            title={t('web.translate.fullscreenExit')}
             aria-label={t('web.translate.fullscreenExit')}
             onClick={onExit}
           >
