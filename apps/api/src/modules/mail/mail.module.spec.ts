@@ -117,13 +117,13 @@ describe('buildInnerSender', () => {
         WEB_BASE_URL: 'https://chatofy.example.com',
       }),
     );
-    // A mobile link: its origin is not one an image could load from, so the
-    // logo URL must come from config, never from the link.
+    // A link on another origin: the logo URL must come from config, never be
+    // parsed out of the link.
     await sender.send({
       to: 'user@example.com',
       purpose: MailPurpose.PasswordReset,
       budgetClass: MailBudgetClass.Reserved,
-      link: 'chatofy://reset-password?token=abc123',
+      link: 'https://elsewhere.example/reset-password?token=abc123',
       locale: 'en',
     });
     const call = (sendMail.mock.calls as unknown[][]).at(-1)?.at(0) as {

@@ -222,7 +222,7 @@ describe('HttpAuthClient', () => {
     assert.equal(await client(broken, impl).getSession(), null);
   });
 
-  it('asks the API for an app link when registering and when asking for a reset', async () => {
+  it('sends no client field when registering or asking for a reset, so the mail links the web', async () => {
     const message = { code: 'REGISTRATION_ACCEPTED', message: 'ok' };
     const f = fakeFetch({
       '/auth/register': () => envelope(message, 202),
