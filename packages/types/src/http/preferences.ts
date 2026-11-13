@@ -180,6 +180,21 @@ export const preferencesResponseSchema = z.object({
 export type PreferencesResponse = z.infer<typeof preferencesResponseSchema>;
 
 /**
+ * The same answer as a CLIENT reads it: the document is left unparsed.
+ *
+ * A newer API may store a language, theme or field this build has never heard
+ * of. Parsed strictly, one such value would fail the whole response — the client
+ * would stop seeing remote changes, and a save the server DID store would look
+ * failed and be retried forever. Clients hand `preferences` to
+ * `parseUserPreferences`, which drops only the fields it cannot read.
+ */
+export const preferencesReadResponseSchema = z.object({
+  preferences: z.unknown(),
+  updatedAt: z.string().nullable(),
+});
+export type PreferencesReadResponse = z.infer<typeof preferencesReadResponseSchema>;
+
+/**
  * The document a new account starts with.
  *
  * "Smart" in one place only: the language the account's UI and mail are in is

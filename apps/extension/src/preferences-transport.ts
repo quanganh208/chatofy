@@ -1,4 +1,4 @@
-import { apiResponseSchema, preferencesResponseSchema } from '@chatofy/types';
+import { apiResponseSchema, preferencesReadResponseSchema } from '@chatofy/types';
 import type { PreferencesTransport } from '@chatofy/api-client';
 import { getFreshAccessToken } from './access-token';
 import { loadAccessToken } from './token-storage';
@@ -14,7 +14,7 @@ import { loadAccessToken } from './token-storage';
  * "keep the change and try again" — there is no failure here worth hiding from it.
  */
 
-const envelope = apiResponseSchema(preferencesResponseSchema);
+const envelope = apiResponseSchema(preferencesReadResponseSchema);
 
 /** `status` is the HTTP status when the API answered; the sync store reads it to tell a refusal from a failure. */
 export class PreferencesRequestError extends Error {

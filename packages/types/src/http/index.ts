@@ -225,6 +225,7 @@ export {
   userPreferencesPatchSchema,
   updatePreferencesRequestSchema,
   preferencesResponseSchema,
+  preferencesReadResponseSchema,
   defaultUserPreferences,
   parseUserPreferences,
   mergePreferences,
@@ -244,4 +245,5 @@ export type {
   UserPreferencesPatch,
   UpdatePreferencesRequest,
   PreferencesResponse,
+  PreferencesReadResponse,
 } from './preferences.js';

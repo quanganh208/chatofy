@@ -18,7 +18,7 @@ import {
   conversationSummaryResponseSchema,
   creditBalanceSchema,
   creditUsageListReadSchema,
-  preferencesResponseSchema,
+  preferencesReadResponseSchema,
   voiceGenderSchema,
   type GenerateMinutesRequest,
   type LanguageCode,
@@ -134,13 +134,13 @@ export function listCreditUsage() {
 
 /** The account's preferences document; defaults while nothing is stored yet. */
 export function getPreferences() {
-  return api.apiFetch('/me/preferences', preferencesResponseSchema);
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema);
 }
 
 /** Merges `patch` into the stored document and returns the whole result. */
 export function updatePreferences(patch: UserPreferencesPatch) {
   const body: UpdatePreferencesRequest = { preferences: patch };
-  return api.apiFetch('/me/preferences', preferencesResponseSchema, {
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -148,5 +148,5 @@ export function updatePreferences(patch: UserPreferencesPatch) {
 
 /** Deletes the stored document and returns the defaults: "Reset to defaults". */
 export function resetPreferences() {
-  return api.apiFetch('/me/preferences', preferencesResponseSchema, { method: 'DELETE' });
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema, { method: 'DELETE' });
 }

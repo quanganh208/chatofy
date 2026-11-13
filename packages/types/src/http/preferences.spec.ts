@@ -4,6 +4,8 @@ import {
   defaultUserPreferences,
   mergePreferences,
   parseUserPreferences,
+  preferencesReadResponseSchema,
+  preferencesResponseSchema,
   userPreferencesPatchSchema,
   userPreferencesSchema,
 } from './preferences.js';
@@ -124,5 +126,21 @@ describe('clearing a voice token', () => {
       { voices: { en: { speed: 2 } } },
     );
     expect(combined.voices?.en).toEqual({ voice: null, speed: 2 });
+  });
+});
+
+describe('preferencesReadResponseSchema', () => {
+  it("reads a newer build's document, leaving per-field tolerance to parseUserPreferences", () => {
+    const newer = {
+      ...defaultUserPreferences('en'),
+      theme: 'sepia',
+      voices: { ja: { speak: true } },
+    };
+    expect(
+      preferencesResponseSchema.safeParse({ preferences: newer, updatedAt: 'v1' }).success,
+    ).toBe(false);
+    const read = preferencesReadResponseSchema.parse({ preferences: newer, updatedAt: 'v1' });
+    const parsed = parseUserPreferences(read.preferences, defaultUserPreferences('en'));
+    expect(parsed.theme).toBe('system');
   });
 });

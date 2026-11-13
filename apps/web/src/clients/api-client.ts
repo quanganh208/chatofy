@@ -19,7 +19,7 @@ import {
   glossarySchema,
   minutesResponseSchema,
   planListResponseSchema,
-  preferencesResponseSchema,
+  preferencesReadResponseSchema,
   readableTranslationContextListSchema,
   storedConferenceMinutesResponseSchema,
   translationContextSchema,
@@ -540,13 +540,13 @@ export function deleteAvatar() {
  * nothing else calls them. Like every `/me` route they name no user id.
  */
 export function getPreferences() {
-  return authedFetch('/me/preferences', preferencesResponseSchema);
+  return authedFetch('/me/preferences', preferencesReadResponseSchema);
 }
 
 /** Merge a partial document into the stored one; the API validates the RESULT whole. */
 export function updatePreferences(patch: UserPreferencesPatch) {
   const body: UpdatePreferencesRequest = { preferences: patch };
-  return authedFetch('/me/preferences', preferencesResponseSchema, {
+  return authedFetch('/me/preferences', preferencesReadResponseSchema, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -554,7 +554,7 @@ export function updatePreferences(patch: UserPreferencesPatch) {
 
 /** Drop the stored document: every device reads the defaults again. */
 export function resetPreferences() {
-  return authedFetch('/me/preferences', preferencesResponseSchema, { method: 'DELETE' });
+  return authedFetch('/me/preferences', preferencesReadResponseSchema, { method: 'DELETE' });
 }
 
 /**
