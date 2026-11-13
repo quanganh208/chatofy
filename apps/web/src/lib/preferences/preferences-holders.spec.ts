@@ -100,6 +100,37 @@ describe('a change the server never received', () => {
   });
 });
 
+describe('a change left unsent by an earlier page', () => {
+  it('shows at once but is not sent until the session confirms the same account', async () => {
+    void accountPreferencesCache('user-1').writePending!({ theme: 'dark' });
+    const save = vi.spyOn(server.transport, 'save');
+    const holder = createAccountHolder({
+      userId: 'user-1',
+      locale: 'en',
+      transport: server.transport,
+      debounceMs: 5,
+    });
+    open.push(holder);
+    await tick(40);
+    expect(holder.getSnapshot().preferences.theme).toBe('dark');
+    expect(save).not.toHaveBeenCalled();
+
+    holder.confirm();
+    await tick(60);
+    expect(save).toHaveBeenCalledWith({ theme: 'dark' });
+    expect(server.stored().theme).toBe('dark');
+  });
+
+  it('is never sent for another account', async () => {
+    void accountPreferencesCache('user-2').writePending!({ theme: 'dark' });
+    const save = vi.spyOn(server.transport, 'save');
+    const mine = tab('user-1');
+    await tick(60);
+    expect(save).not.toHaveBeenCalled();
+    expect(mine.getSnapshot().preferences.theme).toBe('system');
+  });
+});
+
 describe('a visitor holder', () => {
   it('stores a theme and nothing else', () => {
     const visitor = createVisitorHolder('en');
