@@ -50,11 +50,16 @@ function memoryCache(initial: unknown = null, initialPending: unknown = null) {
   let pendingValue = initialPending;
   return {
     readPending: () => pendingValue,
-    writePending: (patch: UserPreferencesPatch | null) => {
-      pendingValue = patch;
+    writePending: (value: unknown) => {
+      pendingValue = value;
     },
     get pending() {
       return pendingValue;
+    },
+    /** Every context's unsent patch in the slot, in order. */
+    get pendingPatches() {
+      const contexts = (pendingValue as { contexts?: Record<string, unknown> } | null)?.contexts;
+      return contexts ? Object.values(contexts) : [];
     },
     read: () => value,
     write: (next: UserPreferences) => {
@@ -176,13 +181,14 @@ describe('createPreferencesSync', () => {
     server.failTimes(1);
     first.update({ theme: 'dark' });
     await vi.advanceTimersByTimeAsync(600);
-    expect(cache.pending).toEqual({ theme: 'dark' });
+    expect(cache.pendingPatches).toEqual([{ theme: 'dark' }]);
     await first.dispose();
 
     const second = createPreferencesSync({ transport: server.transport, cache, defaults });
     await second.start();
     expect(second.getState().preferences.theme).toBe('dark');
     expect(server.saves).toEqual([{ theme: 'dark' }]);
+    await vi.advanceTimersByTimeAsync(0);
     expect(cache.pending).toBeNull();
   });
 
@@ -192,7 +198,7 @@ describe('createPreferencesSync', () => {
     const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
     server.failTimes(1);
     await sync.start();
-    expect(cache.pending).toEqual({ theme: 'dark' });
+    expect(cache.pendingPatches).toEqual([{ theme: 'dark' }]);
     await sync.reset();
     expect(cache.pending).toBeNull();
     sync.update({ theme: 'light' });
@@ -211,5 +217,148 @@ describe('createPreferencesSync', () => {
     vi.mocked(server.transport.reset).mockRejectedValueOnce(new Error('offline'));
     await expect(sync.reset()).rejects.toThrow('offline');
     expect(sync.getState().status).toBe('idle');
+  });
+
+  it('drops a load that was answered after a later save was acknowledged', async () => {
+    const server = fakeServer();
+    const sync = createPreferencesSync({
+      transport: server.transport,
+      cache: memoryCache(),
+      defaults,
+    });
+    await sync.start();
+    // A GET that reads the row BEFORE the PATCH commits, and answers after it.
+    let answerStaleLoad!: () => void;
+    vi.mocked(server.transport.load).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          const stale = { preferences: defaults, updatedAt: null };
+          answerStaleLoad = () => resolve(stale);
+        }),
+    );
+    sync.update({ theme: 'dark' });
+    const loading = sync.refresh();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sync.getState().preferences.theme).toBe('dark');
+    answerStaleLoad();
+    await loading;
+    expect(sync.getState().preferences.theme).toBe('dark');
+  });
+
+  it('keeps an in-flight change on screen while a load answers mid-save', async () => {
+    const server = fakeServer();
+    const sync = createPreferencesSync({
+      transport: server.transport,
+      cache: memoryCache(),
+      defaults,
+    });
+    await sync.start();
+    let finishSave!: () => void;
+    vi.mocked(server.transport.save).mockImplementationOnce(
+      (patch) =>
+        new Promise((resolve) => {
+          finishSave = () =>
+            resolve({ preferences: mergePreferences(defaults, patch), updatedAt: 'now' });
+        }),
+    );
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    await sync.refresh();
+    expect(sync.getState().preferences.theme).toBe('dark');
+    finishSave();
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  it('drops a refused patch instead of retrying it forever, and later changes still save', async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await sync.start();
+    vi.mocked(server.transport.save).mockRejectedValueOnce(
+      Object.assign(new Error('refused'), { status: 400 }),
+    );
+    sync.update({ reading: { big: 'x' } });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sync.getState().status).toBe('refused');
+    expect(sync.getState().preferences.reading).toEqual({});
+    expect(cache.pending).toBeNull();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(vi.mocked(server.transport.save)).toHaveBeenCalledTimes(1);
+    sync.update({ theme: 'dark' });
+    expect(sync.getState().status).toBe('idle');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(server.saves).toEqual([{ theme: 'dark' }]);
+  });
+
+  it('retries a 401, a 429 and a 5xx rather than treating them as refusals', async () => {
+    for (const status of [401, 429, 503]) {
+      const server = fakeServer();
+      const sync = createPreferencesSync({
+        transport: server.transport,
+        cache: memoryCache(),
+        defaults,
+      });
+      await sync.start();
+      vi.mocked(server.transport.save).mockRejectedValueOnce(
+        Object.assign(new Error('x'), { status }),
+      );
+      sync.update({ theme: 'dark' });
+      await vi.advanceTimersByTimeAsync(600);
+      expect(sync.getState().status).toBe('error');
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(server.saves).toEqual([{ theme: 'dark' }]);
+    }
+  });
+
+  it('coalesces cache writes from a burst of changes', async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    const write = vi.spyOn(cache, 'write');
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await sync.start();
+    write.mockClear();
+    for (let i = 0; i < 20; i += 1) sync.update({ call: { originalVolume: i / 20 } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(write).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(write.mock.calls.length).toBeLessThanOrEqual(2);
+    expect(cache.value).toMatchObject({ call: { originalVolume: 19 / 20 } });
+  });
+
+  it("never clears another context's unsent change from the shared slot", async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await sync.start();
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(0);
+    // Another tab, offline, keeps its own unsent change in the same slot.
+    cache.writePending({ contexts: { 'other-tab': { translateMode: 'two-way' } } });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(server.saves).toEqual([{ theme: 'dark' }]);
+    expect(cache.pendingPatches).toEqual([{ translateMode: 'two-way' }]);
+  });
+
+  it('does nothing after dispose when a save answers late', async () => {
+    const server = fakeServer();
+    const broadcast = vi.fn();
+    const cache = memoryCache();
+    let finishSave!: () => void;
+    vi.mocked(server.transport.save).mockImplementationOnce(
+      (patch) =>
+        new Promise((resolve) => {
+          finishSave = () =>
+            resolve({ preferences: mergePreferences(defaults, patch), updatedAt: 'now' });
+        }),
+    );
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults, broadcast });
+    await sync.start();
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    await sync.dispose(true);
+    finishSave();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(cache.value).toBeNull();
   });
 });
