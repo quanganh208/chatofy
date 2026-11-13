@@ -26,7 +26,7 @@ import {
   DEFAULT_LANGUAGE_PAIR,
   LANGUAGE_CODES,
   PREFERENCES_LIMITS,
-  type LanguageVoicePreference,
+  type LanguageVoicePatch,
   type MicProcessing,
   type UserPreferences,
   type UserPreferencesPatch,
@@ -116,18 +116,19 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * One language's setup as the contract accepts it.
  *
  * Every field present, so a setup written here reads back the same on a client
- * that fills absent fields with a different default.
+ * that fills absent fields with a different default. No token is sent as
+ * `voice: null`, which REMOVES the stored one: a gender change means "that gender's
+ * default voice", and leaving the field out would keep the old voice named.
  */
-function voicePreference(setup: LanguageVoiceSetup): LanguageVoicePreference {
-  const out: LanguageVoicePreference = {
+function voicePreference(setup: LanguageVoiceSetup): LanguageVoicePatch {
+  const voice = setup.voice;
+  return {
     speak: setup.speak,
     gender: setup.gender,
     speed: clamp(setup.speed, PREFERENCES_LIMITS.MIN_SPEED, PREFERENCES_LIMITS.MAX_SPEED),
     volume: clamp(setup.volume, 0, 1),
+    voice: voice && voice.length <= PREFERENCES_LIMITS.MAX_VOICE_TOKEN_CHARS ? voice : null,
   };
-  const voice = setup.voice;
-  if (voice && voice.length <= PREFERENCES_LIMITS.MAX_VOICE_TOKEN_CHARS) out.voice = voice;
-  return out;
 }
 
 /**

@@ -25,8 +25,8 @@ interface SessionStub {
   data: { user: { id: string }; accessToken: string } | null;
   status: 'loading' | 'authenticated' | 'unauthenticated';
 }
-const session = vi.hoisted(() => ({
-  value: { data: null, status: 'loading' } as SessionStub,
+const session = vi.hoisted((): { value: SessionStub } => ({
+  value: { data: null, status: 'loading' },
 }));
 vi.mock('next-auth/react', () => ({ useSession: () => session.value }));
 

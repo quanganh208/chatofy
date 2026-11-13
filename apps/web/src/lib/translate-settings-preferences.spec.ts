@@ -218,15 +218,37 @@ describe('writing a change', () => {
     });
     expect(userPreferencesPatchSchema.safeParse(patch).success).toBe(true);
     expect(patch.contextId).toBeNull();
-    expect(patch.voices?.en).not.toHaveProperty('voice');
-    expect(patch.voices?.vi).toMatchObject({ speed: 2, volume: 1 });
-    expect(patch.voices?.vi).not.toHaveProperty('voice');
+    expect(patch.voices?.en?.voice).toBeNull();
+    expect(patch.voices?.vi).toMatchObject({ speed: 2, volume: 1, voice: null });
   });
 
   it('writes a full setup per language, so another client reads it unchanged', () => {
     const patch = preferencesPatchFromTranslateSettings(
       languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'en', { gender: 'male', speed: 1.5 }),
     );
-    expect(patch.voices?.en).toEqual({ speak: true, gender: 'male', speed: 1.5, volume: 1 });
+    expect(patch.voices?.en).toEqual({
+      speak: true,
+      gender: 'male',
+      speed: 1.5,
+      volume: 1,
+      voice: null,
+    });
+  });
+
+  it('removes a named voice when the gender changes, rather than keeping it', () => {
+    // "Male" with no voice named means the male default. Leaving `voice` out of the
+    // patch would merge over the stored token and keep the old voice speaking.
+    const named = mergePreferences(BASE, { voices: { en: { voice: 'af_bella' } } });
+    const patch = preferencesPatchFromTranslateSettings(
+      languageVoicePatch(translateSettingsFromPreferences(named, DEFAULT_MIC_PROCESSING), 'en', {
+        gender: 'male',
+        voice: undefined,
+      }),
+    );
+    const stored = mergePreferences(named, patch);
+    expect(stored.voices.en).not.toHaveProperty('voice');
+    expect(
+      translateSettingsFromPreferences(stored, DEFAULT_MIC_PROCESSING).voiceByLanguage.en,
+    ).toEqual({ ...DEFAULT_LANGUAGE_VOICE, gender: 'male' });
   });
 });

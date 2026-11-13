@@ -51,6 +51,37 @@ describe('the preferences cache', () => {
   });
 });
 
+describe('unsent changes', () => {
+  it('are kept under their account, beside the document, and survive its next write', () => {
+    const cache = accountPreferencesCache('user-a');
+    void cache.write(DOC);
+    void cache.writePending!({ theme: 'light' });
+    void cache.write({ ...DOC, translateMode: 'two-way' });
+    expect(cache.readPending!()).toEqual({ theme: 'light' });
+    expect(cache.read()).toMatchObject({ translateMode: 'two-way' });
+    expect(accountPreferencesCache('user-b').readPending!()).toBeNull();
+  });
+
+  it('are kept even before the document is, and cleared on null', () => {
+    const cache = accountPreferencesCache('user-a');
+    void cache.writePending!({ theme: 'light' });
+    expect(cache.readPending!()).toEqual({ theme: 'light' });
+    expect(cache.read()).toBeNull();
+    void cache.write(DOC);
+    void cache.writePending!(null);
+    expect(cache.readPending!()).toBeNull();
+    expect(cache.read()).toEqual(DOC);
+  });
+
+  it('are forgotten with the account on sign-out', () => {
+    const cache = accountPreferencesCache('user-a');
+    void cache.write(DOC);
+    void cache.writePending!({ translateMode: 'two-way' });
+    forgetAccountPreferences();
+    expect(raw()).toEqual({ userId: null, preferences: { theme: 'dark' } });
+  });
+});
+
 describe('removing the keys preferences used to live in', () => {
   it('removes every one, carrying the microphone chain across first', () => {
     for (const key of LEGACY_PREFERENCE_KEYS) localStorage.setItem(key, '"x"');

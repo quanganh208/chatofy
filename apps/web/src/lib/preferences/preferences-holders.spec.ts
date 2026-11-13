@@ -6,7 +6,7 @@ import {
   type AccountHolder,
 } from './preferences-holders';
 import { fakePreferencesServer, type FakePreferencesServer } from './preferences.fixture';
-import { PREFERENCES_CACHE_KEY } from './preferences-cache';
+import { PREFERENCES_CACHE_KEY, accountPreferencesCache } from './preferences-cache';
 
 /** Real timers: BroadcastChannel delivers between instances on the event loop. */
 const tick = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,6 +78,25 @@ describe('an account holder', () => {
     };
     expect(cached.userId).toBe('user-1');
     expect(cached.preferences.translateMode).toBe('two-way');
+  });
+});
+
+describe('a change the server never received', () => {
+  it('is sent by the next store after the page closes, not lost under the server copy', async () => {
+    server.failing = true;
+    const before = tab();
+    await tick();
+    before.update({ translateMode: 'two-way' });
+    await tick(30);
+    expect(server.stored().translateMode).toBe('one-way');
+    before.dispose(false);
+
+    server.failing = false;
+    const after = tab();
+    await tick(60);
+    expect(after.getSnapshot().preferences.translateMode).toBe('two-way');
+    expect(server.stored().translateMode).toBe('two-way');
+    expect(accountPreferencesCache('user-1').readPending!()).toBeNull();
   });
 });
 

@@ -16,10 +16,20 @@
  * reason — the page someone was just reading should not flash to another theme as
  * they leave — and never imported into an account, which reads its own.
  *
+ * **Unsent changes ride along, as `pending`.** A change made offline, or one the
+ * page closed on before its save landed, is kept under the same account so the
+ * next store sends it instead of taking the server's older copy over it. Same
+ * scoping as the document, and forgotten with it on sign-out.
+ *
  * Every storage touch is wrapped: a private window or a disabled-storage policy
  * throws on access, and the cache is never worth a broken page.
  */
-import { themeChoiceSchema, type ThemeChoice, type UserPreferences } from '@chatofy/types';
+import {
+  themeChoiceSchema,
+  type ThemeChoice,
+  type UserPreferences,
+  type UserPreferencesPatch,
+} from '@chatofy/types';
 import type { PreferencesCache } from '@chatofy/api-client';
 import { carryLegacyMicProcessing } from '@/lib/mic-processing-store';
 
@@ -40,6 +50,8 @@ export const LEGACY_PREFERENCE_KEYS = [
 interface CacheEntry {
   userId: string | null;
   preferences: unknown;
+  /** Changes not yet acknowledged by the server; only ever under an account. */
+  pending?: unknown;
 }
 
 export function readCacheEntry(): CacheEntry | null {
@@ -48,8 +60,8 @@ export function readCacheEntry(): CacheEntry | null {
     if (!raw) return null;
     const value: unknown = JSON.parse(raw);
     if (typeof value !== 'object' || value === null) return null;
-    const { userId, preferences } = value as Record<string, unknown>;
-    return { userId: typeof userId === 'string' ? userId : null, preferences };
+    const { userId, preferences, pending } = value as Record<string, unknown>;
+    return { userId: typeof userId === 'string' ? userId : null, preferences, pending };
   } catch {
     return null;
   }
@@ -97,13 +109,35 @@ export function forgetAccountPreferences(): void {
 
 /** The cache the shared sync store reads and writes, scoped to one account. */
 export function accountPreferencesCache(userId: string): PreferencesCache {
+  /** This account's entry, or null when the cache holds someone else's or nothing. */
+  const own = () => {
+    const entry = readCacheEntry();
+    return entry?.userId === userId ? entry : null;
+  };
   return {
-    read: () => {
-      const entry = readCacheEntry();
-      return entry?.userId === userId ? entry.preferences : null;
+    read: () => own()?.preferences ?? null,
+    // Each half is written without dropping the other: a document save must not
+    // lose an unsent change, and recording one must not lose the document.
+    write: (preferences: UserPreferences) => {
+      const pending = own()?.pending;
+      writeCacheEntry(pending ? { userId, preferences, pending } : { userId, preferences });
     },
-    write: (preferences: UserPreferences) => writeCacheEntry({ userId, preferences }),
     clear: () => forgetAccountPreferences(),
+    // Read raw: the store validates it against the patch schema before using it.
+    readPending: () => own()?.pending ?? null,
+    writePending: (patch: UserPreferencesPatch | null) => {
+      const entry = own();
+      // Nothing to attach a change to yet: the store writes the document first.
+      if (!entry) {
+        if (patch) writeCacheEntry({ userId, preferences: null, pending: patch });
+        return;
+      }
+      writeCacheEntry(
+        patch
+          ? { userId, preferences: entry.preferences, pending: patch }
+          : { userId, preferences: entry.preferences },
+      );
+    },
   };
 }
 
