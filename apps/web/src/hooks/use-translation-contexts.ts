@@ -79,7 +79,7 @@ export interface TranslationContextsValue {
  * Fetches once per mount. Unlike the voice catalog, this list is a property of the
  * USER and changes while they are looking at it, so an unscoped module cache would
  * show a reader the library they had before their own edit. Each screen has one
- * reader: the editor on `/settings/ai-context`, the picker on `/settings/defaults`
+ * reader: the editor on Settings › AI Context, the picker on Settings › Translation
  * and the translate panel are on separate pages, so nothing on one screen can
  * disagree with another copy of the list.
  */

@@ -601,7 +601,7 @@ export function listCreditUsage(cursor?: string) {
 
 /**
  * The plans and top-ups on sale, with each rail's price. Public on the API, but
- * read with the caller's session here like everything else on `/settings/billing`, so a
+ * read with the caller's session here like everything else on Settings › Billing, so a
  * signed-in page never needs a second client for one call.
  */
 export function listPlans() {

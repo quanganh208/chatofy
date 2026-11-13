@@ -75,7 +75,7 @@ interface PanelHeadersProps {
  * header would have offered one alternative, which is the swap. With three, each
  * header is a real choice, so each is a `LanguageSelect`, and a pick that
  * collides with the other side swaps the pair (`pairAfterPick`, the same rule the
- * popup and `/settings/defaults` use). The swap button stays anyway: reversing the pair
+ * popup and Settings › Translation use). The swap button stays anyway: reversing the pair
  * between turns is the common action, and it is one press instead of two
  * selects. It is `outline` and the selects are fields, so the screen still spends
  * its one accent on Start.

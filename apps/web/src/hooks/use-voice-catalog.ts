@@ -68,7 +68,7 @@ const pendingVoices = new Map<LanguageCode, Promise<VoiceCatalogPayload>>();
 /**
  * Forget every cached catalog, so the next panel asks the backend again.
  *
- * For specs that mount several screens in one file: `/settings/defaults` asks for
+ * For specs that mount several screens in one file: Settings › Translation asks for
  * every registry language at once, so a row whose backend answered empty would
  * otherwise hand that empty answer to every later row, whatever it mocks.
  */

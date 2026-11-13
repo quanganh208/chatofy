@@ -36,7 +36,7 @@ import type { Route } from 'next';
  * `/translate`, which is also where the marketing header sends a signed-in visitor —
  * the one page that says what is ready before a conversation starts. This is the
  * FALLBACK only — an explicit, validated `?next=` still wins, so a link into
- * `/settings/audio` survives the sign-in it triggered.
+ * `/translate/one-way?settings=translation` survives the sign-in it triggered.
  */
 export const DEFAULT_NEXT = '/translate/one-way';
 
