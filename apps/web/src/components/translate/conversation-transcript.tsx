@@ -23,6 +23,7 @@ import {
 } from '@chatofy/realtime-client';
 import type { SessionLanguageMode, SessionLanguagePair, TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
+import type { TranscriptOrder } from '@/lib/translate-settings';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 import { useTranslate } from '@/i18n/provider';
 import { SpeakerChip } from '@/components/translate/speaker-chip';
@@ -110,6 +111,13 @@ interface ConversationTranscriptProps {
   /** Whether a turn says who spoke it at all. */
   speakerLabels?: boolean;
   /**
+   * Which end of the conversation comes first. Oldest first by default — the
+   * chat reading, live line at the bottom. Newest first puts the live line(s) at
+   * the top and the turns under them newest to oldest. Every pane of one view is
+   * given the same value, so the panes of `split` read in the same order.
+   */
+  order?: TranscriptOrder;
+  /**
    * Whether a turn says WHEN. Off drops the time, and with it the meta line when
    * there is nothing else to put on it. The reader's choice on /translate; history
    * never passes it, because there the time is the seek target.
@@ -158,7 +166,10 @@ const identified = (mode: SessionLanguageMode | undefined) =>
 
 /**
  * One stream of turns, newest last, so the exchange reads top to bottom like a
- * chat with the sentence currently being spoken at the bottom.
+ * chat with the sentence currently being spoken at the bottom — or, with `order`
+ * at `newest-first`, the same stream turned over: the sentence being spoken at
+ * the top, then turns newest to oldest. Only the sequence changes; every block
+ * draws the same either way.
  *
  * ## One stream, and `side` decides which half of a turn it holds
  *
@@ -211,6 +222,7 @@ export function ConversationTranscript({
   running,
   side = 'both',
   speakerLabels = true,
+  order = 'oldest-first',
   showTime = true,
   interactive = true,
   speakers,
@@ -256,14 +268,61 @@ export function ConversationTranscript({
   // derivation over the turns already in state — nothing about how the audio was
   // chunked, translated or measured changes.
   const groups = groupTurnsForDisplay(turns, captures, attributions);
+  const newestFirst = order === 'newest-first';
+  // Turned over as a copy: each block keeps its index in conversation order, which
+  // is what decides whether it is new enough to type itself in.
+  const ordered = groups.map((group, index) => ({ group, index }));
+  if (newestFirst) ordered.reverse();
+  const orderedLive = newestFirst ? [...visibleLive].reverse() : visibleLive;
 
   // The rule belongs to the TURN and runs down its left edge. The right inset
   // matches the left so a pane's prose is not visibly pushed toward one side.
   const turnFrame = 'mr-8 ml-3.5 flex flex-col gap-1.5 border-l-2 pl-4';
 
+  // ONE live region, and it is rendered in EVERY state including the empty one.
+  // It used to be an `aria-live` on each unsettled `<li>`, which is a region that
+  // is created together with the content it should announce — and a live region
+  // that did not exist a moment before its content arrives announces nothing.
+  // That made the very first spoken sentence, the one most worth hearing, the one
+  // guaranteed to be silent.
+  //
+  // It sits outside the `<ol>` rather than inside it because a persistent wrapper
+  // inside an ordered list is not a list item, and the alternative — an
+  // always-present empty `<li>` — is a list entry announced as blank. Oldest
+  // first it closes the stream; newest first it opens it, above the list.
+  //
+  // In `split` there are two of these, one per pane, and that is correct: each
+  // announces the half its own pane shows, and a reader hearing both hears the
+  // sentence and then its translation.
+  const liveShown = visibleLive.length > 0;
+  const liveRegion = (
+    <div
+      aria-live="polite"
+      className={cn(
+        'flex flex-col gap-5',
+        newestFirst
+          ? liveShown && (groups.length > 0 ? 'pt-4' : 'pt-4 pb-4')
+          : liveShown
+            ? 'pt-5 pb-4'
+            : 'pb-4',
+      )}
+    >
+      {orderedLive.map((live) => (
+        <LiveTurnLine
+          key={live.sessionId}
+          live={live}
+          showsSource={showsSource}
+          showsTarget={showsTarget}
+          frameClassName={turnFrame}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <LiveLineHandoffContext value={handoff}>
       <div>
+        {newestFirst ? liveRegion : null}
         {empty ? (
           // An empty state that says what to do. Rendering nothing left the page
           // looking broken before the first turn, which is exactly when a new user
@@ -293,8 +352,13 @@ export function ConversationTranscript({
           // transcript used to draw an empty `<ol>` — an empty list in the
           // accessibility tree, plus its padding stacked on the region's, for 36px
           // of nothing above the first line anybody is waiting to read.
-          <ol className="flex flex-col gap-5 pt-4">
-            {groups.map((group, index) => {
+          <ol
+            className={cn(
+              'flex flex-col gap-5',
+              newestFirst ? (liveShown ? 'pt-5 pb-4' : 'pt-4 pb-4') : 'pt-4',
+            )}
+          >
+            {ordered.map(({ group, index }) => {
               // Only the newest blocks may type themselves in when they first
               // appear (`MorphingText`); anything older was already there.
               const newest = index >= groups.length - 2;
@@ -469,34 +533,7 @@ export function ConversationTranscript({
           </ol>
         )}
 
-        {/* ONE live region, and it is rendered in EVERY state including the empty
-          one. It used to be an `aria-live` on each unsettled `<li>`, which is a
-          region that is created together with the content it should announce —
-          and a live region that did not exist a moment before its content
-          arrives announces nothing. That made the very first spoken sentence,
-          the one most worth hearing, the one guaranteed to be silent.
-
-          It sits outside the `<ol>` rather than inside it because a persistent
-          wrapper inside an ordered list is not a list item, and the alternative —
-          an always-present empty `<li>` — is a list entry announced as blank.
-
-          In `split` there are two of these, one per pane, and that is correct:
-          each announces the half its own pane shows, and a reader hearing both
-          hears the sentence and then its translation. */}
-        <div
-          aria-live="polite"
-          className={cn('flex flex-col gap-5', visibleLive.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
-        >
-          {visibleLive.map((live) => (
-            <LiveTurnLine
-              key={live.sessionId}
-              live={live}
-              showsSource={showsSource}
-              showsTarget={showsTarget}
-              frameClassName={turnFrame}
-            />
-          ))}
-        </div>
+        {newestFirst ? null : liveRegion}
       </div>
     </LiveLineHandoffContext>
   );

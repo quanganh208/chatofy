@@ -2,9 +2,10 @@
 
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { ScrollArea } from '@chatofy/ui/react';
+import type { TranscriptOrder } from '@/lib/translate-settings';
 
 /**
- * How far from the end still counts as reading the newest turn.
+ * How far from the newest edge still counts as reading the newest turn.
  *
  * Two lines, not a screenful. The threshold decides what a reader is taken to
  * have MEANT by scrolling: a nudge from a trackpad, or the last few pixels of a
@@ -16,6 +17,15 @@ const ANCHOR_SLACK_PX = 64;
 
 /**
  * The transcript's one scroll region, following the conversation as it grows.
+ *
+ * ## Which edge it follows
+ *
+ * The NEWEST edge, wherever `order` puts it. Oldest first, that is the bottom:
+ * the conversation grows downward and the region keeps the end in view. Newest
+ * first, it is the top: the line being spoken sits above everything else, so the
+ * region holds `scrollTop` at 0 while the reader is within the slack of it. Every
+ * rule below — remembered anchoring, the slack, `freeScroll` — is the same rule
+ * measured from that edge; "the end" in what follows means whichever one it is.
  *
  * ## The cap lives above this, and it has to BE a cap
  *
@@ -62,7 +72,9 @@ const ANCHOR_SLACK_PX = 64;
  * so a measure-afterwards check concludes they had scrolled away.
  *
  * The scroll this component performs re-enters the handler with a distance of
- * zero, so following stays on.
+ * zero, so following stays on. Newest first, the turn that lands lands ABOVE the
+ * reader; one scrolled away to re-read is held where they are by the browser's
+ * scroll anchoring, not by anything here.
  *
  * ## `freeScroll` is the reader saying it in advance
  *
@@ -82,26 +94,49 @@ const ANCHOR_SLACK_PX = 64;
 export function TranscriptScroller({
   label,
   freeScroll = false,
+  order = 'oldest-first',
   children,
 }: {
   label: string;
-  /** Never follow the conversation, even from the very bottom. */
+  /** Never follow the conversation, even from the newest edge. */
   freeScroll?: boolean;
+  /** Which edge holds the newest turn: the bottom oldest first, the top newest first. */
+  order?: TranscriptOrder;
   children: React.ReactNode;
 }) {
   const region = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const followsTop = order === 'newest-first';
 
   const onScroll = useCallback(() => {
     const node = region.current;
     if (!node) return;
-    following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= ANCHOR_SLACK_PX;
-  }, []);
+    const fromNewest = followsTop
+      ? node.scrollTop
+      : node.scrollHeight - node.scrollTop - node.clientHeight;
+    following.current = fromNewest <= ANCHOR_SLACK_PX;
+  }, [followsTop]);
+
+  // The height the region had at the last commit, for the place-keeping below.
+  const lastHeight = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     const node = region.current;
-    if (!node || freeScroll || !following.current) return;
-    node.scrollTop = node.scrollHeight;
+    if (!node) return;
+    const previousHeight = lastHeight.current;
+    lastHeight.current = node.scrollHeight;
+    if (!freeScroll && following.current) {
+      node.scrollTop = followsTop ? 0 : node.scrollHeight;
+      return;
+    }
+    // Newest first grows at the TOP, so a reader who scrolled down to an older
+    // turn would see it slide away under every new one. Chrome and Firefox keep
+    // their place with native scroll anchoring; Safari has none, so there the
+    // growth is added back to the offset by hand. Gated on support, because
+    // doing it where the browser already anchors would move the reader twice.
+    if (followsTop && previousHeight !== null && !supportsScrollAnchoring()) {
+      node.scrollTop += node.scrollHeight - previousHeight;
+    }
   });
 
   return (
@@ -125,4 +160,9 @@ export function TranscriptScroller({
       {children}
     </ScrollArea>
   );
+}
+
+/** Whether the browser keeps a reader's place itself when content grows above it. */
+function supportsScrollAnchoring(): boolean {
+  return typeof CSS !== 'undefined' && CSS.supports('overflow-anchor', 'auto');
 }

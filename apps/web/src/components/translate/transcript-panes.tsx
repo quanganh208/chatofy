@@ -37,7 +37,7 @@ import { readingSchemeClass, readingStyle } from '@/lib/reading-appearance';
  */
 export type StreamProps = Omit<
   ComponentProps<typeof ConversationTranscript>,
-  'side' | 'speakerLabels' | 'interactive' | 'running' | 'languagePair'
+  'side' | 'speakerLabels' | 'interactive' | 'running' | 'languagePair' | 'order'
 >;
 
 interface TranscriptPanesProps {
@@ -190,15 +190,21 @@ export function TranscriptPanes({
   const scale = readingStyle(appearance, textSizeScale(textSize));
   const scheme = readingSchemeClass(appearance);
 
+  // Every pane gets the same order, so the two halves of `split` read in step.
   const shared = {
     running,
     speakerLabels: settings.speakerLabels,
+    order: settings.transcriptOrder,
     showTime: appearance.showTime,
     ...stream,
   };
 
   const pane = (side: 'both' | 'source' | 'target', primary: boolean, label: string) => (
-    <TranscriptScroller label={label} freeScroll={settings.freeScroll}>
+    <TranscriptScroller
+      label={label}
+      freeScroll={settings.freeScroll}
+      order={settings.transcriptOrder}
+    >
       <ConversationTranscript
         {...shared}
         side={side}

@@ -33,6 +33,9 @@ vi.mock('@/clients/api-client', () => ({
   listVoices: () => listVoices(),
 }));
 
+const notify = vi.hoisted(() => ({ success: vi.fn(), dismiss: vi.fn() }));
+vi.mock('@/lib/notify', () => ({ notify }));
+
 const CONTEXT: TranslationContext = {
   id: 'ctx-1',
   name: 'Thesis defense',
@@ -113,5 +116,24 @@ describe('ConversationDefaultsSection — the AI Context row', () => {
     // one from the row.
     expect(labels.length).toBe(2);
     expect(container.querySelector('[data-slot="select-trigger"]')).not.toBeNull();
+  });
+});
+
+describe('ConversationDefaultsSection — the display group', () => {
+  it('names the transcript order in its save toast', async () => {
+    await mount();
+    const order = container.querySelector('[role="radiogroup"][aria-label="Transcript order"]');
+    const newest = Array.from(order?.querySelectorAll('button') ?? []).find((button) =>
+      button.textContent?.includes(en['web.translate.transcriptOrderNewest']),
+    );
+    expect(newest, 'no "Newest first" option in Settings').toBeDefined();
+
+    act(() => newest!.click());
+
+    expect(notify.success).toHaveBeenCalledWith(
+      expect.stringContaining(en['web.translate.transcriptOrder']),
+      expect.objectContaining({ id: 'setting-transcriptOrder' }),
+    );
+    expect(newest!.getAttribute('aria-checked')).toBe('true');
   });
 });

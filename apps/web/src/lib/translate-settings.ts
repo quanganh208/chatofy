@@ -124,6 +124,17 @@ const paneLayoutSchema = z.enum(['row', 'column']);
 type PaneLayout = z.infer<typeof paneLayoutSchema>;
 
 /**
+ * Which end of the conversation a live view starts from.
+ *
+ * `oldest-first` reads like a chat: the newest turn and the line being spoken at
+ * the bottom. `newest-first` turns it over for a reader who glances at the top of
+ * the screen — the line being spoken first, then turns newest to oldest. Live
+ * views only; `/history` is a record, read from its beginning.
+ */
+const transcriptOrderSchema = z.enum(['oldest-first', 'newest-first']);
+export type TranscriptOrder = z.infer<typeof transcriptOrderSchema>;
+
+/**
  * The reading sizes, as multipliers of the shared type scale.
  *
  * Ten steps because that is what was asked for, and the range is what makes ten
@@ -225,6 +236,8 @@ export interface TranslateSettings {
   translationOnly: boolean;
   /** Never follow the conversation, even from the very bottom of the stream. */
   freeScroll: boolean;
+  /** Which end of the conversation a live view starts from — see {@link TranscriptOrder}. */
+  transcriptOrder: TranscriptOrder;
   /** 1..10 into {@link TEXT_SIZE_SCALES}. */
   textSize: number;
   /**
@@ -322,6 +335,8 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   // Off, which is to say the transcript follows the conversation — see
   // `transcript-scroller.tsx` for why scrolling away already stops it.
   freeScroll: false,
+  // Oldest first: the reading every existing reader already has.
+  transcriptOrder: 'oldest-first',
   textSize: DEFAULT_TEXT_SIZE,
   contextId: null,
   appearance: DEFAULT_READING_APPEARANCE,
@@ -404,6 +419,7 @@ export const READING_FIELDS = [
   'speakerLabels',
   'translationOnly',
   'freeScroll',
+  'transcriptOrder',
   'textSize',
   'appearance',
   'stage',
@@ -415,7 +431,7 @@ export type ReadingSettings = Pick<TranslateSettings, (typeof READING_FIELDS)[nu
  * The whitelist for `reading`.
  *
  * Every field falls back independently: one unreadable value must not discard the
- * other seven. `catch` per field rather than per object is what buys that — a
+ * others. `catch` per field rather than per object is what buys that — a
  * single object-level catch would reset a user's whole panel because one number
  * was out of range. Zod strips what it does not declare, so a field a newer build
  * added is dropped here rather than carried into every consumer.
@@ -426,6 +442,7 @@ export const readingSettingsSchema = z.object({
   speakerLabels: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.speakerLabels),
   translationOnly: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.translationOnly),
   freeScroll: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.freeScroll),
+  transcriptOrder: transcriptOrderSchema.catch(DEFAULT_TRANSLATE_SETTINGS.transcriptOrder),
   // Snapped, not merely bounded, for the same reason as the speed above: a value
   // inside the range but off the grid leaves the slider between two stops.
   textSize: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.textSize).transform(snapTextSize),

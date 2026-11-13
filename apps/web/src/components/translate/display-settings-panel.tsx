@@ -1,7 +1,10 @@
 'use client';
 
+import { useId } from 'react';
 import {
   ALargeSmall,
+  ArrowDownNarrowWide,
+  ArrowDownWideNarrow,
   Columns2,
   EyeOff,
   List,
@@ -10,7 +13,7 @@ import {
   SquareSplitHorizontal,
   UserRound,
 } from 'lucide-react';
-import { SegmentedControl, Separator, Switch } from '@chatofy/ui/react';
+import { SegmentedControl, Switch } from '@chatofy/ui/react';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { SettingsRow } from '@/components/translate/settings-row';
 import { TextSizeField } from '@/components/translate/text-size-field';
@@ -18,6 +21,15 @@ import { useTranslate } from '@/i18n/provider';
 
 /**
  * How the page is arranged, as opposed to how it sounds.
+ *
+ * ## Two groups: what the transcript holds, and how it is drawn
+ *
+ * Transcript — its order, whether it follows, whether turns say who spoke — is
+ * about reading the conversation. Presentation — one side or both, split or list,
+ * the panes' orientation, the size — is about how the page lays that reading out.
+ * Each group is named by a small muted label in sentence case rather than the
+ * uppercase section heading: in Settings this panel already sits under one, and a
+ * second uppercase line inside it would read as a sibling section, not a part.
  *
  * The gear this opens behind used to hold the voice as well, which put "what am I
  * hearing" and "how is the page arranged" behind one icon labelled neither — and
@@ -85,101 +97,146 @@ export function DisplaySettingsPanel({
   const t = useTranslate();
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* `aria-label` on every switch, matching the visible label word for word.
+    <div className="flex flex-col gap-6">
+      <DisplaySettingsGroup title={t('web.translate.displayGroupTranscript')}>
+        <SegmentedControl
+          label={t('web.translate.transcriptOrder')}
+          value={settings.transcriptOrder}
+          options={[
+            {
+              value: 'oldest-first',
+              label: (
+                <span className="flex items-center gap-1.5">
+                  <ArrowDownNarrowWide aria-hidden className="size-4" />{' '}
+                  {t('web.translate.transcriptOrderOldest')}
+                </span>
+              ),
+            },
+            {
+              value: 'newest-first',
+              label: (
+                <span className="flex items-center gap-1.5">
+                  <ArrowDownWideNarrow aria-hidden className="size-4" />{' '}
+                  {t('web.translate.transcriptOrderNewest')}
+                </span>
+              ),
+            },
+          ]}
+          onChange={(transcriptOrder) => onChange({ transcriptOrder })}
+        />
+
+        {/* `aria-label` on every switch, matching the visible label word for word.
           `SettingsRow` draws a `<span>`, and a Radix switch is a `<button
           role="switch">` with no text of its own — so without this all three
           announce as "switch, on" with no name. The voice panel next door already
           carried one; these three were written without and nothing caught it. */}
-      <SettingsRow icon={UserRound} label={t('web.translate.speakerLabels')}>
-        <Switch
-          aria-label={t('web.translate.speakerLabels')}
-          checked={settings.speakerLabels}
-          onCheckedChange={(speakerLabels) => onChange({ speakerLabels })}
-        />
-      </SettingsRow>
+        <SettingsRow icon={MousePointer2} label={t('web.translate.freeScroll')}>
+          <Switch
+            aria-label={t('web.translate.freeScroll')}
+            checked={settings.freeScroll}
+            onCheckedChange={(freeScroll) => onChange({ freeScroll })}
+          />
+        </SettingsRow>
 
-      <SettingsRow icon={EyeOff} label={t('web.translate.translationOnly')}>
-        <Switch
-          aria-label={t('web.translate.translationOnly')}
-          checked={settings.translationOnly}
-          onCheckedChange={(translationOnly) => onChange({ translationOnly })}
-        />
-      </SettingsRow>
+        <SettingsRow icon={UserRound} label={t('web.translate.speakerLabels')}>
+          <Switch
+            aria-label={t('web.translate.speakerLabels')}
+            checked={settings.speakerLabels}
+            onCheckedChange={(speakerLabels) => onChange({ speakerLabels })}
+          />
+        </SettingsRow>
+      </DisplaySettingsGroup>
 
-      <SettingsRow icon={MousePointer2} label={t('web.translate.freeScroll')}>
-        <Switch
-          aria-label={t('web.translate.freeScroll')}
-          checked={settings.freeScroll}
-          onCheckedChange={(freeScroll) => onChange({ freeScroll })}
-        />
-      </SettingsRow>
+      <DisplaySettingsGroup title={t('web.translate.displayGroupPresentation')}>
+        <SettingsRow icon={EyeOff} label={t('web.translate.translationOnly')}>
+          <Switch
+            aria-label={t('web.translate.translationOnly')}
+            checked={settings.translationOnly}
+            onCheckedChange={(translationOnly) => onChange({ translationOnly })}
+          />
+        </SettingsRow>
 
-      <Separator />
+        {settings.translationOnly ? null : (
+          <SegmentedControl
+            label={t('web.translate.displayMode')}
+            value={settings.displayMode}
+            options={[
+              {
+                value: 'split',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <SquareSplitHorizontal aria-hidden className="size-4" />{' '}
+                    {t('web.translate.displayModeSplit')}
+                  </span>
+                ),
+              },
+              {
+                value: 'list',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <List aria-hidden className="size-4" /> {t('web.translate.displayModeList')}
+                  </span>
+                ),
+              },
+            ]}
+            onChange={(displayMode) => onChange({ displayMode })}
+          />
+        )}
 
-      {settings.translationOnly ? null : (
-        <SegmentedControl
-          label={t('web.translate.displayMode')}
-          value={settings.displayMode}
-          options={[
-            {
-              value: 'split',
-              label: (
-                <span className="flex items-center gap-1.5">
-                  <SquareSplitHorizontal aria-hidden className="size-4" />{' '}
-                  {t('web.translate.displayModeSplit')}
-                </span>
-              ),
-            },
-            {
-              value: 'list',
-              label: (
-                <span className="flex items-center gap-1.5">
-                  <List aria-hidden className="size-4" /> {t('web.translate.displayModeList')}
-                </span>
-              ),
-            },
-          ]}
-          onChange={(displayMode) => onChange({ displayMode })}
-        />
-      )}
+        {/* Directly under the mode that creates it, so "immediately above" in the
+            note at the top of this file is literally true — it was two rows down
+            with the text size in between. */}
+        {settings.translationOnly || settings.displayMode === 'list' ? null : (
+          <SegmentedControl
+            label={t('web.translate.paneLayout')}
+            value={settings.paneLayout}
+            options={[
+              {
+                value: 'row',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Columns2 aria-hidden className="size-4" /> {t('web.translate.paneLayoutRow')}
+                  </span>
+                ),
+              },
+              {
+                value: 'column',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Rows3 aria-hidden className="size-4" /> {t('web.translate.paneLayoutColumn')}
+                  </span>
+                ),
+              },
+            ]}
+            onChange={(paneLayout) => onChange({ paneLayout })}
+          />
+        )}
 
-      {/* Directly under the mode that creates it, so "immediately above" in the
-          note at the top of this file is literally true — it was two rows down
-          with the text size in between. */}
-      {settings.translationOnly || settings.displayMode === 'list' ? null : (
-        <SegmentedControl
-          label={t('web.translate.paneLayout')}
-          value={settings.paneLayout}
-          options={[
-            {
-              value: 'row',
-              label: (
-                <span className="flex items-center gap-1.5">
-                  <Columns2 aria-hidden className="size-4" /> {t('web.translate.paneLayoutRow')}
-                </span>
-              ),
-            },
-            {
-              value: 'column',
-              label: (
-                <span className="flex items-center gap-1.5">
-                  <Rows3 aria-hidden className="size-4" /> {t('web.translate.paneLayoutColumn')}
-                </span>
-              ),
-            },
-          ]}
-          onChange={(paneLayout) => onChange({ paneLayout })}
-        />
-      )}
+        <SettingsRow icon={ALargeSmall} label={t('web.translate.textSize')}>
+          <TextSizeField
+            label={t('web.translate.textSize')}
+            value={settings.textSize}
+            onChange={(textSize) => onChange({ textSize })}
+          />
+        </SettingsRow>
+      </DisplaySettingsGroup>
+    </div>
+  );
+}
 
-      <SettingsRow icon={ALargeSmall} label={t('web.translate.textSize')}>
-        <TextSizeField
-          label={t('web.translate.textSize')}
-          value={settings.textSize}
-          onChange={(textSize) => onChange({ textSize })}
-        />
-      </SettingsRow>
+/**
+ * A named run of rows. A `group` named by its label rather than a heading: the
+ * popover has no outline for a heading level to sit in, and in Settings the
+ * section above already holds the `h3`.
+ */
+function DisplaySettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  const titleId = useId();
+  return (
+    <div role="group" aria-labelledby={titleId} className="flex flex-col gap-4">
+      <p id={titleId} className="text-muted-foreground text-hint font-medium">
+        {title}
+      </p>
+      {children}
     </div>
   );
 }

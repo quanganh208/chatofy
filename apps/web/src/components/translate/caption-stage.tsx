@@ -73,6 +73,7 @@ export function CaptionStage({
         <TranscriptScroller
           label={t('web.translate.captionStage')}
           freeScroll={settings.freeScroll}
+          order={settings.transcriptOrder}
         >
           <ConversationTranscript
             {...stream}
@@ -80,6 +81,7 @@ export function CaptionStage({
             side={settings.translationOnly ? 'target' : 'both'}
             interactive={false}
             speakerLabels={settings.speakerLabels}
+            order={settings.transcriptOrder}
             showTime={appearance.showTime}
             languagePair={languagePair}
           />

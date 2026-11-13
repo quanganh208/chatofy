@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptScroller } from './transcript-scroller';
+import type { TranscriptOrder } from '@/lib/translate-settings';
 
 /**
  * The region follows the conversation, and stops when the reader is reading.
@@ -57,11 +58,16 @@ function region(): HTMLElement {
  */
 const geometry = { scrollHeight: 0, clientHeight: 400 };
 
-function render(content: string, contentHeight: number, freeScroll = false): void {
+function render(
+  content: string,
+  contentHeight: number,
+  freeScroll = false,
+  order: TranscriptOrder = 'oldest-first',
+): void {
   geometry.scrollHeight = contentHeight;
   act(() => {
     root.render(
-      <TranscriptScroller label="Transcript" freeScroll={freeScroll}>
+      <TranscriptScroller label="Transcript" freeScroll={freeScroll} order={order}>
         {content}
       </TranscriptScroller>,
     );
@@ -186,5 +192,86 @@ describe('TranscriptScroller with free scroll on', () => {
 
     render('first and second', 1200, false);
     expect(node.scrollTop).toBe(1200);
+  });
+});
+
+/**
+ * Newest first, the newest edge is the TOP: the line being spoken sits above
+ * everything, so following means holding `scrollTop` at 0 — and the same slack,
+ * remembered anchoring and `freeScroll` apply, measured from that edge.
+ */
+describe('TranscriptScroller newest first', () => {
+  const scrollTo = (node: HTMLElement, top: number) => {
+    node.scrollTop = top;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+  };
+
+  it('holds the top while the conversation grows', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    // Something (a browser keeping its anchor) moved the view a nudge down.
+    scrollTo(node, 20);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('stops following once the reader scrolls down to re-read', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 300);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'the reader was yanked back up').toBe(300);
+  });
+
+  it('does not treat parking at the BOTTOM as following', () => {
+    // The oldest-first rule measured from the wrong edge would pin here.
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 900 - 400);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(500);
+  });
+
+  it('resumes following when the reader returns to the top', () => {
+    render('a conversation', 900, false, 'newest-first');
+    const node = region();
+    scrollTo(node, 300);
+    scrollTo(node, 10);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('never follows with free scroll on, even parked at the top', () => {
+    render('a conversation', 900, true, 'newest-first');
+    const node = region();
+    scrollTo(node, 30);
+
+    render('a new turn, then the conversation', 1200, true, 'newest-first');
+    expect(node.scrollTop).toBe(30);
+
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
+
+  it('keeps a reader in place by hand where the browser has no scroll anchoring', () => {
+    // Safari: no `overflow-anchor`, so the 300px a new turn adds above the reader
+    // has to be added to their offset, or the line they were reading slides away.
+    vi.stubGlobal('CSS', { supports: () => false });
+    try {
+      render('a conversation', 900, false, 'newest-first');
+      const node = region();
+      scrollTo(node, 300);
+
+      render('a new turn, then the conversation', 1200, false, 'newest-first');
+      expect(node.scrollTop).toBe(600);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
