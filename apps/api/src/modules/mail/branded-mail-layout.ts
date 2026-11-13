@@ -40,11 +40,23 @@ const LOGO_PATH = '/email/chatofy-mark@2x.png';
  */
 const LOGO_SIZE = 36;
 
+/** The content column; the Outlook ghost table fixes it, everyone else caps at it. */
+const MAX_WIDTH = 560;
+
+const BUTTON_PADDING = '12px 22px';
+
 const SANS =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/**
+ * The wordmark is live text, the one exception to the outlined-path rule in
+ * `docs/brand-mark.md`: a raster would be hidden while images are blocked and
+ * could not follow the dark palette. Newsreader leads for the rare reader who
+ * has it installed; Georgia is the face nearly everyone sees.
+ */
 const SERIF = "Newsreader,Georgia,'Times New Roman',serif";
 
-/** Light tokens, inline. The dark half lives in `DARK_CSS`. */
+/** Light tokens, inline. The dark half lives in `HEAD_CSS`. */
 const C = {
   bg: '#F5F5F4',
   surface: '#FFFFFF',
@@ -115,8 +127,9 @@ export function renderBrandedMail(parts: BrandedMailParts): string {
     logoUrl: escapeHtml(parts.logoUrl),
   };
 
-  // The inbox preview line. Padded with zero-width joiners so the client does
-  // not fill the rest of the preview with the logo's alt text and the heading.
+  // The inbox preview line. Padded with zero-width non-joiners (&#8204;) and
+  // spaces so the client does not fill the rest of the preview with the logo's
+  // alt text and the heading.
   const preheader =
     `<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">` +
     `${e.intro}${'&#8204;&nbsp;'.repeat(40)}</div>`;
@@ -129,11 +142,15 @@ export function renderBrandedMail(parts: BrandedMailParts): string {
     `<td class="cf-text" style="vertical-align:middle;font-family:${SERIF};font-size:22px;font-weight:500;line-height:1;color:${C.text};">chatofy</td>` +
     `</tr></table>`;
 
+  // Padding lives on the `<a>` so the whole button is the link, and is repeated
+  // on the `<td>` as `mso-padding-alt`, because Word-engine Outlook ignores
+  // padding on an inline element and would otherwise draw a button the height
+  // of its label. Outlook alone reads the `mso-` property, so no client pads twice.
   const button =
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;"><tr>` +
-    `<td class="cf-btn" bgcolor="${C.text}" style="border-radius:6px;background-color:${C.text};">` +
+    `<td class="cf-btn" bgcolor="${C.text}" style="border-radius:6px;background-color:${C.text};mso-padding-alt:${BUTTON_PADDING};">` +
     `<a class="cf-btn-label" href="${e.link}" target="_blank" ` +
-    `style="display:inline-block;padding:12px 22px;font-family:${SANS};font-size:15px;font-weight:600;line-height:20px;color:${C.onAccent};text-decoration:none;border-radius:6px;">` +
+    `style="display:inline-block;padding:${BUTTON_PADDING};font-family:${SANS};font-size:15px;font-weight:600;line-height:20px;color:${C.onAccent};text-decoration:none;border-radius:6px;">` +
     `${e.action}</a></td></tr></table>`;
 
   const fallback = paragraph(
@@ -175,9 +192,14 @@ export function renderBrandedMail(parts: BrandedMailParts): string {
     preheader +
     `<table role="presentation" class="cf-bg" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${C.bg};"><tr>` +
     `<td class="cf-outer" align="center" style="padding:32px 16px;">` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;">` +
+    // Word-engine Outlook ignores max-width, so it gets a fixed-width ghost
+    // table that every other client skips as a comment.
+    `<!--[if mso]><table role="presentation" width="${MAX_WIDTH}" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:${MAX_WIDTH}px;">` +
     `<tr>${card}</tr><tr>${footer}</tr>` +
-    `</table></td></tr></table>` +
+    `</table>` +
+    `<!--[if mso]></td></tr></table><![endif]-->` +
+    `</td></tr></table>` +
     `</body></html>\n`
   );
 }

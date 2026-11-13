@@ -37,7 +37,9 @@ The size rule exists because the dawn centre petal disappears when small.
 - **Wordmark.** "chatofy", lowercase, Newsreader 500. Web sets it as live text so it
   selects and scales. Surfaces without Newsreader — the popup, and every raster — use
   the outlined path in `packages/ui/src/brand-wordmark.ts`, generated from a sha-pinned
-  Newsreader at wght 500, opsz 24.
+  Newsreader at wght 500, opsz 24. **Auth mail is the exception**: its wordmark is live
+  text in Georgia (Newsreader first, for the rare reader who has it), because an image
+  would disappear while images are blocked and could not follow the mail's dark palette.
 - **Favicon.** `apps/web/app/icon.svg` is the ink mark with its own
   `prefers-color-scheme: dark` swap to `#F5F5F4`, so it stays visible on a dark tab
   strip. It inlines the geometry as literals, so `apps/web/src/design/brand-mark-parity.spec.ts`

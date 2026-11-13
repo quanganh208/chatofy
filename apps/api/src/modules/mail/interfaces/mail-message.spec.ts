@@ -1,5 +1,6 @@
 import { LOCALES } from '@chatofy/i18n';
 import { describe, expect, it } from 'vitest';
+import { escapeHtml } from '../branded-mail-layout';
 import {
   buildMailContent,
   buildMailMessage,
@@ -75,6 +76,18 @@ describe('buildMailMessage', () => {
       // Button, fallback text and its href: the link and nothing in its place.
       expect(message.html.split(`href="${LINK}"`)).toHaveLength(3);
       expect(message.html).toContain(`>${LINK}</a>`);
+    },
+  );
+
+  it.each(combos)(
+    '%s/%s ends the html intro with a period where the text part has a colon',
+    (purpose, locale) => {
+      const { text, html } = buildMailMessage(purpose, LINK, locale, WEB);
+      const [intro = ''] = text.split('\n\n');
+      expect(intro).toMatch(/:$/);
+      const sentence = escapeHtml(`${intro.slice(0, -1)}.`);
+      expect(html).toContain(`>${sentence}</p>`);
+      expect(html).not.toContain(escapeHtml(intro));
     },
   );
 

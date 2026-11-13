@@ -1,7 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Hoisted with the mock: `vi.mock` is lifted above every `const` in the file.
+const { sendMail } = vi.hoisted(() => ({
+  sendMail: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('nodemailer', () => ({
+  createTransport: vi.fn().mockReturnValue({ sendMail }),
+}));
+
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Env } from '../../config/env.schema';
+import {
+  MailBudgetClass,
+  MailPurpose,
+} from './interfaces/mail-sender.interface';
 import { buildInnerSender, getSmtpConfig } from './mail.module';
 import { ConsoleMailSender } from './senders/console-mail.sender';
 import { NoopMailSender } from './senders/noop-mail.sender';
@@ -93,6 +107,31 @@ describe('buildInnerSender', () => {
       fakeConfig({ NODE_ENV: 'production', ...FULL_SMTP }),
     );
     expect(sender).toBeInstanceOf(SmtpMailSender);
+  });
+
+  it("hands the SMTP sender the configured WEB_BASE_URL for the html part's logo", async () => {
+    const sender = buildInnerSender(
+      fakeConfig({
+        NODE_ENV: 'production',
+        ...FULL_SMTP,
+        WEB_BASE_URL: 'https://chatofy.example.com',
+      }),
+    );
+    // A mobile link: its origin is not one an image could load from, so the
+    // logo URL must come from config, never from the link.
+    await sender.send({
+      to: 'user@example.com',
+      purpose: MailPurpose.PasswordReset,
+      budgetClass: MailBudgetClass.Reserved,
+      link: 'chatofy://reset-password?token=abc123',
+      locale: 'en',
+    });
+    const call = (sendMail.mock.calls as unknown[][]).at(-1)?.at(0) as {
+      html: string;
+    };
+    expect(call.html).toContain(
+      'src="https://chatofy.example.com/email/chatofy-mark@2x.png"',
+    );
   });
 
   it('fails closed to NoopMailSender, with a loud warning, when SMTP is not configured outside development/test', () => {

@@ -71,4 +71,19 @@ describe('renderBrandedMail', () => {
     // Only the link: on the paragraph it would split ordinary words mid-word.
     expect(html.match(/word-break:break-all/g)).toHaveLength(1);
   });
+
+  it('pads the button for Outlook on the cell and for everyone else on the link', () => {
+    expect(html).toMatch(/class="cf-btn"[^>]*mso-padding-alt:12px 22px;/);
+    expect(html).toMatch(
+      /class="cf-btn-label"[^>]*display:inline-block;padding:12px 22px;/,
+    );
+  });
+
+  it('gives Outlook a fixed-width ghost table around the content column', () => {
+    expect(html).toContain(
+      '<!--[if mso]><table role="presentation" width="560" align="center"',
+    );
+    expect(html).toContain('<!--[if mso]></td></tr></table><![endif]-->');
+    expect(html).toContain('max-width:560px;');
+  });
 });
