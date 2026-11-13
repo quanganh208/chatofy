@@ -148,6 +148,8 @@ export function ConversationDefaultsSection({
               value={settings.contextId}
               running={running}
               showLabel={false}
+              // The tab says why once, above every group.
+              lockNote={false}
               onChange={(contextId) => save('contextId', t('web.translate.context'), { contextId })}
             />
           </SettingsSectionRow>

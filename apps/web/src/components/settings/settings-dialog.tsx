@@ -119,6 +119,21 @@ export function SettingsDialog() {
       <DialogContent
         closeLabel={t('web.chrome.close')}
         {...returnFocus}
+        onOpenAutoFocus={(event) => {
+          returnFocus.onOpenAutoFocus();
+          // Radix would focus the first focusable, which is the FIRST tab — and a
+          // ring on General while Translation is current reads as two selections.
+          // Focus lands where the reader is instead: the current tab in the list
+          // (or the first, on a phone's list), or the open tab's title on a phone.
+          // `focusVisible: false` because nobody pressed a key: the browser would
+          // otherwise draw the keyboard ring for a focus the reader did not make.
+          event.preventDefault();
+          const target =
+            !listing && !settingsListBesidePane()
+              ? paneTitleRef.current
+              : navRef.current?.querySelector<HTMLElement>(`[data-settings-tab="${paneTab}"]`);
+          target?.focus({ focusVisible: false });
+        }}
         // The pane's title and description say what the open tab is for; the dialog's
         // own name is "Settings".
         aria-describedby={undefined}

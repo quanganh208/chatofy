@@ -115,12 +115,38 @@ describe('Settings › Translation while a conversation runs', () => {
   });
 
   it('freezes the pairs and voices, keeps volume, display and microphone live, and says why once', async () => {
+    // An account with a context, so the context picker is on screen and frozen too.
+    listTranslationContexts.mockResolvedValue({
+      contexts: [
+        {
+          id: 'ctx-1',
+          name: 'Thesis defense',
+          topic: null,
+          hotwords: [],
+          glossary: [],
+          style: null,
+          glossaryId: null,
+          linkedGlossaryId: null,
+          linkedGlossaryName: null,
+          updatedAt: '2026-09-17T00:00:00.000Z',
+        },
+      ],
+    });
     await render(true);
 
     expect(lockNote()?.textContent).toBe(en['web.settings.lockedWhileRunning']);
     expect(container.querySelectorAll('[data-settings-locked]')).toHaveLength(1);
     // Said once for the tab, not again under each open voice.
     expect(container.textContent).not.toContain(en['web.translate.speakLocked']);
+    expect(container.textContent).not.toContain(en['web.translate.contextLocked']);
+    // Nothing stored reads None on the trigger, so it is found by its group.
+    const context = [...container.querySelectorAll('[data-slot="settings-section"]')]
+      .find(
+        (section) =>
+          section.querySelector('h3')?.textContent === en['web.settings.groupDefaultContext'],
+      )
+      ?.querySelector<HTMLButtonElement>('[data-slot="select-trigger"]');
+    expect(context?.disabled).toBe(true);
 
     expect(pairControls().length).toBeGreaterThanOrEqual(4);
     for (const control of pairControls()) expect(control.disabled).toBe(true);
