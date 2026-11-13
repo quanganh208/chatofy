@@ -862,6 +862,18 @@ export const en = {
   'web.account.checkoutReturned': 'Payment finished. Your balance is updated.',
   'web.account.manageSubscription': 'Manage subscription',
   'web.account.usageShowMore': 'Show more',
+  // Settings › Billing: the Free | Pro comparison, the top-up payment method, usage by day.
+  'web.billing.planTitle': 'Plan',
+  'web.billing.yourPlan': 'Your plan',
+  'web.billing.upgradeCard': 'Upgrade by card',
+  'web.billing.upgradeQr': 'Upgrade by VietQR',
+  'web.billing.proRenewsOn': 'Card subscription, renews on {date}',
+  'web.billing.payWith': 'Pay with',
+  'web.billing.methodCard': 'Card',
+  'web.billing.methodQr': 'VietQR',
+  'web.billing.railSandboxBoth': 'Payments are in test mode: no real money is charged.',
+  'web.billing.usageToday': 'Today',
+  'web.billing.usageYesterday': 'Yesterday',
   // The VietQR panel, polled until the transfer lands or the order expires.
   'web.account.qrTitle': 'Scan with your banking app',
   'web.account.qrImageAlt': 'VietQR code to pay {amount}',

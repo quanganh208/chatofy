@@ -265,6 +265,29 @@ describe('SegmentedControl keyboard behaviour', () => {
     await user.keyboard('{ArrowRight}');
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('can disable one segment and keep the others live', async () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        label="Test group"
+        value="a"
+        options={[OPTIONS[0], { ...OPTIONS[1], disabled: true }, OPTIONS[2]]}
+        onChange={onChange}
+      />,
+    );
+    const user = userEvent.setup();
+    const bravo = screen.getByRole('radio', { name: 'Bravo' }) as HTMLButtonElement;
+    expect(bravo.disabled).toBe(true);
+    // The arrow walks past it to the next live segment.
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+    expect(current()).toBe('c');
+    expect(onChange).toHaveBeenCalledWith('c');
+    onChange.mockClear();
+    await user.click(bravo);
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('SegmentedControl selection mark', () => {

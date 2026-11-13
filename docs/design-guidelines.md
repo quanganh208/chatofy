@@ -662,9 +662,21 @@ The old addresses redirect onto their tab over `/translate/one-way`, keeping the
   not cards; the photo, password and sign-out dialogs layered over it are the second.
   The active tab is a quiet ground, never `bg-primary`. The theme is picked from visual
   tiles.
-- **Accent** — most tabs spend none. Billing fills its first Buy only while checkout is
-  open (a disabled filled button reads as available, so a closed checkout shows every
-  Buy outlined); AI Context fills Save only while its editor is open.
+- **Accent** — most tabs spend none. Billing fills Upgrade by card only for a Free
+  account while checkout is open (VietQR when card is unavailable); a Pro account fills
+  nothing, and a closed checkout shows every Upgrade and Buy outlined and disabled, since
+  a disabled filled button reads as available. AI Context fills Save only while its
+  editor is open.
+- **Billing** (`settings/credits-section.tsx`) — four groups: the balance with its dawn
+  split bar; Plan, Free beside Pro (stacked on a phone) at the numbers `/billing/plans`
+  answers, the current one marked "Your plan" by a check and a `border-strong` edge,
+  never a fill; Buy credits, a payment-method `SegmentedControl` chosen once (a rail
+  reported unavailable is a disabled segment) over one tile per top-up pack; Usage,
+  grouped under Today, Yesterday or the date, an icon per kind, a spend in the plain
+  foreground and an addition `+` in `speaking` green — spending is never drawn as an
+  error. Why buying is closed, or which rail is in test mode, is one muted line closing
+  the Plan group. The plan columns and pack tiles are hairline regions with no shadow,
+  and the VietQR panel opens as a row of whichever group's button made the order.
 - **A running conversation** — while one runs, the Translation tab freezes the language
   pairs, the default AI context and the voice controls except volume, as the voice popover on `/translate`
   does. Settings opens over the conversation, so a change there would otherwise reach

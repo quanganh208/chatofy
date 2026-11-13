@@ -1,0 +1,192 @@
+'use client';
+
+import { useId } from 'react';
+import type { CreditBalance, PaymentRail, Plan } from '@chatofy/types';
+import type { MessageKey } from '@chatofy/i18n';
+import { Button, Skeleton } from '@chatofy/ui/react';
+import { useLocale, useTranslate } from '@/i18n/provider';
+import { formatDay } from '@/lib/credit-format';
+import { formatUsd, formatVnd } from '@/lib/pricing-content';
+import { PlanColumn } from './credit-plan-column';
+import { SettingsSection } from './settings-section';
+import { canBuyOn, checkoutKey, type UseCreditCheckout } from './use-credit-checkout';
+
+/** One way to upgrade: the Pro plan sold on a rail, and what its button says. */
+interface UpgradeOption {
+  plan: Plan;
+  rail: PaymentRail;
+  label: MessageKey;
+}
+
+/**
+ * The "Plan" group of Settings › Billing: Free beside Pro, so a reader sees what they
+ * have against what they could have, at the numbers `/billing/plans` answers.
+ *
+ * **The current plan is marked, not filled.** Its column gets a stronger hairline and a
+ * "Your plan" check; a filled ground would read as a control, and the tab's one accent
+ * belongs to Upgrade.
+ *
+ * **Upgrade is offered to Free only**, once per rail Pro is sold on here: by card (the
+ * Polar subscription) and by VietQR (the SePay pass). With checkout open, the first of
+ * them — card when card is available — is the tab's one filled control; closed, both
+ * are outline and disabled, and described by the tab's closed line (`closedId`). A Pro
+ * account sees where Pro came from, when it renews or ends, and — for a card
+ * subscription — Manage subscription.
+ *
+ * Two columns from `sm`, stacked on a phone. Each column is a hairline region inside
+ * the group's box, not a card: neither has a shadow.
+ */
+export function CreditPlanComparison({
+  balance,
+  plans,
+  checkout,
+  closed,
+  closedId,
+  onManage,
+  footer,
+}: {
+  balance: CreditBalance;
+  /** `null` while loading; empty when the read failed. */
+  plans: Plan[] | null;
+  checkout: UseCreditCheckout;
+  /** Buying is shut for this account: every Upgrade is outline and disabled. */
+  closed: boolean;
+  /** The id of the line saying why, for `aria-describedby`. */
+  closedId: string;
+  onManage: () => void;
+  /** Last rows of the group: the checkout notice and an open QR panel. */
+  footer?: React.ReactNode;
+}) {
+  const t = useTranslate();
+  const locale = useLocale();
+  const baseId = useId();
+
+  if (plans === null) {
+    return (
+      <SettingsSection title={t('web.billing.planTitle')}>
+        <div className="py-4">
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </SettingsSection>
+    );
+  }
+
+  const free = plans.find((plan) => plan.kind === 'free');
+  const card = plans.find((plan) => plan.kind === 'subscription');
+  const pass = plans.find((plan) => plan.kind === 'pass');
+  const proCredits = (card ?? pass)?.credits;
+  const isPro = balance.plan === 'pro';
+
+  const upgrades: UpgradeOption[] = [];
+  if (!isPro && card && canBuyOn(card, 'polar', balance)) {
+    upgrades.push({ plan: card, rail: 'polar', label: 'web.billing.upgradeCard' });
+  }
+  if (!isPro && pass && canBuyOn(pass, 'sepay', balance)) {
+    upgrades.push({ plan: pass, rail: 'sepay', label: 'web.billing.upgradeQr' });
+  }
+
+  const proPrices: string[] = [];
+  if (card?.priceUsdCents != null) {
+    proPrices.push(t('web.pricing.proPriceCard', { price: formatUsd(card.priceUsdCents, locale) }));
+  }
+  if (pass?.priceVnd != null) {
+    proPrices.push(t('web.pricing.proPricePass', { price: formatVnd(pass.priceVnd, locale) }));
+  }
+
+  return (
+    <SettingsSection title={t('web.billing.planTitle')}>
+      <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2" data-credit-plans>
+        <PlanColumn
+          id="free"
+          name={t('common.billing.planFree')}
+          current={!isPro}
+          summary={
+            free
+              ? t('web.pricing.freeSummary', { credits: count(locale, free.credits) })
+              : undefined
+          }
+        />
+        <PlanColumn
+          id="pro"
+          name={t('common.billing.planPro')}
+          current={isPro}
+          summary={
+            proCredits === undefined
+              ? undefined
+              : t('web.pricing.proSummary', { credits: count(locale, proCredits) })
+          }
+          prices={proPrices}
+          status={isPro ? proStatus(t, locale, balance) : undefined}
+        >
+          {balance.proSource === 'polar' ? (
+            <Button variant="outline" size="sm" onClick={onManage}>
+              {t('web.account.manageSubscription')}
+            </Button>
+          ) : null}
+          {upgrades.map((option, index) => {
+            const key = checkoutKey({ planCode: option.plan.code, rail: option.rail });
+            const buttonId = `${baseId}-${key}`;
+            const offerId = `${buttonId}-offer`;
+            return (
+              <span key={key} className="contents">
+                {/* What the button buys, said in full: the visible words are short
+                    because the column above already shows the price. */}
+                <span id={offerId} className="sr-only">
+                  {offerLabel(t, locale, option)}
+                </span>
+                <Button
+                  id={buttonId}
+                  variant={index === 0 && !closed ? 'default' : 'outline'}
+                  size="sm"
+                  disabled={closed || checkout.pending !== null}
+                  aria-labelledby={`${buttonId} ${offerId}`}
+                  aria-describedby={closed ? closedId : undefined}
+                  onClick={() =>
+                    void checkout.start({ planCode: option.plan.code, rail: option.rail })
+                  }
+                >
+                  {checkout.pending === key ? t('web.account.checkoutOpening') : t(option.label)}
+                </Button>
+              </span>
+            );
+          })}
+        </PlanColumn>
+      </div>
+      {plans.length === 0 ? (
+        <p className="text-muted-foreground text-hint py-3.5">
+          {t('web.pricing.pricesUnavailable')}
+        </p>
+      ) : null}
+      {footer}
+    </SettingsSection>
+  );
+}
+
+/** Where Pro came from and when it renews or ends. */
+function proStatus(
+  t: ReturnType<typeof useTranslate>,
+  locale: ReturnType<typeof useLocale>,
+  balance: CreditBalance,
+): string | undefined {
+  const date = balance.planResetsAt ? formatDay(locale, balance.planResetsAt) : null;
+  if (balance.proSource === 'polar') {
+    return date ? t('web.billing.proRenewsOn', { date }) : t('common.billing.proSourcePolar');
+  }
+  if (balance.proSource === 'sepay' && date) return t('common.billing.proSourceSepay', { date });
+  return undefined;
+}
+
+/** "Pro by card — $9.99 a month": the accessible tail of an Upgrade button. */
+function offerLabel(
+  t: ReturnType<typeof useTranslate>,
+  locale: ReturnType<typeof useLocale>,
+  option: UpgradeOption,
+): string {
+  return option.rail === 'polar'
+    ? t('web.account.buyProCard', { price: formatUsd(option.plan.priceUsdCents ?? 0, locale) })
+    : t('web.account.buyProPass', { price: formatVnd(option.plan.priceVnd ?? 0, locale) });
+}
+
+function count(locale: string, credits: number): string {
+  return new Intl.NumberFormat(locale).format(credits);
+}

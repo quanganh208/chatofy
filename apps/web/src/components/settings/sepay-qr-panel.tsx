@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@chatofy/ui/react';
 import type { CheckoutOrder } from '@chatofy/types';
 import { notify } from '@/lib/notify';
-import type { SepayCheckout } from './credit-buy-actions';
+import type { SepayCheckout } from './use-credit-checkout';
 import { useCheckoutOrder } from '@/hooks/use-credits';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatVnd } from '@/lib/pricing-content';

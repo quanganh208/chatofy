@@ -43,6 +43,24 @@ export const PLANS: Plan[] = [
     periodDays: null,
     rails: ['polar', 'sepay'],
   },
+  {
+    code: 'topup_550',
+    kind: 'topup',
+    credits: 550,
+    priceUsdCents: 1000,
+    priceVnd: 250000,
+    periodDays: null,
+    rails: ['polar', 'sepay'],
+  },
+  {
+    code: 'topup_1500',
+    kind: 'topup',
+    credits: 1500,
+    priceUsdCents: 2500,
+    priceVnd: 625000,
+    periodDays: null,
+    rails: ['polar', 'sepay'],
+  },
 ];
 
 export function balanceFixture(over: Partial<CreditBalance> = {}): CreditBalance {
