@@ -36,7 +36,7 @@ export const en = {
   'common.theme.label': 'Colour theme',
   // Account preferences: one copy per account, shared by every app and device.
   'common.preferences.title': 'Your preferences',
-  'common.preferences.syncNote': 'Synced across your devices.',
+  'common.preferences.syncNote': 'Synced across your devices',
   'common.preferences.saving': 'Saving…',
   'common.preferences.saved': 'Saved',
   'common.preferences.saveRetrying': "Couldn't save, retrying",

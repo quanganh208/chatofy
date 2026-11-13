@@ -48,7 +48,7 @@ export const vi: Messages = {
   'common.theme.system': 'Theo hệ thống',
   'common.theme.label': 'Giao diện màu',
   'common.preferences.title': 'Tuỳ chọn của bạn',
-  'common.preferences.syncNote': 'Đồng bộ trên mọi thiết bị của bạn.',
+  'common.preferences.syncNote': 'Đồng bộ trên mọi thiết bị của bạn',
   'common.preferences.saving': 'Đang lưu…',
   'common.preferences.saved': 'Đã lưu',
   'common.preferences.saveRetrying': 'Chưa lưu được, đang thử lại',
