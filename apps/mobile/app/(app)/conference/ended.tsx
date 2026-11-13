@@ -2,13 +2,14 @@
  * Meeting end screen — where Leave and an owner-ended meeting land.
  *
  * Heading, the summary card (duration, participants, languages), Back to lobby,
- * then the room's minutes: generated on demand, one stored copy per room that any
+ * then the room's minutes on the screen ground: generated on demand, one stored copy per room that any
  * participant may (re)generate. Mobile writes them in the language the caller
  * spoke in the call (`lang`), since its UI has no locale of its own yet.
  *
  * Design budget, as on web: Back to lobby is the ONE accent-filled control;
- * Generate / Regenerate is outlined. Two surfaces: the summary card and the
- * minutes card.
+ * Generate / Regenerate is outlined. One surface: the summary card. The minutes
+ * sit under a hairline with each group divided by another, as the web
+ * `MinutesPanel` does, because they are read rather than acted on as a unit.
  */
 
 import {
@@ -63,7 +64,7 @@ export default function ConferenceEndedScreen() {
       <>
         <SummaryCard conference={end.conference} />
         <BackToLobby />
-        <MinutesCard
+        <MinutesPanel
           minutes={end.minutes}
           generating={end.generating}
           failed={end.generateFailed || end.minutes?.status === 'failed'}
@@ -149,7 +150,7 @@ function SummaryCard({ conference }: { conference: ConferenceDetailResponse }) {
   );
 }
 
-function MinutesCard({
+function MinutesPanel({
   minutes,
   generating,
   failed,
@@ -186,32 +187,43 @@ function MinutesCard({
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.cardTitle, { color: colors.text }]}>{t('common.minutes.title')}</Text>
+    <View style={[styles.panel, { borderColor: colors.border }]}>
+      {/* Wraps rather than squeezes, as on web: the title stays whole and the
+          button drops below it on a narrow screen. */}
+      <View style={styles.panelHeader}>
+        <Text style={[styles.panelTitle, { color: colors.text }]} accessibilityRole="header">
+          {t('common.minutes.title')}
+        </Text>
+        {canGenerate ? (
+          <TouchableOpacity
+            style={[styles.outline, { borderColor: colors.border }, generating && styles.disabled]}
+            onPress={onGenerate}
+            disabled={generating}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: generating, busy: generating }}
+          >
+            <Text style={[styles.outlineText, { color: colors.text }]}>
+              {ready ? t('common.minutes.regenerate') : t('common.minutes.generate')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
       {state}
       {ready && !generating ? <MinutesContent minutes={ready} /> : null}
-      {canGenerate ? (
-        <TouchableOpacity
-          style={[styles.outline, { borderColor: colors.border }, generating && styles.disabled]}
-          onPress={onGenerate}
-          disabled={generating}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: generating, busy: generating }}
-        >
-          <Text style={[styles.outlineText, { color: colors.text }]}>
-            {ready ? t('common.minutes.regenerate') : t('common.minutes.generate')}
-          </Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
 
 function MinutesContent({ minutes }: { minutes: ConferenceMinutes }) {
   const { colors } = useTheme();
-  const heading = (key: MessageKey) => (
-    <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>{t(key)}</Text>
+  // One group per heading, each opened by a hairline, the way the web panel's
+  // `Section` divides them.
+  const group = (key: MessageKey, children: React.ReactNode) => (
+    <View style={[styles.group, { borderColor: colors.border }]}>
+      <Text style={[styles.groupHeading, { color: colors.textSecondary }]}>{t(key)}</Text>
+      {children}
+    </View>
   );
   // Keyed by text plus its occurrence, so two identical bullets stay distinct.
   const bullets = (items: string[]) => {
@@ -228,32 +240,30 @@ function MinutesContent({ minutes }: { minutes: ConferenceMinutes }) {
   };
 
   return (
-    <View style={styles.sections}>
-      {heading('common.minutes.summary')}
-      <Text style={{ color: colors.text }}>{minutes.summary}</Text>
-      {minutes.keyPoints.length > 0 ? (
-        <>
-          {heading('common.minutes.keyPoints')}
-          {bullets(minutes.keyPoints)}
-        </>
-      ) : null}
-      {minutes.decisions.length > 0 ? (
-        <>
-          {heading('common.minutes.decisions')}
-          {bullets(minutes.decisions)}
-        </>
-      ) : null}
-      {heading('common.minutes.actionItems')}
-      {minutes.actionItems.length === 0 ? (
-        <Text style={{ color: colors.textSecondary }}>{t('common.minutes.noActionItems')}</Text>
-      ) : (
-        minutes.actionItems.map((item) => (
-          <Text key={item.id} style={[styles.bullet, { color: colors.text }]}>
-            • {item.description}
-            {item.owner ? ` — ${t('common.minutes.owner')}: ${item.owner}` : ''}
-            {item.dueDate ? ` — ${t('common.minutes.due')}: ${item.dueDate}` : ''}
-          </Text>
-        ))
+    <View style={styles.groups}>
+      {group(
+        'common.minutes.summary',
+        <Text style={{ color: colors.text }}>{minutes.summary}</Text>,
+      )}
+      {minutes.keyPoints.length > 0
+        ? group('common.minutes.keyPoints', bullets(minutes.keyPoints))
+        : null}
+      {minutes.decisions.length > 0
+        ? group('common.minutes.decisions', bullets(minutes.decisions))
+        : null}
+      {group(
+        'common.minutes.actionItems',
+        minutes.actionItems.length === 0 ? (
+          <Text style={{ color: colors.textSecondary }}>{t('common.minutes.noActionItems')}</Text>
+        ) : (
+          minutes.actionItems.map((item) => (
+            <Text key={item.id} style={[styles.bullet, { color: colors.text }]}>
+              • {item.description}
+              {item.owner ? ` — ${t('common.minutes.owner')}: ${item.owner}` : ''}
+              {item.dueDate ? ` — ${t('common.minutes.due')}: ${item.dueDate}` : ''}
+            </Text>
+          ))
+        ),
       )}
     </View>
   );
@@ -281,7 +291,21 @@ const styles = StyleSheet.create({
     padding: space.md,
     gap: space.sm,
   },
-  cardTitle: {
+  // The minutes: on the screen ground under a hairline, no fill and no box.
+  panel: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: space.md,
+    gap: space.md,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: space.sm,
+    rowGap: space.md,
+  },
+  panelTitle: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
   },
@@ -305,6 +329,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: space.sm,
+    paddingHorizontal: space.md,
     alignItems: 'center',
   },
   outlineText: {
@@ -313,11 +338,16 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.5 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  sections: { gap: space.xs },
-  sectionHeading: {
+  groups: { gap: space.md },
+  group: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: space.sm,
+    gap: space.xs,
+  },
+  groupHeading: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    marginTop: space.sm,
+    textTransform: 'uppercase',
   },
   bullet: { fontSize: fontSize.sm },
 });
