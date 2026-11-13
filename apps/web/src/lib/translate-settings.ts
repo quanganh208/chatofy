@@ -1,33 +1,30 @@
 /**
- * What the translator remembers between visits.
+ * What the translator remembers, and how it is read.
  *
- * One object, one key, read once per mount. The shape is declared whole here —
- * including fields no UI writes yet — so the schema and its spec are written once
- * rather than edited by every phase that adds a control.
+ * The settings live in the ACCOUNT now — one preferences document per user, shared
+ * by web, mobile and the extension (`@chatofy/types` `userPreferencesSchema`). This
+ * file owns the web's view of it: the `TranslateSettings` shape every screen reads,
+ * and the whitelist each stored field passes through on its way in. The mapping to
+ * and from the document is `translate-settings-preferences.ts`.
  *
- * Modelled on `apps/extension/src/settings.ts`: merge the stored partial over the
+ * Modelled on `apps/extension/src/settings.ts`: merge what was stored over the
  * defaults, then WHITELIST each field rather than trusting what came back. A value
- * written by an older build is not hostile, but it is unknown, and a setting the
- * current UI cannot represent is a state the user cannot leave — the extension hit
+ * written by an older or newer build is not hostile, but it is unknown, and a setting
+ * the current UI cannot represent is a state the user cannot leave — the extension hit
  * exactly that with a stored mode whose control had been removed.
  *
- * Nothing here affects first paint, so unlike the theme (`app/layout.tsx`) this
- * needs no blocking script — but it must not reach the hydrating render, which
- * would then show one value on the server and another on the client.
- * `useTranslateSettings` holds it back until hydration is done.
+ * One field stays on the device: `micProcessing`, because a microphone chain is a
+ * property of a machine's hardware, not of a person (`lib/mic-processing-store.ts`).
  */
 import { z } from 'zod';
 import {
   AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
-  languagePairSchema,
   DEFAULT_MIC_PROCESSING,
   DEFAULT_VOICE_GENDER,
   IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
   canIdentify,
-  languagePairFromStoredDirection,
-  sessionLanguagePairSchema,
   voiceGenderSchema,
   type LanguageCode,
   type SessionOptions,
@@ -43,8 +40,6 @@ import {
   readingAppearanceShape,
   type ReadingAppearance,
 } from '@/lib/reading-appearance';
-
-export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
 
 /**
  * Speaking rates the UI offers.
@@ -297,7 +292,7 @@ export function effectiveStageAppearance(settings: TranslateSettings): {
 /**
  * Frozen, including the nested object.
  *
- * `loadTranslateSettings` hands this back on every fallback path, and `set`
+ * `useTranslateSettings` hands this back until the preferences are ready, and `set`
  * spreads only the top level — so `voice` would stay pointed at this very object
  * until something replaced it wholesale. A later `settings.voice.en = token`, which
  * is the natural thing to write, would then edit the module's own defaults: every
@@ -360,112 +355,6 @@ function snapTextSize(value: number): number {
 }
 
 /**
- * Storage format. Bumped when a stored value has to be reinterpreted rather than
- * merely read — see {@link migrate}.
- */
-const SETTINGS_VERSION = 4;
-
-/**
- * Bring a stored blob up to {@link SETTINGS_VERSION}, one step at a time.
- *
- * ## v2 — drop a `transcriptLayout` nobody actually chose
- *
- * `set` writes the WHOLE settings object on any change, so anyone who ever moved
- * the volume slider has the layout of the day persisted alongside it. When the
- * default flipped, that stored copy kept every returning user on the old body
- * under the new headers — a redesign that shipped to new accounts only, and
- * looked like a bug to everyone else.
- *
- * The version stamp is what separates "was written because the user chose it"
- * from "was written because it happened to be the default at the time". An
- * unversioned blob is the second case by definition: the field predates anyone
- * being asked. So it is dropped once, the stamp is written, and every later
- * change is a real choice that is kept.
- *
- * ## v3 — one layout field becomes two
- *
- * The transcript grew a second axis: a mode, and an orientation for the two panes
- * the `split` mode creates. `columns` was two panes side by side and `stacked` was
- * one merged stream, so a layout that still reaches this step MAPS rather than
- * being dropped.
- *
- * Note the ordering: a pre-v2 blob has its layout deleted before this step reads
- * it, so it maps nothing and takes the defaults. That is correct, and it is why
- * these are steps rather than one branch.
- *
- * **Which is also why the mapping fires for almost nobody, and that is not a
- * mistake to correct.** The stamp itself is new, so an installed store carries no
- * `version` and reads as 0 — v2 deletes its layout, and this step finds nothing.
- * The only blobs it can map are the ones stamped `2` while this pair of steps was
- * being written, in the browsers that ran that build. The branch stays because the
- * alternative is a v3 that silently assumes the drop always won: a store arriving
- * with a stamp of 2 is not hypothetical to the person holding one, and stepwise is
- * what lets the next field be added without re-reading this decision.
- *
- * The four fields added alongside need no step at all. An absent field reads as
- * its default, which is the whole reason `loadTranslateSettings` merges over
- * {@link DEFAULT_TRANSLATE_SETTINGS} before parsing.
- */
-function migrate(stored: Record<string, unknown>): Record<string, unknown> {
-  const version = typeof stored.version === 'number' ? stored.version : 0;
-  // A store written by a NEWER build — a rollback, or two branches sharing an
-  // origin — has already been asked every question below, and re-running these
-  // over it would drop a choice made after this code was written.
-  //
-  // **This protects the READ and nothing further, deliberately.** The next save
-  // stamps `SETTINGS_VERSION` like any other, so a v4 store becomes a v3 store as
-  // soon as anything is changed. Carrying the observed stamp through instead was
-  // considered and is worse: the whitelist below has already dropped every field
-  // v4 added, so writing back a v4 stamp would describe a blob as answering
-  // questions whose answers are gone — and the v3-to-v4 step, the one thing that
-  // could restore them, would then skip it. Downgrading the stamp alongside the
-  // fields is the honest record of what this build did.
-  if (version >= SETTINGS_VERSION) return stored;
-
-  const next: Record<string, unknown> = { ...stored };
-
-  if (version < 2) delete next.transcriptLayout;
-
-  if (version < 3) {
-    const layout = next.transcriptLayout;
-    delete next.transcriptLayout;
-    if (layout === 'columns') {
-      next.displayMode = 'split';
-      next.paneLayout = 'row';
-    } else if (layout === 'stacked') {
-      next.displayMode = 'list';
-    }
-  }
-
-  if (version < 4) {
-    // One voice for every language becomes one per language. Each language
-    // starts as a copy of the single setup the reader had, so nothing they chose
-    // is lost and nothing changes until they change it; the token was already
-    // kept per language and moves into its language's setup.
-    const tokens =
-      next.voice && typeof next.voice === 'object' ? (next.voice as Record<string, unknown>) : {};
-    next.voiceByLanguage = Object.fromEntries(
-      LANGUAGE_CODES.map((code) => [
-        code,
-        {
-          speak: next.voiceOutput,
-          gender: next.voiceGender,
-          speed: next.speed,
-          voice: tokens[code],
-          volume: next.volume,
-        },
-      ]),
-    );
-    for (const field of ['voiceOutput', 'voiceGender', 'speed', 'voice', 'volume']) {
-      delete next[field];
-    }
-  }
-
-  next.version = SETTINGS_VERSION;
-  return next;
-}
-
-/**
  * One language's setup, read field by field: an unreadable rate keeps the
  * language's speak flag, voice and volume. A token longer than the cap is
  * dropped rather than truncated — half a token is not a shorter token, it is a
@@ -487,23 +376,51 @@ const storedLanguageVoiceSchema = z
   // setup reads the same whether it was stored or defaulted.
   .transform(({ voice, ...rest }) => (voice === undefined ? rest : { ...rest, voice }));
 
-/** Per language, each on its own — one language's bad value never resets another's. */
-const storedVoiceByLanguageSchema = z.object(
-  Object.fromEntries(
-    LANGUAGE_CODES.map((code) => [code, storedLanguageVoiceSchema]),
-  ) as LanguageTable<typeof storedLanguageVoiceSchema>,
-);
+/**
+ * Per language, each on its own — one language's bad value never resets another's.
+ *
+ * The account document holds each language's setup as a PARTIAL (a client that
+ * only knows some fields round-trips the rest), so the reader lays every stored
+ * setup over {@link DEFAULT_LANGUAGE_VOICE} before this runs.
+ */
+export const storedVoiceByLanguageSchema = z
+  .object(
+    Object.fromEntries(
+      LANGUAGE_CODES.map((code) => [code, storedLanguageVoiceSchema]),
+    ) as LanguageTable<typeof storedLanguageVoiceSchema>,
+  )
+  .catch(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage);
 
 /**
- * The whitelist.
+ * How the transcript reads: the fields the account document keeps under its
+ * web-owned `reading` object.
+ *
+ * Named once so the read and the write agree on which fields travel there —
+ * `translate-settings-preferences.ts` reads this list in both directions.
+ */
+export const READING_FIELDS = [
+  'displayMode',
+  'paneLayout',
+  'speakerLabels',
+  'translationOnly',
+  'freeScroll',
+  'textSize',
+  'appearance',
+  'stage',
+] as const satisfies readonly (keyof TranslateSettings)[];
+
+export type ReadingSettings = Pick<TranslateSettings, (typeof READING_FIELDS)[number]>;
+
+/**
+ * The whitelist for `reading`.
  *
  * Every field falls back independently: one unreadable value must not discard the
- * other five. `catch` per field rather than per object is what buys that — a
+ * other seven. `catch` per field rather than per object is what buys that — a
  * single object-level catch would reset a user's whole panel because one number
- * was out of range.
+ * was out of range. Zod strips what it does not declare, so a field a newer build
+ * added is dropped here rather than carried into every consumer.
  */
-const storedSettingsSchema = z.object({
-  voiceByLanguage: storedVoiceByLanguageSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceByLanguage),
+export const readingSettingsSchema = z.object({
   displayMode: displayModeSchema.catch(DEFAULT_TRANSLATE_SETTINGS.displayMode),
   paneLayout: paneLayoutSchema.catch(DEFAULT_TRANSLATE_SETTINGS.paneLayout),
   speakerLabels: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.speakerLabels),
@@ -512,9 +429,6 @@ const storedSettingsSchema = z.object({
   // Snapped, not merely bounded, for the same reason as the speed above: a value
   // inside the range but off the grid leaves the slider between two stops.
   textSize: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.textSize).transform(snapTextSize),
-  // Bounded, never checked against the list, and dropped rather than truncated
-  // for the same reason the voice token is: half an id is not a shorter id.
-  contextId: z.string().max(64).nullable().catch(DEFAULT_TRANSLATE_SETTINGS.contextId),
   // Per field inside, and the whole object only when it is not an object at all —
   // a stored appearance missing one field written by a newer build keeps the rest.
   appearance: z
@@ -527,97 +441,20 @@ const storedSettingsSchema = z.object({
       textSize: z.number().catch(DEFAULT_STAGE_APPEARANCE.textSize).transform(snapTextSize),
     })
     .catch(DEFAULT_STAGE_APPEARANCE),
-  // Per field, like the appearance: one unreadable boolean keeps the other two.
-  micProcessing: z
-    .object({
-      echoCancellation: z.boolean().catch(DEFAULT_MIC_PROCESSING.echoCancellation),
-      noiseSuppression: z.boolean().catch(DEFAULT_MIC_PROCESSING.noiseSuppression),
-      autoGainControl: z.boolean().catch(DEFAULT_MIC_PROCESSING.autoGainControl),
-    })
-    .catch(DEFAULT_MIC_PROCESSING),
 });
 
-/**
- * Read the stored settings, falling back field by field.
- *
- * The persisted voice token is only BOUNDED here, never validated against a
- * catalog: which voices exist is fetched over HTTP and is not knowable to a
- * synchronous read. Reconciling a stale token belongs at the point of use, where
- * the catalog has resolved.
- */
-export function loadTranslateSettings(): TranslateSettings {
-  try {
-    const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY);
-    if (!raw) return DEFAULT_TRANSLATE_SETTINGS;
-    const stored = JSON.parse(raw) as Record<string, unknown>;
-    const merged = { ...DEFAULT_TRANSLATE_SETTINGS, ...migrate(stored) };
-    // `version` decides the migration and is then dropped — the schema declares no
-    // such field and Zod strips what it does not declare. It is a fact about the
-    // STORE, and letting it into the settings object would put it in reach of
-    // every consumer and eventually into a comparison.
-    const parsed = storedSettingsSchema.parse(merged);
-    const settings: TranslateSettings = {
-      languagePair: storedLanguagePair(stored),
-      twoWayPair: storedTwoWayPair(stored),
-      voiceByLanguage: parsed.voiceByLanguage,
-      displayMode: parsed.displayMode,
-      paneLayout: parsed.paneLayout,
-      speakerLabels: parsed.speakerLabels,
-      translationOnly: parsed.translationOnly,
-      freeScroll: parsed.freeScroll,
-      textSize: parsed.textSize,
-      contextId: parsed.contextId,
-      appearance: parsed.appearance,
-      stage: parsed.stage,
-      micProcessing: parsed.micProcessing,
-    };
-    return settings;
-  } catch {
-    // Unparseable JSON, storage disabled by policy, or a private window that
-    // throws on access. Defaults are always a state the UI can render.
-    return DEFAULT_TRANSLATE_SETTINGS;
-  }
-}
+/** Per field, like the appearance: one unreadable boolean keeps the other two. */
+const micProcessingSchema = z
+  .object({
+    echoCancellation: z.boolean().catch(DEFAULT_MIC_PROCESSING.echoCancellation),
+    noiseSuppression: z.boolean().catch(DEFAULT_MIC_PROCESSING.noiseSuppression),
+    autoGainControl: z.boolean().catch(DEFAULT_MIC_PROCESSING.autoGainControl),
+  })
+  .catch(DEFAULT_MIC_PROCESSING);
 
-/**
- * The stored pair, read off the raw blob rather than through the whitelist.
- *
- * Not a `.catch(default)` field like its neighbours, because an absent or
- * unreadable `languagePair` still has one more place to come from: builds before
- * it stored a `'vi_to_en'`-style `direction` string. Parsing that is
- * `languagePairFromStoredDirection`'s job alone, so the old format has one
- * reader; the next save writes `languagePair` and the string is not read again.
- */
-function storedLanguagePair(stored: Record<string, unknown>): SessionLanguagePair {
-  const pair = sessionLanguagePairSchema.safeParse(stored.languagePair);
-  if (pair.success) return representablePair(pair.data);
-  return languagePairFromStoredDirection(stored.direction) ?? DEFAULT_LANGUAGE_PAIR;
-}
-
-/**
- * The stored two-way pair, falling back to what an older build implied.
- *
- * Read raw, like {@link storedLanguagePair}, because an absent value has a
- * second source: before the two modes were separate pages, one stored pair
- * served both, with `conversationMode` saying which. A named pair that could
- * run both ways and was not set to one-way is exactly the pair that reader was
- * conversing in, so it carries over; anything else — `'detect'`, a pair the
- * shipped identification cannot tell apart, an explicit one-way — says nothing
- * about a two-way conversation, and the default stands.
- *
- * A stored pair that cannot run two-way is refused for the same reason the
- * picker refuses it: a state the page cannot start in is a state the reader
- * cannot leave.
- */
-function storedTwoWayPair(stored: Record<string, unknown>): LanguagePair {
-  const own = languagePairSchema.safeParse(stored.twoWayPair);
-  if (own.success) return canRunTwoWay(own.data) ? own.data : DEFAULT_LANGUAGE_PAIR;
-
-  const shared = languagePairSchema.safeParse(stored.languagePair);
-  if (shared.success && stored.conversationMode !== 'one-way' && canRunTwoWay(shared.data)) {
-    return shared.data;
-  }
-  return DEFAULT_LANGUAGE_PAIR;
+/** A stored mic chain, whitelisted; anything unreadable is the default chain. */
+export function parseMicProcessing(raw: unknown): MicProcessing {
+  return micProcessingSchema.parse(raw ?? DEFAULT_MIC_PROCESSING);
 }
 
 /**
@@ -767,17 +604,4 @@ export function sessionVoiceOptions(
       }),
     ),
   };
-}
-
-export function saveTranslateSettings(settings: TranslateSettings): void {
-  try {
-    // The stamp travels with the write, not with the type: a save is a deliberate
-    // choice, so what it stores has been chosen and must not be migrated again.
-    localStorage.setItem(
-      TRANSLATE_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ ...settings, version: SETTINGS_VERSION }),
-    );
-  } catch {
-    // The choice still holds for this page; it just will not outlive it.
-  }
 }

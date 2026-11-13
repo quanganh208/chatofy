@@ -25,12 +25,10 @@ import { languageVoice, pairFor, type ConversationMode } from '@/lib/translate-s
  * whose entire purpose is the translation underneath it. The brand now sits in the
  * shell at body size, as a way home. What dominates is the conversation.
  *
- * **`useTranslateSettings` is called HERE and nowhere else** on either page. It is per-call-site
- * `useState`, not a store: a second call would read storage independently, then
- * diverge, so a change made in the panel would never reach the `start()` reading the
- * other copy — and the two debounced writes would race into localStorage. It fails
- * silently and looks like settings that randomly do not apply, so every consumer
- * takes them as props.
+ * **`useTranslateSettings` is called HERE and nowhere else** on either page. Every call
+ * reads the same account store, so a second one would not diverge — but one owner per
+ * surface keeps the data flow visible: every consumer takes the settings as props, and
+ * the one `current` reader the conversation holds is this one.
  */
 export function TranslatePageBody({ conversationMode }: { conversationMode: ConversationMode }) {
   // `current` is a reader, handed to the conversation so its once-built playback

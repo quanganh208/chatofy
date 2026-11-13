@@ -1,15 +1,14 @@
 'use client';
 
-import { useId, useState, useSyncExternalStore } from 'react';
+import { useId } from 'react';
 import { RadioGroup, RadioGroupItem } from '@chatofy/ui/react';
 import type { ThemeChange } from '@/components/layout/theme-toggle-connected';
+import { useThemeChoice } from '@/hooks/use-preferences';
 import { useTranslate } from '@/i18n/provider';
-import { applyChoice, readChoice, writeChoice, type ThemeChoice } from '@/lib/theme';
+import type { ThemeChoice } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 const CHOICES = ['light', 'dark', 'system'] as const satisfies readonly ThemeChoice[];
-
-const subscribeNever = () => () => {};
 
 /**
  * The colour theme as three pictures of the app — Light, Dark, Match system — with
@@ -20,9 +19,8 @@ const subscribeNever = () => () => {};
  * The small radio under each picture is the shadcn `RadioGroupItem`; the whole tile
  * is its `<label>`, so a press anywhere on it picks.
  *
- * Persistence is web's, as in `ConnectedThemeToggle`: storage is read after
- * hydration (server and first client render mark nothing), and a pick is held in
- * state over the never-notifying store.
+ * The choice is the account's, read as in `ConnectedThemeToggle`: server and first
+ * client render mark nothing, and the stored choice arrives the render after.
  *
  * The ring is ink at rest-weight, not an accent FILL: a selected state is a readout,
  * and the screen's one filled control belongs elsewhere.
@@ -30,19 +28,7 @@ const subscribeNever = () => () => {};
 export function ThemeChoiceTiles({ onChange }: { onChange?: (change: ThemeChange) => void }) {
   const t = useTranslate();
   const id = useId();
-  const stored = useSyncExternalStore<ThemeChoice | undefined>(
-    subscribeNever,
-    readChoice,
-    () => undefined,
-  );
-  const [picked, setPicked] = useState<ThemeChoice | undefined>(undefined);
-  const choice = picked ?? stored;
-
-  const pick = (to: ThemeChoice) => {
-    setPicked(to);
-    writeChoice(to);
-    applyChoice(to);
-  };
+  const { choice, setChoice } = useThemeChoice();
 
   return (
     <RadioGroup
@@ -52,10 +38,10 @@ export function ThemeChoiceTiles({ onChange }: { onChange?: (change: ThemeChange
       aria-label={t('common.theme.label')}
       onValueChange={(value) => {
         const next = value as ThemeChoice;
-        const previous = choice ?? readChoice();
+        const previous: ThemeChoice = choice ?? 'system';
         if (next === previous) return;
-        pick(next);
-        onChange?.({ next, previous, revert: () => pick(previous) });
+        setChoice(next);
+        onChange?.({ next, previous, revert: () => setChoice(previous) });
       }}
       className="grid w-full grid-cols-3 gap-3 sm:gap-4"
     >

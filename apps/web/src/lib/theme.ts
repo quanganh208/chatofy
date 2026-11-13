@@ -1,40 +1,32 @@
 /**
- * Which ground the reader has asked for, and where that answer is kept.
+ * Which ground the reader has asked for, and how it reaches the document.
  *
- * Three states, but only two are stored. "Follow the machine" is the *absence* of a
- * choice rather than a third value — storing the word would mean remembering to
- * treat it as equivalent to nothing, and forgetting once produces a setting that
- * looks selected and stops responding when the OS theme changes.
- *
- * The names here are duplicated, deliberately and exactly once, inside the blocking
- * script in `app/layout.tsx`. That script runs before any module loads and cannot
- * import this file; `theme.spec.ts` compares the two so they cannot drift.
+ * The choice itself is an account preference now (`theme` in the preferences
+ * document), read through `useThemeChoice`. What stays here is the part that runs
+ * outside React: putting the choice on `<html>`, and the blocking script that does
+ * so before the first paint from the local copy of the preferences.
  */
-export const THEME_STORAGE_KEY = 'chatofy.theme';
+import type { ThemeChoice } from '@chatofy/types';
+import { PREFERENCES_CACHE_KEY } from '@/lib/preferences/preferences-cache';
 
-/** What the reader chose. `system` means nothing is stored. */
-export type ThemeChoice = 'light' | 'dark' | 'system';
+export type { ThemeChoice };
 
-export function readChoice(): ThemeChoice {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : 'system';
-  } catch {
-    // Private mode, or storage disabled by policy. Following the machine is the
-    // right answer when we cannot remember anything.
-    return 'system';
-  }
-}
-
-export function writeChoice(choice: ThemeChoice): void {
-  try {
-    if (choice === 'system') localStorage.removeItem(THEME_STORAGE_KEY);
-    else localStorage.setItem(THEME_STORAGE_KEY, choice);
-  } catch {
-    // The class below is still applied, so the choice holds for this page even when
-    // it cannot outlive it.
-  }
-}
+/**
+ * Runs in `<head>` before anything paints, which is the whole point. Without it,
+ * someone who chose light on a dark machine sees a dark flash on every load — the
+ * markup arrives with no class, `color-scheme: light dark` resolves to the
+ * machine's answer, and the correction only lands once React has hydrated.
+ *
+ * It reads the theme out of the cached preferences, whoever they belong to: it
+ * runs before the session is known, and the cache is the last reader of this
+ * browser — a returning reader in almost every case, and a wrong guess is
+ * corrected by the provider the moment the session answers.
+ *
+ * Kept to one statement and wrapped in try/catch: it runs before any error
+ * handling exists, and a throw here (no cache, unparseable JSON, storage refused)
+ * would leave the page unstyled rather than merely following the machine.
+ */
+export const PRE_PAINT_THEME_SCRIPT = `try{var t=JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_CACHE_KEY)})).preferences.theme;if(t==="light"||t==="dark")document.documentElement.classList.add(t)}catch(e){}`;
 
 /**
  * Put the choice on the document.

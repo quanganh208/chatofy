@@ -2,7 +2,9 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TRANSLATE_SETTINGS_STORAGE_KEY } from '@/lib/translate-settings';
+import { MIC_PROCESSING_STORAGE_KEY } from '@/lib/mic-processing-store';
+import { currentPreferences } from '@/lib/preferences/active-preferences';
+import { currentTranslateSettings } from '@/lib/translate-settings-preferences';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 
@@ -14,14 +16,10 @@ vi.mock('next-auth/react', () => ({
 
 const { PreJoinStage } = await import('./pre-join-stage');
 
-/** The voice gender the speaker leg would read from storage when it is built. */
-function storedGender(): unknown {
-  const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY);
+/** The voice gender the speaker leg reads when it is built, on "Join". */
+function legGender(): unknown {
   // The chip writes one gender into every language's setup; any language reads it.
-  return raw
-    ? (JSON.parse(raw) as { voiceByLanguage?: { en?: { gender?: unknown } } }).voiceByLanguage?.en
-        ?.gender
-    : undefined;
+  return currentTranslateSettings().voiceByLanguage.en.gender;
 }
 
 describe('PreJoinStage — the voice chosen here is the voice the call uses', () => {
@@ -61,12 +59,12 @@ describe('PreJoinStage — the voice chosen here is the voice the call uses', ()
       (radio) => radio.textContent === 'Male',
     )!;
     act(() => male.click());
-    // Past the settings hook's save debounce, so storage already says "male"
-    // before Join — the save on Join must not write an older copy over it.
+    // Past the store's save debounce, so the pick has settled before Join — and
+    // Join must not put an older copy back over it.
     act(() => {
       vi.advanceTimersByTime(1000);
     });
-    expect(storedGender()).toBe('male');
+    expect(legGender()).toBe('male');
 
     const joinNow = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Join now',
@@ -74,7 +72,9 @@ describe('PreJoinStage — the voice chosen here is the voice the call uses', ()
     act(() => joinNow.click());
 
     expect(onJoin).toHaveBeenCalledOnce();
-    expect(storedGender()).toBe('male');
+    expect(legGender()).toBe('male');
+    // The language joined in is remembered for the account's next meeting.
+    expect(currentPreferences().conferenceLanguage).toBe('vi');
   });
 });
 
@@ -105,10 +105,7 @@ describe('PreJoinStage — the meeting echo note', () => {
   }
 
   it('warns before joining that others will hear echo when echo cancellation is off', async () => {
-    localStorage.setItem(
-      TRANSLATE_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ micProcessing: { echoCancellation: false } }),
-    );
+    localStorage.setItem(MIC_PROCESSING_STORAGE_KEY, JSON.stringify({ echoCancellation: false }));
     await mount();
     expect(container.textContent).toContain(en['web.preferences.audio.conferenceNote']);
   });

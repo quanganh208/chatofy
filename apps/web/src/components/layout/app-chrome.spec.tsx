@@ -5,6 +5,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentPreferences } from '@/lib/preferences/active-preferences';
 
 /**
  * What this holds is the two rules the compiler cannot.
@@ -442,7 +443,7 @@ describe('the mobile tab bar', () => {
 
     pathname.mockReturnValue('/translate/two-way');
     render();
-    expect(localStorage.getItem('chatofy.translate-mode')).toBe('/translate/two-way');
+    expect(currentPreferences().translateMode).toBe('two-way');
     expect(tab('Translate')?.getAttribute('href')).toBe('/translate/two-way');
     expect(tab('Translate')?.getAttribute('aria-current')).toBe('page');
   });

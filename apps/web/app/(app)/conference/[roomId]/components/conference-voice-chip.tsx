@@ -22,9 +22,9 @@ import { useTranslate } from '@/i18n/provider';
  * The voice other participants hear this speaker's translation in.
  *
  * Meet has nothing like it, so the chip names the voice and the popover says
- * what it is for. It edits the one store `/translate` uses
- * (`chatofy.translate-settings`): the meeting's speaker leg reads that store
- * when it is built, so a speaker sounds the same in both places.
+ * what it is for. It edits the same settings `/translate` uses (the account's
+ * preferences): the meeting's speaker leg reads them when it is built, so a speaker
+ * sounds the same in both places.
  *
  * One meeting voice, while `/translate` keeps one per language: this chip writes
  * its gender and rate into EVERY language's setup, and names the first one's. A

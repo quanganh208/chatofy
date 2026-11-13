@@ -1,29 +1,14 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { toLanguageCode, type LanguageCode } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 import type { PreferredDevices } from '@/conference/acquire-local-media';
+import { usePreferences } from '@/hooks/use-preferences';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
-import { saveTranslateSettings } from '@/lib/translate-settings';
 import { usePreJoinMedia } from '../hooks/use-pre-join-media';
 import { ACTIVE_CALL_KEY } from '../utils/room-route';
 import { PreJoinPanel } from './pre-join-panel';
-
-/** The spoken language last joined with — a per-browser convenience, nothing more. */
-const LANGUAGE_KEY = 'chatofy.conference.language';
-
-/** Storage never announces a change this screen cares about. */
-const subscribeNever = () => () => {};
-
-/** The stored language, or null on the server and when nothing valid is stored. */
-function readStoredLanguage(): LanguageCode | null {
-  try {
-    return toLanguageCode(localStorage.getItem(LANGUAGE_KEY) ?? '') ?? null;
-  } catch {
-    return null;
-  }
-}
 
 /** What the user settled on before pressing "Join now". */
 export interface PreJoinChoice {
@@ -49,11 +34,13 @@ export function PreJoinStage({ onJoin }: { onJoin: (choice: PreJoinChoice) => vo
   const [typedName, setTypedName] = useState<string | null>(null);
   const name = typedName ?? session?.user?.name ?? '';
 
-  // What the user picked, else the language they last joined with, else
-  // Vietnamese. Storage is read through `useSyncExternalStore` so the server
-  // render and the hydrating one agree (both see null).
+  // What the user picked, else the language they last joined with (an account
+  // preference, so the phone joins in what the laptop did), else Vietnamese. The
+  // stored one is null on the server and until the preferences are ready, so the
+  // server render and the hydrating one agree.
+  const preferences = usePreferences();
   const [pickedLanguage, setPickedLanguage] = useState<LanguageCode | null>(null);
-  const storedLanguage = useSyncExternalStore(subscribeNever, readStoredLanguage, () => null);
+  const storedLanguage = preferences.ready ? preferences.preferences.conferenceLanguage : null;
   const language = pickedLanguage ?? storedLanguage ?? 'vi';
 
   // Reaching this screen is the way back into a call, so the landing must not
@@ -70,14 +57,10 @@ export function PreJoinStage({ onJoin }: { onJoin: (choice: PreJoinChoice) => vo
     const displayName = name.trim();
     if (!displayName || joining) return;
     setJoining(true);
-    // The speaker leg reads the voice from storage when it is built, and the
-    // settings hook writes storage on a debounce: write it now.
-    saveTranslateSettings(voice.current());
-    try {
-      localStorage.setItem(LANGUAGE_KEY, language);
-    } catch {
-      /* remembered next time only if storage works */
-    }
+    // The speaker leg reads the voice from the preferences snapshot when it is
+    // built, and every change made here is already in it: updates apply to the
+    // snapshot at once, and only the save to the account is debounced.
+    if (language !== storedLanguage) preferences.update({ conferenceLanguage: language });
     media.release();
     onJoin({
       displayName,

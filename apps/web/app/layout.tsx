@@ -4,7 +4,8 @@ import { AppSessionProvider } from '@/components/session-provider';
 import { LocaleProvider } from '@/i18n/provider';
 import { getLocale, getT } from '@/i18n/server';
 import { serverEnv } from '@/config/server-env';
-import { THEME_STORAGE_KEY } from '@/lib/theme';
+import { PreferencesProvider } from '@/components/preferences/preferences-provider';
+import { PRE_PAINT_THEME_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
 /**
@@ -110,10 +111,11 @@ export default async function RootLayout({
   const locale = await getLocale();
 
   return (
-    // No theme class from the server. Which ground the reader chose lives in their
-    // browser, and the server renders the same HTML for everyone — so the class is
-    // applied by the script below, before anything paints. `suppressHydrationWarning`
-    // is the price: React would otherwise report the attribute it did not write.
+    // No theme class from the server. Which ground the reader chose is read from
+    // this browser's copy of their preferences, and the server renders the same HTML
+    // for everyone — so the class is applied by the script below, before anything
+    // paints. `suppressHydrationWarning` is the price: React would otherwise report
+    // the attribute it did not write.
     //
     // `lang` DOES come from the server, for the reason above — and it has to be
     // right: it is what a screen reader picks a voice from.
@@ -123,27 +125,14 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/*
-          Runs before the first paint, which is the whole point.
-          Without it, someone who chose light on a dark machine sees a dark flash on
-          every load — the markup arrives with no class, `color-scheme: light dark`
-          resolves to the machine's answer, and the correction only lands once React
-          has hydrated. No test catches that; it is only visible on reload.
-
-          Kept to one statement and wrapped in try/catch: it runs before any error
-          handling exists, and a throw here would leave the page unstyled rather than
-          merely mis-themed. The storage key is the one value duplicated from
-          `lib/theme.ts`, and a spec compares them.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var c=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(c==="light"||c==="dark")document.documentElement.classList.add(c)}catch(e){}`,
-          }}
-        />
+        {/* The theme, before the first paint. See `PRE_PAINT_THEME_SCRIPT`. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_THEME_SCRIPT }} />
       </head>
       <body>
         <LocaleProvider locale={locale}>
-          <AppSessionProvider>{children}</AppSessionProvider>
+          <AppSessionProvider>
+            <PreferencesProvider>{children}</PreferencesProvider>
+          </AppSessionProvider>
         </LocaleProvider>
       </body>
     </html>

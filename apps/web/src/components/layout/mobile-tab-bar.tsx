@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { History, Mic, Video, type LucideIcon } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 import { useTranslate } from '@/i18n/provider';
-import { rememberTranslateMode, useLastTranslateMode } from './last-translate-mode';
+import { useLastTranslateMode, useRememberTranslateMode } from './last-translate-mode';
 import { MoreSheet } from './more-sheet';
 import { navItemFor } from './nav-items';
 import { TAB_CLASS } from './tab-bar-styles';
@@ -36,11 +36,12 @@ export function MobileTabBar() {
   const t = useTranslate();
   const pathname = usePathname();
   const translateHref = useLastTranslateMode();
+  const rememberTranslateMode = useRememberTranslateMode();
 
   // Mounted on every signed-in route, so it is the one place that sees each visit.
   useEffect(() => {
     rememberTranslateMode(pathname);
-  }, [pathname]);
+  }, [pathname, rememberTranslateMode]);
 
   const tabs: Tab[] = [
     {

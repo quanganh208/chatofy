@@ -27,7 +27,7 @@ export type TranslationContextsState = 'loading' | 'ready' | 'failed';
  * The stored selection, resolved against the fetched list.
  *
  * Returns `null` for an id that no longer resolves, never an error. The rule is
- * `loadTranslateSettings`'s own, for the voice token: bound it in storage,
+ * the settings whitelist's own, for the voice token: bound it in storage,
  * reconcile it at the point of use, where the catalog has resolved. A deleted
  * context must read as "no context", and the panel must still render — the
  * alternative is a screen that cannot be used because of a row the user
