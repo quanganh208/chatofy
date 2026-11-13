@@ -507,7 +507,8 @@ account, read and written by web, mobile and the extension alike.
   that language; theme follows the system). PATCH reads, merges and writes under
   a `FOR NO KEY UPDATE` lock on the `User` row, so two devices saving different
   fields at once both keep theirs, including the very first save. DELETE is
-  "Reset to defaults".
+  "Reset to defaults": it empties the row rather than deleting it, so
+  `updatedAt` — the version clients compare — only ever moves forward.
 - **Clients:** one store each, `createPreferencesSync`
   (`packages/api-client/src/preferences-sync.ts`). A change applies at once,
   is cached, and is saved after a short debounce with backoff retries; a 4xx
