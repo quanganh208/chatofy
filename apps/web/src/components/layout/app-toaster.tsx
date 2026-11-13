@@ -13,6 +13,8 @@ import { useTranslate } from '@/i18n/provider';
  * translator's dock is centred. Top-centre below, because the bottom of a phone is the
  * tab bar and the thumb. Four seconds by default; `notify.error` overrides that to
  * stay until dismissed.
+ *
+ * Pressable over an open modal dialog: see the `pointerEvents` note below.
  */
 const DESKTOP = '(min-width: 768px)';
 
@@ -35,6 +37,11 @@ export function AppToaster() {
       position={desktop ? 'bottom-right' : 'top-center'}
       duration={4000}
       containerAriaLabel={t('web.chrome.notifications')}
+      // A modal dialog sets `pointer-events: none` on the body, and the toaster
+      // inherits it — so a toast raised from inside Settings (Saved, with Undo) could
+      // not be pressed while Settings was open. The dialog lets a press on the toaster
+      // through (`settings/settings-dialog.tsx`); this lets the press land.
+      style={{ pointerEvents: 'auto' }}
       toastOptions={{ closeButtonAriaLabel: t('web.chrome.dismiss') }}
     />
   );

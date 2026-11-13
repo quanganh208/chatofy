@@ -118,6 +118,20 @@ afterEach(() => {
 });
 
 describe('AiContextSection', () => {
+  it('reports an unsaved draft only once something is typed, and not after Cancel', async () => {
+    const { hasUnsavedSettingsDraft } = await import('@/hooks/use-unsaved-settings-draft');
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+    // Open but untouched: nothing to lose, so the Settings dialog still closes on Esc.
+    expect(hasUnsavedSettingsDraft()).toBe(false);
+
+    await type('#ai-context-name', 'Thesis defense');
+    expect(hasUnsavedSettingsDraft()).toBe(true);
+
+    await click(buttonSaying(en['web.preferences.aiContext.cancel']));
+    expect(hasUnsavedSettingsDraft()).toBe(false);
+  });
+
   it('says the library is empty rather than showing an empty list', async () => {
     await mount();
     expect(container.textContent).toContain(en['web.preferences.aiContext.empty']);

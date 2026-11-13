@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogTitle } from '@chatofy/ui/react';
 import { useReturnFocus } from '@/hooks/use-return-focus';
+import { hasUnsavedSettingsDraft } from '@/hooks/use-unsaved-settings-draft';
 import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 import { paneTabFor, type SettingsDialogView } from './settings-dialog-url';
@@ -133,6 +134,18 @@ export function SettingsDialog() {
               ? paneTitleRef.current
               : navRef.current?.querySelector<HTMLElement>(`[data-settings-tab="${paneTab}"]`);
           target?.focus({ focusVisible: false });
+        }}
+        // A toast is outside the dialog's layer, so pressing its Undo or Retry counted as
+        // a press beside the dialog and closed Settings at the moment the reader was
+        // correcting a change made in it. A toast belongs to what this dialog did.
+        //
+        // Unsaved typing (an AI Context draft) also keeps a press or focus beside the
+        // dialog and Esc from closing it; ✕ and Back still close.
+        onInteractOutside={(event) => {
+          if (isInToaster(event.target) || hasUnsavedSettingsDraft()) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (hasUnsavedSettingsDraft()) event.preventDefault();
         }}
         // The pane's title and description say what the open tab is for; the dialog's
         // own name is "Settings".
@@ -265,4 +278,9 @@ export function SettingsDialog() {
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Whether an event landed on the toast host (`layout/app-toaster.tsx`). */
+function isInToaster(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('[data-sonner-toaster]') !== null;
 }

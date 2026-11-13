@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
+import type * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { followHistoryForTests, useTestSearchParams } from './settings-dialog-test-location';
@@ -18,6 +19,15 @@ vi.mock('./settings-dialog-tab-content', () => ({
 }));
 
 const { SettingsDialog } = await import('./settings-dialog');
+const { AppToaster } = await import('@/components/layout/app-toaster');
+const { notify } = await import('@/lib/notify');
+const { useReportUnsavedSettingsDraft } = await import('@/hooks/use-unsaved-settings-draft');
+
+/** Something in the dialog holding unsaved typing, as the AI Context editor reports. */
+function UnsavedDraft() {
+  useReportUnsavedSettingsDraft(true);
+  return null;
+}
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -31,13 +41,15 @@ function wideScreen(wide: boolean) {
   });
 }
 
-async function openAt(search: string) {
+async function openAt(search: string, extra?: React.ReactNode) {
   window.history.replaceState(null, '', `/history${search}`);
   await act(async () => {
-    root = createRoot(document.createElement('div'));
+    // In the document, so what is rendered in place (the toast host) can be found.
+    root = createRoot(document.body.appendChild(document.createElement('div')));
     root.render(
       <LocaleProvider>
         <SettingsDialog />
+        {extra}
       </LocaleProvider>,
     );
     await Promise.resolve();
@@ -60,6 +72,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
+  document.body.replaceChildren();
   unfollow();
   window.history.replaceState(null, '', '/');
   vi.restoreAllMocks();
@@ -199,5 +212,74 @@ describe('the settings dialog', () => {
       expect(listColumn()?.className).toContain('max-sm:hidden');
       expect(paneTitle()?.textContent).toBe('Account');
     });
+  });
+
+  /** A press as a pointer makes it: Radix decides "outside" on `pointerdown`. */
+  const pressAsPointer = (target: Element | null | undefined) =>
+    act(() => {
+      target?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      target?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+      target?.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    });
+
+  it("undoes from a toast's Undo without closing Settings", async () => {
+    await openAt('?settings=general', <AppToaster />);
+    const undo = vi.fn();
+    await act(async () => {
+      notify.success('Theme saved', { undo });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const button = [...document.querySelectorAll('[data-sonner-toaster] button')].find(
+      (b) => b.textContent === 'Undo',
+    );
+    expect(button, 'the toast never showed its Undo').toBeDefined();
+    // The modal sets `pointer-events: none` on the body; the toaster must take it back
+    // or a real pointer never reaches Undo at all.
+    const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+    expect(toaster?.style.pointerEvents).toBe('auto');
+    pressAsPointer(button);
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(view()).toBe('general');
+    expect(dialog()).not.toBeNull();
+  });
+
+  it('still closes on a press on the dimmed page beside it', async () => {
+    await openAt('?settings=general');
+    pressAsPointer(document.querySelector('[data-slot="dialog-overlay"]') ?? document.body);
+    expect(view()).toBeNull();
+  });
+
+  describe('with unsaved typing in a tab', () => {
+    it('ignores Esc and a press beside it, so the draft is not lost to a reflex', async () => {
+      await openAt('?settings=ai-context', <UnsavedDraft />);
+      act(() => {
+        // Cancelable, as a real key press is: the guard is a `preventDefault`.
+        dialog()?.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+        );
+      });
+      expect(view()).toBe('ai-context');
+      pressAsPointer(document.querySelector('[data-slot="dialog-overlay"]') ?? document.body);
+      expect(view()).toBe('ai-context');
+    });
+
+    it('still closes from its ✕, which is a decision rather than a reflex', async () => {
+      await openAt('?settings=ai-context', <UnsavedDraft />);
+      act(() => {
+        document
+          .querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]')
+          ?.click();
+      });
+      expect(view()).toBeNull();
+    });
+  });
+
+  it("drops Polar's checkout return on a tab switch, so Billing does not announce it twice", async () => {
+    await openAt('?checkout=done&settings=billing');
+    act(() => {
+      tabButton('general')?.click();
+    });
+    expect(window.location.search).toBe('?settings=general');
   });
 });

@@ -12,6 +12,7 @@ import { notify } from '@/lib/notify';
 import { SettingsSection } from './settings-section';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
+import { useReportUnsavedSettingsDraft } from '@/hooks/use-unsaved-settings-draft';
 
 /**
  * Settings › AI context: the library, and the editor that fills it.
@@ -50,11 +51,21 @@ export function AiContextSection() {
   const t = useTranslate();
   const { contexts, status, save, remove } = useTranslationContexts();
   const { glossaries } = useGlossaries();
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraftState] = useState<Draft | null>(null);
+  // What the open draft started as, so "unsaved" means changed rather than merely open.
+  const [seed, setSeed] = useState<Draft | null>(null);
+  const setDraft = useCallback((next: Draft | null) => {
+    setDraftState(next);
+    setSeed(next);
+  }, []);
+  // While the draft differs from what it opened as, Esc and a click beside the
+  // Settings dialog do not close it (`use-unsaved-settings-draft.ts`).
+  useReportUnsavedSettingsDraft(draft !== null && JSON.stringify(draft) !== JSON.stringify(seed));
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const patch = useCallback(
-    (next: Partial<Draft>) => setDraft((current) => (current ? { ...current, ...next } : current)),
+    (next: Partial<Draft>) =>
+      setDraftState((current) => (current ? { ...current, ...next } : current)),
     [],
   );
 

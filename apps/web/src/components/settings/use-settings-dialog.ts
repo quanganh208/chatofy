@@ -6,6 +6,7 @@ import { FIRST_SETTINGS_TAB, type SettingsTabId } from './settings-tab-ids';
 import {
   readSettingsDialog,
   settingsDialogHref,
+  settingsDialogSwitchHref,
   withoutSettingsDialog,
   type SettingsDialogView,
 } from './settings-dialog-url';
@@ -70,7 +71,7 @@ function replaceView(view: SettingsDialogView): void {
   window.history.replaceState(
     pushedHere() ? { [PUSHED_KEY]: true } : null,
     '',
-    settingsDialogHref(view, here()),
+    settingsDialogSwitchHref(view, here()),
   );
 }
 

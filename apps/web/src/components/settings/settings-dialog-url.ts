@@ -29,7 +29,8 @@ export type SettingsDialogView = SettingsTabId | null;
  * `settings` when it closes. `checkout=done` is Polar's return to Billing: left on
  * the page underneath, reopening Billing would announce the same payment again.
  */
-const DIALOG_OWNED_PARAMS: readonly string[] = [SETTINGS_PARAM, 'checkout'];
+const CHECKOUT_RETURN_PARAM = 'checkout';
+const DIALOG_OWNED_PARAMS: readonly string[] = [SETTINGS_PARAM, CHECKOUT_RETURN_PARAM];
 
 /** The dialog's state as `?settings=` says it: closed (`undefined`), the list, or a tab. */
 export function readSettingsDialog(
@@ -62,6 +63,17 @@ export function settingsDialogHref(view: SettingsDialogView, base: UrlParts): st
   const params = new URLSearchParams(base.search ?? '');
   params.set(SETTINGS_PARAM, view ?? SETTINGS_MENU);
   return join(base.pathname, params, base.hash);
+}
+
+/**
+ * The address of `base` switched to `view` inside the open dialog. Polar's
+ * `checkout=done` is dropped: it is read once, by Billing as the dialog lands on it,
+ * and kept it would announce the same payment again every time Billing is reopened.
+ */
+export function settingsDialogSwitchHref(view: SettingsDialogView, base: UrlParts): string {
+  const params = new URLSearchParams(base.search ?? '');
+  params.delete(CHECKOUT_RETURN_PARAM);
+  return settingsDialogHref(view, { ...base, search: params.toString() });
 }
 
 /** The address of `base` with the dialog closed: its own parameters removed, the rest kept. */
