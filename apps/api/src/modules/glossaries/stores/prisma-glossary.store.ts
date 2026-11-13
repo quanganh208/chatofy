@@ -164,8 +164,10 @@ export class PrismaGlossaryStore implements GlossaryStore {
     });
     if (glossary === null) return false;
 
+    // `itemId` is the client-minted id the API hands out, not the row's own
+    // primary key; `(glossaryId, clientId)` is unique, so this hits one row.
     const { count } = await this.prisma.glossaryItem.deleteMany({
-      where: { id: itemId, glossaryId: glossary.id },
+      where: { clientId: itemId, glossaryId: glossary.id },
     });
     return count > 0;
   }
@@ -183,7 +185,6 @@ interface GlossaryRow {
 }
 
 interface ItemRow {
-  id: string;
   clientId: string;
   original: string;
   translation: string;
@@ -204,7 +205,6 @@ const GLOSSARY_SELECT = {
 } as const;
 
 const ITEM_SELECT = {
-  id: true,
   clientId: true,
   original: true,
   translation: true,
@@ -226,9 +226,15 @@ function toGlossary(row: GlossaryRow): Glossary {
   };
 }
 
+/**
+ * The public id of a term is its client-minted UUID, exactly as for a glossary.
+ * The row's own `id` is a cuid the database mints and never leaves the store:
+ * the shared contract types term ids as UUIDs, so handing out the cuid made
+ * every term list fail the client's parse and every delete fail validation.
+ */
 function toItem(row: ItemRow, glossaryClientId: string): GlossaryItem {
   return {
-    id: row.id,
+    id: row.clientId,
     glossaryId: glossaryClientId,
     original: row.original,
     translation: row.translation,
