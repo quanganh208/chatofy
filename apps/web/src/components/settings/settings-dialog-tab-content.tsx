@@ -1,13 +1,12 @@
 'use client';
 
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import { AccountTabContent } from './account-tab-content';
 import { AiContextSection } from './ai-context-section';
 import { AppearanceSection } from './appearance-section';
 import { AudioProcessingSection } from './audio-processing-section';
 import { ConversationDefaultsSection } from './conversation-defaults-section';
 import { CreditsSection } from './credits-section';
-import { ProfileSettings } from './profile-section';
-import { SecuritySection } from './security-section';
 import type { SettingsTabId } from './settings-tab-ids';
 
 /**
@@ -26,12 +25,7 @@ export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
     case 'ai-context':
       return <AiContextSection />;
     case 'account':
-      return (
-        <div className="flex flex-col gap-8">
-          <ProfileSettings />
-          <SecuritySection />
-        </div>
-      );
+      return <AccountTabContent />;
     case 'billing':
       return <CreditsSection />;
   }
