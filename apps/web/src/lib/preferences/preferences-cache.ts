@@ -24,13 +24,8 @@
  * Every storage touch is wrapped: a private window or a disabled-storage policy
  * throws on access, and the cache is never worth a broken page.
  */
-import {
-  themeChoiceSchema,
-  type ThemeChoice,
-  type UserPreferences,
-  type UserPreferencesPatch,
-} from '@chatofy/types';
-import type { PreferencesCache } from '@chatofy/api-client';
+import { themeChoiceSchema, type ThemeChoice, type UserPreferences } from '@chatofy/types';
+import type { PendingSlot, PreferencesCache } from '@chatofy/api-client';
 import { carryLegacyMicProcessing } from '@/lib/mic-processing-store';
 
 export const PREFERENCES_CACHE_KEY = 'chatofy.preferences';
@@ -123,18 +118,19 @@ export function accountPreferencesCache(userId: string): PreferencesCache {
       writeCacheEntry(pending ? { userId, preferences, pending } : { userId, preferences });
     },
     clear: () => forgetAccountPreferences(),
-    // Read raw: the store validates it against the patch schema before using it.
+    // Opaque to this adapter: the store owns the slot's shape (one entry per
+    // tab) and validates it on read, so it is stored and returned as given.
     readPending: () => own()?.pending ?? null,
-    writePending: (patch: UserPreferencesPatch | null) => {
+    writePending: (slot: PendingSlot | null) => {
       const entry = own();
       // Nothing to attach a change to yet: the store writes the document first.
       if (!entry) {
-        if (patch) writeCacheEntry({ userId, preferences: null, pending: patch });
+        if (slot) writeCacheEntry({ userId, preferences: null, pending: slot });
         return;
       }
       writeCacheEntry(
-        patch
-          ? { userId, preferences: entry.preferences, pending: patch }
+        slot
+          ? { userId, preferences: entry.preferences, pending: slot }
           : { userId, preferences: entry.preferences },
       );
     },

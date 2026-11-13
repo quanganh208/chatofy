@@ -102,7 +102,9 @@ describe('a change the server never received', () => {
 
 describe('a change left unsent by an earlier page', () => {
   it('shows at once but is not sent until the session confirms the same account', async () => {
-    void accountPreferencesCache('user-1').writePending!({ theme: 'dark' });
+    void accountPreferencesCache('user-1').writePending!({
+      contexts: { closed: { theme: 'dark' } },
+    });
     const save = vi.spyOn(server.transport, 'save');
     const holder = createAccountHolder({
       userId: 'user-1',
@@ -122,7 +124,9 @@ describe('a change left unsent by an earlier page', () => {
   });
 
   it('is never sent for another account', async () => {
-    void accountPreferencesCache('user-2').writePending!({ theme: 'dark' });
+    void accountPreferencesCache('user-2').writePending!({
+      contexts: { closed: { theme: 'dark' } },
+    });
     const save = vi.spyOn(server.transport, 'save');
     const mine = tab('user-1');
     await tick(60);
