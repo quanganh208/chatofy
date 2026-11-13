@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptScroller } from './transcript-scroller';
 import type { TranscriptOrder } from '@/lib/translate-settings';
 
@@ -375,6 +375,35 @@ describe('TranscriptScroller newest-first place-keeping', () => {
     // b merges into a block above, which is now taller: a moved down 150px.
     renderTurns([turn('c', 0, 450), turn('a', 450, 600)], 1050);
     expect(node.scrollTop).toBe(250);
+  });
+
+  it('holds the reader when text above them grows without the scroller rendering', () => {
+    // The live line types in and a polished translation morphs on their own
+    // state, frame by frame; only a resize of the content can report that.
+    let onResize: (() => void) | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          onResize = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    try {
+      renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+      const node = region();
+      scrollTo(node, 400); // reading turn a, 100px into it
+
+      // Turn b, above the reader, grows by 50px as its text types in.
+      const below = node.querySelector<HTMLElement>('[data-id="a"]')!;
+      below.setAttribute('data-top', '350');
+      act(() => onResize?.());
+      expect(node.scrollTop).toBe(450);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('holds a free-scroll reader parked at the top instead of following', () => {

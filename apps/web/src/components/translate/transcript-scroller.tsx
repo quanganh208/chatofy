@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { ScrollArea } from '@chatofy/ui/react';
 import type { TranscriptOrder } from '@/lib/translate-settings';
 
@@ -131,6 +131,23 @@ export function TranscriptScroller({
     recordAnchor();
   }, [followsTop, recordAnchor]);
 
+  // Newest first grows at the TOP, so a reader not following would see the turn
+  // they are reading slide away under every new one. Held here, by that turn
+  // rather than by total height: a late translation growing a turn BELOW the
+  // reader must not move them. Done by hand in every browser, with the browser's
+  // own anchoring switched off on this region (below): native anchoring skips a
+  // reader at scrollTop 0 — exactly free scroll parked at the top — and leaving
+  // it on as well would move the others twice.
+  //
+  // The turn after it is held as a spare: a block that a newer turn merges into
+  // the one before it unmounts (its key was its first turn), and the reader is
+  // then kept by the turn below instead of not at all.
+  const holdPlace = useCallback(() => {
+    const node = region.current;
+    const held = anchor.current?.find(({ element }) => element.isConnected);
+    if (node && held) node.scrollTop += contentTop(node, held.element) - held.top;
+  }, []);
+
   // The order the last commit drew, so a switch can be told apart from an update.
   const drawnOrder = useRef(order);
 
@@ -147,23 +164,27 @@ export function TranscriptScroller({
       node.scrollTop = followsTop ? 0 : node.scrollHeight;
     } else if (!freeScroll && following.current) {
       node.scrollTop = followsTop ? 0 : node.scrollHeight;
-    } else if (followsTop && anchor.current) {
-      // Newest first grows at the TOP, so a reader not following would see the
-      // turn they are reading slide away under every new one. Held here, by that
-      // turn rather than by total height: a late translation growing a turn BELOW
-      // the reader must not move them. Done by hand in every browser, with the
-      // browser's own anchoring switched off on this region (below): native
-      // anchoring skips a reader at scrollTop 0 — exactly free scroll parked at
-      // the top — and leaving it on as well would move the others twice.
-      //
-      // The turn after it is held as a spare: a block that a newer turn merges
-      // into the one before it unmounts (its key was its first turn), and the
-      // reader is then kept by the turn below instead of not at all.
-      const held = anchor.current.find(({ element }) => element.isConnected);
-      if (held) node.scrollTop += contentTop(node, held.element) - held.top;
+    } else if (followsTop) {
+      holdPlace();
     }
     recordAnchor();
   });
+
+  // Text above the reader also grows WITHOUT this component rendering: the live
+  // line types itself in and a polished translation morphs, both frame by frame
+  // on their own state. A commit here would never see that growth, so newest
+  // first also holds the place whenever the content changes size.
+  useEffect(() => {
+    const content = region.current?.firstElementChild;
+    if (!followsTop || !content || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (!freeScroll && following.current) return;
+      holdPlace();
+      recordAnchor();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [followsTop, freeScroll, holdPlace, recordAnchor]);
 
   return (
     // shadcn's scroll area for a thin themed bar instead of the browser's. The element

@@ -127,9 +127,10 @@ export function DisplaySettingsPanel({
 
         {/* `aria-label` on every switch, matching the visible label word for word.
           `SettingsRow` draws a `<span>`, and a Radix switch is a `<button
-          role="switch">` with no text of its own — so without this all three
-          announce as "switch, on" with no name. The voice panel next door already
-          carried one; these three were written without and nothing caught it. */}
+          role="switch">` with no text of its own — so without this every switch in
+          this panel, in both groups, announces as "switch, on" with no name. The
+          voice panel next door already carried one; these were written without and
+          nothing caught it. */}
         <SettingsRow icon={MousePointer2} label={t('web.translate.freeScroll')}>
           <Switch
             aria-label={t('web.translate.freeScroll')}
