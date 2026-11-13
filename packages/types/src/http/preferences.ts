@@ -76,6 +76,31 @@ export const languageVoicePreferenceSchema = z
   .partial();
 export type LanguageVoicePreference = z.infer<typeof languageVoicePreferenceSchema>;
 
+/**
+ * One language's voice inside a PATCH. Same as the stored shape, except that
+ * `voice: null` removes the token — "speak with the gender default". JSON has
+ * no `undefined`, so without it a cleared voice could never reach the server
+ * and the old token would come back on the next read. The stored document
+ * never holds null: {@link mergePreferences} deletes the key.
+ */
+export const languageVoicePatchSchema = languageVoicePreferenceSchema.extend({
+  voice: languageVoicePreferenceSchema.shape.voice.unwrap().nullable().optional(),
+});
+export type LanguageVoicePatch = z.infer<typeof languageVoicePatchSchema>;
+
+/** Merge a voice patch over a stored voice, honouring `voice: null`. */
+function mergeVoice(
+  base: LanguageVoicePreference | LanguageVoicePatch | undefined,
+  patch: LanguageVoicePatch,
+): LanguageVoicePatch {
+  return { ...base, ...patch };
+}
+
+function withoutNullVoice(voice: LanguageVoicePatch): LanguageVoicePreference {
+  const { voice: token, ...rest } = voice;
+  return token === null || token === undefined ? rest : { ...rest, voice: token };
+}
+
 export const callPreferencesSchema = z.object({
   captions: z.boolean(),
   captionSize: captionSizeSchema,
@@ -128,7 +153,7 @@ export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 export const userPreferencesPatchSchema = z
   .object({
     theme: themeChoiceSchema,
-    voices: z.partialRecord(languageCodeSchema, languageVoicePreferenceSchema),
+    voices: z.partialRecord(languageCodeSchema, languageVoicePatchSchema),
     contextId: userPreferencesSchema.shape.contextId,
     translateMode: translateModeSchema,
     call: callPreferencesSchema.partial(),
@@ -265,9 +290,9 @@ export function mergePreferences(
   const voices: UserPreferences['voices'] = { ...base.voices };
   for (const [code, value] of Object.entries(patch.voices ?? {}) as [
     LanguageCode,
-    LanguageVoicePreference | undefined,
+    LanguageVoicePatch | undefined,
   ][]) {
-    if (value) voices[code] = { ...base.voices[code], ...value };
+    if (value) voices[code] = withoutNullVoice(mergeVoice(base.voices[code], value));
   }
   return {
     theme: patch.theme ?? base.theme,
@@ -296,9 +321,10 @@ export function combinePreferencePatches(
     const voices: NonNullable<UserPreferencesPatch['voices']> = { ...earlier.voices };
     for (const [code, value] of Object.entries(later.voices ?? {}) as [
       LanguageCode,
-      LanguageVoicePreference | undefined,
+      LanguageVoicePatch | undefined,
     ][]) {
-      if (value) voices[code] = { ...earlier.voices?.[code], ...value };
+      // Keeps `voice: null` so the combined patch still clears the token.
+      if (value) voices[code] = mergeVoice(earlier.voices?.[code], value);
     }
     out.voices = voices;
   }
