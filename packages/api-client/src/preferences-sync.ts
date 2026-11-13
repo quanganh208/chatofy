@@ -317,7 +317,11 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         writeCache(next);
         config.broadcast?.(next);
       } catch (error) {
-        publish({ status: 'error' });
+        // Nothing is queued to retry — a reset is the reader's explicit act and
+        // its failure is reported to them by the caller, inline. The store
+        // itself has nothing unsaved, so it goes back to idle rather than
+        // claiming a retry that will never happen.
+        publish({ status: 'idle' });
         throw error;
       }
     },

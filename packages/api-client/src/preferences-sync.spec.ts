@@ -199,4 +199,17 @@ describe('createPreferencesSync', () => {
     await sync.dispose(true);
     expect(cache.pending).toBeNull();
   });
+
+  it('a failed reset rejects to its caller and leaves no phantom retry state', async () => {
+    const server = fakeServer();
+    const sync = createPreferencesSync({
+      transport: server.transport,
+      cache: memoryCache(),
+      defaults,
+    });
+    await sync.start();
+    vi.mocked(server.transport.reset).mockRejectedValueOnce(new Error('offline'));
+    await expect(sync.reset()).rejects.toThrow('offline');
+    expect(sync.getState().status).toBe('idle');
+  });
 });
