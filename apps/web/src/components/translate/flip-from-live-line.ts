@@ -9,9 +9,9 @@ const entered = new WeakSet<Element>();
 /**
  * Slide a just-finished turn in from where its live line was painted.
  *
- * The finished turn is a new list item above the live region, with a meta row
- * the live line never had, so it does not land exactly where the reader was
- * looking. This starts it there and lets it settle into place: one transform,
+ * The finished turn is a new list item beside the live region — above it oldest
+ * first, below it newest first — with a meta row the live line never had, so it
+ * does not land exactly where the reader was looking. This starts it there and lets it settle into place: one transform,
  * the only entrance a settled line is allowed.
  *
  * Meant for a ref callback. Runs once per element, so a parent re-render that

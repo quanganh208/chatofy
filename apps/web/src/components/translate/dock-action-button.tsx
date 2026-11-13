@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
+import { useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   Button,
   Tooltip,
@@ -37,7 +37,7 @@ export function DockActionButton({
   className,
   ...props
 }: Omit<ComponentProps<typeof Button>, 'variant' | 'size' | 'children'> & {
-  /** The visible word (and the tooltip text) in the dock. */
+  /** The visible word in the dock; the tooltip, when shown, says the accessible name. */
   label: string;
   /** True in the dock (label above the breakpoint, tooltip below); false in the fullscreen bar. */
   dock: boolean;
@@ -58,8 +58,39 @@ export function DockActionButton({
     );
   }
   return (
+    <DockButtonWithTooltip label={label} className={className} {...props}>
+      {children}
+    </DockButtonWithTooltip>
+  );
+}
+
+/**
+ * The dock variant. The tooltip opens only while the word is hidden: its content
+ * portals to the body, outside the `main` container, so no container class can
+ * hide it at the wide breakpoint — and a bubble repeating the word beside it is
+ * noise, which Radix would also read out as a description. So the open state asks
+ * the one element that knows: is the word on screen right now.
+ *
+ * The tooltip says the whole accessible name, not the short word. "Captions" is
+ * enough beside an icon at full width; alone, the reader needs to know WHICH
+ * window it opens, which is what the name was written to say.
+ */
+function DockButtonWithTooltip({
+  label,
+  children,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant' | 'size' | 'children'> & {
+  label: string;
+  children: ReactNode;
+}) {
+  const word = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const wordHidden = () => !word.current || getComputedStyle(word.current).display === 'none';
+
+  return (
     <TooltipProvider>
-      <Tooltip>
+      <Tooltip open={open} onOpenChange={(next) => setOpen(next && wordHidden())}>
         <TooltipTrigger asChild>
           <Button
             variant="outline"
@@ -68,10 +99,12 @@ export function DockActionButton({
             {...props}
           >
             {children}
-            <span className="hidden @[46rem]/main:inline">{label}</span>
+            <span ref={word} className="hidden @[46rem]/main:inline">
+              {label}
+            </span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top">{label}</TooltipContent>
+        <TooltipContent side="top">{props['aria-label'] ?? label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

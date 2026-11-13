@@ -128,7 +128,7 @@ describe('transcript order on the page', () => {
   });
 
   it.each(['row', 'column'] as const)(
-    'turns BOTH split panes over the same way in %s, so a turn sits level in each',
+    'turns BOTH split panes over the same way in %s, in the same sequence',
     (paneLayout) => {
       renderPanes({ displayMode: 'split', paneLayout, transcriptOrder: 'newest-first' });
       const [source, target] = regions();

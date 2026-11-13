@@ -258,20 +258,101 @@ describe('TranscriptScroller newest first', () => {
     render('a new turn, then the conversation', 1200, false, 'newest-first');
     expect(node.scrollTop).toBe(0);
   });
+});
 
-  it('keeps a reader in place by hand where the browser has no scroll anchoring', () => {
-    // Safari: no `overflow-anchor`, so the 300px a new turn adds above the reader
-    // has to be added to their offset, or the line they were reading slides away.
-    vi.stubGlobal('CSS', { supports: () => false });
-    try {
-      render('a conversation', 900, false, 'newest-first');
-      const node = region();
-      scrollTo(node, 300);
+/**
+ * Switching the order flips the list under the reader, so wherever they were no
+ * longer means anything: the switch is a request to see the newest turn.
+ */
+describe('TranscriptScroller order switch', () => {
+  it('follows the newest edge again after the order flips, wherever the reader was', () => {
+    render('a conversation', 900);
+    const node = region();
+    // Oldest first, scrolled up to the very first turn: not following.
+    node.scrollTop = 0;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
 
-      render('a new turn, then the conversation', 1200, false, 'newest-first');
-      expect(node.scrollTop).toBe(600);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    render('a conversation, newest first', 900, false, 'newest-first');
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'new turns did not pin to the top after the switch').toBe(0);
+  });
+});
+
+/**
+ * Where the browser has no scroll anchoring (Safari), newest first keeps a
+ * scrolled-away reader on the turn they were reading by hand. happy-dom has no
+ * layout, so each turn's place comes from `data-top`/`data-height` and the region
+ * is a 400px window at the top of the page.
+ */
+describe('TranscriptScroller place-keeping without scroll anchoring', () => {
+  const turn = (id: string, top: number, height: number) => (
+    <li key={id} data-id={id} data-top={top} data-height={height} />
+  );
+
+  function renderTurns(turns: React.ReactNode[], contentHeight: number) {
+    geometry.scrollHeight = contentHeight;
+    act(() => {
+      root.render(
+        <TranscriptScroller label="Transcript" order="newest-first">
+          <ol>{turns}</ol>
+        </TranscriptScroller>,
+      );
+    });
+  }
+
+  function scrollTo(node: HTMLElement, top: number) {
+    node.scrollTop = top;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+  }
+
+  let anchoring = false;
+  beforeEach(() => {
+    anchoring = false;
+    vi.stubGlobal('CSS', { supports: () => anchoring });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const scroller = this.closest<HTMLElement>('[role="region"]');
+      if (this.getAttribute('role') === 'region') return new DOMRect(0, 0, 400, 400);
+      const top = Number(this.getAttribute('data-top') ?? 0) - (scroller?.scrollTop ?? 0);
+      return new DOMRect(0, top, 400, Number(this.getAttribute('data-height') ?? 0));
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('holds the turn being read when a new one lands above it', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400); // reading turn a, 100px into it
+
+    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200);
+    expect(node.scrollTop).toBe(700);
+  });
+
+  it('does not move the reader when a turn BELOW them grows', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 100); // reading turn b
+
+    // A late translation lengthens turn a, which is below b.
+    renderTurns([turn('b', 0, 300), turn('a', 300, 900)], 1200);
+    expect(node.scrollTop).toBe(100);
+  });
+
+  it('leaves the place to the browser where it anchors itself', () => {
+    anchoring = true;
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400);
+
+    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200);
+    expect(node.scrollTop, 'moved the reader a second time').toBe(400);
   });
 });

@@ -51,4 +51,48 @@ describe('StageControls', () => {
     expect(buttons[1]?.getAttribute('aria-label')).toMatch(/^Captions: /);
     expect(buttons[1]?.getAttribute('aria-pressed')).toBe('true');
   });
+
+  /**
+   * The tooltip portals outside the dock's container, so it decides for itself
+   * whether the word is on screen: open only while it is hidden, and then saying
+   * the whole name — which window the caption button opens, not just "Captions".
+   */
+  function renderControls() {
+    act(() => {
+      root.render(
+        <LocaleProvider locale="en">
+          <StageControls
+            onFullscreen={vi.fn()}
+            windowKind="pip"
+            windowOpen={false}
+            onToggleWindow={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+    });
+    return [...container.querySelectorAll('button')];
+  }
+
+  const tooltipText = () => document.querySelector('[role="tooltip"]')?.textContent ?? null;
+
+  it('opens no tooltip while the word is showing beside the icon', () => {
+    const [, captions] = renderControls();
+    act(() => captions?.focus());
+    expect(tooltipText()).toBeNull();
+  });
+
+  it('names the whole window in the tooltip while the word is hidden', () => {
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = real(element, pseudo);
+      return element.tagName === 'SPAN' ? { ...style, display: 'none' } : style;
+    });
+    try {
+      const [, captions] = renderControls();
+      act(() => captions?.focus());
+      expect(tooltipText()).toBe('Captions: Picture-in-picture');
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 });
