@@ -903,7 +903,6 @@ export const en = {
   'web.settings.defaults': 'Defaults',
   'web.settings.defaultsDescription':
     'What a new conversation starts with. Languages and voices stay fixed while one is running.',
-  'web.settings.profile': 'Profile',
   'web.settings.billing': 'Billing',
   'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
   'web.settings.languageNote': 'Also the language of the emails we send you.',

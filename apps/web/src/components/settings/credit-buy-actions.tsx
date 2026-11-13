@@ -33,10 +33,10 @@ interface BuyOption {
  * The "Buy credits" group: one row per plan per rail the API sells, the offer on the
  * left and its Buy button on the right.
  *
- * **One accent.** The first row's Buy is filled — the options are sorted Pro first,
- * so it is the offer a Free account most likely came here for — and every other is
- * outline. It stays filled while disabled for a closed account, so the tab's count
- * does not depend on who is looking: one in every state that has buy actions.
+ * **One accent when buying is open.** The first row's Buy is filled — the options are
+ * sorted Pro first, so it is the offer a Free account most likely came here for — and
+ * every other is outline. For a closed account every Buy is outline: a filled button
+ * reads as available, and disabled it would promise what the account cannot do.
  *
  * **A checkout that would not open is a toast with Retry**; the one refusal that
  * needs explaining where it happened — checkout is not open to this account — stays
@@ -165,7 +165,7 @@ export function CreditBuyActions({
                   visible word is the start of what a screen reader says. */}
               <Button
                 id={buttonId}
-                variant={index === 0 ? 'default' : 'outline'}
+                variant={index === 0 && !closed ? 'default' : 'outline'}
                 size="sm"
                 disabled={closed || pending !== null}
                 aria-labelledby={`${buttonId} ${labelId}`}

@@ -1494,9 +1494,9 @@ const SCREENS: ScreenState[] = [
   // dialog opened from a tab — the photo dialog, the password dialog, the sign-out
   // confirmation — is the second, and the ceiling.
   //
-  // ZERO accent at rest on every tab but Billing. The one filled control a settings
-  // state may spend belongs to the thing that state is for: the first offer's Buy on
-  // Billing, Save in the context editor, the pick in the photo dialog, the submit in
+  // ZERO accent at rest on every tab but Billing with checkout open. The one filled
+  // control a settings state may spend belongs to the thing that state is for: the
+  // first offer's Buy when the account can check out, Save in the context editor, the pick in the photo dialog, the submit in
   // the password dialog, the confirm in the sign-out dialog.
   {
     name: 'settings dialog › general, over /history',
@@ -1634,10 +1634,10 @@ const SCREENS: ScreenState[] = [
   },
   {
     // Checkout closed: the balance, the disabled buy actions and the usage list, all
-    // in hairline groups. The first offer's Buy stays filled while disabled, so the
-    // count does not depend on who is looking; every other control is outline.
+    // in hairline groups and all outline — a disabled filled Buy would read as
+    // available.
     name: 'settings dialog › billing — checkout closed',
-    filled: 1,
+    filled: 0,
     surfaces: 1,
     setup: settingsOn('billing'),
     render: settingsOverAPage,

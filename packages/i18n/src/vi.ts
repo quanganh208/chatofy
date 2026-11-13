@@ -710,7 +710,6 @@ export const vi: Messages = {
   'web.settings.defaults': 'Mặc định',
   'web.settings.defaultsDescription':
     'Những gì một hội thoại mới bắt đầu với. Ngôn ngữ và giọng đọc giữ nguyên khi hội thoại đang chạy.',
-  'web.settings.profile': 'Hồ sơ',
   'web.settings.billing': 'Thanh toán',
   'web.settings.billingDescription': 'Số credit, gói đang dùng và lịch sử sử dụng.',
   'web.settings.languageNote': 'Đây cũng là ngôn ngữ của email chúng tôi gửi cho bạn.',

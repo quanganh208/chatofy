@@ -186,13 +186,16 @@ describe('the credits region', () => {
     ]);
   });
 
-  it('fills the first offer only, whether or not checkout is open', async () => {
-    // The tab's one accent-filled control, in both states that show offers.
-    for (const checkoutAllowed of [false, true]) {
+  it('fills the first offer only when checkout is open, and none when it is closed', async () => {
+    // A disabled filled button reads as available, so a closed account sees outline only.
+    for (const [checkoutAllowed, first] of [
+      [false, 'outline'],
+      [true, 'default'],
+    ] as const) {
       getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed }));
       await render();
       expect(buyButtons().map((b) => b.getAttribute('data-variant'))).toEqual([
-        'default',
+        first,
         'outline',
         'outline',
         'outline',

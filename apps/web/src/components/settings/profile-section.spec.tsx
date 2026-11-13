@@ -119,7 +119,7 @@ async function pickFile() {
 }
 
 describe('the profile rows', () => {
-  it('shows who this is in the header, then name and email as rows', async () => {
+  it('shows who this is in the header, once', async () => {
     await render(null, null, 'January 9, 2026');
     const header = container.querySelector('[data-account-header]');
     expect(header?.textContent).toContain('Quang Anh');
@@ -127,12 +127,9 @@ describe('the profile rows', () => {
     expect(header?.textContent).toContain(`${en['web.account.memberSince']} January 9, 2026`);
     // Change photo belongs to the photo it changes.
     expect(header?.querySelector('#photo-change-open')).not.toBeNull();
-    const box = container.querySelector('[data-slot="settings-section-box"]');
-    expect(container.querySelector('[data-slot="settings-section"] h3')?.textContent).toBe(
-      en['web.settings.profile'],
-    );
-    expect(box?.textContent).toContain('Quang Anh');
-    expect(box?.textContent).toContain('a@b.co');
+    // No group repeating the header's read-only values beneath it.
+    expect(container.querySelector('[data-slot="settings-section"]')).toBeNull();
+    expect(container.textContent?.split('a@b.co')).toHaveLength(2);
   });
 
   it('says the details did not load rather than drawing a date that never came', async () => {

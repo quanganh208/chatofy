@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage, Button, Skeleton } from '@chatofy/
 import { getMe } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
 import { ChangePhotoDialog } from './change-photo-dialog';
-import { SettingsSection, SettingsSectionRow } from './settings-section';
 
 /**
  * Settings › Profile, with its data: who the session says this is, and when the
@@ -55,11 +54,10 @@ export function ProfileSettings() {
 }
 
 /**
- * Who this account is: a header with the photo, the name, the address and the join
- * date, then the "Profile" group repeating name and email as labelled rows. The
- * header is what a reader recognises themselves by; the rows are where each value
- * is named, the way every other tab names its settings. "Change photo" opens a
- * dialog (`change-photo-dialog.tsx`), which is where removing the photo lives too.
+ * Who this account is: one header with the photo, the name, the address and the join
+ * date. No "Profile" group under it — every value it would hold is read-only and
+ * already in the header, so it could only repeat them. "Change photo" opens a dialog
+ * (`change-photo-dialog.tsx`), which is where removing the photo lives too.
  *
  * Name and email are read-only here: no endpoint changes either. `PATCH /auth/me`
  * takes only the mail locale.
@@ -140,15 +138,6 @@ export function ProfileSection({
           {t('web.account.avatarChange')}
         </Button>
       </div>
-
-      <SettingsSection title={t('web.settings.profile')}>
-        <SettingsSectionRow label={t('web.auth.name')}>
-          <span className="text-body text-prose truncate">{displayName}</span>
-        </SettingsSectionRow>
-        <SettingsSectionRow label={t('common.auth.email')}>
-          <span className="text-body text-prose break-all">{email ?? ''}</span>
-        </SettingsSectionRow>
-      </SettingsSection>
 
       <ChangePhotoDialog
         open={dialogOpen}

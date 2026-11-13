@@ -23,9 +23,9 @@ import { stripPolarSessionToken } from '@/lib/strip-polar-session-token';
  * so they are rows in a hairline group. The QR panel opens as a row of the buy group
  * for the same reason.
  *
- * **One accent at rest.** The first buy option is the tab's one filled control
- * (`credit-buy-actions.tsx` says why); manage, show-more and the QR panel's controls
- * are outline or ghost.
+ * **At most one accent.** When checkout is open the first buy option is the tab's one
+ * filled control (`credit-buy-actions.tsx` says why); closed, nothing is filled.
+ * Manage, show-more and the QR panel's controls are outline or ghost.
  *
  * **Outcomes are toasts.** A checkout or portal that would not open says so with
  * Retry; coming back from Polar (`?checkout=done`, which `/account?checkout=done`
