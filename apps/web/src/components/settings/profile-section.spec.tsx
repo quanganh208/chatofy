@@ -6,7 +6,7 @@ import { ApiClientError } from '@chatofy/api-client';
 import { en } from '@chatofy/i18n';
 
 /**
- * Settings › Profile and its Change photo dialog: what they must get right, and
+ * Settings › Account (profile) and its Change photo dialog: what they must get right, and
  * what they deliberately cannot test.
  *
  * The four failure messages are four because the next step differs each time —

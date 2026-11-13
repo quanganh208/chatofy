@@ -27,7 +27,7 @@ import { ChangePasswordForm } from './change-password-form';
 import { SettingsSection, SettingsSectionRow } from './settings-section';
 
 /**
- * Settings › Security: change the password, and leave this browser.
+ * Settings › Account (security): change the password, and leave this browser.
  *
  * **Change password is a dialog.** It is a form that interrupts — three fields and a
  * consequence — and its submit is that state's one filled control. The page itself

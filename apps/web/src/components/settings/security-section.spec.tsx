@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@chatofy/i18n';
 
 /**
- * Settings › Security: the password dialog, the sign-out confirmation, and the claim
+ * Settings › Account (security): the password dialog, the sign-out confirmation, and the claim
  * this page must not make.
  *
  * Signing out here discards this browser's cookie. The API token it carried stays valid

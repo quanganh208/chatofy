@@ -9,7 +9,7 @@ import { useTranslate } from '@/i18n/provider';
 import { ChangePhotoDialog } from './change-photo-dialog';
 
 /**
- * Settings › Profile, with its data: who the session says this is, and when the
+ * Settings › Account (profile), with its data: who the session says this is, and when the
  * account was made.
  *
  * Identity comes from two places for a reason. The session cookie already carries

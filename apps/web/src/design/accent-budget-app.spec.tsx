@@ -2147,7 +2147,7 @@ async function mount(element: React.ReactElement): Promise<void> {
  */
 async function show(screen: ScreenState): Promise<void> {
   // Each row is its own backend: a catalog an earlier row cached must not
-  // answer for this one — Settings › Defaults asks for every language at once.
+  // answer for this one — Settings › Translation asks for every language at once.
   forgetVoiceCatalogs();
   screen.setup();
   await mount(screen.render());
