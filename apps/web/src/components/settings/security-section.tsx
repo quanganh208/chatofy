@@ -57,7 +57,7 @@ export function SecuritySection() {
   const returnFocus = useReturnFocus();
 
   return (
-    <SettingsSection>
+    <SettingsSection title={t('web.account.security')}>
       <SettingsSectionRow
         label={t('common.auth.password')}
         note={t('web.account.changePasswordHint')}

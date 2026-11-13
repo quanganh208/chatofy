@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@chatofy/api-client';
+import { en } from '@chatofy/i18n';
 
 /**
  * Settings › Profile and its Change photo dialog: what they must get right, and
@@ -118,11 +119,20 @@ async function pickFile() {
 }
 
 describe('the profile rows', () => {
-  it('shows the name, the email and the join date as rows', async () => {
+  it('shows who this is in the header, then name and email as rows', async () => {
     await render(null, null, 'January 9, 2026');
-    expect(container.textContent).toContain('Quang Anh');
-    expect(container.textContent).toContain('a@b.co');
-    expect(container.textContent).toContain('January 9, 2026');
+    const header = container.querySelector('[data-account-header]');
+    expect(header?.textContent).toContain('Quang Anh');
+    expect(header?.textContent).toContain('a@b.co');
+    expect(header?.textContent).toContain(`${en['web.account.memberSince']} January 9, 2026`);
+    // Change photo belongs to the photo it changes.
+    expect(header?.querySelector('#photo-change-open')).not.toBeNull();
+    const box = container.querySelector('[data-slot="settings-section-box"]');
+    expect(container.querySelector('[data-slot="settings-section"] h3')?.textContent).toBe(
+      en['web.settings.profile'],
+    );
+    expect(box?.textContent).toContain('Quang Anh');
+    expect(box?.textContent).toContain('a@b.co');
   });
 
   it('says the details did not load rather than drawing a date that never came', async () => {

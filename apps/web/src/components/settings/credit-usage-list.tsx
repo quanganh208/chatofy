@@ -18,8 +18,8 @@ const KIND_KEY: Record<CreditUsageKind, MessageKey> = {
 };
 
 /**
- * What the credits went on, newest first: a list on the page ground, one row
- * per entry, never a card per row.
+ * What the credits went on, newest first: rows inside the "Usage" group's hairline
+ * box, one per entry, never a card per row.
  *
  * A row whose spend belongs to a saved conversation links to it in history,
  * which is what the conversation id sent on every session start is for. The
@@ -33,25 +33,38 @@ export function CreditUsageList({ usage }: { usage: UseCreditUsage }) {
   const t = useTranslate();
   const locale = useLocale();
 
+  // Every branch returns rows of the enclosing group's box: the box pads each one and
+  // draws the divider between them, so nothing here sets a horizontal inset or a
+  // border against the box edge.
   if (usage.state === 'loading') {
-    return <Skeleton className="h-10 w-full" />;
+    return (
+      <div className="py-3.5">
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
   }
   if (usage.state === 'failed') {
-    return <p className="text-muted-foreground text-hint">{t('common.billing.usageLoadFailed')}</p>;
+    return (
+      <p className="text-muted-foreground text-hint py-3.5">
+        {t('common.billing.usageLoadFailed')}
+      </p>
+    );
   }
   if (usage.entries.length === 0) {
-    return <p className="text-muted-foreground text-hint">{t('common.billing.usageEmpty')}</p>;
+    return (
+      <p className="text-muted-foreground text-hint py-3.5">{t('common.billing.usageEmpty')}</p>
+    );
   }
 
   return (
-    <div className="flex flex-col">
-      <ul className="flex flex-col" data-credit-usage-list>
+    <>
+      <ul className="divide-hairline flex flex-col divide-y" data-credit-usage-list>
         {usage.entries.map((entry) => {
           const amount = formatCredits(t, locale, Math.abs(entry.credits));
           return (
             <li
               key={entry.id}
-              className="border-hairline grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 border-b py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-3"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-body">{t(KIND_KEY[entry.kind])}</span>
@@ -79,22 +92,27 @@ export function CreditUsageList({ usage }: { usage: UseCreditUsage }) {
           );
         })}
       </ul>
-      {usage.hasMore ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-1 self-start"
-          disabled={usage.loadingMore}
-          onClick={usage.loadMore}
-        >
-          {t('web.account.usageShowMore')}
-        </Button>
+      {usage.hasMore || usage.moreFailed ? (
+        <div className="flex flex-col items-start gap-1 py-2">
+          {usage.hasMore ? (
+            // Pulled left by its own padding so its label lines up with the rows'.
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-mx-3"
+              disabled={usage.loadingMore}
+              onClick={usage.loadMore}
+            >
+              {t('web.account.usageShowMore')}
+            </Button>
+          ) : null}
+          {usage.moreFailed ? (
+            <p role="alert" className="text-muted-foreground text-hint py-1">
+              {t('common.billing.usageLoadFailed')}
+            </p>
+          ) : null}
+        </div>
       ) : null}
-      {usage.moreFailed ? (
-        <p role="alert" className="text-muted-foreground text-hint">
-          {t('common.billing.usageLoadFailed')}
-        </p>
-      ) : null}
-    </div>
+    </>
   );
 }

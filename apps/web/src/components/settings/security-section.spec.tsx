@@ -83,6 +83,13 @@ describe('the security page', () => {
     expect(text).toContain('this browser only');
   });
 
+  it('is the "Security" group', async () => {
+    await render();
+    expect(container.querySelector('[data-slot="settings-section"] h3')?.textContent).toBe(
+      en['web.account.security'],
+    );
+  });
+
   it('spends no accent: both actions are outline', async () => {
     await render();
     expect(container.querySelector('.bg-primary')).toBeNull();

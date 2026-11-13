@@ -42,7 +42,7 @@ export const SETTINGS_TAB_GROUPS: readonly SettingsTabGroup[] = [
       {
         id: 'ai-context',
         labelKey: 'web.preferences.aiContext',
-        descriptionKey: 'web.preferences.aiContextHint',
+        descriptionKey: 'web.preferences.aiContextDescription',
         icon: Sparkles,
       },
     ],

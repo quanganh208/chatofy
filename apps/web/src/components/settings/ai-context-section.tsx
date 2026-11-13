@@ -16,11 +16,12 @@ import { useTranslate } from '@/i18n/provider';
 /**
  * Settings › AI context: the library, and the editor that fills it.
  *
- * **On the page ground.** The library is a list of rows with a hairline between
- * them, and the editor expands INLINE under it rather than in a dialog: it is a long
- * form you sit down with (a name, a topic, up to a hundred terms, a register), and a
- * modal over it would be a second place to be while writing the one thing this page
- * is for.
+ * **Two hairline groups, no cards.** The library is one group: its rows, then a last
+ * row holding "New context". The editor opens as a second group INLINE under it,
+ * titled for what it is doing, rather than in a dialog: it is a long form you sit
+ * down with (a name, a topic, up to a hundred terms, a register), and a modal over
+ * the Settings dialog would be a second place to be while writing the one thing this
+ * tab is for.
  *
  * **Accent.** Closed, this page spends ZERO accent-filled controls: "New context" is
  * `outline`, and both row controls are quieter still. Open, the editor's `Save` is
@@ -88,105 +89,133 @@ export function AiContextSection() {
     }
   };
 
+  const editorTitle = editingExisting
+    ? t('web.preferences.aiContext.editTitle')
+    : t('web.preferences.aiContext.new');
+
   return (
-    <SettingsSection>
-      {status === 'loading' ? (
-        <Skeleton aria-hidden className="h-24" />
-      ) : (
-        <div className="flex flex-col gap-4 py-1">
-          {status === 'failed' ? (
-            <p className="text-muted-foreground text-hint">
-              {t('web.preferences.aiContext.loadFailed')}
-            </p>
-          ) : null}
+    <div className="flex flex-col gap-6">
+      {/* The library. The pane's own line says what the tab is in one sentence; the
+          longer "what is it for" lives here, as the group's note, where it is read
+          once beside the list it explains. */}
+      <SettingsSection
+        title={t('web.preferences.aiContext.libraryTitle')}
+        note={t('web.preferences.aiContextHint')}
+      >
+        {status === 'loading' ? (
+          <div className="py-3.5">
+            <Skeleton aria-hidden className="h-16" />
+          </div>
+        ) : (
+          <>
+            {status === 'failed' ? (
+              <p className="text-muted-foreground text-hint py-3.5">
+                {t('web.preferences.aiContext.loadFailed')}
+              </p>
+            ) : null}
 
-          {contexts.length === 0 && status === 'ready' ? (
-            <p className="text-muted-foreground text-hint">
-              {t('web.preferences.aiContext.empty')}
-            </p>
-          ) : (
-            <ul className="flex flex-col">
-              {contexts.map((context) => (
-                <li
-                  key={context.id}
-                  className="border-hairline flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b py-3 last:border-b-0"
+            {contexts.length === 0 ? (
+              status === 'ready' ? (
+                <p className="text-prose text-body py-5" data-ai-context-empty>
+                  {t('web.preferences.aiContext.empty')}
+                </p>
+              ) : null
+            ) : (
+              <ul className="divide-hairline flex flex-col divide-y">
+                {contexts.map((context) => (
+                  // Stacked on a phone, where the name needs the width; beside each other
+                  // from `sm` up. Stacked, the ghost actions are pulled left by their
+                  // own padding so their words line up under the name.
+                  <li
+                    key={context.id}
+                    className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+                  >
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-body truncate font-medium">{context.name}</span>
+                      {summaryOf(context) ? (
+                        <span className="text-muted-foreground text-hint truncate">
+                          {summaryOf(context)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="-ml-3 flex shrink-0 items-center gap-1 sm:ml-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`${t('web.preferences.aiContext.edit')} ${context.name}`}
+                        onClick={() => {
+                          setSaveFailed(false);
+                          setDraft(draftOf(context));
+                        }}
+                      >
+                        {t('web.preferences.aiContext.edit')}
+                      </Button>
+                      <ConfirmDeleteButton
+                        name={context.name}
+                        triggerVariant="ghost"
+                        withIcon={false}
+                        labels={{
+                          action: t('web.preferences.aiContext.delete'),
+                          pending: t('web.preferences.aiContext.deleting'),
+                          cancel: t('web.preferences.aiContext.cancel'),
+                          failed: t('web.preferences.aiContext.deleteFailed'),
+                        }}
+                        onConfirm={async () => {
+                          await remove(context.id);
+                          notify.success(t('web.settings.contextDeleted', { name: context.name }), {
+                            id: `context-${context.id}`,
+                          });
+                        }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Hidden while the editor is open: one draft at a time, and the editor
+                below already says which. */}
+            {draft === null ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                {/* `outline`, never filled: the tab spends ZERO accent while the
+                    editor is closed, and its one accent belongs to Save. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={atLimit}
+                  onClick={() => {
+                    setSaveFailed(false);
+                    setDraft(emptyDraft());
+                  }}
                 >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-body font-medium">{context.name}</span>
-                    {summaryOf(context) ? (
-                      <span className="text-muted-foreground text-hint">{summaryOf(context)}</span>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSaveFailed(false);
-                        setDraft(draftOf(context));
-                      }}
-                    >
-                      {t('web.preferences.aiContext.edit')}
-                    </Button>
-                    <ConfirmDeleteButton
-                      name={context.name}
-                      triggerVariant="ghost"
-                      withIcon={false}
-                      labels={{
-                        action: t('web.preferences.aiContext.delete'),
-                        pending: t('web.preferences.aiContext.deleting'),
-                        cancel: t('web.preferences.aiContext.cancel'),
-                        failed: t('web.preferences.aiContext.deleteFailed'),
-                      }}
-                      onConfirm={async () => {
-                        await remove(context.id);
-                        notify.success(t('web.settings.contextDeleted', { name: context.name }), {
-                          id: `context-${context.id}`,
-                        });
-                      }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                  <Plus aria-hidden /> {t('web.preferences.aiContext.new')}
+                </Button>
+                {/* The words explain the refusal, rather than leaving a dead control. */}
+                {atLimit ? (
+                  <span className="text-muted-foreground text-hint">
+                    {t('web.preferences.aiContext.limitReached')}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </SettingsSection>
 
-          {draft === null ? (
-            <div className="flex flex-col items-start gap-2">
-              {/* `outline`, never filled. An independent test asserts this screen
-                  draws ZERO accent-filled controls in its closed state, and the
-                  budget's one accent belongs to Save inside the editor. */}
-              <Button
-                variant="outline"
-                disabled={atLimit}
-                onClick={() => {
-                  setSaveFailed(false);
-                  setDraft(emptyDraft());
-                }}
-              >
-                <Plus aria-hidden /> {t('web.preferences.aiContext.new')}
-              </Button>
-              {/* The words explain the refusal, rather than leaving a dead control. */}
-              {atLimit ? (
-                <span className="text-muted-foreground text-hint">
-                  {t('web.preferences.aiContext.limitReached')}
-                </span>
-              ) : null}
-            </div>
-          ) : (
-            <AiContextEditor
-              draft={draft}
-              patch={patch}
-              saving={saving}
-              saveFailed={saveFailed}
-              atLimitForNew={atLimit && !editingExisting}
-              glossaries={glossaries}
-              onSave={() => void saveDraft()}
-              onCancel={() => setDraft(null)}
-            />
-          )}
-        </div>
-      )}
-    </SettingsSection>
+      {draft !== null ? (
+        <SettingsSection title={editorTitle}>
+          <AiContextEditor
+            draft={draft}
+            patch={patch}
+            saving={saving}
+            saveFailed={saveFailed}
+            atLimitForNew={atLimit && !editingExisting}
+            glossaries={glossaries}
+            onSave={() => void saveDraft()}
+            onCancel={() => setDraft(null)}
+          />
+        </SettingsSection>
+      ) : null}
+    </div>
   );
 }

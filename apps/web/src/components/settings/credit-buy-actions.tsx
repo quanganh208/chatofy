@@ -9,6 +9,7 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatCredits } from '@/lib/credit-format';
 import { notify } from '@/lib/notify';
 import { formatUsd, formatVnd } from '@/lib/pricing-content';
+import { SettingsSection } from './settings-section';
 
 /** A VietQR order the section shows in its inline panel. */
 export type SepayCheckout = Extract<CheckoutResponse, { rail: 'sepay' }>;
@@ -29,10 +30,13 @@ interface BuyOption {
 }
 
 /**
- * The buy buttons for every plan the API sells, one per plan per rail.
+ * The "Buy credits" group: one row per plan per rail the API sells, the offer on the
+ * left and its Buy button on the right.
  *
- * **All outline.** Settings › Billing spends no accent: buying is an ordinary
- * action on a settings screen. The accent spec holds every Billing state at 0.
+ * **One accent.** The first row's Buy is filled — the options are sorted Pro first,
+ * so it is the offer a Free account most likely came here for — and every other is
+ * outline. It stays filled while disabled for a closed account, so the tab's count
+ * does not depend on who is looking: one in every state that has buy actions.
  *
  * **A checkout that would not open is a toast with Retry**; the one refusal that
  * needs explaining where it happened — checkout is not open to this account — stays
@@ -50,14 +54,18 @@ interface BuyOption {
 export function CreditBuyActions({
   balance,
   onSepayOrder,
+  after,
 }: {
   balance: CreditBalance;
   /** A VietQR order was created; the section opens the QR panel for it. */
   onSepayOrder: (order: SepayCheckout) => void;
+  /** A last row of the group: the open QR panel, so paying stays beside buying. */
+  after?: React.ReactNode;
 }) {
   const t = useTranslate();
   const locale = useLocale();
-  const closedId = useId();
+  const baseId = useId();
+  const closedId = `${baseId}-closed`;
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   // Only the refusal that needs explaining in place; any other failure is a toast.
@@ -129,35 +137,57 @@ export function CreditBuyActions({
     setPending(null);
   };
 
+  const showClosed = closed || refused;
+  // Test mode is said only where buying is possible at all.
+  const shownSandboxRails = closed ? [] : sandboxRails;
+
   return (
-    <div className="flex flex-col gap-2.5 py-3.5" data-credit-buy-actions>
-      <span className="text-body font-medium">{t('web.account.buyTitle')}</span>
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => (
-          <Button
-            key={option.key}
-            variant="outline"
-            size="sm"
-            disabled={closed || pending !== null}
-            aria-describedby={closed ? closedId : undefined}
-            onClick={() => void buy(option)}
-          >
-            {pending === option.key ? t('web.account.checkoutOpening') : option.label}
-          </Button>
-        ))}
-      </div>
-      {closed || refused ? (
-        <p id={closedId} className="text-muted-foreground text-hint max-w-prose">
-          {t('common.billing.checkoutClosed')}
-        </p>
-      ) : null}
-      {closed
-        ? null
-        : sandboxRails.map((rail) => (
-            <p key={rail} className="text-muted-foreground text-hint" data-rail-sandbox={rail}>
-              {t(SANDBOX_HINT[rail])}
-            </p>
-          ))}
+    <div data-credit-buy-actions>
+      <SettingsSection title={t('web.account.buyTitle')}>
+        {/* First, so the reason is read before the row of dead buttons it explains. */}
+        {showClosed ? (
+          <p id={closedId} className="text-muted-foreground text-hint max-w-prose py-3">
+            {t('common.billing.checkoutClosed')}
+          </p>
+        ) : null}
+        {options.map((option, index) => {
+          const labelId = `${baseId}-${option.key}`;
+          const buttonId = `${labelId}-buy`;
+          return (
+            <div
+              key={option.key}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 py-2.5"
+            >
+              <span id={labelId} className="text-body">
+                {option.label}
+              </span>
+              {/* Named "Buy <option>" by its own word plus the row's label, so the
+                  visible word is the start of what a screen reader says. */}
+              <Button
+                id={buttonId}
+                variant={index === 0 ? 'default' : 'outline'}
+                size="sm"
+                disabled={closed || pending !== null}
+                aria-labelledby={`${buttonId} ${labelId}`}
+                aria-describedby={closed ? closedId : undefined}
+                onClick={() => void buy(option)}
+              >
+                {pending === option.key ? t('web.account.checkoutOpening') : t('web.account.buy')}
+              </Button>
+            </div>
+          );
+        })}
+        {shownSandboxRails.length > 0 ? (
+          <div className="flex flex-col gap-1 py-3">
+            {shownSandboxRails.map((rail) => (
+              <p key={rail} className="text-muted-foreground text-hint" data-rail-sandbox={rail}>
+                {t(SANDBOX_HINT[rail])}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {after}
+      </SettingsSection>
     </div>
   );
 }

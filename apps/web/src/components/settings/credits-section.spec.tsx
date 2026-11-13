@@ -63,6 +63,15 @@ async function render(): Promise<void> {
 
 const buttons = () => Array.from(container.querySelectorAll('button'));
 const button = (text: RegExp) => buttons().find((b) => text.test(b.textContent ?? ''));
+/** What a screen reader calls a button: its `aria-labelledby` targets, in order. */
+const accessibleName = (el: Element) =>
+  (el.getAttribute('aria-labelledby') ?? '')
+    .split(' ')
+    .map((id) => document.getElementById(id)?.textContent ?? '')
+    .join(' ');
+const buyButtons = () =>
+  Array.from(container.querySelectorAll<HTMLButtonElement>('[data-credit-buy-actions] button'));
+const buyButton = (text: RegExp) => buyButtons().find((b) => text.test(accessibleName(b)));
 
 beforeEach(() => {
   container = document.createElement('div');
@@ -91,6 +100,15 @@ describe('the credits region', () => {
     expect(text).toContain('Reset on Dec 1, 2026');
     expect(text).toContain(en['common.billing.topupNeverExpire']);
     expect(text).toContain(en['common.billing.planFree']);
+  });
+
+  it('names each kind of credit in the legend, inside the group box rather than bordered', async () => {
+    await render();
+    const summary = container.querySelector('[data-credit-balance]');
+    const terms = Array.from(summary?.querySelectorAll('dt') ?? []).map((dt) => dt.textContent);
+    expect(terms).toEqual([en['common.billing.planCredits'], en['common.billing.topupCredits']]);
+    // The box draws the divider under it; a border of its own doubled that line.
+    expect(summary?.className).not.toMatch(/border/);
   });
 
   it('says where Pro came from, and offers the portal only for a card subscription', async () => {
@@ -160,12 +178,27 @@ describe('the credits region', () => {
     expect(container.textContent).not.toContain(en['common.billing.checkoutClosed']);
     expect(container.textContent).toContain(en['web.account.railSandboxCard']);
     expect(container.textContent).toContain(en['web.account.railSandboxQr']);
-    expect(actions.map((action) => action.textContent)).toEqual([
-      'Pro by card — $9.99 a month',
-      'Pro for 30 days by VietQR — ₫249,000',
-      '250 credits by card — $5.00',
-      '250 credits by VietQR — ₫125,000',
+    expect(actions.map(accessibleName)).toEqual([
+      'Buy Pro by card — $9.99 a month',
+      'Buy Pro for 30 days by VietQR — ₫249,000',
+      'Buy 250 credits by card — $5.00',
+      'Buy 250 credits by VietQR — ₫125,000',
     ]);
+  });
+
+  it('fills the first offer only, whether or not checkout is open', async () => {
+    // The tab's one accent-filled control, in both states that show offers.
+    for (const checkoutAllowed of [false, true]) {
+      getCreditBalance.mockResolvedValue(balanceFixture({ checkoutAllowed }));
+      await render();
+      expect(buyButtons().map((b) => b.getAttribute('data-variant'))).toEqual([
+        'default',
+        'outline',
+        'outline',
+        'outline',
+      ]);
+      act(() => root?.unmount());
+    }
   });
 
   it('hides the actions of a rail this deployment reports unavailable', async () => {
@@ -173,12 +206,9 @@ describe('the credits region', () => {
       balanceFixture({ checkoutAllowed: true, rails: { polar: 'unavailable', sepay: 'live' } }),
     );
     await render();
-    const labels = Array.from(container.querySelectorAll('[data-credit-buy-actions] button')).map(
-      (action) => action.textContent,
-    );
-    expect(labels).toEqual([
-      'Pro for 30 days by VietQR — ₫249,000',
-      '250 credits by VietQR — ₫125,000',
+    expect(buyButtons().map(accessibleName)).toEqual([
+      'Buy Pro for 30 days by VietQR — ₫249,000',
+      'Buy 250 credits by VietQR — ₫125,000',
     ]);
     expect(container.querySelector('[data-rail-sandbox]')).toBeNull();
   });
@@ -199,7 +229,7 @@ describe('the credits region', () => {
     createCheckout.mockResolvedValue(SEPAY_ORDER);
     await render();
     await act(async () => {
-      button(/250 credits by VietQR/)?.click();
+      buyButton(/250 credits by VietQR/)?.click();
       for (let i = 0; i < 4; i += 1) await Promise.resolve();
     });
     expect(createCheckout).toHaveBeenCalledWith({ planCode: 'topup_250', rail: 'sepay' });
@@ -215,7 +245,7 @@ describe('the credits region', () => {
     );
     await render();
     await act(async () => {
-      button(/Pro by card/)?.click();
+      buyButton(/Pro by card/)?.click();
       for (let i = 0; i < 4; i += 1) await Promise.resolve();
     });
     expect(container.textContent).toContain(en['common.billing.checkoutClosed']);
@@ -227,7 +257,7 @@ describe('the credits region', () => {
     createCheckout.mockRejectedValue(new Error('network'));
     await render();
     await act(async () => {
-      button(/250 credits by VietQR/)?.click();
+      buyButton(/250 credits by VietQR/)?.click();
       for (let i = 0; i < 4; i += 1) await Promise.resolve();
     });
     expect(notify.error).toHaveBeenCalledWith(

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Button } from '@chatofy/ui/react';
 import type { CheckoutOrder } from '@chatofy/types';
 import { notify } from '@/lib/notify';
@@ -9,10 +10,11 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatVnd } from '@/lib/pricing-content';
 
 /**
- * The VietQR to pay one SePay order, inline under the buy buttons.
+ * The VietQR to pay one SePay order: the last row of the "Buy credits" group.
  *
- * **Not a card.** A region on the page ground with a hairline, so opening it adds
- * no surface. Close is ghost, so it keeps the accent count at zero.
+ * **Not a card, and no box of its own.** It is a row of the group's hairline box, so
+ * the box's divider is its only edge and opening it adds no surface. Close and the
+ * copy buttons are ghost, so the group's one accent stays the first Buy.
  *
  * **The code and amount are text as well as a picture.** A QR is unreadable to
  * a screen reader and to anyone paying from the same phone the page is on; the
@@ -40,6 +42,13 @@ export function SepayQrPanel({
     if (settled.status === 'paid' || settled.status === 'resolved_granted') onPaid();
   });
   const amount = formatVnd(order.amountVnd, locale);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // It opens as the last row of the buy group, which on a phone is a screen or more
+  // below the Buy that was pressed: bring it into view once, when it appears.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
 
   const copy = (text: string) => {
     // A refused clipboard (no permission, insecure origin) leaves the text on
@@ -52,7 +61,8 @@ export function SepayQrPanel({
 
   return (
     <div
-      className="border-border flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:gap-5"
+      ref={panelRef}
+      className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-5"
       data-sepay-qr-panel
     >
       {/* A plain <img>, not next/image: a one-time payment code must not pass
@@ -87,7 +97,7 @@ export function SepayQrPanel({
         <p aria-live="polite" className="text-prose text-hint" data-qr-status>
           {statusLine(t, status?.status)}
         </p>
-        <Button variant="ghost" size="sm" className="self-start" onClick={onClose}>
+        <Button variant="ghost" size="sm" className="-ml-3 self-start" onClick={onClose}>
           {t('web.account.qrClose')}
         </Button>
       </div>

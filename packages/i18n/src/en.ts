@@ -742,11 +742,19 @@ export const en = {
   // different kinds of guidance and a name that picks one of them makes the other
   // three look misfiled.
   'web.preferences.aiContext': 'AI Context',
+  // The Settings pane's one line under its title; aiContextHint below is the longer
+  // explanation, shown as the library's note.
+  'web.preferences.aiContextDescription':
+    'What the translator should know before a conversation starts.',
   'web.preferences.aiContextHint':
     'Tell the translator what a conversation is about before it hears any of it — the subject, names it should expect, and how particular terms should come out. Pick one when you start a conversation, here or in the browser extension.',
   'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',
+  // The editor group's heading when it holds a stored context.
+  // The library group's heading; the editor group beside it is titled for its draft.
+  'web.preferences.aiContext.libraryTitle': 'Your contexts',
+  'web.preferences.aiContext.editTitle': 'Edit context',
   'web.preferences.aiContext.delete': 'Delete',
   'web.preferences.aiContext.deleting': 'Deleting…',
   'web.preferences.aiContext.deleteFailed': 'Could not delete this context. It is still here.',
@@ -839,8 +847,10 @@ export const en = {
     'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
-  // Credits & plan: buying. Every action is outline or ghost; /settings/billing spends no accent.
+  // Credits & plan: buying. The first offer's Buy is Billing's one filled control.
   'web.account.buyTitle': 'Buy credits',
+  // Each offer's button; its accessible name adds the offer's own label.
+  'web.account.buy': 'Buy',
   'web.account.buyProCard': 'Pro by card — {price} a month',
   'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
   'web.account.buyTopupCard': '{credits} by card — {price}',
@@ -894,10 +904,8 @@ export const en = {
   'web.settings.defaultsDescription':
     'What a new conversation starts with. Languages and voices stay fixed while one is running.',
   'web.settings.profile': 'Profile',
-  'web.settings.profileDescription': 'Your photo, name and email address.',
   'web.settings.billing': 'Billing',
   'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
-  'web.settings.securityDescription': "Your password, and this browser's session.",
   'web.settings.languageNote': 'Also the language of the emails we send you.',
   // What a toast calls the two language-pair rows on Defaults.
   'web.settings.oneWayPair': 'One-way languages',

@@ -1494,10 +1494,10 @@ const SCREENS: ScreenState[] = [
   // dialog opened from a tab — the photo dialog, the password dialog, the sign-out
   // confirmation — is the second, and the ceiling.
   //
-  // ZERO accent at rest on every tab. The one filled control a settings state may
-  // spend belongs to the thing that state is for: Save in the context editor, the
-  // pick in the photo dialog, the submit in the password dialog, the confirm in the
-  // sign-out dialog.
+  // ZERO accent at rest on every tab but Billing. The one filled control a settings
+  // state may spend belongs to the thing that state is for: the first offer's Buy on
+  // Billing, Save in the context editor, the pick in the photo dialog, the submit in
+  // the password dialog, the confirm in the sign-out dialog.
   {
     name: 'settings dialog › general, over /history',
     filled: 0,
@@ -1633,20 +1633,22 @@ const SCREENS: ScreenState[] = [
     render: settingsOverAPage,
   },
   {
-    // Checkout closed: the balance, the usage list and the disabled buy actions,
-    // all in hairline groups and all outline.
+    // Checkout closed: the balance, the disabled buy actions and the usage list, all
+    // in hairline groups. The first offer's Buy stays filled while disabled, so the
+    // count does not depend on who is looking; every other control is outline.
     name: 'settings dialog › billing — checkout closed',
-    filled: 0,
+    filled: 1,
     surfaces: 1,
     setup: settingsOn('billing'),
     render: settingsOverAPage,
     shows: '[data-credit-buy-actions] button[disabled]',
   },
   {
-    // An allowlisted account opened a VietQR checkout. The QR panel is a region
-    // with a hairline, not a card, and its controls are ghost.
+    // An allowlisted account opened a VietQR checkout. The QR panel is a row of the
+    // buy group, not a card, and its controls are ghost: the first Buy is still the
+    // one filled control.
     name: 'settings dialog › billing — SePay QR open',
-    filled: 0,
+    filled: 1,
     surfaces: 1,
     setup() {
       settingsOn('billing')();
