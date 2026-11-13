@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, type Locale } from '@chatofy/i18n';
+import { brandedMailLogoUrl, renderBrandedMail } from '../branded-mail-layout';
 
 /**
  * DI injection token — use Symbol to avoid string collision.
@@ -112,6 +113,24 @@ export interface MailSender {
 }
 
 /**
+ * The fixed copy of one mail in one language. Nothing in it is a template: the
+ * link is placed between `intro` and `outro` by the builders below, and it is
+ * the only value that does not come from this table.
+ *
+ * `heading` and `action` exist only in the HTML part — the page title and the
+ * button label. The plain-text part is `intro`, the link, and `outro`, exactly
+ * as it was before there was an HTML part.
+ */
+interface MailCopy {
+  readonly subject: string;
+  readonly heading: string;
+  /** Ends in a colon, because in the text part the link follows it. */
+  readonly intro: string;
+  readonly action: string;
+  readonly outro: string;
+}
+
+/**
  * Fixed subject/body per purpose, per language. Body is this constant plus the link —
  * nothing else, in either language.
  *
@@ -126,75 +145,115 @@ export interface MailSender {
  * and recorded in `docs/design-guidelines.md` § Copy register. It is written against
  * that rule rather than translated word-for-word from the English.
  */
-const MAIL_CONTENT: Record<
-  MailPurpose,
-  Record<Locale, (link: string) => { subject: string; text: string }>
-> = {
+const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
   [MailPurpose.VerifyEmail]: {
-    en: (link) => ({
+    en: {
       subject: 'Verify your email address',
-      text:
-        'Welcome to Chatofy! Confirm this address to finish creating your account:\n\n' +
-        `${link}\n\n` +
+      heading: 'Verify your email address',
+      intro:
+        'Welcome to Chatofy! Confirm this address to finish creating your account:',
+      action: 'Verify email',
+      outro:
         'This link expires in 24 hours. If you did not request this, you can ignore this email.',
-    }),
-    vi: (link) => ({
+    },
+    vi: {
       subject: 'Xác minh địa chỉ email của bạn',
-      text:
-        'Chào mừng bạn đến với Chatofy! Xác nhận địa chỉ này để hoàn tất việc tạo tài khoản:\n\n' +
-        `${link}\n\n` +
+      heading: 'Xác minh địa chỉ email của bạn',
+      intro:
+        'Chào mừng bạn đến với Chatofy! Xác nhận địa chỉ này để hoàn tất việc tạo tài khoản:',
+      action: 'Xác minh email',
+      outro:
         'Liên kết này hết hạn sau 24 giờ. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
-    }),
+    },
   },
   [MailPurpose.AccountExistsNotice]: {
-    en: (link) => ({
+    en: {
       subject: 'You already have a Chatofy account',
-      text:
+      heading: 'You already have an account',
+      intro:
         'An account already exists for this email address. Sign in, or if you ' +
-        `forgot your password, reset it here:\n\n${link}\n\n` +
-        'If you did not expect this email, you can ignore it.',
-    }),
-    vi: (link) => ({
+        'forgot your password, reset it here:',
+      action: 'Reset password',
+      outro: 'If you did not expect this email, you can ignore it.',
+    },
+    vi: {
       subject: 'Bạn đã có tài khoản Chatofy',
-      text:
+      heading: 'Bạn đã có tài khoản',
+      intro:
         'Địa chỉ email này đã có một tài khoản. Bạn đăng nhập bình thường, hoặc nếu ' +
-        `quên mật khẩu thì đặt lại tại đây:\n\n${link}\n\n` +
-        'Nếu bạn không chờ email này, cứ bỏ qua nó.',
-    }),
+        'quên mật khẩu thì đặt lại tại đây:',
+      action: 'Đặt lại mật khẩu',
+      outro: 'Nếu bạn không chờ email này, cứ bỏ qua nó.',
+    },
   },
   [MailPurpose.NoAccountNotice]: {
-    en: (link) => ({
+    en: {
       subject: 'No Chatofy account for this address',
-      text:
+      heading: 'No account uses this address',
+      intro:
         'Someone asked to reset a Chatofy password for this email address, but no ' +
         'account uses it. If that was you, you may have signed up with a different ' +
-        `address — or you can create an account here:\n\n${link}\n\n` +
+        'address — or you can create an account here:',
+      action: 'Create an account',
+      outro:
         'If it was not you, you can ignore this email. Nothing has changed.',
-    }),
-    vi: (link) => ({
+    },
+    vi: {
       subject: 'Không có tài khoản Chatofy cho địa chỉ này',
-      text:
+      heading: 'Chưa có tài khoản nào dùng địa chỉ này',
+      intro:
         'Có người vừa yêu cầu đặt lại mật khẩu Chatofy cho địa chỉ email này, nhưng ' +
         'không tài khoản nào đang dùng nó. Nếu đó là bạn, có thể bạn đã đăng ký bằng ' +
-        `một địa chỉ khác — hoặc bạn tạo tài khoản tại đây:\n\n${link}\n\n` +
+        'một địa chỉ khác — hoặc bạn tạo tài khoản tại đây:',
+      action: 'Tạo tài khoản',
+      outro:
         'Nếu không phải bạn, cứ bỏ qua email này. Không có gì thay đổi cả.',
-    }),
+    },
   },
   [MailPurpose.PasswordReset]: {
-    en: (link) => ({
+    en: {
       subject: 'Reset your Chatofy password',
-      text:
-        'Use this link to choose a new password:\n\n' +
-        `${link}\n\n` +
+      heading: 'Reset your password',
+      intro: 'Use this link to choose a new password:',
+      action: 'Choose a new password',
+      outro:
         'This link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
-    }),
-    vi: (link) => ({
+    },
+    vi: {
       subject: 'Đặt lại mật khẩu Chatofy của bạn',
-      text:
-        'Dùng liên kết này để chọn mật khẩu mới:\n\n' +
-        `${link}\n\n` +
+      heading: 'Đặt lại mật khẩu của bạn',
+      intro: 'Dùng liên kết này để chọn mật khẩu mới:',
+      action: 'Chọn mật khẩu mới',
+      outro:
         'Liên kết hết hạn sau 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
-    }),
+    },
+  },
+};
+
+interface MailChrome {
+  readonly fallback: string;
+  readonly footer: readonly [string, string];
+}
+
+/**
+ * The lines every HTML mail shares, per language. Fixed text, like the table
+ * above; the text part has no equivalent, because it has no button to fail and
+ * no layout to sign off.
+ */
+const MAIL_CHROME: Record<Locale, MailChrome> = {
+  en: {
+    fallback: 'Button not working? Paste this link into your browser:',
+    footer: [
+      'Chatofy — real-time speech translation.',
+      'You got this email because someone used this address on Chatofy.',
+    ],
+  },
+  vi: {
+    fallback: 'Nút không bấm được? Dán liên kết này vào trình duyệt của bạn:',
+    footer: [
+      'Chatofy — dịch giọng nói theo thời gian thực.',
+      'Bạn nhận được email này vì có người đã dùng địa chỉ này trên Chatofy.',
+    ],
   },
 };
 
@@ -204,5 +263,44 @@ export function buildMailContent(
   link: string,
   locale: Locale = DEFAULT_LOCALE,
 ): { subject: string; text: string } {
-  return MAIL_CONTENT[purpose][locale](link);
+  const { subject, intro, outro } = MAIL_CONTENT[purpose][locale];
+  return { subject, text: `${intro}\n\n${link}\n\n${outro}` };
+}
+
+/**
+ * The same mail with its HTML part: `buildMailContent`'s subject and text, plus
+ * the branded layout around the same copy and the same link.
+ *
+ * `webBaseUrl` is where the logo image is fetched from, and it must be the
+ * configured WEB_BASE_URL — never a request header, for the reason `AuthMailer.link`
+ * gives, and never the link's own origin: a mobile link is `chatofy://…`, which
+ * no mail client can load an image from. It is a separate parameter rather than
+ * a field of MailDispatch because it is a fact about the deployment, not about
+ * the send.
+ */
+export function buildMailMessage(
+  purpose: MailPurpose,
+  link: string,
+  locale: Locale,
+  webBaseUrl: string,
+): { subject: string; text: string; html: string } {
+  const copy = MAIL_CONTENT[purpose][locale];
+  const chrome = MAIL_CHROME[locale];
+  return {
+    ...buildMailContent(purpose, link, locale),
+    html: renderBrandedMail({
+      lang: locale,
+      title: copy.subject,
+      heading: copy.heading,
+      // In the text part a colon introduces the link on the next line; here a
+      // button follows the paragraph instead, so the sentence ends.
+      intro: copy.intro.replace(/:$/, '.'),
+      action: copy.action,
+      link,
+      fallback: chrome.fallback,
+      outro: copy.outro,
+      footer: chrome.footer,
+      logoUrl: brandedMailLogoUrl(webBaseUrl),
+    }),
+  };
 }

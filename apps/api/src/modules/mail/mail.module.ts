@@ -92,7 +92,12 @@ export function buildInnerSender(config: ConfigService<Env, true>): MailSender {
 
   const smtpConfig = getSmtpConfig(config);
   if (smtpConfig) {
-    return new SmtpMailSender(smtpConfig);
+    // The same WEB_BASE_URL AuthMailer builds links from; the HTML part loads
+    // its logo from it. Never the link's origin — see buildMailMessage.
+    return new SmtpMailSender(
+      smtpConfig,
+      config.get('WEB_BASE_URL', { infer: true }),
+    );
   }
 
   logger.warn(

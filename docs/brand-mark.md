@@ -30,19 +30,27 @@ then the toolbar icon reads as a blob on a non-HiDPI display.
 | ------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
 | `ink`   | all three in `currentColor`           | below 32px: app sidebar (20), popup (20), auth frame and marketing footer (24), favicon |
 | `dawn`  | ink side petals, dawn gradient centre | 32px and up: the marketing header (32), the Open Graph image                            |
-| `full`  | every petal in a gradient             | on a night tile (toolbar and app icons) and in the idle overlay pill                    |
+| `full`  | every petal in a gradient             | on a night tile (toolbar, app and auth mail icons) and in the idle overlay pill         |
 
 The size rule exists because the dawn centre petal disappears when small.
 
 - **Wordmark.** "chatofy", lowercase, Newsreader 500. Web sets it as live text so it
   selects and scales. Surfaces without Newsreader — the popup, and every raster — use
   the outlined path in `packages/ui/src/brand-wordmark.ts`, generated from a sha-pinned
-  Newsreader at wght 500, opsz 24.
+  Newsreader at wght 500, opsz 24. **Auth mail is the exception**: its wordmark is live
+  text in Georgia (Newsreader first, for the rare reader who has it), because an image
+  would disappear while images are blocked and could not follow the mail's dark palette.
 - **Favicon.** `apps/web/app/icon.svg` is the ink mark with its own
   `prefers-color-scheme: dark` swap to `#F5F5F4`, so it stays visible on a dark tab
   strip. It inlines the geometry as literals, so `apps/web/src/design/brand-mark-parity.spec.ts`
   holds it to `brand-mark.ts`. `favicon.ico` is the night tile, because a browser that ignores the SVG
   cannot swap colours for a dark tab strip either.
+- **Auth mail.** The HTML part of every auth mail (`apps/api/src/modules/mail/branded-mail-layout.ts`)
+  leads with `apps/web/public/email/chatofy-mark@2x.png`: the `full` mark on the same
+  rounded night tile as the extension icon (128×128, radius 28), shown at 36 CSS px and
+  loaded from `WEB_BASE_URL` because a mail cannot inline SVG. Not `dawn`: a raster cannot
+  swap its ink, and Gmail's apps darken the card but leave images alone, so ink side
+  petals would vanish there. The night tile reads on light and dark grounds in every client.
 - **Toolbar and app icons.** The full-dawn mark on a rounded night tile at every size.
   MV3 has no per-theme toolbar icon, and a night tile reads on light and dark toolbars.
 - **Overlay.** The idle pill leads with the full-dawn mark. **While capturing, the pill
