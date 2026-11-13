@@ -90,11 +90,18 @@ export function ThemeChoiceTiles({ onChange }: { onChange?: (change: ThemeChange
                 <AppPreview scheme={value} />
               )}
             </span>
-            {/* Wraps rather than truncates: three tiles on a phone leave "Match system"
-                about 70px. */}
-            <span className="flex min-w-0 items-start gap-2">
+            {/* Below `sm` three tiles leave a label about 70px beside its radio, so
+                "Match system" wrapped and Light and Dark did not, and the three read as
+                three layouts. There the radio sits centred under its picture and the label
+                centred under the radio, as a phone's own appearance picker does: the
+                radios stay in one row, and a label that wraps balances under its tile.
+                From `sm` the radio returns beside the label. */}
+            <span className="flex min-w-0 flex-col items-center gap-1.5 text-center sm:flex-row sm:items-start sm:gap-2 sm:text-left">
               <RadioGroupItem id={itemId} value={value} aria-labelledby={`${itemId}-label`} />
-              <span id={`${itemId}-label`} className="text-body min-w-0 leading-tight font-medium">
+              <span
+                id={`${itemId}-label`}
+                className="text-body min-w-0 leading-tight font-medium text-balance"
+              >
                 {t(`common.theme.${value}`)}
               </span>
             </span>
