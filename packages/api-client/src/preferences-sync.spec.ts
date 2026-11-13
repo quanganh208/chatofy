@@ -190,7 +190,7 @@ describe('createPreferencesSync', () => {
     await sync.start();
     sync.update({ theme: 'dark' });
     await vi.advanceTimersByTimeAsync(600);
-    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }), 'v1');
     sync.receive(mergePreferences(defaults, { theme: 'light' }));
     await vi.advanceTimersByTimeAsync(5_000);
     expect(sync.getState().preferences.theme).toBe('light');
@@ -517,5 +517,108 @@ describe('createPreferencesSync', () => {
     await vi.advanceTimersByTimeAsync(600);
     expect(server.saves).toEqual([{ theme: 'dark' }]);
     expect(sync.getState().preferences.theme).toBe('dark');
+  });
+
+  it('a reset during a failing save does not bring the discarded change back', async () => {
+    const server = fakeServer();
+    const sync = createPreferencesSync({
+      transport: server.transport,
+      cache: memoryCache(),
+      defaults,
+    });
+    await sync.start();
+    let failSave!: () => void;
+    vi.mocked(server.transport.save).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          failSave = () => reject(new Error('offline'));
+        }),
+    );
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    const reset = sync.reset();
+    failSave();
+    await reset;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(server.saves).toEqual([]);
+    expect(server.stored.theme).toBe('system');
+    expect(sync.getState().preferences.theme).toBe('system');
+  });
+
+  it('start leaves an entry rewritten while its read was out', async () => {
+    const server = fakeServer();
+    const cache = memoryCache(null, {
+      contexts: { worker: { patch: { theme: 'dark' }, at: 1 } },
+    });
+    let answerRead!: () => void;
+    vi.mocked(server.transport.load).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerRead = () => resolve({ preferences: defaults, updatedAt: null });
+        }),
+    );
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    const started = sync.start();
+    await vi.advanceTimersByTimeAsync(0);
+    // The worker records a second change in its entry meanwhile.
+    cache.writePending({
+      contexts: { worker: { patch: { theme: 'dark', translateMode: 'two-way' }, at: 2 } },
+    });
+    answerRead();
+    await started;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cache.pendingPatches).toContainEqual({ theme: 'dark', translateMode: 'two-way' });
+  });
+
+  it('a change made during start goes with the orphans, so a never-landed one is not lost', async () => {
+    const server = fakeServer();
+    const cache = memoryCache(null, {
+      contexts: { dead: { sent: { theme: 'dark' }, sentAfter: null, at: 1 } },
+    });
+    let answerRead!: () => void;
+    vi.mocked(server.transport.load).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerRead = () => resolve({ preferences: defaults, updatedAt: null });
+        }),
+    );
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    const started = sync.start();
+    sync.update({ translateMode: 'two-way' });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(server.saves).toEqual([]);
+    answerRead();
+    await started;
+    await vi.advanceTimersByTimeAsync(600);
+    expect(server.stored).toMatchObject({ theme: 'dark', translateMode: 'two-way' });
+  });
+
+  it("records the version another tab's broadcast carried", async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    vi.mocked(server.transport.save).mockImplementationOnce(() => new Promise(() => undefined));
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await sync.start();
+    sync.receive(mergePreferences(defaults, { theme: 'light' }), 'v7');
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    const entry = Object.values(
+      (cache.pending as { contexts: Record<string, { sentAfter?: unknown }> }).contexts,
+    )[0];
+    expect(entry?.sentAfter).toBe('v7');
+  });
+
+  it("keeps another build's entry it cannot read when editing its own", async () => {
+    const server = fakeServer();
+    const foreign = { patch: { theme: 'sepia' }, at: 1 };
+    const cache = memoryCache(null, { contexts: { newer: foreign } });
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await sync.start();
+    server.failTimes(1);
+    sync.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    expect((cache.pending as { contexts: Record<string, unknown> }).contexts['newer']).toEqual(
+      foreign,
+    );
   });
 });

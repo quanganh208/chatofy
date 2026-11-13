@@ -119,13 +119,19 @@ const nonEmptyPatch = (value: unknown): UserPreferencesPatch | undefined => {
   return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : undefined;
 };
 
+/** The slot's entries as stored, unvalidated. */
+function rawContexts(raw: unknown): Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const contexts = (raw as { contexts?: unknown }).contexts;
+  return typeof contexts === 'object' && contexts !== null && !Array.isArray(contexts)
+    ? (contexts as Record<string, unknown>)
+    : {};
+}
+
 /** Read a slot without trusting it; an invalid entry or field is dropped. */
 function readSlot(raw: unknown): Record<string, PendingEntry> {
   const out: Record<string, PendingEntry> = {};
-  if (typeof raw !== 'object' || raw === null) return out;
-  const contexts = (raw as { contexts?: unknown }).contexts;
-  if (typeof contexts !== 'object' || contexts === null) return out;
-  for (const [id, value] of Object.entries(contexts)) {
+  for (const [id, value] of Object.entries(rawContexts(raw))) {
     if (typeof value !== 'object' || value === null) continue;
     const record = value as Record<string, unknown>;
     const patch = nonEmptyPatch(record['patch']);
@@ -176,7 +182,7 @@ export interface PreferencesSyncConfig {
    * Called with the full document so the receiving side can adopt it without a
    * fetch; wire it to a BroadcastChannel or equivalent.
    */
-  broadcast?: (preferences: UserPreferences) => void;
+  broadcast?: (preferences: UserPreferences, updatedAt: string | null) => void;
 }
 
 export interface PreferencesSync {
@@ -194,8 +200,13 @@ export interface PreferencesSync {
   /** Defer remote changes while a session runs; local `update`s still apply. */
   hold(): void;
   release(): void;
-  /** Adopt a document another tab already saved. Never re-saved from here. */
-  receive(preferences: UserPreferences): void;
+  /**
+   * Adopt a document another tab already saved. Never re-saved from here.
+   * `updatedAt` is the server version that save produced; without it this
+   * store's next save is sent against an unknown version, and should its
+   * context die unanswered, a later start drops it rather than risk a replay.
+   */
+  receive(preferences: UserPreferences, updatedAt?: string | null): void;
   /** Sign-out: forget the cache and stop retrying. */
   dispose(clearCache?: boolean): Promise<void>;
 }
@@ -259,6 +270,10 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   let lastServer: UserPreferences | null = null;
   /** A reset in progress; a save waits for it so it lands after the DELETE. */
   let resetting: Promise<unknown> | null = null;
+  /** Bumped by every reset: a save sent before it is not put back if it fails. */
+  let resetGen = 0;
+  /** `start` in progress; saves wait for it, so its orphans and new changes go as one. */
+  let starting: Promise<void> | null = null;
   /** This store's entry in the shared pending slot. */
   const contextId = newContextId();
   /** What this store last wrote to its entry, so an unchanged entry is not rewritten. */
@@ -284,17 +299,25 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       });
   };
 
-  /** Read-modify-write the shared slot, serialized, never after a sign-out. */
-  const editSlot = (edit: (entries: Record<string, PendingEntry>) => void) => {
+  /**
+   * Read-modify-write the shared slot, serialized, never after a sign-out.
+   *
+   * On the RAW entries: an entry this build cannot parse (a newer build's tab,
+   * holding a value this one has never heard of) is carried through untouched,
+   * not erased because this store happened to edit its own.
+   */
+  const editSlot = (edit: (entries: Record<string, unknown>) => void) => {
     const cache = config.cache;
     if (!cache.writePending || !cache.readPending) return;
     slotChain = slotChain
       .then(async () => {
         if (forgotten) return;
-        const entries = readSlot(await cache.readPending?.());
+        const entries = { ...rawContexts(await cache.readPending?.()) };
         edit(entries);
         if (forgotten) return;
-        await cache.writePending?.(Object.keys(entries).length > 0 ? { contexts: entries } : null);
+        await cache.writePending?.(
+          Object.keys(entries).length > 0 ? ({ contexts: entries } as PendingSlot) : null,
+        );
       })
       .catch(() => {
         // Storage trouble never breaks the page.
@@ -368,13 +391,24 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     writeCacheNow();
   };
 
+  /**
+   * Saves wait for `start`: it decides which orphaned entries still need
+   * sending by comparing the server version it reads, and a save of this
+   * store's own acknowledged meanwhile would move that version and make an
+   * orphan that never landed look landed.
+   */
   async function flush(): Promise<void> {
+    if (starting) await starting.catch(() => undefined);
+    return flushNow();
+  }
+
+  async function flushNow(): Promise<void> {
     clearTimer();
     if (disposed) return;
     if (cacheTimer !== null) writeCacheNow();
     if (inFlight) {
       await inFlight;
-      if (pending) return flush();
+      if (pending) return flushNow();
       return;
     }
     if (resetting) {
@@ -384,6 +418,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     if (!pending) return;
 
     const outgoing = pending;
+    const sentInGen = resetGen;
     sending = outgoing;
     sentAfter = serverUpdatedAt;
     pending = null;
@@ -407,6 +442,12 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
           publish({ status: 'refused' });
           await refresh();
           if (pending) schedule(debounceMs);
+          return;
+        }
+        // A reset was pressed while this was out: it discards what came before
+        // it, this included. Only what was changed since stays.
+        if (sentInGen !== resetGen) {
+          persistUnsavedNow();
           return;
         }
         // Put the failed patch back UNDER anything queued since, as unsent:
@@ -436,7 +477,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       if (holds > 0) heldRemote = next;
       else publish({ preferences: next, loaded: true });
       writeCacheNow();
-      config.broadcast?.(next);
+      config.broadcast?.(next, response.updatedAt);
       publish({ status: pending ? 'saving' : 'idle' });
       if (pending) schedule(debounceMs);
     })();
@@ -488,8 +529,13 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         // closed before its change was acknowledged — oldest first. A context
         // still alive rewrites its own entry on its next change, failure or ack.
         let entries: Record<string, PendingEntry> = {};
+        /** Each taken entry as it was read, so only an UNCHANGED one is removed. */
+        const seen: Record<string, string> = {};
         try {
-          entries = readSlot(await config.cache.readPending?.());
+          const raw = await config.cache.readPending?.();
+          entries = readSlot(raw);
+          const stored = rawContexts(raw);
+          for (const id of Object.keys(entries)) seen[id] = JSON.stringify(stored[id]);
         } catch {
           // Nothing recoverable; carry on with what the server holds.
         }
@@ -525,6 +571,10 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
           const taken = orphans.map(([id, entry]) => [id, entry] as const);
           editSlot((slot) => {
             for (const [id, entry] of taken) {
+              // Rewritten since it was read (its context is alive, or a worker
+              // recorded another change): the new value is not ours to remove.
+              // At worst what we took is sent twice, with the same values.
+              if (JSON.stringify(slot[id]) !== seen[id]) continue;
               if (!known && entry.sent) {
                 slot[id] = { sent: entry.sent, sentAfter: entry.sentAfter, at: entry.at };
               } else {
@@ -535,8 +585,12 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
           lastPersistedPending = null;
           persistUnsavedNow();
         }
-        if (pending) await flush();
+        if (pending) await flushNow();
       })();
+      starting = started;
+      void started.finally(() => {
+        starting = null;
+      });
       return started;
     },
 
@@ -559,13 +613,18 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       // it waits for an in-flight save, or while the DELETE is out, are newer
       // than the reset and are kept — and a save holds until the DELETE answers
       // so it lands after it, not before.
+      resetGen += 1;
       clearTimer();
       pending = null;
-      if (inFlight) await inFlight.catch(() => undefined);
-      sending = null;
-      persistUnsavedNow();
-      publish({ status: 'saving' });
-      const request = config.transport.reset();
+      // Claimed at once, so a save started while the in-flight one finishes
+      // waits for the DELETE instead of landing before it.
+      const request = (async () => {
+        if (inFlight) await inFlight.catch(() => undefined);
+        sending = null;
+        persistUnsavedNow();
+        publish({ status: 'saving' });
+        return config.transport.reset();
+      })();
       resetting = request;
       try {
         const response = await request;
@@ -579,7 +638,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         const next = withPending(lastServer);
         publish({ preferences: next, status: pending ? 'saving' : 'idle', loaded: true });
         writeCacheNow();
-        config.broadcast?.(next);
+        config.broadcast?.(next, response.updatedAt);
         if (pending) schedule(debounceMs);
       } catch (error) {
         if (disposed) return;
@@ -609,11 +668,12 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       }
     },
 
-    receive(preferences) {
+    receive(preferences, updatedAt) {
       if (disposed) return;
-      // Another tab's acknowledged save: newer than any read still out.
+      // Another tab's acknowledged save: newer than any read still out. Its
+      // version, when the sender gave one, is the server's version now.
       epoch += 1;
-      serverUpdatedAt = undefined;
+      serverUpdatedAt = updatedAt;
       adoptRemote(parseUserPreferences(preferences, config.defaults));
     },
 

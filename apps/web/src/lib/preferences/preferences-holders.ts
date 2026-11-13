@@ -57,6 +57,8 @@ export const PREFERENCES_CHANNEL = 'chatofy.preferences';
 interface ChannelMessage {
   userId: string;
   preferences: UserPreferences;
+  /** The server version the save produced, so receivers know it too. */
+  updatedAt: string | null;
 }
 
 export interface AccountHolder extends PreferencesHolder {
@@ -101,9 +103,9 @@ export function createAccountHolder(options: {
     cache: accountPreferencesCache(userId),
     defaults: defaultUserPreferences(options.locale),
     debounceMs: options.debounceMs,
-    broadcast: (preferences) => {
+    broadcast: (preferences, updatedAt) => {
       if (disposed) return;
-      const message: ChannelMessage = { userId, preferences };
+      const message: ChannelMessage = { userId, preferences, updatedAt };
       channel?.postMessage(message);
     },
   });
@@ -131,7 +133,10 @@ export function createAccountHolder(options: {
   if (channel) {
     channel.onmessage = (event: MessageEvent<unknown>) => {
       const data = event.data as Partial<ChannelMessage> | null;
-      if (data && data.userId === userId && data.preferences) store.receive(data.preferences);
+      if (data && data.userId === userId && data.preferences) {
+        const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
+        store.receive(data.preferences, updatedAt);
+      }
     };
   }
 
