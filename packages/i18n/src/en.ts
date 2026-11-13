@@ -245,6 +245,8 @@ export const en = {
   'web.chrome.confirmTitleNamed': '{action} “{name}”?',
   'web.chrome.confirmIrreversible': 'This cannot be undone.',
   'web.chrome.accountMenu': 'Account',
+  'web.chrome.planAccountMenu': 'Account, {plan} plan',
+  'web.chrome.planOpenBilling': 'Plan: {plan} — open billing',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
   'web.chrome.openApp': 'Open Chatofy',
