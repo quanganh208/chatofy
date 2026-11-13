@@ -9,6 +9,7 @@ import { TranslationContextsModule } from './modules/translation-contexts/transl
 import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { MinutesModule } from './modules/minutes/minutes.module';
+import { PreferencesModule } from './modules/preferences/preferences.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { ConferenceModule } from './modules/conference/conference.module';
 import { TranslateModule } from './modules/translate/translate.module';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     CommonModule,
     AuthModule,
     UsersModule,
+    PreferencesModule,
     ConversationsModule,
     TranslationContextsModule,
     GlossariesModule,
