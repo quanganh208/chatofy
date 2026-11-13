@@ -865,7 +865,7 @@ export const en = {
   // Settings › Billing: the Free | Pro comparison, the top-up payment method, usage by day.
   'web.billing.planTitle': 'Plan',
   'web.billing.yourPlan': 'Your plan',
-  'web.billing.freePrice': 'Free',
+  'web.billing.freePrice': '{price} a month',
   'web.billing.priceCard': '{price} a month by card',
   'web.billing.pricePass': '{price} for 30 days by VietQR',
   'web.billing.featureCreditsMonthly': '{credits} credits every month',

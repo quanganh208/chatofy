@@ -114,7 +114,12 @@ export function CreditPlanComparison({
           id="free"
           name={t('common.billing.planFree')}
           current={!isPro}
-          prices={[t('web.billing.freePrice')]}
+          prices={[
+            // In the reader's own currency: dollars beside the card price, đồng in Vietnamese.
+            t('web.billing.freePrice', {
+              price: locale === 'vi' ? formatVnd(0, locale) : formatUsd(0, locale),
+            }),
+          ]}
           features={freeFeatures}
         />
         <PlanColumn

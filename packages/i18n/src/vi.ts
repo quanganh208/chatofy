@@ -677,7 +677,7 @@ export const vi: Messages = {
   'web.account.usageShowMore': 'Xem thêm',
   'web.billing.planTitle': 'Gói',
   'web.billing.yourPlan': 'Gói của bạn',
-  'web.billing.freePrice': 'Miễn phí',
+  'web.billing.freePrice': '{price} / tháng',
   'web.billing.priceCard': '{price} mỗi tháng qua thẻ',
   'web.billing.pricePass': '{price} cho 30 ngày qua VietQR',
   'web.billing.featureCreditsMonthly': '{credits} credit mỗi tháng',

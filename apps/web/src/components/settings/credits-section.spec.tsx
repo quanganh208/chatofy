@@ -126,7 +126,7 @@ describe('the plan comparison', () => {
   it('sets Free beside Pro at the numbers the API answers, and marks Free as yours', async () => {
     await render();
     const free = planColumn('free')?.textContent ?? '';
-    expect(free).toContain(en['web.billing.freePrice']);
+    expect(free).toContain('$0.00 a month');
     expect(free).toContain('120 credits every month');
     expect(free).toContain(en['web.billing.featureNoCarryOver']);
     const pro = planColumn('pro')?.textContent ?? '';
