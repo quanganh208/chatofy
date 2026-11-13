@@ -61,9 +61,10 @@ existed. Blocking any crawler is an owner decision.
 
 ## Signed-in pages
 
-`/translate/one-way`, `/translate/two-way`, `/conference`, `/history`, `/history/[id]`, `/glossary` and `/settings/*`
-are behind sign-in, so the discovery surfaces don't apply. `robots.txt` disallows every
-one of them, and `robots-covers-signed-in-routes.spec.ts` fails when a sidebar
+`/translate/one-way`, `/translate/two-way`, `/conference`, `/history`, `/history/[id]` and `/glossary`
+are behind sign-in, and so is the Settings dialog that opens over them (`?settings=<tab>`), so the discovery surfaces don't apply. `robots.txt` disallows every
+one of them, and the retired `/settings`, `/preferences` and `/account`, which now only
+redirect to the dialog; and `robots-covers-signed-in-routes.spec.ts` fails when a sidebar
 destination is missing — `/conference` once shipped crawlable. Review them for UX only. First run and
 its evidence: `plans/reports/enhance-ux-ax-261013-1018-auth-pages.md`.
 
