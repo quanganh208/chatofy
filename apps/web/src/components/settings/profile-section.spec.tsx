@@ -3,9 +3,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@chatofy/api-client';
+import { en } from '@chatofy/i18n';
 
 /**
- * Settings › Profile and its Change photo dialog: what they must get right, and
+ * Settings › Account (profile) and its Change photo dialog: what they must get right, and
  * what they deliberately cannot test.
  *
  * The four failure messages are four because the next step differs each time —
@@ -118,11 +119,17 @@ async function pickFile() {
 }
 
 describe('the profile rows', () => {
-  it('shows the name, the email and the join date as rows', async () => {
+  it('shows who this is in the header, once', async () => {
     await render(null, null, 'January 9, 2026');
-    expect(container.textContent).toContain('Quang Anh');
-    expect(container.textContent).toContain('a@b.co');
-    expect(container.textContent).toContain('January 9, 2026');
+    const header = container.querySelector('[data-account-header]');
+    expect(header?.textContent).toContain('Quang Anh');
+    expect(header?.textContent).toContain('a@b.co');
+    expect(header?.textContent).toContain(`${en['web.account.memberSince']} January 9, 2026`);
+    // Change photo belongs to the photo it changes.
+    expect(header?.querySelector('#photo-change-open')).not.toBeNull();
+    // No group repeating the header's read-only values beneath it.
+    expect(container.querySelector('[data-slot="settings-section"]')).toBeNull();
+    expect(container.textContent?.split('a@b.co')).toHaveLength(2);
   });
 
   it('says the details did not load rather than drawing a date that never came', async () => {
@@ -189,22 +196,21 @@ describe('the Change photo dialog', () => {
     expect(notify.success).toHaveBeenCalledWith('Photo removed', { id: 'photo-change' });
   });
 
-  it('reports a server failure as a toast with Retry, keeping the dialog and the photo', async () => {
+  it('reports a server failure inline, keeping the dialog and the photo; pressing again retries', async () => {
     uploadAvatar.mockRejectedValue(new Error('nope'));
     await render('https://cdn.example.com/a/k.webp');
     await openDialog();
     await pickFile();
 
+    // Inline, not a toast: over Settings a toast would be a third surface, out of the
+    // focus trap.
     expect(dialog()).not.toBeNull();
     expect(buttonIn(dialog(), 'Remove photo')).toBeDefined();
-    const [message, options] = notify.error.mock.calls[0]!;
-    expect(message).toContain('Try again');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('Try again');
+    expect(notify.error).not.toHaveBeenCalled();
 
     uploadAvatar.mockResolvedValue({ avatarUrl: 'https://cdn.example.com/a/new.webp' });
-    await act(async () => {
-      options?.retry?.();
-      for (let i = 0; i < 4; i += 1) await Promise.resolve();
-    });
+    await pickFile();
     expect(uploadAvatar).toHaveBeenCalledTimes(2);
     expect(dialog()).toBeNull();
   });
@@ -240,7 +246,8 @@ describe('the Change photo dialog', () => {
     await openDialog();
     await pickFile();
 
-    expect(notify.error.mock.calls[0]?.[0]).toContain('nothing was changed');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('nothing was changed');
+    expect(notify.error).not.toHaveBeenCalled();
   });
 });
 

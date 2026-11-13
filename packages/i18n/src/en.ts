@@ -145,7 +145,7 @@ export const en = {
   'common.conference.chatNotSent': 'Message not sent.',
 
   // ---- common.billing: the credits words web and mobile both show ----
-  // The section and block title on web /settings/billing and mobile settings.
+  // The section and block title on web Settings › Billing and mobile settings.
   'common.billing.title': 'Credits & plan',
   // Amounts are pre-formatted by the caller; English needs the singular by hand.
   'common.billing.creditAmount': '{credits} credits',
@@ -725,7 +725,7 @@ export const en = {
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.preferences ----
-  // Rows on Settings › Audio and Settings › AI context; the key names predate the
+  // Rows on Settings › Translation and Settings › AI Context; the key names predate the
   // move into Settings.
   'web.preferences.audioHint': 'Applies from the next start.',
   'web.preferences.audio.echoCancellationHint':
@@ -742,11 +742,19 @@ export const en = {
   // different kinds of guidance and a name that picks one of them makes the other
   // three look misfiled.
   'web.preferences.aiContext': 'AI Context',
+  // The Settings pane's one line under its title; aiContextHint below is the longer
+  // explanation, shown as the library's note.
+  'web.preferences.aiContextDescription':
+    'What the translator should know before a conversation starts.',
   'web.preferences.aiContextHint':
     'Tell the translator what a conversation is about before it hears any of it — the subject, names it should expect, and how particular terms should come out. Pick one when you start a conversation, here or in the browser extension.',
   'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',
+  // The library group's heading; the editor group beside it is titled for its draft.
+  'web.preferences.aiContext.libraryTitle': 'Your contexts',
+  // The editor group's heading when it holds a stored context.
+  'web.preferences.aiContext.editTitle': 'Edit context',
   'web.preferences.aiContext.delete': 'Delete',
   'web.preferences.aiContext.deleting': 'Deleting…',
   'web.preferences.aiContext.deleteFailed': 'Could not delete this context. It is still here.',
@@ -839,8 +847,10 @@ export const en = {
     'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
-  // Credits & plan: buying. Every action is outline or ghost; /settings/billing spends no accent.
+  // Credits & plan: buying. The first offer's Buy is Billing's one filled control.
   'web.account.buyTitle': 'Buy credits',
+  // Each offer's button; its accessible name adds the offer's own label.
+  'web.account.buy': 'Buy',
   'web.account.buyProCard': 'Pro by card — {price} a month',
   'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
   'web.account.buyTopupCard': '{credits} by card — {price}',
@@ -870,34 +880,46 @@ export const en = {
   'web.account.qrClose': 'Close',
 
   // ---- web.settings ----
-  // Settings: seven pages in two groups, reached from the sidebar footer. Each page
-  // opens with its name and one line saying what it holds.
+  // Settings: one dialog of five tabs in two groups, opened from the sidebar footer
+  // over the current page. Each tab opens with its name and one line saying what it
+  // holds.
   'web.settings.nav': 'Settings sections',
   'web.settings.groupPersonal': 'Personal',
   'web.settings.groupAccount': 'Account',
-  // The browser tab. `{section}` is the page's own name.
-  'web.settings.metaTitle': '{section} · Settings · Chatofy',
+  'web.settings.general': 'General',
+  'web.settings.translation': 'Translation',
+  'web.settings.translationDescription':
+    'What a new conversation starts with, and what the browser does to your microphone.',
+  'web.settings.account': 'Account',
+  'web.settings.accountDescription':
+    "Your photo, name and email, your password, and this browser's session.",
+  // The phone's back button from one tab to the list of all of them.
+  // Said when Settings refuses to leave a tab (or close on Esc) over an unsaved draft.
+  'web.settings.unsavedDraft': 'Save or cancel the AI context you are writing first.',
+  'web.settings.backToList': 'Back to all settings',
   'web.settings.appearance': 'Appearance',
   'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
-  'web.settings.audio': 'Audio',
   'web.settings.audioDescription':
     'What the browser does to your microphone before anything is translated.',
-  'web.settings.defaults': 'Defaults',
-  'web.settings.defaultsDescription':
-    'What a new conversation starts with. Languages and voices stay fixed while one is running.',
-  'web.settings.profile': 'Profile',
-  'web.settings.profileDescription': 'Your photo, name and email address.',
   'web.settings.billing': 'Billing',
   'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
-  'web.settings.securityDescription': "Your password, and this browser's session.",
   'web.settings.languageNote': 'Also the language of the emails we send you.',
+  'web.settings.interfaceLanguage': 'Interface language',
+  // Group headings on the Translation tab.
+  'web.settings.groupLanguages': 'Languages',
+  'web.settings.groupVoice': 'Voice',
+  'web.settings.groupDisplay': 'Display',
+  'web.settings.groupMicrophone': 'Microphone',
+  'web.settings.groupDefaultContext': 'Default AI context',
+  // Shown on the Translation tab while a conversation runs on the page under it.
+  'web.settings.lockedWhileRunning':
+    'Languages, voices and AI context are locked until the running conversation ends.',
   // What a toast calls the two language-pair rows on Defaults.
   'web.settings.oneWayPair': 'One-way languages',
   'web.settings.twoWayPair': 'Two-way languages',
   // Autosave, said once per setting. `{setting}` is the row's own label.
   'web.settings.saved': '{setting} saved',
   'web.settings.saveFailed': "Couldn't save {setting}. It still applies in this browser.",
-  'web.settings.photo': 'Photo',
   'web.settings.photoChoose': 'Choose an image',
   'web.settings.photoUpdated': 'Photo updated',
   'web.settings.photoRemoved': 'Photo removed',

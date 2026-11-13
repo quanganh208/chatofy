@@ -576,11 +576,19 @@ export const vi: Messages = {
     'Trong cuộc họp, tắt khử vọng khiến người khác nghe lại tiếng vọng của chính họ.',
   // AI Context — thư viện ngữ cảnh đã đặt tên.
   'web.preferences.aiContext': 'Ngữ cảnh AI',
+  // The Settings pane's one line under its title; aiContextHint below is the longer
+  // explanation, shown as the library's note.
+  'web.preferences.aiContextDescription':
+    'Những điều trình dịch cần biết trước khi cuộc hội thoại bắt đầu.',
   'web.preferences.aiContextHint':
     'Cho trình dịch biết cuộc trò chuyện nói về chuyện gì trước khi nó nghe bất cứ câu nào — chủ đề, những cái tên sẽ xuất hiện, và cách bạn muốn một số từ được dịch ra. Khi bắt đầu một cuộc trò chuyện, bạn chọn một ngữ cảnh ở đây hoặc trong tiện ích trình duyệt.',
   'web.preferences.aiContext.empty': 'Bạn chưa có ngữ cảnh nào. Hãy tạo một cái để bắt đầu.',
   'web.preferences.aiContext.new': 'Ngữ cảnh mới',
   'web.preferences.aiContext.edit': 'Sửa',
+  // The editor group's heading when it holds a stored context.
+  // The library group's heading; the editor group beside it is titled for its draft.
+  'web.preferences.aiContext.libraryTitle': 'Ngữ cảnh của bạn',
+  'web.preferences.aiContext.editTitle': 'Sửa ngữ cảnh',
   'web.preferences.aiContext.delete': 'Xoá',
   'web.preferences.aiContext.deleting': 'Đang xoá…',
   'web.preferences.aiContext.deleteFailed': 'Không xoá được ngữ cảnh này. Nó vẫn còn đây.',
@@ -654,6 +662,8 @@ export const vi: Messages = {
   'web.account.signOutHint':
     'Chỉ đăng xuất khỏi trình duyệt này. Các thiết bị khác vẫn đăng nhập cho tới khi phiên của chúng hết hạn.',
   'web.account.buyTitle': 'Mua credit',
+  // Each offer's button; its accessible name adds the offer's own label.
+  'web.account.buy': 'Mua',
   'web.account.buyProCard': 'Pro qua thẻ — {price} mỗi tháng',
   'web.account.buyProPass': 'Pro 30 ngày qua VietQR — {price}',
   'web.account.buyTopupCard': '{credits} qua thẻ — {price}',
@@ -685,26 +695,34 @@ export const vi: Messages = {
   'web.settings.nav': 'Các mục cài đặt',
   'web.settings.groupPersonal': 'Cá nhân',
   'web.settings.groupAccount': 'Tài khoản',
-  'web.settings.metaTitle': '{section} · Cài đặt · Chatofy',
+  'web.settings.general': 'Chung',
+  'web.settings.translation': 'Dịch',
+  'web.settings.translationDescription':
+    'Những gì một hội thoại mới bắt đầu với, và cách trình duyệt xử lý micrô của bạn.',
+  'web.settings.account': 'Tài khoản',
+  'web.settings.accountDescription':
+    'Ảnh đại diện, tên và email, mật khẩu, và phiên đăng nhập trên trình duyệt này.',
+  'web.settings.unsavedDraft': 'Hãy lưu hoặc huỷ ngữ cảnh AI đang viết trước.',
+  'web.settings.backToList': 'Quay lại tất cả cài đặt',
   'web.settings.appearance': 'Giao diện',
   'web.settings.appearanceDescription': 'Ngôn ngữ hiển thị của Chatofy và giao diện sáng hay tối.',
-  'web.settings.audio': 'Âm thanh',
   'web.settings.audioDescription': 'Trình duyệt xử lý micrô của bạn thế nào trước khi dịch.',
-  'web.settings.defaults': 'Mặc định',
-  'web.settings.defaultsDescription':
-    'Những gì một hội thoại mới bắt đầu với. Ngôn ngữ và giọng đọc giữ nguyên khi hội thoại đang chạy.',
-  'web.settings.profile': 'Hồ sơ',
-  'web.settings.profileDescription': 'Ảnh đại diện, tên và địa chỉ email của bạn.',
   'web.settings.billing': 'Thanh toán',
   'web.settings.billingDescription': 'Số credit, gói đang dùng và lịch sử sử dụng.',
-  'web.settings.securityDescription': 'Mật khẩu và phiên đăng nhập trên trình duyệt này.',
   'web.settings.languageNote': 'Đây cũng là ngôn ngữ của email chúng tôi gửi cho bạn.',
+  'web.settings.interfaceLanguage': 'Ngôn ngữ giao diện',
+  'web.settings.groupLanguages': 'Ngôn ngữ',
+  'web.settings.groupVoice': 'Giọng đọc',
+  'web.settings.groupDisplay': 'Hiển thị',
+  'web.settings.groupMicrophone': 'Micrô',
+  'web.settings.groupDefaultContext': 'Ngữ cảnh AI mặc định',
+  'web.settings.lockedWhileRunning':
+    'Ngôn ngữ, giọng đọc và ngữ cảnh AI bị khoá cho tới khi cuộc trò chuyện đang chạy kết thúc.',
   'web.settings.oneWayPair': 'Ngôn ngữ dịch một chiều',
   'web.settings.twoWayPair': 'Ngôn ngữ dịch hai chiều',
   'web.settings.saved': 'Đã lưu: {setting}',
   'web.settings.saveFailed':
     'Không lưu được: {setting}. Trình duyệt này vẫn áp dụng lựa chọn của bạn.',
-  'web.settings.photo': 'Ảnh đại diện',
   'web.settings.photoChoose': 'Chọn ảnh',
   'web.settings.photoUpdated': 'Đã cập nhật ảnh đại diện',
   'web.settings.photoRemoved': 'Đã gỡ ảnh đại diện',

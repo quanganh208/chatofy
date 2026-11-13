@@ -7,12 +7,12 @@ import { SidebarInset, SidebarProvider } from '@chatofy/ui/react';
 import { cn } from '@/lib/utils';
 import { CreditBalanceProvider } from '@/hooks/use-credits';
 import { useStoredWidth } from '@/hooks/use-stored-width';
+import { SettingsDialog } from '@/components/settings/settings-dialog';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { ChromeSlotsProvider, useChromeSlots } from './chrome-slots';
 import { MobileTabBar } from './mobile-tab-bar';
 import { MEASURE } from './measures';
-import { isSettingsPath } from './nav-items';
 
 /**
  * The signed-in product frame: sidebar, topbar, and the measured content column.
@@ -63,16 +63,14 @@ const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/tw
  * Routes laid out for the full page measure. The meetings lobby draws its own
  * `max-w-2xl` column, left-aligned inside this one as the other content pages start,
  * and the glossary lays its list beside the open glossary — a 672px column would leave
- * that split no room. Every settings page takes it too: the settings sub-navigation
- * sits beside the content column, and 672px for both left the content narrower than a
- * phone held sideways.
+ * that split no room.
  */
 const FULL_PAGE_ROUTES: readonly Route[] = ['/conference', '/glossary'];
 
 const measureFor = (pathname: string) =>
   WORKSPACE_ROUTES.some((route) => route === pathname)
     ? MEASURE.workspace
-    : FULL_PAGE_ROUTES.some((route) => route === pathname) || isSettingsPath(pathname)
+    : FULL_PAGE_ROUTES.some((route) => route === pathname)
       ? MEASURE.page
       : MEASURE.wide;
 
@@ -151,6 +149,13 @@ export function AppChrome({
           <AppSidebar resize={sidebarWidth} />
           <ChromeContent pathname={pathname}>{children}</ChromeContent>
         </SidebarProvider>
+        {/* All of Settings, over whatever page is open; its state is `?settings=`.
+            Suspense because it reads the query string, which a prerender cannot; every route
+            here is dynamic today, so this is a guard, not a requirement — see the same note
+            on `CreditBalanceProvider`. */}
+        <React.Suspense fallback={null}>
+          <SettingsDialog />
+        </React.Suspense>
       </ChromeSlotsProvider>
     </CreditBalanceProvider>
   );

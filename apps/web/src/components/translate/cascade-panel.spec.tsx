@@ -10,6 +10,7 @@ import { ChromeSlotsProvider, useChromeSlots } from '@/components/layout/chrome-
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   languageVoicePatch,
+  pairFor,
   type ConversationMode,
   type TranslateSettings,
 } from '@/lib/translate-settings';
@@ -1224,5 +1225,64 @@ describe('CascadePanel and the shared credit balance', () => {
     await renderStatus('idle');
     await renderStatus('idle');
     expect(refreshCredits).not.toHaveBeenCalled();
+  });
+});
+
+describe('CascadePanel and a volume changed in Settings over it', () => {
+  async function renderWith(status: UseStreamingTranslate['status'], settings: TranslateSettings) {
+    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            conversationMode="one-way"
+            settings={settings}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+  }
+
+  beforeEach(() => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useConversationSave.mockReturnValue({
+      saved: null,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    (conversation.setVolume as ReturnType<typeof vi.fn>).mockClear();
+  });
+
+  const target = pairFor(DEFAULT_TRANSLATE_SETTINGS, 'one-way').target;
+  const quieter = {
+    ...DEFAULT_TRANSLATE_SETTINGS,
+    ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, target, { volume: 0.2 }),
+  };
+
+  it('pushes the new volume into the running gain stages, the untagged one too', async () => {
+    await renderWith('listening', DEFAULT_TRANSLATE_SETTINGS);
+    // The session read every volume as it started; nothing to push yet.
+    expect(conversation.setVolume).not.toHaveBeenCalled();
+
+    // The owner sync hands the page the dialog's change as new settings.
+    await renderWith('listening', quieter);
+    expect(conversation.setVolume).toHaveBeenCalledWith(0.2, target);
+    expect(conversation.setVolume).toHaveBeenCalledWith(0.2);
+    expect(conversation.setVolume).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves the stages alone when nothing runs', async () => {
+    await renderWith('idle', DEFAULT_TRANSLATE_SETTINGS);
+    await renderWith('idle', quieter);
+    expect(conversation.setVolume).not.toHaveBeenCalled();
   });
 });

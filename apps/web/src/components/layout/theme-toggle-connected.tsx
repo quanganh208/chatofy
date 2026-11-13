@@ -37,7 +37,7 @@ export function ConnectedThemeToggle({
   onChange,
 }: {
   className?: string;
-  /** Settings › Appearance confirms the pick with a toast that can undo it. */
+  /** Settings › General confirms the pick with a toast that can undo it. */
   onChange?: (change: ThemeChange) => void;
 }) {
   const stored = useSyncExternalStore<ThemeChoice | undefined>(

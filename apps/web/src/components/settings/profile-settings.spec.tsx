@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Settings › Profile with its data: the session paints the identity at once, and a
+ * Settings › Account (profile) with its data: the session paints the identity at once, and a
  * profile lookup that fails is reported, never acted on.
  */
 

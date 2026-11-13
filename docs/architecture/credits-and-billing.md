@@ -359,11 +359,14 @@ is in [deployment-guide.md → Deploying credits and billing](../deployment-guid
 
 ## Demo runbook
 
-Use the owner's allowlisted account on production. Open `/settings/billing` in a second
-tab to watch the balance.
+Use the owner's allowlisted account on production. Open Settings › Billing
+(`/translate/one-way?settings=billing`) in a second tab to watch the balance.
 
-1. **Polar sandbox subscription.** On `/settings/billing`, buy Pro on Polar and pay with a Stripe
-   test card (table below). Back on `/settings/billing?checkout=done`, the plan shows Pro (Polar)
+1. **Polar sandbox subscription.** In Billing, buy Pro on Polar and pay with a Stripe
+   test card (table below). Polar returns to `/settings/billing?checkout=done` (the API's
+   `success_url`), which redirects to `/translate/one-way?checkout=done&settings=billing`
+   (`apps/web/src/components/settings/legacy-settings-redirects.ts`), so Billing opens with
+   the return toast. The plan shows Pro (Polar)
    and the balance gains 600; a Polar top-up gains its 250, 550 or 1500 the same way.
    The grant lands when `order.paid` arrives, usually within seconds of the redirect.
 
@@ -377,7 +380,7 @@ tab to watch the balance.
    | `4000 0025 0000 3155` | Paid after a 3-D Secure challenge      |
    | `4000 0000 0000 0002` | Declined: no order, nothing is granted |
 
-   Polar appends a short-lived `customer_session_token` to the success URL. `/settings/billing`
+   Polar appends a short-lived `customer_session_token` to the success URL. The web app
    drops it from the address bar and history as it loads; the portal button mints its
    own session.
 
@@ -389,7 +392,7 @@ tab to watch the balance.
    125,000đ QR from the owner's own bank app. The balance rises within one webhook
    delivery.
 4. **Watch the balance drop.** Hold a conversation on `/translate`. Each turn settles when
-   it ends: reload `/settings/billing` and the balance is lower, with a "Translation" usage row
+   it ends: reload with Billing open and the balance is lower, with a "Translation" usage row
    linked to the conversation. With 2 credits or fewer left, the translate page shows the low-credit
    notice. At 0, the conversation stops and is still saved in `/history`.
 5. **Cost report.**

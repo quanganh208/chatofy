@@ -135,3 +135,28 @@ describe('ContextPicker', () => {
     expect(label?.className).not.toContain('sr-only');
   });
 });
+
+/** Why the picker is fixed mid-conversation: said by default, left to a host that says it once. */
+describe('ContextPicker — the reason it is fixed', () => {
+  const pick = (lockNote?: boolean) => (
+    <ContextPicker
+      contexts={[CONTEXT]}
+      status="ready"
+      value="ctx-1"
+      running
+      lockNote={lockNote}
+      onChange={vi.fn()}
+    />
+  );
+
+  it('is said while running by default', () => {
+    render(pick());
+    expect(container.textContent).toContain(en['web.translate.contextLocked']);
+  });
+
+  it('is left to the host when it turns the note off, the picker still fixed', () => {
+    render(pick(false));
+    expect(container.textContent).not.toContain(en['web.translate.contextLocked']);
+    expect((trigger() as HTMLButtonElement | null)?.disabled).toBe(true);
+  });
+});

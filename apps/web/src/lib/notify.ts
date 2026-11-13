@@ -2,7 +2,8 @@ import { asLocale, createTranslator, en, vi, type MessageKey } from '@chatofy/i1
 import { toast } from '@chatofy/ui/react';
 
 /**
- * Feedback after an action, through the one toast host `AppToaster` mounts.
+ * Feedback after an action, through the toast host `AppToaster` mounts — the page's,
+ * or the one inside Settings while it is open (see `routeToastsToSettings`).
  *
  * Three verbs and no more, so every screen says "saved", "failed" and "note" alike:
  *
@@ -34,6 +35,90 @@ function label(key: MessageKey): string {
   return createTranslator(DICTIONARIES[locale])(key);
 }
 
+/**
+ * Which host a toast raised now belongs to.
+ *
+ * The page's host (`AppToaster`) sits outside the Settings dialog, and a modal traps
+ * focus: a "Saved" toast raised by a change made in Settings would be pressable but
+ * not reachable by Tab or Alt+T. So while Settings is open it mounts a second host
+ * INSIDE the dialog, with its own sonner id, and every toast raised meanwhile is
+ * routed there. Each host shows only its own toasts, so nothing is shown twice.
+ *
+ * Closing Settings settles its toasts by kind:
+ *
+ * - A success or a note is taken down. It said something about what was just done
+ *   in Settings, and its Undo must never come back on the page and run twice.
+ * - An error still on screen moves to the page's host, same id and same Retry. An
+ *   error stays until dismissed, and one raised by the page underneath while
+ *   Settings was open — a conversation that failed — is the page's to show. Its
+ *   raiser (`useErrorToast`) only raises again when the message changes, so taking
+ *   it down would lose it for good.
+ */
+export const SETTINGS_TOASTER_ID = 'settings';
+type Kind = 'success' | 'error' | 'info';
+type ToastData = NonNullable<Parameters<typeof toast.success>[1]>;
+let routedTo: string | undefined;
+const raisedInSettings = new Map<
+  string | number,
+  { kind: Kind; message: string; data: ToastData }
+>();
+
+/** The Settings host announces itself on mount, and settles its toasts on unmount. */
+export function routeToastsToSettings(open: boolean): void {
+  routedTo = open ? SETTINGS_TOASTER_ID : undefined;
+  if (open) return;
+  const active = new Set(toast.getToasts().map((shown) => shown.id));
+  for (const [id, { kind, message, data }] of raisedInSettings) {
+    if (!active.has(id)) continue;
+    if (kind === 'error') toast.error(message, { ...data, id, toasterId: undefined });
+    else toast.dismiss(id);
+  }
+  raisedInSettings.clear();
+}
+
+/** One toast, into whichever host is current, remembered if that is Settings'. */
+function raise(kind: Kind, message: string, data: ToastData): string | number {
+  const box: { id?: string | number } = { id: data.id };
+  const routed =
+    routedTo === undefined ? data : { ...settledOnAct(data, box), toasterId: routedTo };
+  const id = toast[kind](message, routed);
+  box.id = id;
+  if (routedTo !== undefined) raisedInSettings.set(id, { kind, message, data });
+  // Raised on the page with an id Settings held: it is the page's now.
+  else raisedInSettings.delete(id);
+  return id;
+}
+
+/**
+ * Forget a Settings toast the moment the reader acts on it — its ✕, its Undo or its
+ * Retry — rather than when sonner's ~200 ms exit animation ends. Closing Settings
+ * inside that window would otherwise find the toast still "active" and move an error
+ * the reader just dismissed onto the page. `box.id` is the toast's id once sonner
+ * has assigned it, for an action pressed on a toast raised without one.
+ */
+function settledOnAct(data: ToastData, box: { id?: string | number }): ToastData {
+  const forget = (shown: { id: string | number }) => raisedInSettings.delete(shown.id);
+  const action = data.action;
+  return {
+    ...data,
+    onDismiss: (shown) => {
+      forget(shown);
+      data.onDismiss?.(shown);
+    },
+    ...(action && typeof action === 'object' && 'onClick' in action
+      ? {
+          action: {
+            ...action,
+            onClick: (event) => {
+              if (box.id !== undefined) raisedInSettings.delete(box.id);
+              action.onClick(event);
+            },
+          },
+        }
+      : {}),
+  };
+}
+
 const base = ({ id, description }: NotifyOptions) => ({
   ...(id === undefined ? {} : { id }),
   ...(description === undefined ? {} : { description }),
@@ -42,7 +127,7 @@ const base = ({ id, description }: NotifyOptions) => ({
 export const notify = {
   success(message: string, options: NotifyOptions & { undo?: () => void } = {}) {
     const { undo, ...rest } = options;
-    return toast.success(message, {
+    return raise('success', message, {
       ...base(rest),
       ...(undo ? { action: { label: label('web.chrome.undo'), onClick: undo } } : {}),
     });
@@ -50,7 +135,7 @@ export const notify = {
 
   error(message: string, options: NotifyOptions & { retry?: () => void } = {}) {
     const { retry, ...rest } = options;
-    return toast.error(message, {
+    return raise('error', message, {
       ...base(rest),
       duration: Number.POSITIVE_INFINITY,
       closeButton: true,
@@ -59,11 +144,13 @@ export const notify = {
   },
 
   info(message: string, options: NotifyOptions = {}) {
-    return toast.info(message, base(options));
+    return raise('info', message, base(options));
   },
 
   /** Takes one toast down by id, or every toast with no argument. */
   dismiss(id?: string | number) {
+    if (id === undefined) raisedInSettings.clear();
+    else raisedInSettings.delete(id);
     toast.dismiss(id);
   },
 };

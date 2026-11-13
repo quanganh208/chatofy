@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRefreshCreditBalance } from '@/hooks/use-credits';
+import { useReportConversationRunning } from '@/hooks/use-conversation-running';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
@@ -182,6 +183,37 @@ export function CascadePanel({
   // fires on its falling edge above all — must not fire when the microphone goes
   // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
+  // Settings opens over this page; while this runs, its Translation tab freezes the
+  // pair, voice and context the way this page's own controls do.
+  useReportConversationRunning(running);
+
+  // Volume is the one voice control that stays live mid-conversation, and it can
+  // change from two places: this page's popover, which moves the gain stage itself,
+  // and Settings opened over this page, whose change arrives only as new `settings`
+  // through the owner sync. A gain stage reads its volume once, when it is built, so
+  // without this a volume moved in Settings would be saved and toasted but not heard
+  // until the next conversation. Each language whose volume changed since the last
+  // render is pushed to its stage (the popover's own change lands twice, harmlessly).
+  const { setVolume } = conversation;
+  const oneWayTarget = pairFor(settings, conversationMode).target;
+  const volumes = settings.voiceByLanguage;
+  const heardVolumes = useRef<typeof volumes | null>(null);
+  useEffect(() => {
+    if (!running) {
+      heardVolumes.current = null;
+      return;
+    }
+    const before = heardVolumes.current;
+    heardVolumes.current = volumes;
+    // The first render of a run: the session read every volume as it started.
+    if (!before) return;
+    for (const language of Object.keys(volumes) as LanguageCode[]) {
+      const volume = volumes[language].volume;
+      if (before[language]?.volume === volume) continue;
+      setVolume(volume, language);
+      if (language === oneWayTarget) setVolume(volume);
+    }
+  }, [running, volumes, oneWayTarget, setVolume]);
 
   // A conversation spends credits, so its end reads the shared balance again: the
   // sidebar meter and the readiness banner then show what is left, not what was.

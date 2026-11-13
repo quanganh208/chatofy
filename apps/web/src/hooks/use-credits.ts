@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import type {
   CheckoutOrder,
   CheckoutOrderStatus,
@@ -19,9 +19,10 @@ import type {
   CreditUsageEntry,
 } from '@chatofy/types';
 import { getCheckoutOrder, getCreditBalance, listCreditUsage } from '@/clients/api-client';
+import { readSettingsDialog } from '@/components/settings/settings-dialog-url';
 
 /**
- * The caller's credits, as the sidebar meter, `/settings/billing` and the `/translate`
+ * The caller's credits, as the sidebar meter, Settings › Billing and the `/translate`
  * readiness banner read them.
  *
  * Three small hooks rather than one: the banner needs only the balance, and
@@ -118,7 +119,9 @@ const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
  * Billing beside it the moment a payment landed. Here every reader shares one state,
  * and it is read again:
  *
- * - on a route change (the mount read covers the first route);
+ * - on a route change (the mount read covers the first route), and when the Settings
+ *   dialog opens or changes tab — it is a place you go to without leaving the route,
+ *   and Billing is the one that shows this number in full;
  * - when the window comes back into view — focus and `visibilitychange` both fire on a
  *   tab switch;
  * - whenever a reader calls `refresh()`.
@@ -128,14 +131,20 @@ const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
  */
 export function CreditBalanceProvider({ children }: { children: ReactNode }) {
   const { balance, state, refresh, recentlyRead } = useBalanceRead(true);
-  const pathname = usePathname();
-  const lastPath = useRef(pathname);
+  // `useSearchParams` with no Suspense boundary of its own, unlike the dialog in
+  // `app-chrome.tsx`: this provider wraps the whole signed-in frame, and every route
+  // under `app/(app)/layout.tsx` is dynamic (the layout reads `auth()` and
+  // `cookies()`), so nothing here is ever prerendered. Make a route under that layout
+  // static and this needs a boundary — or its read moved into the dialog's subtree.
+  const settings = readSettingsDialog(useSearchParams());
+  const place = `${usePathname()}#${settings === undefined ? '' : (settings ?? 'menu')}`;
+  const lastPlace = useRef(place);
 
   useEffect(() => {
-    if (lastPath.current === pathname) return;
-    lastPath.current = pathname;
+    if (lastPlace.current === place) return;
+    lastPlace.current = place;
     if (!recentlyRead()) void refresh();
-  }, [pathname, refresh, recentlyRead]);
+  }, [place, refresh, recentlyRead]);
 
   useEffect(() => {
     const onReturn = () => {
@@ -192,7 +201,7 @@ export interface UseCreditUsage {
 /**
  * `GET /billing/usage`, first page once `enabled`, older pages by cursor.
  *
- * `enabled` lets `/settings/billing` wait for its balance read: the first balance read
+ * `enabled` lets Settings › Billing wait for its balance read: the first balance read
  * of a month is what writes that month's Free grant, so a usage page read in
  * parallel with it can miss the row that explains the balance beside it.
  */

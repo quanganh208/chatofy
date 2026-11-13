@@ -1,46 +1,72 @@
 import { describe, expect, it } from 'vitest';
 import { LEGACY_SETTINGS_REDIRECTS } from './legacy-settings-redirects';
-import { SETTINGS_SECTIONS } from './settings-sections';
+import { readSettingsDialog } from './settings-dialog-url';
+import { SETTINGS_TAB_IDS } from './settings-tab-ids';
 
 /**
- * The retired routes answer with redirects to pages that exist.
+ * The retired settings routes answer with redirects to the Settings dialog on the tab
+ * that now holds what each page held.
  *
- * The real 308s are checked against a running server; this holds the table: every
- * destination is a settings page, the old routes are permanent, and `/account` — a
- * bookmark, the mobile buy link or a Polar return — lands on Billing.
+ * This holds the table: every old address is listed, every destination opens a tab
+ * that exists over `/translate/one-way`, none is permanent, and — under the model of
+ * Next's query merge below, which is Next's behaviour and not proven here — a Polar
+ * return keeps the query Billing reads.
  */
-const pages = new Set<string>(SETTINGS_SECTIONS.map((section) => section.href));
-const first = (source: string, query: Record<string, string> = {}) =>
-  LEGACY_SETTINGS_REDIRECTS.find(
-    (rule) =>
-      rule.source === source &&
-      (rule.has ?? []).every((has) => has.type === 'query' && has.key in query),
-  );
+const destinationOf = (source: string) =>
+  LEGACY_SETTINGS_REDIRECTS.find((rule) => rule.source === source)?.destination;
+
+/**
+ * What Next does with a config redirect's query: the request's parameters are carried
+ * over and merged under the destination's own. Modelled here so the Polar return can
+ * be asserted end to end against the table.
+ */
+function follow(request: string): string | undefined {
+  const url = new URL(request, 'https://chatofy.test');
+  const destination = destinationOf(url.pathname);
+  if (!destination) return undefined;
+  const target = new URL(destination, url.origin);
+  const merged = new URLSearchParams(url.search);
+  for (const [key, value] of target.searchParams) merged.set(key, value);
+  return `${target.pathname}?${merged.toString()}`;
+}
 
 describe('legacy settings redirects', () => {
-  it('sends every rule to a settings page that exists', () => {
-    for (const rule of LEGACY_SETTINGS_REDIRECTS) expect(pages.has(rule.destination)).toBe(true);
+  it.each([
+    ['/settings', 'general'],
+    ['/settings/appearance', 'general'],
+    ['/settings/audio', 'translation'],
+    ['/settings/defaults', 'translation'],
+    ['/settings/ai-context', 'ai-context'],
+    ['/settings/profile', 'account'],
+    ['/settings/security', 'account'],
+    ['/settings/billing', 'billing'],
+    ['/account', 'billing'],
+    ['/preferences', 'general'],
+  ])('sends %s to the %s tab over /translate/one-way', (source, tab) => {
+    expect(destinationOf(source)).toBe(`/translate/one-way?settings=${tab}`);
   });
 
-  it('moves Preferences to Appearance and Account to Billing permanently (308)', () => {
-    expect(first('/preferences')).toMatchObject({
-      destination: '/settings/appearance',
-      permanent: true,
-    });
-    expect(first('/account')).toMatchObject({ destination: '/settings/billing', permanent: true });
+  it('opens a tab that exists from every rule, and lists each source once', () => {
+    const sources = LEGACY_SETTINGS_REDIRECTS.map((rule) => rule.source);
+    expect(new Set(sources).size).toBe(sources.length);
+    for (const rule of LEGACY_SETTINGS_REDIRECTS) {
+      const view = readSettingsDialog(
+        new URL(rule.destination, 'https://chatofy.test').searchParams,
+      );
+      expect(SETTINGS_TAB_IDS).toContain(view);
+    }
   });
 
-  it('lands a Polar return to /account on Billing, where the return is read', () => {
-    expect(first('/account', { checkout: 'done' })).toMatchObject({
-      destination: '/settings/billing',
-      permanent: true,
-    });
+  it('answers every old address temporarily (307), so no browser caches the answer', () => {
+    for (const rule of LEGACY_SETTINGS_REDIRECTS) expect(rule.permanent).toBe(false);
   });
 
-  it('opens bare /settings on Appearance, temporarily', () => {
-    expect(first('/settings')).toMatchObject({
-      destination: '/settings/appearance',
-      permanent: false,
-    });
+  it("keeps Polar's checkout return, so Billing still reads it", () => {
+    expect(follow('/settings/billing?checkout=done')).toBe(
+      '/translate/one-way?checkout=done&settings=billing',
+    );
+    expect(follow('/account?checkout=done&x=1')).toBe(
+      '/translate/one-way?checkout=done&x=1&settings=billing',
+    );
   });
 });

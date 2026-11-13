@@ -102,7 +102,7 @@ function contentSecurityPolicy(): string {
       ? `script-src 'self' 'unsafe-inline' ${CLOUDFLARE_INSIGHTS.script}`
       : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${CLOUDFLARE_INSIGHTS.script}`,
     "style-src 'self' 'unsafe-inline'",
-    // vietqr.app renders the SePay payment QR on /settings/billing; the API builds that
+    // vietqr.app renders the SePay payment QR in Settings › Billing; the API builds that
     // URL, so the origin is fixed rather than configured.
     `img-src 'self' data: blob: ${VIETQR_ORIGIN}${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
     "font-src 'self' data:",

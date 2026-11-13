@@ -2,16 +2,18 @@
 
 import { createTranslator, en, vi, type Locale } from '@chatofy/i18n';
 import { updateMe } from '@/clients/api-client';
-import { ConnectedThemeToggle, type ThemeChange } from '@/components/layout/theme-toggle-connected';
+import type { ThemeChange } from '@/components/layout/theme-toggle-connected';
 import { LocaleSwitcher, type LocaleChange } from '@/components/layout/locale-switcher';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
 import { SettingsSection, SettingsSectionRow } from './settings-section';
+import { ThemeChoiceTiles } from './theme-choice-tiles';
 
 const DICTIONARIES = { en, vi } as const;
 
 /**
- * Settings › Appearance: the interface language and the colour theme.
+ * Settings › General: the colour theme, as three pictures of the app, and the
+ * interface language, each under its own heading.
  *
  * These two left the topbar with the app-shell redesign and live only here now.
  *
@@ -45,14 +47,23 @@ export function AppearanceSection() {
   };
 
   return (
-    <SettingsSection>
-      <SettingsSectionRow label={t('common.language.label')} note={t('web.settings.languageNote')}>
-        <LocaleSwitcher showValue onChange={onLocale} />
-      </SettingsSectionRow>
-      <SettingsSectionRow label={t('common.theme.label')}>
-        <ConnectedThemeToggle onChange={onTheme} />
-      </SettingsSectionRow>
-    </SettingsSection>
+    <div className="flex flex-col gap-6">
+      <SettingsSection title={t('web.settings.appearance')}>
+        <SettingsSectionRow label={t('common.theme.label')} block>
+          <ThemeChoiceTiles onChange={onTheme} />
+        </SettingsSectionRow>
+      </SettingsSection>
+      <SettingsSection title={t('common.language.label')}>
+        <SettingsSectionRow
+          label={t('web.settings.interfaceLanguage')}
+          note={t('web.settings.languageNote')}
+        >
+          {/* Stacked under its note on a phone, the ghost button's own padding would
+              indent its text from the label's; pulled back to the label's edge. */}
+          <LocaleSwitcher showValue onChange={onLocale} className="max-sm:-ml-2.5" />
+        </SettingsSectionRow>
+      </SettingsSection>
+    </div>
   );
 }
 

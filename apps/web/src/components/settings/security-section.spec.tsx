@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@chatofy/i18n';
 
 /**
- * Settings › Security: the password dialog, the sign-out confirmation, and the claim
+ * Settings › Account (security): the password dialog, the sign-out confirmation, and the claim
  * this page must not make.
  *
  * Signing out here discards this browser's cookie. The API token it carried stays valid
@@ -81,6 +81,13 @@ describe('the security page', () => {
     expect(text).not.toMatch(/all (?:your )?devices|everywhere|every device|all sessions/i);
     // The accurate version is present, not merely the wrong one absent.
     expect(text).toContain('this browser only');
+  });
+
+  it('is the "Security" group', async () => {
+    await render();
+    expect(container.querySelector('[data-slot="settings-section"] h3')?.textContent).toBe(
+      en['web.account.security'],
+    );
   });
 
   it('spends no accent: both actions are outline', async () => {
@@ -230,12 +237,17 @@ describe('sign out', () => {
     expect(document.querySelector<HTMLButtonElement>('#sign-out-confirm')?.disabled).toBe(true);
   });
 
-  it('says so with a toast when signing out fails, and lets the reader try again', async () => {
+  it('says so inline in the confirmation when signing out fails, and lets the reader try again', async () => {
+    // Inline, not a toast: over Settings a toast would be a third surface, out of the
+    // focus trap and silenced by the modal.
     signOut.mockRejectedValue(new Error('offline'));
     await render();
     await click('#sign-out-account');
     await click('#sign-out-confirm');
-    expect(notify.error).toHaveBeenCalledWith(en['web.settings.signOutFailed'], { id: 'sign-out' });
+    expect(document.querySelector('[role="alertdialog"] #sign-out-failed')?.textContent).toBe(
+      en['web.settings.signOutFailed'],
+    );
+    expect(notify.error).not.toHaveBeenCalled();
     expect(document.querySelector<HTMLButtonElement>('#sign-out-confirm')?.disabled).toBe(false);
   });
 });

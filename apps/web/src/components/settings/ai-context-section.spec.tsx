@@ -118,9 +118,44 @@ afterEach(() => {
 });
 
 describe('AiContextSection', () => {
+  it('reports an unsaved draft only once something is typed, and not after Cancel', async () => {
+    const { hasUnsavedSettingsDraft } = await import('@/hooks/use-unsaved-settings-draft');
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+    // Open but untouched: nothing to lose, so the Settings dialog still closes on Esc.
+    expect(hasUnsavedSettingsDraft()).toBe(false);
+
+    await type('#ai-context-name', 'Thesis defense');
+    expect(hasUnsavedSettingsDraft()).toBe(true);
+
+    await click(buttonSaying(en['web.preferences.aiContext.cancel']));
+    expect(hasUnsavedSettingsDraft()).toBe(false);
+  });
+
   it('says the library is empty rather than showing an empty list', async () => {
     await mount();
     expect(container.textContent).toContain(en['web.preferences.aiContext.empty']);
+  });
+
+  it('titles the editor for what it is doing, and focuses its first field', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+    await mount();
+
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+    // The library is the first group; the editor opens as the second.
+    const heading = () =>
+      container.querySelectorAll('[data-slot="settings-section"] h3')[1] ?? null;
+    expect(container.querySelector('h3')?.textContent).toBe(
+      en['web.preferences.aiContext.libraryTitle'],
+    );
+    expect(heading()?.textContent).toBe(en['web.preferences.aiContext.new']);
+    expect(document.activeElement?.id).toBe('ai-context-name');
+    // One draft at a time: "New context" is gone while the editor is open.
+    expect(buttonSaying(en['web.preferences.aiContext.new'])).toBeUndefined();
+
+    await click(buttonSaying(en['web.preferences.aiContext.cancel']));
+    await click(buttonSaying(en['web.preferences.aiContext.edit']));
+    expect(heading()?.textContent).toBe(en['web.preferences.aiContext.editTitle']);
   });
 
   it('lists what is stored', async () => {

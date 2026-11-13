@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 /**
  * There is one way out of the app, and this is how it stays one.
  *
- * Sign out is reached from three places — the sidebar avatar menu, `/settings/security`, and the
+ * Sign out is reached from three places — the sidebar avatar menu, Settings › Account, and the
  * recovery path that runs when a token has aged out — and they have to behave
  * identically. The failure mode is not dramatic: someone adds a fourth caller with
  * `signOut()` and no `redirectTo`, and that one path lands on `/` while the others land

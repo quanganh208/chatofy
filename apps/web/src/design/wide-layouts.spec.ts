@@ -28,14 +28,14 @@ describe('wide layouts', () => {
     expect(read('../components/history/history-list.tsx')).not.toContain('grid-cols-2');
   });
 
-  it('lays Settings out as a sub-navigation beside a capped content column', () => {
-    // A column of label-and-control rows reads as a person's settings at about 680px
-    // and as a table across the full page measure, so the content is capped and the
-    // sub-navigation takes the room beside it from `lg`.
-    const src = read('../../app/(app)/settings/layout.tsx');
-    expect(src).toContain('lg:flex-row');
-    expect(src).toContain('max-w-[680px]');
-    expect(read('../components/layout/app-chrome.tsx')).toContain('isSettingsPath(pathname)');
+  it('lays Settings out as a dialog: the tab list beside a pane that scrolls on its own', () => {
+    // One dialog over the page from `sm`, about 880px wide and capped in height, and the
+    // whole screen below it.
+    const src = read('../components/settings/settings-dialog.tsx');
+    expect(src).toContain('sm:max-w-[min(880px,calc(100%-2rem))]');
+    expect(src).toContain('sm:h-[min(85vh,720px)]');
+    expect(src).toContain('max-sm:h-dvh');
+    expect(src).toContain('overflow-y-auto');
   });
 
   it('measures the conference landing for its hero', () => {

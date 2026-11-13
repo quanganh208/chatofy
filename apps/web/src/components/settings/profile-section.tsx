@@ -7,10 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage, Button, Skeleton } from '@chatofy/
 import { getMe } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
 import { ChangePhotoDialog } from './change-photo-dialog';
-import { SettingsSection, SettingsSectionRow } from './settings-section';
 
 /**
- * Settings › Profile, with its data: who the session says this is, and when the
+ * Settings › Account (profile), with its data: who the session says this is, and when the
  * account was made.
  *
  * Identity comes from two places for a reason. The session cookie already carries
@@ -55,10 +54,15 @@ export function ProfileSettings() {
 }
 
 /**
- * The profile rows: photo, name, email, member since. "Change photo" opens a dialog
+ * Who this account is: one header with the photo, the name, the address and the join
+ * date. No "Profile" group under it — every value it would hold is read-only and
+ * already in the header, so it could only repeat them. "Change photo" opens a dialog
  * (`change-photo-dialog.tsx`), which is where removing the photo lives too.
  *
- * **No accent control.** This page spends ZERO `bg-primary` controls: changing a
+ * Name and email are read-only here: no endpoint changes either. `PATCH /auth/me`
+ * takes only the mail locale.
+ *
+ * **No accent control.** The tab spends ZERO `bg-primary` controls: changing a
  * photo is an ordinary action, so its trigger is outline; the dialog's own pick
  * button is that state's one filled control.
  *
@@ -100,14 +104,31 @@ export function ProfileSection({
   const current =
     changed !== undefined ? changed : avatarUrl !== undefined ? avatarUrl : (sessionImage ?? null);
   const letters = initials(name, email);
+  const displayName = name || t('web.account.nameUnset');
 
   return (
-    <SettingsSection>
-      <SettingsSectionRow label={t('web.settings.photo')}>
-        <Avatar size="lg">
+    <>
+      {/* On the page ground, not in a box: it is who this is, not a setting. */}
+      <div data-account-header className="flex flex-wrap items-center gap-x-4 gap-y-3 px-1">
+        <Avatar size="lg" className="size-16">
           <AvatarImage src={current ?? undefined} alt="" />
-          <AvatarFallback>{letters}</AvatarFallback>
+          <AvatarFallback className="text-heading">{letters}</AvatarFallback>
         </Avatar>
+        <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
+          <span className="text-heading font-display truncate">{displayName}</span>
+          <span className="text-muted-foreground text-body break-all">{email ?? ''}</span>
+          {/* The height is held whether or not the answer has arrived. A `span`, not a
+              `p`: `Skeleton` is a `div`, and a `div` inside a `p` fails hydration. */}
+          <span className="text-muted-foreground text-hint flex min-h-5 items-center">
+            {memberSince === undefined ? (
+              <Skeleton className="h-3 w-40" />
+            ) : memberSince === null ? (
+              t('web.account.loadFailed')
+            ) : (
+              `${t('web.account.memberSince')} ${memberSince}`
+            )}
+          </span>
+        </div>
         <Button
           id="photo-change-open"
           variant="outline"
@@ -116,26 +137,7 @@ export function ProfileSection({
         >
           {t('web.account.avatarChange')}
         </Button>
-      </SettingsSectionRow>
-      <SettingsSectionRow label={t('web.auth.name')}>
-        <span className="text-body text-prose truncate">{name || t('web.account.nameUnset')}</span>
-      </SettingsSectionRow>
-      <SettingsSectionRow label={t('common.auth.email')}>
-        <span className="text-body text-prose break-all">{email ?? ''}</span>
-      </SettingsSectionRow>
-      <SettingsSectionRow label={t('web.account.memberSince')}>
-        {/* The height is held whether or not the answer has arrived. A `span`, not a
-            `p`: `Skeleton` is a `div`, and a `div` inside a `p` fails hydration. */}
-        <span className="text-body text-prose flex min-h-5 items-center">
-          {memberSince === undefined ? (
-            <Skeleton className="h-3 w-32" />
-          ) : memberSince === null ? (
-            <span className="text-muted-foreground text-hint">{t('web.account.loadFailed')}</span>
-          ) : (
-            memberSince
-          )}
-        </span>
-      </SettingsSectionRow>
+      </div>
 
       <ChangePhotoDialog
         open={dialogOpen}
@@ -144,7 +146,7 @@ export function ProfileSection({
         initials={letters}
         onChanged={({ avatarUrl: next }) => setChanged(next)}
       />
-    </SettingsSection>
+    </>
   );
 }
 

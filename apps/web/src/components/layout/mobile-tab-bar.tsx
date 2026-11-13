@@ -9,7 +9,7 @@ import type { MessageKey } from '@chatofy/i18n';
 import { useTranslate } from '@/i18n/provider';
 import { rememberTranslateMode, useLastTranslateMode } from './last-translate-mode';
 import { MoreSheet } from './more-sheet';
-import { isSettingsPath, navItemFor } from './nav-items';
+import { navItemFor } from './nav-items';
 import { TAB_CLASS } from './tab-bar-styles';
 
 /**
@@ -89,9 +89,7 @@ export function MobileTabBar() {
           );
         })}
         <li>
-          <MoreSheet
-            active={navItemFor(pathname)?.href === '/glossary' || isSettingsPath(pathname)}
-          />
+          <MoreSheet active={navItemFor(pathname)?.href === '/glossary'} />
         </li>
       </ul>
     </nav>

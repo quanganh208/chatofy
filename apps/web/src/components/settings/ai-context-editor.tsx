@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import {
   Button,
   Input,
@@ -10,7 +11,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
   Textarea,
 } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS } from '@chatofy/types';
@@ -22,8 +22,9 @@ import { useTranslate } from '@/i18n/provider';
  * The form that fills the AI Context library, and every refusal it shows.
  *
  * **It supplies no surface of its own and must never become a `Dialog`.** It
- * renders INLINE inside the panel `ai-context-section.tsx` already owns, which is
- * the screen's second and last elevated surface. `surface-count.ts` queries
+ * renders as the rows of a hairline group `ai-context-section.tsx` owns — the
+ * fields, then the actions — inside the Settings dialog, which is already the
+ * screen's elevated surface. `surface-count.ts` queries
  * `document.body` precisely so portalled content is counted, so a dialog here
  * would be a third surface and the gate would fail — correctly, because a modal
  * over a settings page is a second place to be rather than a section of this one.
@@ -61,6 +62,14 @@ export function AiContextEditor({
   onCancel: () => void;
 }) {
   const t = useTranslate();
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // Opening the editor moves focus to its first field. It opens below the library,
+  // often past the fold of the pane, and focusing scrolls it into view; it also
+  // tells a screen reader the press did something.
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
 
   const hasOverlongHotword = hotwordTooLong(draft.hotwords);
   const hasTooManyHotwords = tooManyHotwords(draft.hotwords);
@@ -68,11 +77,11 @@ export function AiContextEditor({
 
   return (
     <>
-      <Separator />
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 py-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="ai-context-name">{t('web.preferences.aiContext.name')}</Label>
           <Input
+            ref={nameRef}
             id="ai-context-name"
             value={draft.name}
             maxLength={CONTEXT_LIMITS.MAX_NAME_CHARS}
@@ -180,26 +189,27 @@ export function AiContextEditor({
             {t('web.preferences.aiContext.saveFailed')}
           </p>
         ) : null}
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* The screen's ONE accent-filled control, and it exists only
-              while the editor is open. */}
-          <Button
-            disabled={
-              saving ||
-              !draft.name.trim() ||
-              hasOverlongHotword ||
-              hasTooManyHotwords ||
-              atLimitForNew
-            }
-            onClick={onSave}
-          >
-            {saving ? t('web.preferences.aiContext.saving') : t('web.preferences.aiContext.save')}
-          </Button>
-          <Button variant="ghost" onClick={onCancel}>
-            {t('web.preferences.aiContext.cancel')}
-          </Button>
-        </div>
+      {/* The group's last row, ends-aligned like a dialog's footer: Cancel, then the
+          tab's ONE accent-filled control, which exists only while the editor does. */}
+      <div className="flex items-center justify-end gap-2 py-3">
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          {t('web.preferences.aiContext.cancel')}
+        </Button>
+        <Button
+          size="sm"
+          disabled={
+            saving ||
+            !draft.name.trim() ||
+            hasOverlongHotword ||
+            hasTooManyHotwords ||
+            atLimitForNew
+          }
+          onClick={onSave}
+        >
+          {saving ? t('web.preferences.aiContext.saving') : t('web.preferences.aiContext.save')}
+        </Button>
       </div>
     </>
   );

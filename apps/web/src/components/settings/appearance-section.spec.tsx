@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viDict } from '@chatofy/i18n';
 
 /**
- * Settings › Appearance: the two controls that left the topbar, each confirming
- * with a toast that can undo it.
+ * Settings › General: the theme as three picture tiles and the interface language,
+ * each confirming with a toast that can undo it.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -52,9 +52,10 @@ afterEach(() => {
   container.remove();
 });
 
+/** A theme radio by its visible name — each tile's radio is labelled by the text under its picture. */
 const radio = (name: string) =>
   [...document.querySelectorAll<HTMLElement>('[role=radio]')].find(
-    (el) => el.getAttribute('aria-label') === name || el.textContent === name,
+    (el) => document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent === name,
   );
 
 /** Opens the language menu and picks Vietnamese, as a pointer does. */
@@ -87,6 +88,30 @@ describe('AppearanceSection', () => {
 
     act(() => options?.undo?.());
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  it('offers the theme as one radio group of three tiles under a heading', () => {
+    const group = container.querySelector('[role=radiogroup]');
+    expect(group?.getAttribute('aria-label')).toBe(en['common.theme.label']);
+    expect(group?.querySelectorAll('[role=radio]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-theme-tile]')).toHaveLength(3);
+    for (const name of ['light', 'dark', 'system'] as const) {
+      expect(radio(en[`common.theme.${name}`]), name).toBeDefined();
+    }
+    const headings = [...container.querySelectorAll('h3')].map((h) => h.textContent);
+    expect(headings).toEqual([en['web.settings.appearance'], en['common.language.label']]);
+  });
+
+  it('marks the stored choice once storage is read, and moves it with a press on the tile', () => {
+    // Nothing stored: Match system is the choice.
+    expect(radio(en['common.theme.system'])?.getAttribute('aria-checked')).toBe('true');
+    const tile = container.querySelector<HTMLElement>('[data-theme-tile="dark"]')!;
+    act(() => {
+      tile.click();
+    });
+    expect(radio(en['common.theme.dark'])?.getAttribute('aria-checked')).toBe('true');
+    expect(radio(en['common.theme.system'])?.getAttribute('aria-checked')).toBe('false');
+    expect(localStorage.getItem('chatofy.theme')).toBe('dark');
   });
 
   it('confirms a language switch in the language just chosen', async () => {

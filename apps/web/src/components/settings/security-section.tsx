@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@chatofy/ui/react';
+import { useReturnFocus } from '@/hooks/use-return-focus';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
 import { signOutOfChatofy } from '@/lib/sign-out';
@@ -26,7 +27,7 @@ import { ChangePasswordForm } from './change-password-form';
 import { SettingsSection, SettingsSectionRow } from './settings-section';
 
 /**
- * Settings › Security: change the password, and leave this browser.
+ * Settings › Account (security): change the password, and leave this browser.
  *
  * **Change password is a dialog.** It is a form that interrupts — three fields and a
  * consequence — and its submit is that state's one filled control. The page itself
@@ -52,9 +53,12 @@ export function SecuritySection() {
   const [changeBusy, setChangeBusy] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
+  // The password dialog opens from state, so it has no Trigger to give focus back to.
+  const returnFocus = useReturnFocus();
 
   return (
-    <SettingsSection>
+    <SettingsSection title={t('web.account.security')}>
       <SettingsSectionRow
         label={t('common.auth.password')}
         note={t('web.account.changePasswordHint')}
@@ -67,7 +71,9 @@ export function SecuritySection() {
         <AlertDialog
           open={confirmingSignOut}
           onOpenChange={(next) => {
-            if (!signingOut) setConfirmingSignOut(next);
+            if (signingOut) return;
+            setConfirmingSignOut(next);
+            if (!next) setSignOutFailed(false);
           }}
         >
           <AlertDialogTrigger asChild>
@@ -81,6 +87,11 @@ export function SecuritySection() {
               <AlertDialogTitle>{t('web.settings.signOutTitle')}</AlertDialogTitle>
               <AlertDialogDescription>{t('web.account.signOutHint')}</AlertDialogDescription>
             </AlertDialogHeader>
+            {signOutFailed ? (
+              <p id="sign-out-failed" role="alert" className="text-hint text-destructive">
+                {t('web.settings.signOutFailed')}
+              </p>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={signingOut}>
                 {t('web.account.changePasswordCancel')}
@@ -93,9 +104,13 @@ export function SecuritySection() {
                   // drop the reader back on a page that still looks signed in.
                   event.preventDefault();
                   setSigningOut(true);
+                  setSignOutFailed(false);
+                  // A failure stays inline in this dialog: a toast would be a third
+                  // surface over Settings and it, out of the focus trap. Pressing
+                  // again is the retry.
                   signOutOfChatofy().catch(() => {
                     setSigningOut(false);
-                    notify.error(t('web.settings.signOutFailed'), { id: 'sign-out' });
+                    setSignOutFailed(true);
                   });
                 }}
               >
@@ -112,7 +127,7 @@ export function SecuritySection() {
           if (!changeBusy) setChanging(next);
         }}
       >
-        <DialogContent closeLabel={t('web.chrome.close')}>
+        <DialogContent closeLabel={t('web.chrome.close')} {...returnFocus}>
           <DialogHeader>
             <DialogTitle>{t('web.account.changePassword')}</DialogTitle>
             <DialogDescription>{t('web.account.changePasswordHint')}</DialogDescription>

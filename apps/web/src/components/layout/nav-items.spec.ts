@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSettingsPath, navGroups, navItemFor, navItems, navPlaceFor } from './nav-items';
+import { navGroups, navItemFor, navItems, navPlaceFor, SETTINGS_ENTRY } from './nav-items';
 
 describe('navItemFor', () => {
   it('finds the item for its own route', () => {
@@ -33,13 +33,6 @@ describe('the conference entry', () => {
       '/conference',
       '/history',
       '/glossary',
-      '/settings/appearance',
-      '/settings/audio',
-      '/settings/defaults',
-      '/settings/ai-context',
-      '/settings/profile',
-      '/settings/billing',
-      '/settings/security',
     ]);
   });
 });
@@ -51,13 +44,11 @@ describe('navPlaceFor', () => {
     expect(place?.item.href).toBe('/history');
   });
 
-  it('files every settings page under Settings, which the sidebar does not draw', () => {
-    expect(navPlaceFor('/settings/billing')?.group.labelKey).toBe('common.nav.settings');
-    expect(navPlaceFor('/settings/billing')?.item.labelKey).toBe('web.settings.billing');
+  it('places nothing under Settings: it is a dialog over the page, not a route', () => {
+    // The retired `/settings/*` addresses only redirect now, so they have no place.
+    expect(navPlaceFor('/settings/billing')).toBeUndefined();
     expect(navGroups().map((group) => group.labelKey)).not.toContain('common.nav.settings');
-    expect(isSettingsPath('/settings/appearance')).toBe(true);
-    expect(isSettingsPath('/preferences')).toBe(false);
-    expect(isSettingsPath('/glossary')).toBe(false);
+    expect(SETTINGS_ENTRY).not.toHaveProperty('href');
   });
 
   it('places nothing outside the product', () => {

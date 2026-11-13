@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import type { MicProcessing } from '@chatofy/types';
 import { Switch } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/settings/settings-section';
-import { useTranslateSettings, type UseTranslateSettings } from '@/hooks/use-translate-settings';
+import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslate } from '@/i18n/provider';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { useSettingSaver } from './use-setting-saver';
@@ -50,16 +50,13 @@ type AudioProcessingSectionProps = Pick<
   'settings' | 'ready' | 'set' | 'current'
 >;
 
-/** Settings › Audio: the page's one owner of the stored translate settings. */
-export function AudioSettings() {
-  return <AudioProcessingSection {...useTranslateSettings()} />;
-}
-
 /**
  * The three processors the browser applies to the microphone, as Saydi offers them.
  *
- * On the page ground, not a card: three unrelated switches are not a thing you work on
- * as a unit. Each switch confirms itself with a toast that can undo just that switch.
+ * The Microphone group of the Translation tab. Each switch confirms itself with a
+ * toast that can undo just that switch. Not frozen while a conversation runs: the
+ * page reads these at start, so a change applies from the next one, which is what
+ * the group's note says.
  *
  * A processor the browser says it cannot honour is shown disabled with a note rather
  * than hidden, so the row a reader came looking for is still where they expect it.
@@ -76,7 +73,10 @@ export function AudioProcessingSection({
   const supported = useSyncExternalStore(subscribeNever, readBrowserSupport, () => ALL_SUPPORTED);
 
   return (
-    <SettingsSection note={t('web.preferences.audioHint')}>
+    <SettingsSection
+      title={t('web.settings.groupMicrophone')}
+      note={`${t('web.settings.audioDescription')} ${t('web.preferences.audioHint')}`}
+    >
       {PROCESSORS.map((key) => {
         // Echo cancellation also says what it costs in a meeting, where the
         // people who hear the echo are the other participants.
@@ -109,7 +109,7 @@ export function AudioProcessingSection({
           </SettingsSectionRow>
         );
       })}
-      <p className="text-hint text-prose">{t('common.audio.recommendation')}</p>
+      <p className="text-hint text-prose py-3">{t('common.audio.recommendation')}</p>
     </SettingsSection>
   );
 }
