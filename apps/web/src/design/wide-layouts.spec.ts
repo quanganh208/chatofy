@@ -53,4 +53,17 @@ describe('wide layouts', () => {
     expect(src).toContain('max-w-2xl');
     expect(src).not.toContain('LotusIllustration');
   });
+
+  it('sizes the translate dock by the room the column has, not by the window', () => {
+    // At 768px the sidebar leaves the column about 488px; a viewport breakpoint put three
+    // columns in it and the toolbar scrolled the page sideways by 56px.
+    const src = read('../components/translate/cascade-panel.tsx');
+    expect(src).toContain('@[46rem]/main:grid-cols-[1fr_auto_1fr]');
+    expect(src).not.toContain('sm:grid-cols-[1fr_auto_1fr]');
+    // A long context name has to truncate in the narrow dock rather than widen the
+    // toolbar; the wide dock lifts the cap, and its `min-w-0` column still truncates.
+    expect(src).toContain('max-w-32 min-w-0');
+    expect(src).toContain('@[46rem]/main:max-w-none');
+    expect(src).toContain('flex min-w-0 items-center justify-end');
+  });
 });

@@ -4,17 +4,18 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@chatofy/ui/react';
 import type { CheckoutOrder } from '@chatofy/types';
 import { notify } from '@/lib/notify';
-import type { SepayCheckout } from './credit-buy-actions';
+import type { SepayCheckout } from './use-credit-checkout';
 import { useCheckoutOrder } from '@/hooks/use-credits';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatVnd } from '@/lib/pricing-content';
 
 /**
- * The VietQR to pay one SePay order: the last row of the "Buy credits" group.
+ * The VietQR to pay one SePay order, under the plan columns or the top-up tiles —
+ * whichever made the order.
  *
- * **Not a card, and no box of its own.** It is a row of the group's hairline box, so
- * the box's divider is its only edge and opening it adds no surface. Close and the
- * copy buttons are ghost, so the group's one accent stays the first Buy.
+ * **Not a card.** It is a hairline region on the pane ground like the tiles above it,
+ * with no shadow, so opening it adds no surface. Close and the copy buttons are
+ * ghost, so the tab's one accent stays Upgrade.
  *
  * **The code and amount are text as well as a picture.** A QR is unreadable to
  * a screen reader and to anyone paying from the same phone the page is on; the
@@ -62,7 +63,7 @@ export function SepayQrPanel({
   return (
     <div
       ref={panelRef}
-      className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-5"
+      className="border-hairline flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:gap-5"
       data-sepay-qr-panel
     >
       {/* A plain <img>, not next/image: a one-time payment code must not pass

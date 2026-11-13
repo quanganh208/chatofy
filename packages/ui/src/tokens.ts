@@ -134,9 +134,11 @@ export type ColorScheme = keyof typeof palettes;
  * The dawn trio: the lotus mark's centre petal and the landing illustration, and
  * nothing else.
  *
- * Decorative only. Measured 1.3–1.7:1 on stone, so a dawn value is never behind
- * text, never on a control, and never carries a state — it is not a palette key for
- * the same reason, and the contrast table never sees it. The illustration's two
+ * Decorative only. Measured 1.3–1.7:1 on stone, so a dawn value never carries a
+ * state and is not a palette key, and the contrast table never sees it. It sits
+ * behind text in exactly one place: the Pro plan badge in the web sidebar, which
+ * pins its text to the light palette's ink in both themes and holds 4.5:1 on every
+ * dawn stop (`apps/web/src/components/layout/plan-badge.spec.tsx`). The illustration's two
  * extra stops (sky, rose) stay local to the landing component rather than joining
  * this trio.
  */

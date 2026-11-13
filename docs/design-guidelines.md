@@ -112,7 +112,12 @@ illustration, the surfaces tiles' band, and the same illustration above the firs
 the translate screen's empty source pane (above the sentence, never behind it; hidden below
 `sm`, where the stacked panes are too short to hold it). They measure 1.44, 1.69 and 1.30:1 on stone, so
 a dawn value is **never behind text, never on a control, and never carries a state**.
-It is not a palette key, and the contrast table never sees it. The illustration's two
+It is not a palette key, and the contrast table never sees it. **One exception: the Pro
+plan pill** (`layout/plan-badge.tsx`) sits on the dawn gradient with a label in the LIGHT
+palette's `text` in both schemes — the stops are light in dark mode too, so a
+scheme-following ink would turn near-white on a pastel. That ink clears 4.5:1 on every
+stop, asserted in `plan-badge.spec.tsx`; the rail's Pro dot is the same gradient, decorative.
+The illustration's two
 extra stops, sky `#A8C8E8` and rose `#E8B8C4`, are local to the lotus mark data and the
 landing component; nothing else reaches for them.
 
@@ -617,6 +622,15 @@ breadcrumb and tab bar read.
   sits in the footer beside who you are, over the credit line, as a button that opens
   the Settings dialog rather than a destination; its meter is dropped
   when the balance read fails, because Billing is where a failure is explained.
+  A plan pill follows the name — Free as a muted outline, Pro on the dawn — and opens
+  Settings › Billing. It is a sibling of the account menu's trigger, not inside it (a
+  button in a button is invalid): the trigger is the row's hit area underneath, the name,
+  pill and credit line a `pointer-events-none` layer over it that only the pill opts out
+  of. Nothing renders while the balance loads or after it fails, and the pill is shorter
+  than the name's line so its arrival does not move the footer. On the icon rail Pro is
+  a dawn dot on the avatar and the trigger's name carries the plan ("Account, Pro plan");
+  in the More sheet the pill is text inside the identity row, which already opens Billing.
+  Neither treatment is `bg-primary`: the pill is a readout and spends no accent.
 - **Topbar** — a breadcrumb whose last crumb is the page's `<h1>`, so the heading a
   screen reader jumps to is in the sidebar's words; there is no display-face page
   header. A page adds its own name (`TopbarCrumb`) and actions (`TopbarActions`) through
@@ -662,9 +676,25 @@ The old addresses redirect onto their tab over `/translate/one-way`, keeping the
   not cards; the photo, password and sign-out dialogs layered over it are the second.
   The active tab is a quiet ground, never `bg-primary`. The theme is picked from visual
   tiles.
-- **Accent** — most tabs spend none. Billing fills its first Buy only while checkout is
-  open (a disabled filled button reads as available, so a closed checkout shows every
-  Buy outlined); AI Context fills Save only while its editor is open.
+- **Accent** — most tabs spend none. Billing fills Upgrade by card only for a Free
+  account while checkout is open (VietQR when card is unavailable); a Pro account fills
+  nothing, and a closed checkout shows every Upgrade and Buy outlined and disabled, since
+  a disabled filled button reads as available. AI Context fills Save only while its
+  editor is open.
+- **Billing** (`settings/credits-section.tsx`) — four groups. The balance (with its dawn
+  split bar) and Usage are hairline boxes like every other group. Plan and Buy credits
+  are not boxed: their content is already hairline regions, and a box around them drew
+  every edge twice, so they sit on the pane ground under their heading. Plan is Free
+  beside Pro (stacked on a phone), both columns built the same way — price on top, a
+  check-list of what you get, actions pinned under Pro — at the numbers `/billing/plans`
+  answers; the current plan is marked "Your plan" and a `border-strong` edge, never a
+  fill. Buy credits is a payment-method `SegmentedControl` chosen once (a rail reported
+  unavailable is a disabled segment) over one tile per top-up pack. Usage is grouped
+  under Today, Yesterday or the date, an icon per kind, a spend in the plain foreground
+  with a true minus (U+2212, `formatSignedCredits`) and an addition `+` in `speaking`
+  green — spending is never drawn as an error. Why buying is closed, or which rail is in
+  test mode, is one muted line under the plans; the VietQR panel opens as a hairline
+  region under whichever group's button made the order.
 - **A running conversation** — while one runs, the Translation tab freezes the language
   pairs, the default AI context and the voice controls except volume, as the voice popover on `/translate`
   does. Settings opens over the conversation, so a change there would otherwise reach

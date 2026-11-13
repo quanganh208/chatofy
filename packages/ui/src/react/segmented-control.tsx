@@ -34,6 +34,12 @@ import { ToggleGroup, ToggleGroupItem } from './toggle-group.js';
 export interface SegmentedOption<T extends string> {
   value: T;
   label: React.ReactNode;
+  /**
+   * This one segment cannot be chosen — a payment method this deployment does not
+   * offer — while the rest of the group stays live. `disabled` on the control
+   * itself disables every segment.
+   */
+  disabled?: boolean;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -211,6 +217,7 @@ export function SegmentedControl<T extends string>({
           <ToggleGroupItem
             key={option.value}
             value={option.value}
+            disabled={option.disabled}
             data-value={option.value}
             data-slot="segmented-control-item"
             className={cn(
