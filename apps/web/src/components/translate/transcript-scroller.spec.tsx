@@ -303,9 +303,11 @@ describe('TranscriptScroller order switch', () => {
     expect(node.scrollTop, 'following was not switched back on').toBe(0);
   });
 
-  it('leaves oldest first to the browser: anchoring stays on', () => {
+  it('leaves oldest first to the browser and turns anchoring off newest first', () => {
     render('a conversation', 900);
     expect(region().className).not.toContain('overflow-anchor');
+    render('a conversation', 900, false, 'newest-first');
+    expect(region().className).toContain('[overflow-anchor:none]');
   });
 });
 
@@ -441,6 +443,22 @@ describe('TranscriptScroller newest-first place-keeping', () => {
 
     renderTurns([turn('c', 0, 100), turn('a', 50, 600)], 650);
     expect(node.scrollTop, 'the reader was pulled to the top').not.toBe(0);
+  });
+
+  it('still follows when the READER scrolls to the top right after a hold', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400);
+
+    renderTurns([turn('b', 0, 300), turn('a', -50, 600)], 550);
+    expect(node.scrollTop).toBe(50);
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+    scrollTo(node, 10); // the reader's own scroll, into the slack
+
+    renderTurns([turn('c', 0, 100), turn('a', 50, 600)], 650);
+    expect(node.scrollTop).toBe(0);
   });
 
   it('holds a free-scroll reader parked at the top instead of following', () => {

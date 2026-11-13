@@ -156,8 +156,12 @@ export function TranscriptScroller({
     // touch fling in WebKit, and this runs every frame while text types in.
     const delta = contentTop(node, held.element) - held.top;
     if (!delta) return;
+    const before = node.scrollTop;
     node.scrollTop += delta;
-    heldAt.current = node.scrollTop;
+    // Only a write that moved fires a scroll event to consume this; one clamped to
+    // the same offset fires none, and a value left behind would swallow the
+    // reader's next scroll if it landed on exactly that offset.
+    heldAt.current = node.scrollTop !== before ? node.scrollTop : null;
   }, []);
 
   // The order the last commit drew, so a switch can be told apart from an update.
@@ -173,6 +177,7 @@ export function TranscriptScroller({
       drawnOrder.current = order;
       following.current = true;
       anchor.current = null;
+      heldAt.current = null;
       node.scrollTop = followsTop ? 0 : node.scrollHeight;
     } else if (!freeScroll && following.current) {
       node.scrollTop = followsTop ? 0 : node.scrollHeight;
