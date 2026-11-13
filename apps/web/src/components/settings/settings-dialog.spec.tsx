@@ -421,6 +421,58 @@ describe('the settings dialog', () => {
       expect(retry).toHaveBeenCalledTimes(1);
     });
 
+    it('does not bring back an error closed by its ✕ just before Settings closed', async () => {
+      // sonner takes ~200 ms to animate a dismissed toast out; Settings closing inside
+      // that window must not find it still active and move it onto the page.
+      await openAt('?settings=general', <AppToaster />);
+      await act(async () => {
+        notify.error('Could not save', { id: 'just-closed' });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      const close = document.querySelector<HTMLButtonElement>(
+        '[role="dialog"] [data-sonner-toast] [data-close-button]',
+      );
+      expect(close, 'the error toast has no ✕').not.toBeNull();
+      act(() => close?.click());
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+      act(() => {
+        document
+          .querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]')
+          ?.click();
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+      expect(toastTexts()).toHaveLength(0);
+    });
+
+    it('does not bring back an error whose Retry was pressed just before Settings closed', async () => {
+      await openAt('?settings=general', <AppToaster />);
+      const retry = vi.fn();
+      await act(async () => {
+        notify.error('Could not save', { retry });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      const button = [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '[role="dialog"] [data-sonner-toast] button',
+        ),
+      ].find((b) => b.textContent === 'Retry');
+      act(() => button?.click());
+      act(() => {
+        document
+          .querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]')
+          ?.click();
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+      expect(retry).toHaveBeenCalledTimes(1);
+      expect(toastTexts()).toHaveLength(0);
+    });
+
     it('does not bring back an error the reader dismissed while Settings was open', async () => {
       await openAt('?settings=general', <AppToaster />);
       await act(async () => {

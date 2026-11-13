@@ -78,12 +78,45 @@ export function routeToastsToSettings(open: boolean): void {
 
 /** One toast, into whichever host is current, remembered if that is Settings'. */
 function raise(kind: Kind, message: string, data: ToastData): string | number {
-  const routed = routedTo === undefined ? data : { ...data, toasterId: routedTo };
+  const box: { id?: string | number } = { id: data.id };
+  const routed =
+    routedTo === undefined ? data : { ...settledOnAct(data, box), toasterId: routedTo };
   const id = toast[kind](message, routed);
+  box.id = id;
   if (routedTo !== undefined) raisedInSettings.set(id, { kind, message, data });
   // Raised on the page with an id Settings held: it is the page's now.
   else raisedInSettings.delete(id);
   return id;
+}
+
+/**
+ * Forget a Settings toast the moment the reader acts on it — its ✕, its Undo or its
+ * Retry — rather than when sonner's ~200 ms exit animation ends. Closing Settings
+ * inside that window would otherwise find the toast still "active" and move an error
+ * the reader just dismissed onto the page. `box.id` is the toast's id once sonner
+ * has assigned it, for an action pressed on a toast raised without one.
+ */
+function settledOnAct(data: ToastData, box: { id?: string | number }): ToastData {
+  const forget = (shown: { id: string | number }) => raisedInSettings.delete(shown.id);
+  const action = data.action;
+  return {
+    ...data,
+    onDismiss: (shown) => {
+      forget(shown);
+      data.onDismiss?.(shown);
+    },
+    ...(action && typeof action === 'object' && 'onClick' in action
+      ? {
+          action: {
+            ...action,
+            onClick: (event) => {
+              if (box.id !== undefined) raisedInSettings.delete(box.id);
+              action.onClick(event);
+            },
+          },
+        }
+      : {}),
+  };
 }
 
 const base = ({ id, description }: NotifyOptions) => ({
