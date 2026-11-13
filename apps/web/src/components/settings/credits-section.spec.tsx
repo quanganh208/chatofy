@@ -366,9 +366,10 @@ describe('buying', () => {
     await render();
     expect(method('polar')?.disabled).toBe(true);
     expect(method('sepay')?.getAttribute('aria-checked')).toBe('true');
-    // Only prices this deployment can charge: no card price for Pro.
-    expect(planColumn('pro')?.textContent).not.toContain('$9.99');
+    // Prices are plan facts, as on /pricing: the card price stays though card is down.
+    expect(planColumn('pro')?.textContent).toContain('$9.99 a month by card');
     expect(planColumn('pro')?.textContent).toContain('₫249,000 for 30 days by VietQR');
+    expect(planColumn('pro')?.textContent).toContain(en['web.billing.featurePayOptions']);
     expect(buyButtons().map(accessibleName)).toEqual([
       'Upgrade by VietQR Pro for 30 days by VietQR — ₫249,000',
       'Buy 250 credits by VietQR — ₫125,000',

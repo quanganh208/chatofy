@@ -32,8 +32,7 @@ interface UpgradeOption {
  * are outline and disabled, and described by the tab's closed line (`closedId`). A Pro
  * account sees where Pro came from, when it renews or ends, and — for a card
  * subscription — Manage subscription, or for a VietQR pass an outline Renew by
- * VietQR (the pass does not renew itself). A price is listed only for a rail this
- * deployment can charge.
+ * VietQR (the pass does not renew itself).
  *
  * Two columns from `sm`, stacked on a phone, straight on the pane ground under the
  * heading. Each is a hairline region, not a card: neither has a shadow.
@@ -94,12 +93,12 @@ export function CreditPlanComparison({
     });
   }
 
-  // Only the prices this deployment can actually charge.
+  // Plan facts, as on `/pricing`: listed whether or not a rail is up right now.
   const proPrices: string[] = [];
-  if (cardBuyable && card.priceUsdCents !== null) {
+  if (card?.priceUsdCents != null) {
     proPrices.push(t('web.billing.priceCard', { price: formatUsd(card.priceUsdCents, locale) }));
   }
-  if (passBuyable && pass.priceVnd !== null) {
+  if (pass?.priceVnd != null) {
     proPrices.push(t('web.billing.pricePass', { price: formatVnd(pass.priceVnd, locale) }));
   }
   const topups = t('web.billing.featureTopups');
@@ -115,8 +114,7 @@ export function CreditPlanComparison({
       ? []
       : [t('web.billing.featureCreditsCycle', { credits: count(locale, proCredits) })]),
     t('web.billing.featureCycleReset'),
-    // Names both rails, so only where both can be paid with.
-    ...(cardBuyable && passBuyable ? [t('web.billing.featurePayOptions')] : []),
+    t('web.billing.featurePayOptions'),
     topups,
   ];
 

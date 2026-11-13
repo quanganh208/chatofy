@@ -55,7 +55,7 @@ export function PlanColumn({
           ) : null}
         </div>
         {headline ? (
-          <span className="text-heading font-display leading-tight font-light tabular-nums">
+          <span className="text-heading font-display leading-tight font-light text-balance tabular-nums">
             {headline}
           </span>
         ) : null}
