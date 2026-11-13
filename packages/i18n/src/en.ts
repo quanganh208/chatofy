@@ -145,7 +145,7 @@ export const en = {
   'common.conference.chatNotSent': 'Message not sent.',
 
   // ---- common.billing: the credits words web and mobile both show ----
-  // The section and block title on web /settings/billing and mobile settings.
+  // The section and block title on web Settings › Billing and mobile settings.
   'common.billing.title': 'Credits & plan',
   // Amounts are pre-formatted by the caller; English needs the singular by hand.
   'common.billing.creditAmount': '{credits} credits',
@@ -725,7 +725,7 @@ export const en = {
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.preferences ----
-  // Rows on Settings › Audio and Settings › AI context; the key names predate the
+  // Rows on Settings › Translation and Settings › AI Context; the key names predate the
   // move into Settings.
   'web.preferences.audioHint': 'Applies from the next start.',
   'web.preferences.audio.echoCancellationHint':
@@ -751,9 +751,9 @@ export const en = {
   'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',
-  // The editor group's heading when it holds a stored context.
   // The library group's heading; the editor group beside it is titled for its draft.
   'web.preferences.aiContext.libraryTitle': 'Your contexts',
+  // The editor group's heading when it holds a stored context.
   'web.preferences.aiContext.editTitle': 'Edit context',
   'web.preferences.aiContext.delete': 'Delete',
   'web.preferences.aiContext.deleting': 'Deleting…',
@@ -894,6 +894,8 @@ export const en = {
   'web.settings.accountDescription':
     "Your photo, name and email, your password, and this browser's session.",
   // The phone's back button from one tab to the list of all of them.
+  // Said when Settings refuses to leave a tab (or close on Esc) over an unsaved draft.
+  'web.settings.unsavedDraft': 'Save or cancel the AI context you are writing first.',
   'web.settings.backToList': 'Back to all settings',
   'web.settings.appearance': 'Appearance',
   'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
@@ -918,7 +920,6 @@ export const en = {
   // Autosave, said once per setting. `{setting}` is the row's own label.
   'web.settings.saved': '{setting} saved',
   'web.settings.saveFailed': "Couldn't save {setting}. It still applies in this browser.",
-  'web.settings.photo': 'Photo',
   'web.settings.photoChoose': 'Choose an image',
   'web.settings.photoUpdated': 'Photo updated',
   'web.settings.photoRemoved': 'Photo removed',

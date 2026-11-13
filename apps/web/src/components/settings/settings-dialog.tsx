@@ -3,9 +3,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogTitle } from '@chatofy/ui/react';
+import { AppToaster } from '@/components/layout/app-toaster';
 import { useReturnFocus } from '@/hooks/use-return-focus';
 import { hasUnsavedSettingsDraft } from '@/hooks/use-unsaved-settings-draft';
 import { useTranslate } from '@/i18n/provider';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { paneTabFor, type SettingsDialogView } from './settings-dialog-url';
 import { SettingsTabContent } from './settings-dialog-tab-content';
@@ -80,12 +82,22 @@ export function SettingsDialog() {
     }
   }, [view]);
 
+  // Leaving the open tab unmounts it, and an unsaved AI Context draft with it. A tab
+  // click is as much a reflex as Esc, so the same guard holds it, and says why.
+  const heldByDraft = () => {
+    if (!hasUnsavedSettingsDraft()) return false;
+    notify.info(t('web.settings.unsavedDraft'), { id: 'settings-unsaved-draft' });
+    return true;
+  };
+
   const select = (tab: SettingsTabId) => {
+    if (tab !== view && heldByDraft()) return;
     if (!settingsListBesidePane()) focusNext.current = { to: 'pane' };
     show(tab);
   };
 
   const backToList = () => {
+    if (heldByDraft()) return;
     focusNext.current = { to: 'tab', tab: paneTab };
     show(null);
   };
@@ -142,10 +154,11 @@ export function SettingsDialog() {
         // Unsaved typing (an AI Context draft) also keeps a press or focus beside the
         // dialog and Esc from closing it; ✕ and Back still close.
         onInteractOutside={(event) => {
-          if (isInToaster(event.target) || hasUnsavedSettingsDraft()) event.preventDefault();
+          if (isInToaster(event.target)) event.preventDefault();
+          else if (heldByDraft()) event.preventDefault();
         }}
         onEscapeKeyDown={(event) => {
-          if (hasUnsavedSettingsDraft()) event.preventDefault();
+          if (heldByDraft()) event.preventDefault();
         }}
         // The pane's title and description say what the open tab is for; the dialog's
         // own name is "Settings".
@@ -275,6 +288,10 @@ export function SettingsDialog() {
             </div>
           </div>
         </section>
+        {/* The toast host, inside the dialog while it is open, so a toast's Undo is in
+            the focus trap — reachable by Tab and by Alt+T, not only by a pointer. The
+            page's host steps aside meanwhile; see `layout/app-toaster.tsx`. */}
+        {dialog.isOpen ? <AppToaster host="settings" /> : null}
       </DialogContent>
     </Dialog>
   );

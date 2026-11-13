@@ -244,6 +244,32 @@ describe('the settings dialog', () => {
     expect(dialog()).not.toBeNull();
   });
 
+  it('puts the toast inside the dialog while it is open, so Undo is reachable by keyboard', async () => {
+    // The page's host is mounted too, as the app layout mounts it; it steps aside.
+    await openAt('?settings=general', <AppToaster />);
+    const undo = vi.fn();
+    await act(async () => {
+      notify.success('Theme saved', { undo });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
+    const button = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-sonner-toaster] button'),
+    ].find((b) => b.textContent === 'Undo');
+    expect(button?.closest('[role="dialog"]'), 'the toast is outside the focus trap').toBe(
+      dialog(),
+    );
+    // Inside the trap, focus stays where it is put — outside, FocusScope pulled it back.
+    act(() => button?.focus());
+    expect(document.activeElement).toBe(button);
+    act(() => {
+      button?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      button?.click();
+    });
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(view()).toBe('general');
+  });
+
   it('still closes on a press on the dimmed page beside it', async () => {
     await openAt('?settings=general');
     pressAsPointer(document.querySelector('[data-slot="dialog-overlay"]') ?? document.body);
@@ -261,6 +287,28 @@ describe('the settings dialog', () => {
       });
       expect(view()).toBe('ai-context');
       pressAsPointer(document.querySelector('[data-slot="dialog-overlay"]') ?? document.body);
+      expect(view()).toBe('ai-context');
+    });
+
+    it('holds a switch to another tab, and says why', async () => {
+      await openAt('?settings=ai-context', <UnsavedDraft />);
+      const info = vi.spyOn(notify, 'info');
+      act(() => {
+        tabButton('general')?.click();
+      });
+      expect(view()).toBe('ai-context');
+      expect(info).toHaveBeenCalledWith(
+        'Save or cancel the AI context you are writing first.',
+        expect.anything(),
+      );
+    });
+
+    it("holds a phone's back-to-list too", async () => {
+      wideScreen(false);
+      await openAt('?settings=ai-context', <UnsavedDraft />);
+      act(() => {
+        document.querySelector<HTMLButtonElement>('[data-settings-back]')?.click();
+      });
       expect(view()).toBe('ai-context');
     });
 

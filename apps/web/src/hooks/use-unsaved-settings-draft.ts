@@ -8,8 +8,10 @@ import { useEffect, useSyncExternalStore } from 'react';
  * The dialog closes on Esc and on a click on the dimmed page beside it — both easy
  * to do by reflex while writing (Esc to dismiss an autocomplete, a click to put the
  * cursor somewhere). A long form such as an AI Context draft would vanish with no way
- * back. While this reads true the dialog ignores those two; its ✕ and Back still
- * close it, because those are a decision rather than a reflex.
+ * back. While this reads true the dialog ignores those two, and a switch to another
+ * tab or the phone's back-to-list (which unmount the draft just the same), and says
+ * why in a toast; its ✕ and the browser's Back still close it, because those are a
+ * decision rather than a reflex.
  *
  * A module store rather than a context, like `use-conversation-running.ts`: the
  * dialog's frame and the tab content that knows about the draft are far apart, and

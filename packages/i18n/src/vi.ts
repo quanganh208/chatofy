@@ -702,6 +702,7 @@ export const vi: Messages = {
   'web.settings.account': 'Tài khoản',
   'web.settings.accountDescription':
     'Ảnh đại diện, tên và email, mật khẩu, và phiên đăng nhập trên trình duyệt này.',
+  'web.settings.unsavedDraft': 'Hãy lưu hoặc huỷ ngữ cảnh AI đang viết trước.',
   'web.settings.backToList': 'Quay lại tất cả cài đặt',
   'web.settings.appearance': 'Giao diện',
   'web.settings.appearanceDescription': 'Ngôn ngữ hiển thị của Chatofy và giao diện sáng hay tối.',
@@ -722,7 +723,6 @@ export const vi: Messages = {
   'web.settings.saved': 'Đã lưu: {setting}',
   'web.settings.saveFailed':
     'Không lưu được: {setting}. Trình duyệt này vẫn áp dụng lựa chọn của bạn.',
-  'web.settings.photo': 'Ảnh đại diện',
   'web.settings.photoChoose': 'Chọn ảnh',
   'web.settings.photoUpdated': 'Đã cập nhật ảnh đại diện',
   'web.settings.photoRemoved': 'Đã gỡ ảnh đại diện',

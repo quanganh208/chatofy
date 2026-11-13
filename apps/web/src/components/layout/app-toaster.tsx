@@ -1,9 +1,11 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Toaster } from '@chatofy/ui/react';
 import { useResolvedColorScheme } from '@/hooks/use-resolved-color-scheme';
 import { useTranslate } from '@/i18n/provider';
+import { readSettingsDialog } from '@/components/settings/settings-dialog-url';
 
 /**
  * The one toast host for the signed-in app; `lib/notify.ts` is how a screen speaks
@@ -26,10 +28,18 @@ function subscribe(onChange: () => void): () => void {
 
 const isDesktop = () => window.matchMedia?.(DESKTOP).matches ?? true;
 
-export function AppToaster() {
+export function AppToaster({ host = 'page' }: { host?: 'page' | 'settings' }) {
   const t = useTranslate();
+  // While Settings is open the host moves INSIDE the dialog (`settings-dialog.tsx`
+  // renders `<AppToaster host="settings" />`). A modal traps focus, so a toast outside
+  // it — "Saved" with Undo, raised by a change made in Settings — could be clicked
+  // but never reached by Tab or by sonner's Alt+T. Inside, it is part of the trap.
+  // One host at a time, so a toast never shows twice.
+  const settingsOpen = readSettingsDialog(useSearchParams()) !== undefined;
   const scheme = useResolvedColorScheme();
   const desktop = useSyncExternalStore(subscribe, isDesktop, () => true);
+
+  if (host === 'page' && settingsOpen) return null;
 
   return (
     <Toaster
