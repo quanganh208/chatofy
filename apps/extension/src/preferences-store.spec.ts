@@ -103,8 +103,8 @@ describe('recording and sending synced fields', () => {
     expect(store.get(PREFERENCES_KEY)).toMatchObject({
       pairs: { extension: { source: 'en', target: 'zh' } },
     });
-    expect(store.get(PENDING_PREFERENCES_KEY)).toEqual({
-      contexts: { worker: { pairs: { extension: { source: 'en', target: 'zh' } } } },
+    expect(store.get(PENDING_PREFERENCES_KEY)).toMatchObject({
+      contexts: { worker: { patch: { pairs: { extension: { source: 'en', target: 'zh' } } } } },
     });
   });
 });
@@ -120,8 +120,10 @@ describe('a save the worker could not finish', () => {
     });
     await save({ languagePair: languagePairOf('en', 'zh') });
     // The failed store took the worker's entry over as its own; either way it is kept.
-    const slot = store.get(PENDING_PREFERENCES_KEY) as { contexts: Record<string, unknown> };
-    expect(Object.values(slot.contexts)).toEqual([
+    const slot = store.get(PENDING_PREFERENCES_KEY) as {
+      contexts: Record<string, { patch?: unknown }>;
+    };
+    expect(Object.values(slot.contexts).map((entry) => entry.patch)).toEqual([
       { pairs: { extension: { source: 'en', target: 'zh' } } },
     ]);
 
@@ -135,12 +137,14 @@ describe('a save the worker could not finish', () => {
       preferences: { pairs: { extension: { source: 'en', target: 'zh' } } },
     });
     expect(popup.getState().preferences.pairs.extension).toEqual({ source: 'en', target: 'zh' });
-    expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
     await popup.dispose();
+    expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
   });
 
   it('is dropped with the session, so it cannot be sent under another account', async () => {
-    store.set(PENDING_PREFERENCES_KEY, { contexts: { worker: { theme: 'dark' } } });
+    store.set(PENDING_PREFERENCES_KEY, {
+      contexts: { worker: { patch: { theme: 'dark' }, at: 1 } },
+    });
     store.set(PREFERENCES_KEY, defaultUserPreferences('en'));
     const { clearTokens } = await import('./token-storage');
     await clearTokens();

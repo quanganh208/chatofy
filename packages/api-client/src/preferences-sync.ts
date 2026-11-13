@@ -3,7 +3,7 @@ import {
   userPreferencesPatchSchema,
   mergePreferences,
   parseUserPreferences,
-  type PreferencesResponse,
+  type PreferencesReadResponse,
   type UserPreferences,
   type UserPreferencesPatch,
 } from '@chatofy/types';
@@ -89,37 +89,71 @@ export interface PreferencesCache {
   writePending?(value: PendingSlot | null): void | Promise<void>;
 }
 
-/** What the pending slot holds: each context's unacknowledged patch. */
-export interface PendingSlot {
-  contexts: Record<string, UserPreferencesPatch>;
+/**
+ * One context's unacknowledged changes.
+ *
+ * `patch` was never sent. `sent` was handed to the transport and its answer
+ * never came back to this context — it may or may not have landed. The two are
+ * kept apart because they are adopted differently by a later start: an unsent
+ * patch is always sent, while a sent one is re-sent only if the server has not
+ * been written since (`sentAfter` equals the server's `updatedAt`), because
+ * re-sending one that DID land would overwrite whatever another device changed
+ * afterwards.
+ */
+export interface PendingEntry {
+  patch?: UserPreferencesPatch;
+  sent?: UserPreferencesPatch;
+  /** The server's `updatedAt` this context last knew when it sent `sent`; absent if unknown. */
+  sentAfter?: string | null;
+  /** When the entry was last written, so orphans are adopted oldest first. */
+  at: number;
 }
 
-/**
- * Read a slot without trusting it. A bare patch (a slot written before slots had
- * contexts) is accepted as one orphaned entry; anything invalid is dropped.
- */
-function readSlot(raw: unknown): Record<string, UserPreferencesPatch> {
-  const out: Record<string, UserPreferencesPatch> = {};
+/** What the pending slot holds: each context's entry. */
+export interface PendingSlot {
+  contexts: Record<string, PendingEntry>;
+}
+
+const nonEmptyPatch = (value: unknown): UserPreferencesPatch | undefined => {
+  const parsed = userPreferencesPatchSchema.safeParse(value);
+  return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : undefined;
+};
+
+/** Read a slot without trusting it; an invalid entry or field is dropped. */
+function readSlot(raw: unknown): Record<string, PendingEntry> {
+  const out: Record<string, PendingEntry> = {};
   if (typeof raw !== 'object' || raw === null) return out;
   const contexts = (raw as { contexts?: unknown }).contexts;
-  if (typeof contexts === 'object' && contexts !== null) {
-    for (const [id, value] of Object.entries(contexts)) {
-      const parsed = userPreferencesPatchSchema.safeParse(value);
-      if (parsed.success && Object.keys(parsed.data).length > 0) out[id] = parsed.data;
-    }
-    return out;
+  if (typeof contexts !== 'object' || contexts === null) return out;
+  for (const [id, value] of Object.entries(contexts)) {
+    if (typeof value !== 'object' || value === null) continue;
+    const record = value as Record<string, unknown>;
+    const patch = nonEmptyPatch(record['patch']);
+    const sent = nonEmptyPatch(record['sent']);
+    if (!patch && !sent) continue;
+    const sentAfter = record['sentAfter'];
+    out[id] = {
+      ...(patch ? { patch } : {}),
+      ...(sent ? { sent } : {}),
+      ...(sent && (typeof sentAfter === 'string' || sentAfter === null) ? { sentAfter } : {}),
+      at: typeof record['at'] === 'number' ? record['at'] : 0,
+    };
   }
-  const bare = userPreferencesPatchSchema.safeParse(raw);
-  if (bare.success && Object.keys(bare.data).length > 0) out['orphan'] = bare.data;
   return out;
 }
+
+const combineAll = (patches: (UserPreferencesPatch | undefined)[]) =>
+  patches.reduce<UserPreferencesPatch | null>(
+    (all, patch) => (!patch ? all : all ? combinePreferencePatches(all, patch) : patch),
+    null,
+  );
 
 const newContextId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export interface PreferencesTransport {
-  load(): Promise<PreferencesResponse>;
-  save(patch: UserPreferencesPatch): Promise<PreferencesResponse>;
-  reset(): Promise<PreferencesResponse>;
+  load(): Promise<PreferencesReadResponse>;
+  save(patch: UserPreferencesPatch): Promise<PreferencesReadResponse>;
+  reset(): Promise<PreferencesReadResponse>;
 }
 
 export interface PreferencesSyncConfig {
@@ -215,8 +249,16 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   /** Set by a sign-out dispose: nothing may be written to this cache again. */
   let forgotten = false;
   let started: Promise<void> | null = null;
-  /** Bumped by every acknowledged save and reset; a load from an older epoch is stale. */
+  /** Bumped by every acknowledged save, reset and received broadcast; a load from an older epoch is stale. */
   let epoch = 0;
+  /** The server's `updatedAt` as last read; `undefined` while unknown. */
+  let serverUpdatedAt: string | null | undefined;
+  /** What `serverUpdatedAt` was when the in-flight patch was sent. */
+  let sentAfter: string | null | undefined;
+  /** The last server copy adopted, to fall back to when a change is refused. */
+  let lastServer: UserPreferences | null = null;
+  /** A reset in progress; a save waits for it so it lands after the DELETE. */
+  let resetting: Promise<unknown> | null = null;
   /** This store's entry in the shared pending slot. */
   const contextId = newContextId();
   /** What this store last wrote to its entry, so an unchanged entry is not rewritten. */
@@ -243,7 +285,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   };
 
   /** Read-modify-write the shared slot, serialized, never after a sign-out. */
-  const editSlot = (edit: (entries: Record<string, UserPreferencesPatch>) => void) => {
+  const editSlot = (edit: (entries: Record<string, PendingEntry>) => void) => {
     const cache = config.cache;
     if (!cache.writePending || !cache.readPending) return;
     slotChain = slotChain
@@ -264,12 +306,19 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
    * after it — in THIS store's entry, or remove the entry when nothing is.
    */
   const persistUnsavedNow = () => {
-    const unsaved = unsavedPatch();
-    const json = unsaved ? JSON.stringify(unsaved) : null;
+    const entry: Omit<PendingEntry, 'at'> | null =
+      pending || sending
+        ? {
+            ...(pending ? { patch: pending } : {}),
+            ...(sending ? { sent: sending } : {}),
+            ...(sending && sentAfter !== undefined ? { sentAfter } : {}),
+          }
+        : null;
+    const json = entry ? JSON.stringify(entry) : null;
     if (json === lastPersistedPending) return;
     lastPersistedPending = json;
     editSlot((entries) => {
-      if (unsaved) entries[contextId] = unsaved;
+      if (entry) entries[contextId] = { ...entry, at: Date.now() };
       else delete entries[contextId];
     });
   };
@@ -309,6 +358,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   };
 
   const adoptRemote = (server: UserPreferences) => {
+    lastServer = server;
     const next = withPending(server);
     if (holds > 0) {
       heldRemote = next;
@@ -327,42 +377,59 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       if (pending) return flush();
       return;
     }
+    if (resetting) {
+      await resetting.catch(() => undefined);
+      if (disposed) return;
+    }
     if (!pending) return;
 
     const outgoing = pending;
     sending = outgoing;
+    sentAfter = serverUpdatedAt;
     pending = null;
+    // Marks the entry "sent": if this context dies before the answer, a later
+    // start knows not to blindly re-send it.
+    persistUnsavedNow();
     publish({ status: 'saving' });
 
     inFlight = (async () => {
-      let response: PreferencesResponse;
+      let response: PreferencesReadResponse;
       try {
         response = await config.transport.save(outgoing);
       } catch (error) {
         sending = null;
-        if (disposed) return;
         if (isRefused(error)) {
           // Final: drop it, keep anything queued since, show what is stored.
-          retryMs = FIRST_RETRY_MS;
           persistUnsavedNow();
+          if (disposed) return;
+          retryMs = FIRST_RETRY_MS;
+          if (lastServer && holds === 0) publish({ preferences: withPending(lastServer) });
           publish({ status: 'refused' });
           await refresh();
           if (pending) schedule(debounceMs);
           return;
         }
-        // Put the failed patch back UNDER anything queued since.
+        // Put the failed patch back UNDER anything queued since, as unsent:
+        // a failure that produced no answer is retried, by this store or the
+        // next one to start.
         pending = pending ? combinePreferencePatches(outgoing, pending) : outgoing;
         persistUnsavedNow();
+        if (disposed) return;
         publish({ status: 'error' });
         schedule(retryMs);
         retryMs = Math.min(retryMs * 2, maxRetryMs);
         return;
       }
       sending = null;
+      // Even disposed (closed tab, switched account), the entry must shrink to
+      // what is still unsent, or a later start would replay this landed patch.
+      persistUnsavedNow();
       if (disposed) return;
       epoch += 1;
+      serverUpdatedAt = response.updatedAt;
       retryMs = FIRST_RETRY_MS;
       const saved = parseUserPreferences(response.preferences, config.defaults);
+      lastServer = saved;
       // The server's answer is authoritative for what it stored; anything
       // queued during the request is newer and stays on top.
       const next = withPending(saved);
@@ -384,7 +451,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   async function refresh(): Promise<void> {
     if (disposed) return;
     const startedIn = epoch;
-    let response: PreferencesResponse;
+    let response: PreferencesReadResponse;
     try {
       response = await config.transport.load();
     } catch {
@@ -394,6 +461,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     // Disposed meanwhile, or a save was acknowledged while this read was out:
     // the read may predate that write, and the save's answer already stands.
     if (disposed || epoch !== startedIn) return;
+    serverUpdatedAt = response.updatedAt;
     adoptRemote(parseUserPreferences(response.preferences, config.defaults));
   }
 
@@ -417,31 +485,56 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
           // An unreadable cache is a first visit.
         }
         // Take over every entry left in the slot — a tab, popup or worker that
-        // closed before its change was acknowledged — and send them as ours. A
-        // context still alive rewrites its own entry on its next change or
-        // failure, so nothing is lost by taking it; at worst it is sent twice.
+        // closed before its change was acknowledged — oldest first. A context
+        // still alive rewrites its own entry on its next change, failure or ack.
+        let entries: Record<string, PendingEntry> = {};
         try {
-          const entries = readSlot(await config.cache.readPending?.());
-          const orphans = Object.values(entries).reduce<UserPreferencesPatch | null>(
-            (all, patch) => (all ? combinePreferencePatches(all, patch) : patch),
-            null,
-          );
-          if (orphans) {
-            // Older than anything made in this instance, so it goes underneath.
-            pending = pending ? combinePreferencePatches(orphans, pending) : orphans;
-            publish({ preferences: mergePreferences(state.preferences, pending) });
-            const taken = Object.keys(entries);
-            lastPersistedPending = JSON.stringify(pending);
-            const mine = pending;
-            editSlot((slot) => {
-              for (const id of taken) delete slot[id];
-              slot[contextId] = mine;
-            });
-          }
+          entries = readSlot(await config.cache.readPending?.());
         } catch {
           // Nothing recoverable; carry on with what the server holds.
         }
+        const orphans = Object.entries(entries).sort(([, a], [, b]) => a.at - b.at);
+        const unsent = combineAll(orphans.map(([, entry]) => entry.patch));
+        if (unsent) {
+          // Older than anything made in this instance, so it goes underneath.
+          pending = pending ? combinePreferencePatches(unsent, pending) : unsent;
+          publish({ preferences: mergePreferences(state.preferences, pending) });
+        }
         await refresh();
+
+        // A patch some context SENT but never heard back about is re-sent only
+        // if the server is unchanged since it was sent — then it cannot have
+        // landed. Otherwise it landed, or something newer replaced it, and
+        // replaying it would undo another device's change. Undecidable while
+        // offline, so it stays in the slot for a later start.
+        const known = serverUpdatedAt !== undefined;
+        const resend = known
+          ? combineAll(
+              orphans.map(([, entry]) =>
+                entry.sent && entry.sentAfter !== undefined && entry.sentAfter === serverUpdatedAt
+                  ? entry.sent
+                  : undefined,
+              ),
+            )
+          : null;
+        if (resend) {
+          pending = pending ? combinePreferencePatches(resend, pending) : resend;
+          if (holds === 0) publish({ preferences: mergePreferences(state.preferences, resend) });
+        }
+        if (orphans.length > 0) {
+          const taken = orphans.map(([id, entry]) => [id, entry] as const);
+          editSlot((slot) => {
+            for (const [id, entry] of taken) {
+              if (!known && entry.sent) {
+                slot[id] = { sent: entry.sent, sentAfter: entry.sentAfter, at: entry.at };
+              } else {
+                delete slot[id];
+              }
+            }
+          });
+          lastPersistedPending = null;
+          persistUnsavedNow();
+        }
         if (pending) await flush();
       })();
       return started;
@@ -462,22 +555,28 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     flush,
 
     async reset() {
+      // Changes made BEFORE the reset are what it discards. Changes made while
+      // it waits for an in-flight save, or while the DELETE is out, are newer
+      // than the reset and are kept — and a save holds until the DELETE answers
+      // so it lands after it, not before.
       clearTimer();
       pending = null;
       if (inFlight) await inFlight.catch(() => undefined);
-      clearTimer();
-      pending = null;
       sending = null;
       persistUnsavedNow();
       publish({ status: 'saving' });
+      const request = config.transport.reset();
+      resetting = request;
       try {
-        const response = await config.transport.reset();
+        const response = await request;
         if (disposed) return;
         epoch += 1;
+        serverUpdatedAt = response.updatedAt;
         retryMs = FIRST_RETRY_MS;
         heldRemote = null;
         // A change made while the reset was out is newer than the reset.
-        const next = withPending(parseUserPreferences(response.preferences, config.defaults));
+        lastServer = parseUserPreferences(response.preferences, config.defaults);
+        const next = withPending(lastServer);
         publish({ preferences: next, status: pending ? 'saving' : 'idle', loaded: true });
         writeCacheNow();
         config.broadcast?.(next);
@@ -489,7 +588,10 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         // itself has nothing unsaved, so it goes back to idle rather than
         // claiming a retry that will never happen.
         publish({ status: 'idle' });
+        if (pending) schedule(debounceMs);
         throw error;
+      } finally {
+        if (resetting === request) resetting = null;
       }
     },
 
@@ -508,6 +610,10 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     },
 
     receive(preferences) {
+      if (disposed) return;
+      // Another tab's acknowledged save: newer than any read still out.
+      epoch += 1;
+      serverUpdatedAt = undefined;
       adoptRemote(parseUserPreferences(preferences, config.defaults));
     },
 
@@ -519,7 +625,8 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       cacheTimer = null;
       disposed = true;
       clearTimer();
-      pending = null;
+      // `pending` is kept: an in-flight save that answers after this still
+      // rewrites the slot entry from it (see the ack and failure branches).
       listeners.clear();
       if (clearCache) {
         forgotten = true;
@@ -530,7 +637,11 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         } catch {
           // Nothing to undo.
         }
+        return;
       }
+      // A short-lived context (a service worker's per-write store) is gone right
+      // after this resolves, so its queued slot writes must have landed by then.
+      await slotChain;
     },
   };
 }

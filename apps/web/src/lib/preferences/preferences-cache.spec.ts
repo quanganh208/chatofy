@@ -55,17 +55,21 @@ describe('unsent changes', () => {
   it('are kept under their account, beside the document, and survive its next write', () => {
     const cache = accountPreferencesCache('user-a');
     void cache.write(DOC);
-    void cache.writePending!({ contexts: { tab: { theme: 'light' } } });
+    void cache.writePending!({ contexts: { tab: { patch: { theme: 'light' }, at: 1 } } });
     void cache.write({ ...DOC, translateMode: 'two-way' });
-    expect(cache.readPending!()).toEqual({ contexts: { tab: { theme: 'light' } } });
+    expect(cache.readPending!()).toEqual({
+      contexts: { tab: { patch: { theme: 'light' }, at: 1 } },
+    });
     expect(cache.read()).toMatchObject({ translateMode: 'two-way' });
     expect(accountPreferencesCache('user-b').readPending!()).toBeNull();
   });
 
   it('are kept even before the document is, and cleared on null', () => {
     const cache = accountPreferencesCache('user-a');
-    void cache.writePending!({ contexts: { tab: { theme: 'light' } } });
-    expect(cache.readPending!()).toEqual({ contexts: { tab: { theme: 'light' } } });
+    void cache.writePending!({ contexts: { tab: { patch: { theme: 'light' }, at: 1 } } });
+    expect(cache.readPending!()).toEqual({
+      contexts: { tab: { patch: { theme: 'light' }, at: 1 } },
+    });
     expect(cache.read()).toBeNull();
     void cache.write(DOC);
     void cache.writePending!(null);
@@ -76,7 +80,7 @@ describe('unsent changes', () => {
   it('are forgotten with the account on sign-out', () => {
     const cache = accountPreferencesCache('user-a');
     void cache.write(DOC);
-    void cache.writePending!({ contexts: { tab: { translateMode: 'two-way' } } });
+    void cache.writePending!({ contexts: { tab: { patch: { translateMode: 'two-way' }, at: 1 } } });
     forgetAccountPreferences();
     expect(raw()).toEqual({ userId: null, preferences: { theme: 'dark' } });
   });

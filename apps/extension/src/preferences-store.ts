@@ -39,7 +39,17 @@ const WORKER_CONTEXT = 'worker';
  * the next store's `start` takes it over and sends it. Returns whether anything
  * changed. Signed out there is no account to write to, so nothing is recorded.
  */
-export async function recordSyncedFields(change: SyncedChange): Promise<boolean> {
+export function recordSyncedFields(change: SyncedChange): Promise<boolean> {
+  // One at a time: two settings messages handled together would each read the
+  // same cache and slot and the second write would drop the first's change.
+  const run = recording.then(() => recordNow(change));
+  recording = run.catch(() => false);
+  return run;
+}
+
+let recording: Promise<unknown> = Promise.resolve();
+
+async function recordNow(change: SyncedChange): Promise<boolean> {
   if ((await loadAccessToken()) === null) return false;
 
   const current = (await readCachedPreferences()) ?? extensionDefaults();
@@ -49,7 +59,11 @@ export async function recordSyncedFields(change: SyncedChange): Promise<boolean>
   const slot = (await preferencesCache.readPending?.()) as PendingSlot | null | undefined;
   const contexts = { ...(slot?.contexts ?? {}) };
   const earlier = contexts[WORKER_CONTEXT];
-  contexts[WORKER_CONTEXT] = earlier ? combinePreferencePatches(earlier, patch) : patch;
+  contexts[WORKER_CONTEXT] = {
+    ...earlier,
+    patch: earlier?.patch ? combinePreferencePatches(earlier.patch, patch) : patch,
+    at: Date.now(),
+  };
   // Pending first: if the worker dies between the two writes the change is still
   // sent, whereas the other order would leave a cached value nothing will send.
   await preferencesCache.writePending?.({ contexts });
