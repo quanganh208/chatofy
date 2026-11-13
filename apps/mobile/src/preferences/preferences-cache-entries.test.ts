@@ -8,24 +8,22 @@ import {
 } from './preferences-cache-entries.ts';
 
 describe('pending entry', () => {
-  const patch = { pairs: { mobile: { source: 'vi', target: 'en' } } } as const;
+  const slot = { contexts: { a: { pairs: { mobile: { source: 'vi', target: 'en' } } } } };
 
-  it('round-trips for the same account', () => {
-    assert.deepEqual(pendingFromEntry(pendingEntry('u1', patch), 'u1'), patch);
+  it('round-trips the slot as the store wrote it, for the same account', () => {
+    assert.deepEqual(pendingFromEntry(pendingEntry('u1', slot), 'u1'), slot);
   });
 
   it('is ignored for another account', () => {
-    assert.equal(pendingFromEntry(pendingEntry('u1', patch), 'u2'), null);
+    assert.equal(pendingFromEntry(pendingEntry('u1', slot), 'u2'), null);
   });
 
   it('keeps a voice cleared with null', () => {
-    const clear = { voices: { en: { voice: null } } };
+    const clear = { contexts: { a: { voices: { en: { voice: null } } } } };
     assert.deepEqual(pendingFromEntry(pendingEntry('u1', clear), 'u1'), clear);
   });
 
-  it('drops a patch the contract no longer accepts, an empty one, or garbage', () => {
-    assert.equal(pendingFromEntry(pendingEntry('u1', { theme: 'neon' } as never), 'u1'), null);
-    assert.equal(pendingFromEntry(pendingEntry('u1', {}), 'u1'), null);
+  it('reads nothing from an empty or unreadable value', () => {
     assert.equal(pendingFromEntry(null, 'u1'), null);
     assert.equal(pendingFromEntry('"x"', 'u1'), null);
   });

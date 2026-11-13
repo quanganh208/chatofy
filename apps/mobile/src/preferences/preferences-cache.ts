@@ -8,8 +8,8 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
-import type { UserPreferencesPatch, UserPreferences } from '@chatofy/types';
-import type { PreferencesCache } from '@chatofy/api-client';
+import type { UserPreferences } from '@chatofy/types';
+import type { PendingSlot, PreferencesCache } from '@chatofy/api-client';
 import {
   documentEntry,
   documentFromEntry,
@@ -36,9 +36,9 @@ export function createPreferencesCache(userId: string): PreferencesCache {
       return pendingFromEntry(await SecureStore.getItemAsync(PENDING_KEY), userId);
     },
 
-    async writePending(patch: UserPreferencesPatch | null) {
-      if (patch === null) await SecureStore.deleteItemAsync(PENDING_KEY);
-      else await SecureStore.setItemAsync(PENDING_KEY, pendingEntry(userId, patch));
+    async writePending(value: PendingSlot | null) {
+      if (value === null) await SecureStore.deleteItemAsync(PENDING_KEY);
+      else await SecureStore.setItemAsync(PENDING_KEY, pendingEntry(userId, value));
     },
 
     async clear() {

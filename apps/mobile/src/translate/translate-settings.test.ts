@@ -80,14 +80,14 @@ describe('withVoiceGender', () => {
   const settings = {
     ...DEFAULT_TRANSLATE_SETTINGS,
     voiceGender: 'female' as const,
-    voices: { en: 'voice-1' },
+    voices: { [DEFAULT_TRANSLATE_SETTINGS.pair.target]: 'voice-1', zh: 'voice-zh' },
   };
 
-  it('drops chosen voices when the gender changes', () => {
+  it("drops only the spoken language's chosen voice when the gender changes", () => {
     assert.deepEqual(withVoiceGender(settings, 'male'), {
       ...settings,
       voiceGender: 'male',
-      voices: {},
+      voices: { zh: 'voice-zh' },
     });
   });
 

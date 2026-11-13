@@ -936,6 +936,7 @@ export const vi: Messages = {
 
   'mobile.settings.sync.note': 'Cài đặt dịch của bạn được đồng bộ trên mọi thiết bị.',
   'mobile.settings.sync.error': 'Không lưu được cài đặt. Đang tự thử lại.',
+  'mobile.settings.sync.refused': 'Không lưu được thay đổi đó, nên đang hiển thị cài đặt đã lưu.',
   'mobile.settings.sync.reset': 'Đặt lại mặc định',
   'mobile.settings.sync.resetTitle': 'Đặt lại toàn bộ cài đặt?',
   'mobile.settings.sync.resetBody':

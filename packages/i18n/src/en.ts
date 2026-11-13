@@ -1195,6 +1195,8 @@ export const en = {
   // Account preferences on the phone's Settings.
   'mobile.settings.sync.note': 'Your translation settings sync across your devices.',
   'mobile.settings.sync.error': 'Could not save your settings. Retrying automatically.',
+  'mobile.settings.sync.refused':
+    'That change could not be saved, so your saved settings are shown.',
   'mobile.settings.sync.reset': 'Reset to defaults',
   'mobile.settings.sync.resetTitle': 'Reset all settings?',
   'mobile.settings.sync.resetBody':

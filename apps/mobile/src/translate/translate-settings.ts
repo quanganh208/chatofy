@@ -89,12 +89,20 @@ function parseMicProcessing(raw: unknown): MicProcessing {
 
 /**
  * The settings after a gender pick. A chosen voice has a gender and only that
- * gender's voices are listed, so a real change falls back to the defaults, as web
- * does; kept, the old voice would go on speaking with nothing in the list marked.
+ * gender's voices are listed, so a real change falls back to the default for the
+ * language being spoken, as web does; kept, the old voice would go on speaking
+ * with nothing in the list marked.
+ *
+ * Only that language's voice: the gender belongs to the spoken (target)
+ * language in the account, so the other languages' voices — possibly chosen on
+ * another device — are not this pick's to clear.
  */
 export function withVoiceGender(
   settings: TranslateSettings,
   voiceGender: VoiceGender,
 ): TranslateSettings {
-  return voiceGender === settings.voiceGender ? settings : { ...settings, voiceGender, voices: {} };
+  if (voiceGender === settings.voiceGender) return settings;
+  const voices = { ...settings.voices };
+  delete voices[settings.pair.target];
+  return { ...settings, voiceGender, voices };
 }

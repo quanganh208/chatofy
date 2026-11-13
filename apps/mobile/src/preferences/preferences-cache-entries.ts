@@ -6,8 +6,6 @@
  * must not show, or send, the previous person's choices.
  */
 
-import { userPreferencesPatchSchema, type UserPreferencesPatch } from '@chatofy/types';
-
 function entryFor(raw: string | null, userId: string): Record<string, unknown> | null {
   if (!raw) return null;
   const entry: unknown = JSON.parse(raw);
@@ -26,15 +24,14 @@ export function documentEntry(userId: string, preferences: unknown): string {
 }
 
 /**
- * The unsent change stored for `userId`. A patch that no longer passes the strict
- * schema (written by another build) is dropped rather than sent: the server would
- * refuse it, and a refused patch would retry forever.
+ * The unsent changes stored for `userId`, as the sync store wrote them, or null
+ * for nothing or another account's. Opaque here: the store reads it back
+ * through the strict patch schema and drops whatever no longer passes.
  */
-export function pendingFromEntry(raw: string | null, userId: string): UserPreferencesPatch | null {
-  const parsed = userPreferencesPatchSchema.safeParse(entryFor(raw, userId)?.['patch']);
-  return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : null;
+export function pendingFromEntry(raw: string | null, userId: string): unknown {
+  return entryFor(raw, userId)?.['pending'] ?? null;
 }
 
-export function pendingEntry(userId: string, patch: UserPreferencesPatch): string {
-  return JSON.stringify({ userId, patch });
+export function pendingEntry(userId: string, pending: unknown): string {
+  return JSON.stringify({ userId, pending });
 }

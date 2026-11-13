@@ -94,9 +94,13 @@ export default function SettingsScreen() {
             <Text style={[styles.hint, { color: colors.textSecondary }]}>
               {t('mobile.settings.sync.note')}
             </Text>
-            {syncStatus === 'error' ? (
+            {syncStatus === 'error' || syncStatus === 'refused' ? (
               <Text accessibilityRole="alert" style={[styles.hint, { color: colors.destructive }]}>
-                {t('mobile.settings.sync.error')}
+                {t(
+                  syncStatus === 'error'
+                    ? 'mobile.settings.sync.error'
+                    : 'mobile.settings.sync.refused',
+                )}
               </Text>
             ) : null}
             {resetFailed ? (
