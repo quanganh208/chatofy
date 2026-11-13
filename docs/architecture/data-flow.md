@@ -494,7 +494,9 @@ the last translate mode, the default AI Context — is ONE JSON document per
 account, read and written by web, mobile and the extension alike.
 
 - **Contract:** `packages/types/src/http/preferences.ts`. Reads are tolerant
-  (`parseUserPreferences` falls back one field at a time); writes are strict (a
+  (clients take the response through `preferencesReadResponseSchema`, which
+  leaves the document unparsed, and `parseUserPreferences` falls back one field
+  at a time, so a newer build's value costs only that field); writes are strict (a
   PATCH is merged with `mergePreferences` and the RESULT must pass
   `userPreferencesSchema` and the 16 KiB cap, or nothing is stored). `voice: null`
   in a patch removes a voice token; the stored document never holds null.
@@ -508,9 +510,16 @@ account, read and written by web, mobile and the extension alike.
   "Reset to defaults".
 - **Clients:** one store each, `createPreferencesSync`
   (`packages/api-client/src/preferences-sync.ts`). A change applies at once,
-  is cached, and is saved after a short debounce with backoff retries. Anything
-  the server has not acknowledged is persisted beside the cache and re-sent by
-  the next start, so closing a tab, a popup or the app offline loses nothing.
+  is cached, and is saved after a short debounce with backoff retries; a 4xx
+  other than 401, 408 and 429 is final (the change is dropped, the Settings line
+  says so, the server copy is shown). Anything the server has not acknowledged
+  is persisted beside the cache, one entry per tab, popup or worker, and taken
+  over by the next start, so closing one offline loses nothing. An entry keeps
+  what was never sent apart from what was sent but never answered: the first is
+  always re-sent, the second only if the server's `updatedAt` is unchanged since
+  — otherwise it landed, and replaying it would undo another device's change.
+  A read that was out while a save, reset or other tab's save was acknowledged
+  is discarded.
   The cache is what first paint reads (no theme flash) and what offline serves.
 - **When another device's change arrives:** on focus / app foreground, and at
   once in other tabs of the same browser (`BroadcastChannel` on web,
