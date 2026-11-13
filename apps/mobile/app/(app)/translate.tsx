@@ -14,6 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { createTranslator, en } from '@chatofy/i18n';
 import { AUTO_DETECT, type LanguageCode } from '@chatofy/types';
 import { space } from '@chatofy/ui';
+import { useHoldAccountPreferences } from '@/preferences/use-hold-account-preferences';
 import { LanguageBar } from '@/components/translate/language-bar';
 import { StatusStrip } from '@/components/translate/status-strip';
 import { TranslateControls } from '@/components/translate/translate-controls';
@@ -51,6 +52,8 @@ export default function TranslateScreen() {
   );
 
   const running = isRunning(status);
+  // A voice changed on another device waits for the next start, not the middle of a sentence.
+  useHoldAccountPreferences(running);
   const pair = settings.pair;
   // The pair the transcript is read against is the one it STARTED with, not the picker's.
   const outputLanguage = conversation.identity?.pair.target ?? pair.target;
