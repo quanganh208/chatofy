@@ -17,6 +17,12 @@ import { createAccountHolder, type AccountHolder } from '@/lib/preferences/prefe
 import { isLiveSession } from '@/lib/session-guard';
 import { applyChoice } from '@/lib/theme';
 
+/**
+ * One tab switch fires both `focus` and `visibilitychange`; a second read inside
+ * this window would ask the server the same question again.
+ */
+export const REFRESH_DEDUPE_MS = 1_000;
+
 const TRANSPORT: PreferencesTransport = {
   load: getPreferences,
   save: updatePreferences,
@@ -41,8 +47,9 @@ const TRANSPORT: PreferencesTransport = {
  * ## Staying in step
  *
  * - Other tabs of this browser: a BroadcastChannel inside the holder.
- * - Other devices: re-read on focus and when the tab becomes visible. There is no
- *   push; a change made on the phone shows up the next time this tab is looked at.
+ * - Other devices: re-read on focus and when the tab becomes visible — once per
+ *   tab switch, which fires both. There is no push; a change made on the phone
+ *   shows up the next time this tab is looked at.
  * - Unsaved changes: sent when the browser comes back online and when the page
  *   goes away.
  * - Never mid-session: held while a conversation runs on this tab (and while a
@@ -50,14 +57,22 @@ const TRANSPORT: PreferencesTransport = {
  */
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const { data, status } = useSession();
-  const locale = useLocale();
+  const uiLocale = useLocale();
   const userId =
     status === 'authenticated' && isLiveSession(data) ? (data?.user?.id ?? null) : null;
+  // The account's defaults follow the account's locale, as they do on the server
+  // and on mobile; the UI locale is the fallback while the session is loading or
+  // when a session predates carrying it.
+  const accountLocale = (userId ? data?.user?.locale : undefined) ?? uiLocale;
   const account = useRef<AccountHolder | null>(null);
 
   useEffect(() => {
     const open = (id: string) => {
-      const holder = createAccountHolder({ userId: id, locale, transport: TRANSPORT });
+      const holder = createAccountHolder({
+        userId: id,
+        locale: accountLocale,
+        transport: TRANSPORT,
+      });
       account.current?.dispose(false);
       account.current = holder;
       setActivePreferences(holder);
@@ -67,7 +82,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     if (status === 'loading') {
       const cached = cachedUserId();
       if (cached && account.current?.userId !== cached) open(cached);
-      else if (!account.current) resetActivePreferences(locale, true);
+      else if (!account.current) resetActivePreferences(uiLocale, true);
       return;
     }
     if (userId) {
@@ -79,8 +94,8 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     account.current?.dispose(true);
     account.current = null;
     forgetAccountPreferences();
-    resetActivePreferences(locale);
-  }, [status, userId, locale]);
+    resetActivePreferences(uiLocale);
+  }, [status, userId, uiLocale, accountLocale]);
 
   useEffect(
     () => () => {
@@ -91,7 +106,13 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   );
 
   useEffect(() => {
-    const refresh = () => activePreferences().refresh();
+    let lastRefreshAt = Number.NEGATIVE_INFINITY;
+    const refresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < REFRESH_DEDUPE_MS) return;
+      lastRefreshAt = now;
+      activePreferences().refresh();
+    };
     const flush = () => activePreferences().flush();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refresh();

@@ -27,6 +27,8 @@ declare module 'next-auth' {
     refreshToken?: string;
     /** Epoch SECONDS. The API sends an ISO string; it is converted once, at the boundary. */
     expiresAt?: number;
+    /** The account's locale as the API stored it at sign-in; see `JWT.locale`. */
+    locale?: string;
   }
 }
 
@@ -41,6 +43,11 @@ declare module 'next-auth/jwt' {
     refreshToken?: string;
     /** Epoch SECONDS — see `User.expiresAt`. */
     expiresAt?: number;
+    /**
+     * The account's locale at sign-in, which the API derives preference defaults
+     * from. Not refreshed on renewal: it only seeds offline fallbacks.
+     */
+    locale?: string;
     error?: 'RefreshTokenError';
   }
 }

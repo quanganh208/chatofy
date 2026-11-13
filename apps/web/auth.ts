@@ -243,6 +243,7 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
             // The API's composed avatar URL, or null. `image` is already on
             // Auth.js's user shape, so this needs no module augmentation.
             image: result.session.user.avatarUrl,
+            locale: result.session.user.locale,
             accessToken: result.session.token.accessToken,
             refreshToken: result.session.token.refreshToken,
             expiresAt: toEpochSeconds(result.session.token.expiresAt),
@@ -301,6 +302,7 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
             email: session.user.email,
             name: session.user.name,
             image: session.user.avatarUrl,
+            locale: session.user.locale,
             accessToken: session.token.accessToken,
             refreshToken: session.token.refreshToken,
             expiresAt: toEpochSeconds(session.token.expiresAt),
@@ -357,6 +359,7 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
         user.refreshToken = result.session.token.refreshToken;
         user.expiresAt = toEpochSeconds(result.session.token.expiresAt);
         user.id = result.session.user.id;
+        user.locale = result.session.user.locale;
         // UNCONDITIONAL, including null — do NOT guard on truthiness.
         //
         // The built-in Google provider's default `profile()` has ALREADY put an
@@ -390,6 +393,10 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
           // `user.image` before this runs, so for a Google sign-in there is
           // already a value here that has to be overwritten, not merely set.
           token.picture = user.image ?? null;
+          // The account's own locale, which the API derives preference defaults
+          // from. Read only as a fallback seed (`PreferencesProvider`), so a
+          // value that goes stale after a locale change costs nothing visible.
+          token.locale = user.locale;
           return token;
         }
 
@@ -447,6 +454,7 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
         // API. @auth/core would otherwise build this from `token.picture` on its
         // own; being explicit keeps the one source of truth visible here.
         if (session.user) session.user.image = (token.picture as string | null) ?? null;
+        if (session.user && typeof token.locale === 'string') session.user.locale = token.locale;
         return session;
       },
     },

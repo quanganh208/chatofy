@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { defaultUserPreferences, mergePreferences, type UserPreferences } from '@chatofy/types';
 import { LocaleProvider } from '@/i18n/provider';
 import {
@@ -22,7 +22,7 @@ import {
  * are the real ones, against an in-memory server.
  */
 interface SessionStub {
-  data: { user: { id: string }; accessToken: string } | null;
+  data: { user: { id: string; locale?: string }; accessToken: string } | null;
   status: 'loading' | 'authenticated' | 'unauthenticated';
 }
 const session = vi.hoisted((): { value: SessionStub } => ({
@@ -45,7 +45,7 @@ let container: HTMLDivElement;
 let root: Root;
 let latest: ReturnType<typeof usePreferences>;
 let server: FakePreferencesServer;
-let load: ReturnType<typeof vi.spyOn>;
+let load: MockInstance<FakePreferencesServer['transport']['load']>;
 
 function Probe({ running = false }: { running?: boolean }) {
   const value = usePreferences();
@@ -70,8 +70,11 @@ function render(running = false) {
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 
-function signedInAs(id: string) {
-  session.value = { data: { user: { id }, accessToken: 't' }, status: 'authenticated' };
+function signedInAs(id: string, locale?: string) {
+  session.value = {
+    data: { user: locale ? { id, locale } : { id }, accessToken: 't' },
+    status: 'authenticated',
+  };
 }
 
 function onServer(patch: Parameters<typeof mergePreferences>[1]): UserPreferences {
@@ -195,6 +198,53 @@ describe('a signed-in reader', () => {
     render(false);
     await settle();
     expect(latest.preferences.voices.en).toEqual({ speed: 1.5 });
+  });
+
+  it('asks the server once per tab switch, which fires both focus and visibility', async () => {
+    signedInAs('user-a');
+    render();
+    await settle();
+    load.mockClear();
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settle();
+    expect(load).toHaveBeenCalledTimes(1);
+
+    await act(() => vi.advanceTimersByTimeAsync(1_100));
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await settle();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to the account's locale, not the page's, when the server cannot answer", async () => {
+    server.failing = true;
+    signedInAs('user-a', 'vi');
+    render();
+    await settle();
+    expect(latest.ready).toBe(true);
+    expect(latest.preferences.pairs).toEqual(defaultUserPreferences('vi').pairs);
+    expect(defaultUserPreferences('vi').pairs).not.toEqual(defaultUserPreferences('en').pairs);
+  });
+
+  it('keeps holding remote changes when the account changes mid-conversation', async () => {
+    signedInAs('user-a');
+    render(true);
+    await settle();
+
+    signedInAs('user-b');
+    render(true);
+    await settle();
+    onServer({ translateMode: 'two-way' });
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await settle();
+    expect(latest.preferences.translateMode).toBe('one-way');
+
+    render(false);
+    await settle();
+    expect(latest.preferences.translateMode).toBe('two-way');
   });
 
   it('sends a pending change when the browser comes back online', async () => {

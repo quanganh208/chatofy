@@ -85,6 +85,12 @@ export function createAccountHolder(options: {
 
   const channel =
     typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(PREFERENCES_CHANNEL);
+  /**
+   * Set once disposed. A save still in flight, or a hold released after an
+   * account switch, must not touch the closed channel or apply a held copy: either
+   * would write this account's document back over the next account's cache.
+   */
+  let disposed = false;
 
   const store = createPreferencesSync({
     transport: {
@@ -96,6 +102,7 @@ export function createAccountHolder(options: {
     defaults: defaultUserPreferences(options.locale),
     debounceMs: options.debounceMs,
     broadcast: (preferences) => {
+      if (disposed) return;
       const message: ChannelMessage = { userId, preferences };
       channel?.postMessage(message);
     },
@@ -143,11 +150,16 @@ export function createAccountHolder(options: {
     },
     update: (patch) => store.update(patch),
     reset: () => store.reset(),
-    hold: () => store.hold(),
-    release: () => store.release(),
+    hold: () => {
+      if (!disposed) store.hold();
+    },
+    release: () => {
+      if (!disposed) store.release();
+    },
     refresh: () => void store.refresh(),
     flush: () => void store.flush(),
     dispose(forget) {
+      disposed = true;
       unsubscribe();
       listeners.clear();
       channel?.close();

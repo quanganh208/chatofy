@@ -50,13 +50,27 @@ export function usePreferences(): UsePreferences {
  * Keep remote changes out for as long as `active` is true and the caller is
  * mounted: a voice changed on the phone takes effect at the next conversation or
  * call, never halfway through a sentence. Local changes still apply.
+ *
+ * Follows the active holder: if the tab switches holders while held (an account
+ * change), the new one is held and the old one released, so the hold never ends
+ * up on a holder nothing reads any more.
  */
 export function usePreferencesHold(active: boolean): void {
   useEffect(() => {
     if (!active) return;
-    const holder = activePreferences();
-    holder.hold();
-    return () => holder.release();
+    let held = activePreferences();
+    held.hold();
+    const unsubscribe = subscribeActivePreferences(() => {
+      const next = activePreferences();
+      if (next === held) return;
+      held.release();
+      next.hold();
+      held = next;
+    });
+    return () => {
+      unsubscribe();
+      held.release();
+    };
   }, [active]);
 }
 
