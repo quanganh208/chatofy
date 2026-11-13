@@ -194,8 +194,19 @@ const { default: ConferenceEndedPage } =
   await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
-const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
-  await import('@/lib/translate-settings');
+const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
+const { activePreferences } = await import('@/lib/preferences/active-preferences');
+const { fakePreferencesServer, signInPreferences } =
+  await import('@/lib/preferences/preferences.fixture');
+const { preferencesPatchFromTranslateSettings } =
+  await import('@/lib/translate-settings-preferences');
+
+/** Seed translate settings into the tab's preferences, as a stored account would. */
+function seedTranslateSettings(
+  patch: Parameters<typeof preferencesPatchFromTranslateSettings>[0],
+): void {
+  activePreferences().update(preferencesPatchFromTranslateSettings(patch));
+}
 
 /** A conversation with one finished block, held at one identity. */
 const oneTurn: UseStreamingTranslate['turns'] = [
@@ -1520,6 +1531,43 @@ const SCREENS: ScreenState[] = [
     shows: '[data-settings-pane="general"] [role="radiogroup"]',
   },
   {
+    // The account's sync line and Reset to defaults close the tab. Reset is outline:
+    // it is a rare, far-reaching press, never the screen's one action.
+    name: 'settings dialog › general — synced, Reset at rest',
+    filled: 0,
+    surfaces: 1,
+    setup: settingsOn('general'),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="general"] [data-preferences-reset] button',
+  },
+  {
+    // Reset asks first. The confirm is `destructive`, a live fill rather than the
+    // accent, so the confirmation spends none; the AlertDialog is the second surface.
+    name: 'settings dialog › general — confirming Reset to defaults',
+    filled: 0,
+    surfaces: 2,
+    setup: settingsOn('general'),
+    press: '[data-preferences-reset] button',
+    shows: '[role="alertdialog"] [data-slot="alert-dialog-action"]',
+    render: settingsOverAPage,
+  },
+  {
+    // A reset the server refused says so inside its confirmation, never as a toast.
+    name: 'settings dialog › general — Reset failed',
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      settingsOn('general')();
+      signInPreferences(Object.assign(fakePreferencesServer(), { failing: true }));
+    },
+    steps: [
+      '[data-preferences-reset] button',
+      '[role="alertdialog"] [data-slot="alert-dialog-action"]',
+    ],
+    shows: '[role="alertdialog"] [role="alert"]',
+    render: settingsOverAPage,
+  },
+  {
     name: 'settings dialog › translation — the catalog is empty',
     filled: 0,
     surfaces: 1,
@@ -1539,10 +1587,7 @@ const SCREENS: ScreenState[] = [
     surfaces: 1,
     setup() {
       settingsOn('translation')();
-      saveTranslateSettings({
-        ...DEFAULT_TRANSLATE_SETTINGS,
-        languagePair: { source: 'en', target: 'zh' },
-      });
+      seedTranslateSettings({ languagePair: { source: 'en', target: 'zh' } });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
     render: settingsOverAPage,
@@ -1892,10 +1937,7 @@ const SCREENS: ScreenState[] = [
     filled: 1,
     surfaces: 0,
     setup() {
-      saveTranslateSettings({
-        ...DEFAULT_TRANSLATE_SETTINGS,
-        contextId: CONTEXTS[0]!.id,
-      });
+      seedTranslateSettings({ contextId: CONTEXTS[0]!.id });
       listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
@@ -2215,6 +2257,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   localStorage.clear();
+  // Every screen is a signed-in account's, so Settings draws what an account sees:
+  // the sync line, and General's Reset to defaults.
+  signInPreferences(fakePreferencesServer());
   url.query = '';
   url.params = {};
   historyBox.wide = false;

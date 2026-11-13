@@ -1,6 +1,8 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useCallback } from 'react';
+import type { TranslateModePreference } from '@chatofy/types';
+import { usePreferences } from '@/hooks/use-preferences';
 
 /**
  * Which translator the mobile Translate tab opens: the mode the reader used last.
@@ -9,52 +11,39 @@ import { useSyncExternalStore } from 'react';
  * tab, so the tab follows the reader rather than making them choose every time —
  * switching between the two lives on the translator itself.
  *
- * Every storage touch is wrapped: Safari private mode and a disabled-storage policy
- * throw on access, and a navigation aid must never take a screen down with it. The
- * server and the first client render both answer one-way, so hydration agrees; the
- * stored choice arrives on the render after.
+ * An account preference (`translateMode`), so the phone's tab opens where the laptop
+ * left off. The server and the first client render both answer one-way, so
+ * hydration agrees; the stored choice arrives on the render after.
  */
-const TRANSLATE_MODES = ['/translate/one-way', '/translate/two-way'] as const;
-export type TranslateMode = (typeof TRANSLATE_MODES)[number];
+const ROUTES = {
+  'one-way': '/translate/one-way',
+  'two-way': '/translate/two-way',
+} as const satisfies Record<TranslateModePreference, string>;
 
-const KEY = 'chatofy.translate-mode';
-const DEFAULT_MODE: TranslateMode = '/translate/one-way';
-/** `storage` fires only in OTHER tabs, so this tab announces its own writes. */
-const LOCAL_EVENT = 'chatofy:translate-mode';
+export type TranslateMode = (typeof ROUTES)[TranslateModePreference];
 
-const asMode = (value: string | null): TranslateMode | undefined =>
-  TRANSLATE_MODES.find((mode) => mode === value);
-
-function read(): TranslateMode {
-  try {
-    return asMode(window.localStorage.getItem(KEY)) ?? DEFAULT_MODE;
-  } catch {
-    return DEFAULT_MODE;
-  }
-}
-
-function subscribe(onChange: () => void): () => void {
-  window.addEventListener('storage', onChange);
-  window.addEventListener(LOCAL_EVENT, onChange);
-  return () => {
-    window.removeEventListener('storage', onChange);
-    window.removeEventListener(LOCAL_EVENT, onChange);
-  };
-}
-
-/** Records `pathname` when it is one of the two translators; anything else is ignored. */
-export function rememberTranslateMode(pathname: string): void {
-  const mode = asMode(pathname);
-  if (!mode) return;
-  try {
-    if (window.localStorage.getItem(KEY) === mode) return;
-    window.localStorage.setItem(KEY, mode);
-  } catch {
-    return;
-  }
-  window.dispatchEvent(new Event(LOCAL_EVENT));
-}
+const modeOf = (pathname: string): TranslateModePreference | undefined =>
+  (Object.keys(ROUTES) as TranslateModePreference[]).find((mode) => ROUTES[mode] === pathname);
 
 export function useLastTranslateMode(): TranslateMode {
-  return useSyncExternalStore(subscribe, read, () => DEFAULT_MODE);
+  const { preferences, ready } = usePreferences();
+  return ROUTES[ready ? preferences.translateMode : 'one-way'];
+}
+
+/**
+ * Records `pathname` when it is one of the two translators; anything else is
+ * ignored, and so is a visit to the mode already recorded — a save per navigation
+ * would be a request per click.
+ */
+export function useRememberTranslateMode(): (pathname: string) => void {
+  const { preferences, ready, update } = usePreferences();
+  const recorded = preferences.translateMode;
+  return useCallback(
+    (pathname: string) => {
+      const mode = modeOf(pathname);
+      if (!ready || !mode || mode === recorded) return;
+      update({ translateMode: mode });
+    },
+    [ready, recorded, update],
+  );
 }

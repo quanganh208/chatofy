@@ -47,6 +47,18 @@ export const vi: Messages = {
   'common.theme.dark': 'Tối',
   'common.theme.system': 'Theo hệ thống',
   'common.theme.label': 'Giao diện màu',
+  'common.preferences.title': 'Tuỳ chọn của bạn',
+  'common.preferences.syncNote': 'Đồng bộ trên mọi thiết bị của bạn',
+  'common.preferences.saving': 'Đang lưu…',
+  'common.preferences.saved': 'Đã lưu',
+  'common.preferences.saveRetrying': 'Chưa lưu được, đang thử lại',
+  'common.preferences.saveRefused': 'Không lưu được thay đổi đó',
+  'common.preferences.reset': 'Đặt lại mặc định',
+  'common.preferences.resetPending': 'Đang đặt lại…',
+  'common.preferences.resetNote':
+    'Giao diện, ngôn ngữ, giọng đọc, hiển thị và cài đặt cuộc gọi trở về mặc định trên mọi thiết bị của bạn. Ngữ cảnh AI, bảng thuật ngữ và lịch sử vẫn được giữ.',
+  'common.preferences.resetFailed': 'Không đặt lại được. Hãy kiểm tra kết nối rồi thử lại.',
+  'common.preferences.resetDone': 'Đã đặt lại tuỳ chọn',
   'common.audio.title': 'Cài đặt âm thanh',
   'common.audio.echoCancellation': 'Khử vọng',
   'common.audio.noiseSuppression': 'Khử tiếng ồn',
@@ -943,6 +955,15 @@ export const vi: Messages = {
   'mobile.settings.audio.lockedHint': 'Điện thoại bật/tắt mục này cùng với khử vọng.',
 
   'mobile.settings.buyOnWeb': 'Mua credit trên web',
+
+  'mobile.settings.sync.note': 'Cài đặt dịch của bạn được đồng bộ trên mọi thiết bị.',
+  'mobile.settings.sync.error': 'Không lưu được cài đặt. Đang tự thử lại.',
+  'mobile.settings.sync.refused': 'Không lưu được thay đổi đó, nên đang hiển thị cài đặt đã lưu.',
+  'mobile.settings.sync.reset': 'Đặt lại mặc định',
+  'mobile.settings.sync.resetTitle': 'Đặt lại toàn bộ cài đặt?',
+  'mobile.settings.sync.resetBody':
+    'Cặp ngôn ngữ, giọng đọc và tùy chọn cuộc gọi trở về mặc định trên mọi thiết bị.',
+  'mobile.settings.sync.resetFailed': 'Không đặt lại được cài đặt. Kiểm tra kết nối.',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Bảng thuật ngữ',

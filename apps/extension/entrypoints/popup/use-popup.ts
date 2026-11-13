@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import type { TranslationContext } from '@chatofy/types';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { PreferencesSync } from '@chatofy/api-client';
+import type { TranslationContext, UserPreferences } from '@chatofy/types';
 import type { CaptureSettings, OverlayState } from '../../src/messages';
 import {
   microphonePermission,
@@ -12,14 +13,17 @@ import {
   withSiteEnabled,
   type SiteEnablement,
 } from '../../src/site-enablement';
-import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from '../../src/theme';
+import { applyTheme, dropLegacyTheme, loadTheme, type ThemeChoice } from '../../src/theme';
 import {
   loadAccessToken,
   signIn,
   signOut as endSession,
   verifyAccessToken,
 } from '../../src/access-token';
-import { loadSettings, saveSettings } from '../../src/settings';
+import { PREFERENCES_KEY } from '../../src/preferences-cache';
+import { patchFromSynced, syncedFieldsOf } from '../../src/preferences-mapping';
+import { createExtensionPreferences } from '../../src/preferences-store';
+import { dropLegacySyncedSettings, loadSettings, saveSettings } from '../../src/settings';
 import {
   meetingSiteOf,
   supportOf,
@@ -79,6 +83,16 @@ export function usePopup() {
    * satisfies before the fetch has even returned.
    */
   const [contexts, setContexts] = useState<TranslationContext[]>([]);
+  /**
+   * The account store for this popup's lifetime, present only while signed in.
+   * A ref, not state: nothing renders from it directly — its snapshots are
+   * copied into `settings` and `theme` by the effect that owns it.
+   */
+  const storeRef = useRef<PreferencesSync>(null);
+  /** Whether the store is currently told a capture is running. */
+  const heldRef = useRef(false);
+  /** True once the worker has said whether a capture is running. */
+  const [captureKnown, setCaptureKnown] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -132,10 +146,84 @@ export function usePopup() {
         .sendMessage({ to: 'worker', type: 'query' })
         .catch(() => undefined)) as OverlayState | undefined;
       setOverlay(state);
+      setCaptureKnown(true);
     })();
   }, []);
 
   const capturing = overlay?.capturing ?? false;
+  const capturingRef = useRef(capturing);
+  capturingRef.current = capturing;
+  const apiBaseUrl = settings?.apiBaseUrl;
+
+  /**
+   * Make the held state match the capture, whichever side moved first.
+   *
+   * A running capture reads the pair, the voice and the context once, when it
+   * opens. A change made on another device is therefore kept back while one runs
+   * and lands at the next open instead of halfway through a sentence. One flag
+   * rather than a count so the open-time check and the later transitions cannot
+   * both hold and leave a release short.
+   */
+  const syncHold = useCallback((running: boolean) => {
+    const store = storeRef.current;
+    if (!store || heldRef.current === running) return;
+    heldRef.current = running;
+    if (running) store.hold();
+    else store.release();
+  }, []);
+
+  /**
+   * The account's preferences, from the moment the popup opens signed in.
+   *
+   * Started only after the worker has said whether a capture is running, so the
+   * refresh that `start` performs is already held when one is. Its snapshots
+   * (cache first, then the server's) are copied onto the form and the ground;
+   * the cache key is also watched, because the worker writes the pair and the
+   * voice from its own context and this popup must not later write the cache
+   * back with an older copy of them.
+   */
+  useEffect(() => {
+    if (signedIn !== true || !captureKnown || !apiBaseUrl) return;
+    const store = createExtensionPreferences(apiBaseUrl);
+    storeRef.current = store;
+    heldRef.current = false;
+    syncHold(capturingRef.current);
+
+    const apply = () => {
+      const { preferences } = store.getState();
+      setSettings((current) =>
+        current ? { ...current, ...syncedFieldsOf(preferences) } : current,
+      );
+      applyTheme(preferences.theme);
+      setThemeState(preferences.theme);
+    };
+    const unsubscribe = store.subscribe(apply);
+    const onCacheChanged = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ) => {
+      const next = changes[PREFERENCES_KEY]?.newValue;
+      if (area !== 'local' || next === undefined || next === null) return;
+      if (JSON.stringify(next) === JSON.stringify(store.getState().preferences)) return;
+      // `receive` re-parses it field by field; the cast only names the shape.
+      store.receive(next as UserPreferences);
+    };
+    chrome.storage.onChanged.addListener(onCacheChanged);
+
+    // Old per-browser values are forgotten, not carried over.
+    void dropLegacyTheme();
+    void dropLegacySyncedSettings();
+    void store.start();
+
+    return () => {
+      chrome.storage.onChanged.removeListener(onCacheChanged);
+      unsubscribe();
+      void store.flush().finally(() => store.dispose());
+      storeRef.current = null;
+    };
+  }, [signedIn, captureKnown, apiBaseUrl, syncHold]);
+
+  useEffect(() => syncHold(capturing), [capturing, syncHold]);
   // Both gates, in the order the worker applies them: a tab Chrome cannot capture,
   // or a platform the user switched off.
   const captureable = support.ok && runsOn(enablement, site);
@@ -167,11 +255,30 @@ export function usePopup() {
         Pick<CaptureSettings, 'languagePair' | 'voiceGender' | 'outbound' | 'micProcessing'>
       >,
     ) => {
+      // The pair and the voice are the account's: written through the store so the
+      // form, the cache and the server agree, and the worker (which is also sent
+      // the change, to reopen a running capture) finds nothing left to write.
+      const store = storeRef.current;
+      if (store && (patch.languagePair || patch.voiceGender)) {
+        const accountPatch = patchFromSynced(store.getState().preferences, {
+          languagePair: patch.languagePair,
+          voiceGender: patch.voiceGender,
+        });
+        if (accountPatch) {
+          store.update(accountPatch);
+          void store.flush();
+        }
+      }
       setSettings((current) => {
         // Nothing to send before the first read: the fields this page does not show
         // would travel as whatever a default says rather than as what is stored.
         if (!current) return current;
         const next = { ...current, ...patch };
+        // The voice follows the language that is spoken: a new target shows that
+        // language's stored voice, not the previous one's.
+        if (store && patch.languagePair && patch.voiceGender === undefined) {
+          next.voiceGender = syncedFieldsOf(store.getState().preferences).voiceGender;
+        }
         pushToWorker(next);
         return next;
       });
@@ -189,19 +296,18 @@ export function usePopup() {
   /**
    * Which saved AI Context this meeting runs under.
    *
-   * Written straight to storage, like `setTheme` and unlike `change`: a context
+   * Written to the account, like `setTheme` and unlike `change`: a context
    * is resolved once at the START of a capture (`MeetingCapture.begin`), not
    * read live by a running one, so there is no running capture to reopen and
    * nothing for the worker to do with this until the next `start`.
    */
   const setContext = useCallback((contextId: string | undefined) => {
-    setSettings((current) => {
-      if (!current) return current;
-      const next = { ...current, contextId };
-      const { apiBaseUrl: _ignored, ...writable } = next;
-      void saveSettings(writable);
-      return next;
-    });
+    const store = storeRef.current;
+    if (store) {
+      store.update({ contextId: contextId ?? null });
+      void store.flush();
+    }
+    setSettings((current) => (current ? { ...current, contextId } : current));
   }, []);
 
   /**
@@ -217,11 +323,15 @@ export function usePopup() {
   }, []);
 
   const setTheme = useCallback((choice: ThemeChoice) => {
-    // Appearance is not a capture setting, so it does not travel with them: it has
-    // its own key and never reaches the worker. See src/theme.ts.
+    // Appearance is not a capture setting, so it never reaches the worker: it goes
+    // to the account's document. See src/theme.ts.
     applyTheme(choice);
     setThemeState(choice);
-    void saveTheme(choice);
+    const store = storeRef.current;
+    if (store) {
+      store.update({ theme: choice });
+      void store.flush();
+    }
   }, []);
 
   /**
@@ -256,6 +366,9 @@ export function usePopup() {
       // local copy would leave a renewable credential on a machine someone has
       // just walked away from. Aliased on import because the popup's own action
       // has the name the button reads.
+      // The store is dropped first and its cache with it, so nothing it still
+      // holds is written back after the tokens' own clean-up has run.
+      await storeRef.current?.dispose(true);
       await endSession(settings?.apiBaseUrl);
       setSignedIn(false);
       // A capture already running keeps its socket — the token was checked at

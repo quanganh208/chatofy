@@ -34,6 +34,19 @@ export const en = {
   'common.theme.dark': 'Dark',
   'common.theme.system': 'Match system',
   'common.theme.label': 'Colour theme',
+  // Account preferences: one copy per account, shared by every app and device.
+  'common.preferences.title': 'Your preferences',
+  'common.preferences.syncNote': 'Synced across your devices',
+  'common.preferences.saving': 'Saving…',
+  'common.preferences.saved': 'Saved',
+  'common.preferences.saveRetrying': "Couldn't save, retrying",
+  'common.preferences.saveRefused': "Couldn't save that change",
+  'common.preferences.reset': 'Reset to defaults',
+  'common.preferences.resetPending': 'Resetting…',
+  'common.preferences.resetNote':
+    'Theme, languages, voices, display and call settings go back to their defaults on all your devices. Your AI contexts, glossaries and history stay.',
+  'common.preferences.resetFailed': "Couldn't reset. Check your connection and try again.",
+  'common.preferences.resetDone': 'Preferences reset',
   // Mic processing: named as Saydi names them, because that is what people compare.
   'common.audio.title': 'Audio settings',
   'common.audio.echoCancellation': 'Echo cancellation',
@@ -1201,6 +1214,17 @@ export const en = {
 
   // Buying happens on the web; the phone only links there.
   'mobile.settings.buyOnWeb': 'Buy credits on the web',
+
+  // Account preferences on the phone's Settings.
+  'mobile.settings.sync.note': 'Your translation settings sync across your devices.',
+  'mobile.settings.sync.error': 'Could not save your settings. Retrying automatically.',
+  'mobile.settings.sync.refused':
+    'That change could not be saved, so your saved settings are shown.',
+  'mobile.settings.sync.reset': 'Reset to defaults',
+  'mobile.settings.sync.resetTitle': 'Reset all settings?',
+  'mobile.settings.sync.resetBody':
+    'Your language pairs, voices and call options go back to their defaults on every device.',
+  'mobile.settings.sync.resetFailed': 'Could not reset your settings. Check your connection.',
 
   // ---- web.glossary ----
   'web.glossary.title': 'Glossaries',

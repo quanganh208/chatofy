@@ -1,8 +1,9 @@
-import { languagePairSchema, micProcessingSchema } from '@chatofy/types';
+import { languagePairSchema, micProcessingSchema, voiceGenderSchema } from '@chatofy/types';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
 import { OverlayPublisher } from '../src/overlay-publisher';
+import { recordSyncedFields, sendPendingPreferences } from '../src/preferences-store';
 import { loadSettings, saveSettings } from '../src/settings';
 import {
   DEFAULT_SITE_ENABLEMENT,
@@ -558,15 +559,29 @@ export default defineBackground(() => {
           // keeps the stored one rather than writing a start the server refuses.
           const languagePair = languagePairSchema.safeParse(forWorker.languagePair);
           const micProcessing = micProcessingSchema.safeParse(forWorker.micProcessing);
+          const voiceGender = voiceGenderSchema.safeParse(forWorker.voiceGender);
           await saveSettings({
             ...current,
-            languagePair: languagePair.success ? languagePair.data : current.languagePair,
-            voiceGender: forWorker.voiceGender,
             outbound: forWorker.outbound,
             // Kept when absent or unreadable: the overlay sends this message too,
             // and it has no control for the mic processing switches.
             micProcessing: micProcessing.success ? micProcessing.data : current.micProcessing,
           });
+          // The pair and the voice are the account's, so they go to its store
+          // (and its cache, which `refreshSettingsHint` and the next capture
+          // read) rather than to this machine's settings.
+          // Recorded locally first (cache and pending slot, no network), so the
+          // capture below reopens on the new values at once. The account save
+          // runs alongside and is awaited only after the reopen.
+          const recorded = await recordSyncedFields({
+            languagePair: languagePair.success ? languagePair.data : undefined,
+            voiceGender: voiceGender.success ? voiceGender.data : undefined,
+          });
+          const accountSave = recorded
+            ? sendPendingPreferences(current.apiBaseUrl).catch((error: unknown) => {
+                console.warn('Could not save preferences to your account.', error);
+              })
+            : Promise.resolve();
           await refreshSettingsHint();
 
           // Reopened rather than patched in place: the offscreen document is handed
@@ -580,6 +595,8 @@ export default defineBackground(() => {
           } else {
             publisher.republish();
           }
+          // Keeps the worker alive until the save settles; it never blocks the reopen.
+          await accountSave;
         })().catch(reportToggleFailure);
         return undefined;
 

@@ -1,12 +1,17 @@
 // @vitest-environment happy-dom
 import { act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  fakePreferencesServer,
+  signInPreferences,
+  type FakePreferencesServer,
+} from '@/lib/preferences/preferences.fixture';
 import { useCallPreferences } from './use-call-preferences';
 
 /**
- * What a reader chose for hearing and reading a call, remembered in this browser.
- * Read from storage the page does not control, so every field is checked.
+ * What a reader chose for hearing and reading a call — an account preference. Read
+ * from a document other clients write too, so every field is checked.
  */
 let container: HTMLDivElement;
 let root: Root;
@@ -42,38 +47,40 @@ describe('useCallPreferences', () => {
     expect(current.prefs).toEqual({ captions: true, captionSize: 'md', originalVolume: 1 });
   });
 
-  it('adopts a stored choice', () => {
-    localStorage.setItem(
-      'chatofy.call-preferences',
-      JSON.stringify({ captions: false, captionSize: 'xl', originalVolume: 0.3 }),
-    );
+  /** Sign in with `stored` on the server and let the first read land. */
+  async function signIn(stored: Record<string, unknown>): Promise<FakePreferencesServer> {
+    const server = fakePreferencesServer();
+    server.setStored({ ...server.stored(), ...stored });
+    signInPreferences(server);
     mount();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    return server;
+  }
+
+  it("adopts the account's choice", async () => {
+    vi.useFakeTimers();
+    await signIn({ call: { captions: false, captionSize: 'xl', originalVolume: 0.3 } });
     expect(current.prefs).toEqual({ captions: false, captionSize: 'xl', originalVolume: 0.3 });
+    vi.useRealTimers();
   });
 
-  it('replaces a field that is invalid', () => {
-    localStorage.setItem(
-      'chatofy.call-preferences',
-      JSON.stringify({ captions: 'yes', captionSize: 'huge', originalVolume: 7 }),
-    );
-    mount();
-    expect(current.prefs).toEqual({ captions: true, captionSize: 'md', originalVolume: 1 });
+  it('replaces a field that is invalid, and only that one', async () => {
+    vi.useFakeTimers();
+    await signIn({ call: { captions: 'yes', captionSize: 'xl', originalVolume: 7 } });
+    expect(current.prefs).toEqual({ captions: true, captionSize: 'xl', originalVolume: 1 });
+    vi.useRealTimers();
   });
 
-  it('ignores storage that is not JSON', () => {
-    localStorage.setItem('chatofy.call-preferences', '{nope');
-    mount();
-    expect(current.prefs.captionSize).toBe('md');
-  });
-
-  it('merges an update and stores it', () => {
-    mount();
+  it('merges an update and saves only what changed', async () => {
+    vi.useFakeTimers();
+    const server = await signIn({});
     act(() => current.update({ captionSize: 'lg' }));
     act(() => current.update({ originalVolume: 0.25 }));
     expect(current.prefs).toEqual({ captions: true, captionSize: 'lg', originalVolume: 0.25 });
-    expect(JSON.parse(localStorage.getItem('chatofy.call-preferences') ?? '{}')).toEqual(
-      current.prefs,
-    );
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(server.saves).toEqual([{ call: { captionSize: 'lg', originalVolume: 0.25 } }]);
+    expect(server.stored().call).toEqual(current.prefs);
+    vi.useRealTimers();
   });
 
   it('keeps the volume between 0 and 1', () => {

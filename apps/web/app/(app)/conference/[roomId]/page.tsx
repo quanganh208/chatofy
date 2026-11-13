@@ -20,6 +20,7 @@ import { Link as LinkIcon, Users } from 'lucide-react';
 import { Button, ResizeHandle } from '@chatofy/ui/react';
 import { useStoredWidth } from '@/hooks/use-stored-width';
 import { useCallPreferences } from '@/hooks/use-call-preferences';
+import { usePreferencesHold } from '@/hooks/use-preferences';
 import { ListeningMenu } from './components/listening-menu';
 import { InviteQr } from './components/invite-qr';
 import type { LanguageCode } from '@chatofy/types';
@@ -87,6 +88,9 @@ export default function ConferenceRoomPage() {
   // translate session when the user navigates away mid-call; the active-call key
   // is kept so the landing can bring them back to this room.
   const [joinedAs, setJoinedAs] = useState<{ name: string; language: LanguageCode } | null>(null);
+  // A voice or caption setting changed on another device lands after the call, not
+  // in the middle of it. Local changes made in the room still apply at once.
+  usePreferencesHold(joinedAs !== null);
 
   function handleJoin(choice: PreJoinChoice) {
     // The hook starts unmuted with video on; match what the preview was left at.

@@ -1,7 +1,7 @@
 /**
  * Settings: the account this phone is signed in as and the way out of it, its
  * credits and plan (bought on the web, never here), then the microphone's
- * processing. The screen scrolls: ten usage rows do not fit beside the rest. Sign out ends the refresh family server-side, so
+ * processing, with the account's synced-settings note and its reset. The screen scrolls: ten usage rows do not fit beside the rest. Sign out ends the refresh family server-side, so
  * the stored token cannot be replayed after it.
  *
  * Audio: the phone runs echo cancellation, noise suppression and gain control as
@@ -9,12 +9,14 @@
  * locked, rather than offering a choice the phone cannot apply.
  */
 
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
 import { CreditsSummary } from '@/billing/credits-summary';
+import { resetAccountPreferences, useAccountPreferences } from '@/preferences/account-preferences';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useTranslateSettings } from '@/translate/use-translate-settings';
@@ -27,6 +29,20 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const { settings, loaded, update } = useTranslateSettings();
+  const { status: syncStatus } = useAccountPreferences();
+  const [resetFailed, setResetFailed] = useState(false);
+  const confirmReset = () =>
+    Alert.alert(t('mobile.settings.sync.resetTitle'), t('mobile.settings.sync.resetBody'), [
+      { text: t('web.history.cancel'), style: 'cancel' },
+      {
+        text: t('mobile.settings.sync.reset'),
+        style: 'destructive',
+        onPress: () => {
+          setResetFailed(false);
+          resetAccountPreferences().catch(() => setResetFailed(true));
+        },
+      },
+    ]);
   const processing = settings.micProcessing.echoCancellation;
   const setProcessing = (on: boolean) =>
     update((current) => ({
@@ -72,6 +88,38 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
         )}
+
+        {session ? (
+          <View style={styles.sync}>
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
+              {t('mobile.settings.sync.note')}
+            </Text>
+            {syncStatus === 'error' || syncStatus === 'refused' ? (
+              <Text accessibilityRole="alert" style={[styles.hint, { color: colors.destructive }]}>
+                {t(
+                  syncStatus === 'error'
+                    ? 'mobile.settings.sync.error'
+                    : 'mobile.settings.sync.refused',
+                )}
+              </Text>
+            ) : null}
+            {resetFailed ? (
+              <Text accessibilityRole="alert" style={[styles.hint, { color: colors.destructive }]}>
+                {t('mobile.settings.sync.resetFailed')}
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.signOut, { borderColor: colors.border }]}
+              onPress={confirmReset}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.signOutText, { color: colors.text }]}>
+                {t('mobile.settings.sync.reset')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <CreditsSummary signedIn={session !== null} />
 
@@ -148,6 +196,11 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
+  },
+  sync: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: space.sm,
   },
   audio: {
     alignSelf: 'stretch',

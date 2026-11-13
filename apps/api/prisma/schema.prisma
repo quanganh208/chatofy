@@ -105,6 +105,25 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   glossaries        Glossary[]
+  preferences       UserPreferences?
+}
+
+// One account's preferences, shared by web, mobile and the extension.
+//
+// A single JSON document rather than columns: the shape is the contract's
+// (`userPreferencesSchema` in @chatofy/types), it is read field-tolerantly by
+// `parseUserPreferences`, and a field added there must not need a migration
+// here. The API validates the whole merged document on every write and holds it
+// under `PREFERENCES_LIMITS.MAX_DOCUMENT_BYTES`.
+//
+// No row means "defaults": an account that never changed anything costs nothing.
+// Reset to defaults empties the row (`{}`) rather than deleting it, so
+// `updatedAt` — the version clients compare — only ever moves forward.
+model UserPreferences {
+  userId    String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Generated meeting minutes for one conversation.

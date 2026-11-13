@@ -20,7 +20,8 @@ import {
   type ConferenceLegEndReason,
 } from '@chatofy/realtime-client';
 import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
-import { loadTranslateSettings, sessionVoiceOptions } from '@/lib/translate-settings';
+import { sessionVoiceOptions } from '@/lib/translate-settings';
+import { currentTranslateSettings } from '@/lib/translate-settings-preferences';
 import { send } from './conference-signaling';
 
 /** Served from `public/worklets` (copied by `scripts/copy-worklets.mjs`); /translate loads the same file. */
@@ -66,7 +67,7 @@ export function createWebConferenceLeg(options: WebConferenceLegOptions): WebCon
   const { stream } = options;
   /** The track the current session captures; replaced on every rebuild. */
   let clone: MediaStreamTrack | null = null;
-  const settings = loadTranslateSettings();
+  const settings = currentTranslateSettings();
 
   const leg: ConferenceCascadeLeg = createConferenceCascadeLeg({
     audioDeps: {

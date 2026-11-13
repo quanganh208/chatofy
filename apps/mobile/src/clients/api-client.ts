@@ -18,10 +18,13 @@ import {
   conversationSummaryResponseSchema,
   creditBalanceSchema,
   creditUsageListReadSchema,
+  preferencesReadResponseSchema,
   voiceGenderSchema,
   type GenerateMinutesRequest,
   type LanguageCode,
   type SaveConversationRequest,
+  type UpdatePreferencesRequest,
+  type UserPreferencesPatch,
 } from '@chatofy/types';
 import { API_BASE_URL } from '@/config/api-base-url';
 import { authClient } from './auth-client';
@@ -127,4 +130,23 @@ export function getCreditBalance() {
  */
 export function listCreditUsage() {
   return api.apiFetch('/billing/usage', creditUsageListReadSchema);
+}
+
+/** The account's preferences document; defaults while nothing is stored yet. */
+export function getPreferences() {
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema);
+}
+
+/** Merges `patch` into the stored document and returns the whole result. */
+export function updatePreferences(patch: UserPreferencesPatch) {
+  const body: UpdatePreferencesRequest = { preferences: patch };
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Deletes the stored document and returns the defaults: "Reset to defaults". */
+export function resetPreferences() {
+  return api.apiFetch('/me/preferences', preferencesReadResponseSchema, { method: 'DELETE' });
 }

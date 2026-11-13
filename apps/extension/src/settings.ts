@@ -1,21 +1,23 @@
 import {
   DEFAULT_MIC_PROCESSING,
   DEFAULT_VOICE_GENDER,
-  languagePairFromStoredDirection,
-  languagePairSchema,
   languagePairOf,
   type LanguagePair,
   type MicProcessing,
 } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
+import { readCachedPreferences } from './preferences-cache';
+import { syncedFieldsOf } from './preferences-mapping';
 
 /**
- * What the popup remembers between meetings, and the one-off consent flag.
+ * What this machine remembers about its meetings, and the one-off consent flag.
  *
- * `chrome.storage.local` rather than `sync`: these are choices about one
- * machine's meetings — which way this person reads a call, and whether their own
- * microphone is in play — and carrying them to another machine would change what
- * a capture does there without anyone asking for it.
+ * Only what is about THIS machine lives here: whether its own microphone is in
+ * play, how that microphone is processed, and whether timings are reported.
+ * Which way the person reads a call, which voice speaks and which AI Context a
+ * meeting runs under belong to the account and are read from its cached
+ * preferences (`preferences-cache.ts`), so `loadSettings` hands a capture one
+ * object assembled from both without either store holding the other's fields.
  */
 
 const KEY = 'chatofy.settings';
@@ -50,36 +52,18 @@ const API_BASE_URL: string =
  */
 export const DEFAULT_CAPTURE_PAIR: LanguagePair = languagePairOf('en', 'vi');
 
-const DEFAULT_SETTINGS: CaptureSettings = {
-  languagePair: DEFAULT_CAPTURE_PAIR,
-  voiceGender: DEFAULT_VOICE_GENDER,
-  apiBaseUrl: API_BASE_URL,
+/** What a capture needs from this machine's own store. */
+type LocalSettings = Pick<CaptureSettings, 'reportMetrics' | 'outbound' | 'micProcessing'>;
+
+const LOCAL_KEYS = ['reportMetrics', 'outbound', 'micProcessing'] as const;
+
+const DEFAULT_LOCAL: LocalSettings = {
   reportMetrics: false,
   // Off. This leg opens the user's microphone and translates what they say
   // into the meeting; it is not something to discover after the fact.
   outbound: false,
   micProcessing: DEFAULT_MIC_PROCESSING,
-  // No context until the popup's picker writes one. Absent here rather than
-  // whitelisted below: unlike `apiBaseUrl`, a stale id from an older
-  // build is harmless — it resolves to nothing at the point of use and reads as
-  // "no context" rather than as a state with no control left to leave it by.
-  contextId: undefined,
 };
-
-/**
- * The stored pair, or what an older build stored in its place.
- *
- * Validated rather than trusted: storage is written by whichever version ran
- * last, and a malformed pair would reach the socket as a refused start. Builds
- * before the pair kept a `direction` string such as `'en_to_vi'`; that is read
- * once here and dropped on the next save, so a profile keeps the languages it
- * chose instead of silently reverting to the default.
- */
-function storedLanguagePair(value: Record<string, unknown> | undefined): LanguagePair {
-  const parsed = languagePairSchema.safeParse(value?.languagePair);
-  if (parsed.success) return parsed.data;
-  return languagePairFromStoredDirection(value?.direction) ?? DEFAULT_CAPTURE_PAIR;
-}
 
 /**
  * The stored mic processing switches, each one validated on its own.
@@ -107,18 +91,23 @@ function storedMicProcessing(value: Record<string, unknown> | undefined): MicPro
 
 export async function loadSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(KEY);
-  const value = stored[KEY] as
-    (Partial<CaptureSettings> & { direction?: unknown; mode?: unknown }) | undefined;
-  // Merged over the defaults rather than used as-is: a stored object written by an
-  // older version is missing whatever has been added since, and a missing
-  // `apiBaseUrl` would make the socket URL `undefined` at connect time. Keys
-  // older builds kept — the pre-pair `direction`, and `mode` from when a second
-  // translation backend existed — are left out so the next save drops them.
-  const { direction: _superseded, mode: _retired, ...current } = value ?? {};
-  const merged = { ...DEFAULT_SETTINGS, ...current };
+  const value = stored[KEY] as Record<string, unknown> | undefined;
+  const cached = await readCachedPreferences();
+  // Signed out (or never synced) there is no account document, so a capture
+  // opens on the extension's own defaults. The pair and the voice are never read
+  // from the local value: values an older build kept there are not imported.
+  const synced = cached
+    ? syncedFieldsOf(cached)
+    : {
+        languagePair: DEFAULT_CAPTURE_PAIR,
+        voiceGender: DEFAULT_VOICE_GENDER,
+        contextId: undefined,
+      };
   return {
-    ...merged,
-    languagePair: storedLanguagePair(value),
+    ...synced,
+    reportMetrics:
+      typeof value?.reportMetrics === 'boolean' ? value.reportMetrics : DEFAULT_LOCAL.reportMetrics,
+    outbound: typeof value?.outbound === 'boolean' ? value.outbound : DEFAULT_LOCAL.outbound,
     micProcessing: storedMicProcessing(value),
     // Never restored from storage. The build decides this now, and a value saved
     // by an older version points at whatever host that machine was developing
@@ -128,21 +117,34 @@ export async function loadSettings(): Promise<CaptureSettings> {
 }
 
 /**
- * `apiBaseUrl` is absent from the parameter, not stripped from it.
+ * Only this machine's own fields are written, picked by name.
  *
- * The compile decides that value and `loadSettings` always overwrites it, so a
- * caller passing one is describing something that cannot happen. Taking the
- * narrower type says so at the call site instead of discarding the field quietly
- * one layer down.
+ * Callers build their argument by spreading a full settings object, and
+ * TypeScript does not excess-property-check a spread, so the pair, the voice, the
+ * context and `apiBaseUrl` all arrive at runtime with nothing in the type system
+ * objecting. This function is the only place that can promise storage does not
+ * carry them: the first three are the account's, the last is the build's.
  */
-export async function saveSettings(settings: Omit<CaptureSettings, 'apiBaseUrl'>): Promise<void> {
-  // Narrowing the parameter is not the same as removing the field, and TypeScript
-  // does not excess-property-check a spread. Both real callers build their argument
-  // by spreading a full settings object, so the key arrives at runtime with nothing
-  // in the type system objecting. Stripped here as well, because this function is
-  // the only place that can promise storage does not carry it.
-  const { apiBaseUrl: _unwritable, ...persisted } = settings as CaptureSettings;
+export async function saveSettings(settings: LocalSettings): Promise<void> {
+  const persisted = Object.fromEntries(LOCAL_KEYS.map((key) => [key, settings[key]]));
   await chrome.storage.local.set({ [KEY]: persisted });
+}
+
+/**
+ * Drop what an older build kept here that the account owns now: the pair, the
+ * voice, the context and the pre-pair `direction`. Run once the popup uses the
+ * account store, so an old value cannot be mistaken for a current one. Not
+ * imported anywhere — the account's document starts from its own defaults.
+ */
+export async function dropLegacySyncedSettings(): Promise<void> {
+  const stored = await chrome.storage.local.get(KEY);
+  const value = stored[KEY] as Record<string, unknown> | undefined;
+  if (!value) return;
+  const extra = Object.keys(value).filter((k) => !(LOCAL_KEYS as readonly string[]).includes(k));
+  if (extra.length === 0) return;
+  await chrome.storage.local.set({
+    [KEY]: Object.fromEntries(LOCAL_KEYS.filter((k) => k in value).map((k) => [k, value[k]])),
+  });
 }
 
 /**

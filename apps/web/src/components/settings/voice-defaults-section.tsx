@@ -29,7 +29,7 @@ import { useSettingSaver } from './use-setting-saver';
  * `running` freezes everything but volume, exactly as the popover does
  * mid-conversation: the rest rides `client.session.start`. The volume callback is a
  * no-op — nothing plays inside the dialog. The value is saved through `onChange`,
- * reaches the page underneath through the owner sync in `use-translate-settings.ts`,
+ * reaches the page underneath through the shared store in `use-translate-settings.ts`,
  * and a running page pushes it into its gain stages (`translate/cascade-panel.tsx`),
  * so a volume moved here is heard in the conversation that is running.
  *

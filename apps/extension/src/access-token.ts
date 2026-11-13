@@ -1,4 +1,5 @@
 import type { AuthSession, AuthToken } from '@chatofy/types';
+import { PENDING_PREFERENCES_KEY, PREFERENCES_KEY } from './preferences-cache';
 import { clearTokens, loadAccessToken, loadRefreshToken, saveTokens } from './token-storage';
 
 /**
@@ -203,6 +204,9 @@ export async function signIn(
   // only the access token would leave this profile unable to renew, which is a
   // fifteen-minute session rather than a thirty-day one.
   const token = body.data.token;
+  // Signing in as someone else on a profile that never signed out must not
+  // inherit the previous account's cached preferences.
+  await chrome.storage.local.remove([PREFERENCES_KEY, PENDING_PREFERENCES_KEY]);
   await saveTokens(token.accessToken, token.refreshToken);
   return { ok: true, token: token.accessToken };
 }

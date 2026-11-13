@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
 import { ThemeToggle, type ThemeChoice } from '@chatofy/ui/react';
+import { useThemeChoice } from '@/hooks/use-preferences';
 import { useTranslate } from '@/i18n/provider';
-import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
 
 /**
  * The shared ThemeToggle, wired to this app's persistence.
@@ -16,15 +15,14 @@ import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
  *
  * The `undefined` start is the part worth keeping. Server and client both render
  * with no selection marked, so the first paint agrees; the stored choice arrives
- * the render after hydration, through `useSyncExternalStore`'s server snapshot.
- * Nothing but this control writes the choice, so the store never notifies, and a
- * pick made here is held in state over it. The blocking script in `app/layout.tsx` has already put
- * the class on the document by then, so nothing visibly changes — what would be
- * visible is the alternative, a frame showing `system` selected to someone who
- * chose otherwise.
+ * the render after hydration (`useThemeChoice`). The blocking script in
+ * `app/layout.tsx` has already put the class on the document by then, so nothing
+ * visibly changes — what would be visible is the alternative, a frame showing
+ * `system` selected to someone who chose otherwise.
+ *
+ * The choice is an account preference: signed in, a pick here follows the reader
+ * to their other devices; signed out, it is kept on this browser only.
  */
-const subscribeNever = () => () => {};
-
 /** What a caller hears after a pick: the choice, the one it replaced, and a way back. */
 export interface ThemeChange {
   next: ThemeChoice;
@@ -40,13 +38,7 @@ export function ConnectedThemeToggle({
   /** Settings › General confirms the pick with a toast that can undo it. */
   onChange?: (change: ThemeChange) => void;
 }) {
-  const stored = useSyncExternalStore<ThemeChoice | undefined>(
-    subscribeNever,
-    readChoice,
-    () => undefined,
-  );
-  const [picked, setPicked] = useState<ThemeChoice | undefined>(undefined);
-  const choice = picked ?? stored;
+  const { choice, setChoice } = useThemeChoice();
   const t = useTranslate();
 
   return (
@@ -63,14 +55,9 @@ export function ConnectedThemeToggle({
         group: t('common.theme.label'),
       }}
       onChange={(next) => {
-        const previous = choice ?? readChoice();
-        const pick = (to: ThemeChoice) => {
-          setPicked(to);
-          writeChoice(to);
-          applyChoice(to);
-        };
-        pick(next);
-        onChange?.({ next, previous, revert: () => pick(previous) });
+        const previous: ThemeChoice = choice ?? 'system';
+        setChoice(next);
+        onChange?.({ next, previous, revert: () => setChoice(previous) });
       }}
     />
   );

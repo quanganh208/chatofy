@@ -547,9 +547,9 @@ compile — so `segmented-control.spec.tsx` carries a test named for the behavio
 than for the key.
 
 Compositions are **controlled**. `ThemeToggle` takes a value and reports a click;
-it does not read storage. The web reads `localStorage` synchronously so the
-server's first render and the client's agree, while the extension reads
-`chrome.storage` and gets an answer a tick later — no single component can own
+it does not read storage. The theme is an account preference; the web reads its
+cached copy (`localStorage['chatofy.preferences']`) synchronously before paint,
+while the extension reads `chrome.storage` and gets an answer a tick later — no single component can own
 both, so it owns neither. `value` may be `undefined`, which is the hydration-safe
 state: one frame showing no selection beats one frame showing the wrong one.
 

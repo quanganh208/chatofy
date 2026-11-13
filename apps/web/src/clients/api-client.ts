@@ -19,6 +19,7 @@ import {
   glossarySchema,
   minutesResponseSchema,
   planListResponseSchema,
+  preferencesReadResponseSchema,
   readableTranslationContextListSchema,
   storedConferenceMinutesResponseSchema,
   translationContextSchema,
@@ -38,6 +39,8 @@ import {
   type SaveTranslationContextRequest,
   type ResetPasswordRequest,
   type UpdateMeRequest,
+  type UpdatePreferencesRequest,
+  type UserPreferencesPatch,
   type UploadAvatarRequest,
   type VerifyEmailRequest,
 } from '@chatofy/types';
@@ -526,6 +529,32 @@ export function uploadAvatar(body: UploadAvatarRequest) {
  */
 export function deleteAvatar() {
   return authedFetch('/auth/me/avatar', userSchema, { method: 'DELETE' });
+}
+
+/**
+ * The caller's account preferences: one document shared by web, mobile and the
+ * extension. An account with no stored row answers the defaults for its locale,
+ * with `updatedAt: null`.
+ *
+ * These three are the transport `PreferencesProvider` hands the shared sync store;
+ * nothing else calls them. Like every `/me` route they name no user id.
+ */
+export function getPreferences() {
+  return authedFetch('/me/preferences', preferencesReadResponseSchema);
+}
+
+/** Merge a partial document into the stored one; the API validates the RESULT whole. */
+export function updatePreferences(patch: UserPreferencesPatch) {
+  const body: UpdatePreferencesRequest = { preferences: patch };
+  return authedFetch('/me/preferences', preferencesReadResponseSchema, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Drop the stored document: every device reads the defaults again. */
+export function resetPreferences() {
+  return authedFetch('/me/preferences', preferencesReadResponseSchema, { method: 'DELETE' });
 }
 
 /**

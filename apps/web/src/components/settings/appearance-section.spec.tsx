@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viDict } from '@chatofy/i18n';
+import { currentPreferences } from '@/lib/preferences/active-preferences';
 
 /**
  * Settings › General: the theme as three picture tiles and the interface language,
@@ -111,7 +112,7 @@ describe('AppearanceSection', () => {
     });
     expect(radio(en['common.theme.dark'])?.getAttribute('aria-checked')).toBe('true');
     expect(radio(en['common.theme.system'])?.getAttribute('aria-checked')).toBe('false');
-    expect(localStorage.getItem('chatofy.theme')).toBe('dark');
+    expect(currentPreferences().theme).toBe('dark');
   });
 
   it('confirms a language switch in the language just chosen', async () => {

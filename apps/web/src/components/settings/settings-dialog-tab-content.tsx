@@ -10,6 +10,7 @@ import { AppearanceSection } from './appearance-section';
 import { AudioProcessingSection } from './audio-processing-section';
 import { ConversationDefaultsSection } from './conversation-defaults-section';
 import { CreditsSection } from './credits-section';
+import { PreferencesSyncNote, PreferencesSyncSection } from './preferences-sync-section';
 import type { SettingsTabId } from './settings-tab-ids';
 
 /**
@@ -22,7 +23,12 @@ import type { SettingsTabId } from './settings-tab-ids';
 export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
   switch (tab) {
     case 'general':
-      return <AppearanceSection />;
+      return (
+        <div className="flex flex-col gap-6">
+          <AppearanceSection />
+          <PreferencesSyncSection />
+        </div>
+      );
     case 'translation':
       return <TranslationTab />;
     case 'ai-context':
@@ -38,9 +44,8 @@ export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
  * What a new conversation starts with, then the microphone processors, as named
  * groups.
  *
- * ONE `useTranslateSettings` for both sections: they write the same stored object, so
- * one owner is enough, and there is no reason to keep two copies in step through the
- * owner sync in `use-translate-settings.ts`.
+ * ONE `useTranslateSettings` for both sections: they write the same settings, so one
+ * owner is enough. The tab ends on the line saying those settings follow the account.
  *
  * While a conversation runs on the page under the dialog, the pair, voice and
  * context freeze as they do on `/translate`, and one line at the top says why — the
@@ -64,6 +69,7 @@ function TranslationTab() {
       ) : null}
       <ConversationDefaultsSection {...settings} running={running} />
       <AudioProcessingSection {...settings} />
+      <PreferencesSyncNote />
     </div>
   );
 }
