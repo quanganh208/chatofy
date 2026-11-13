@@ -97,16 +97,23 @@ export class PrismaUserPreferencesStore implements UserPreferencesStore {
   }
 
   async reset(userId: string): Promise<StoredPreferences | null> {
-    // Two statements, not a transaction: a write racing between them is either
-    // before the delete (and deleted) or after it (and kept, which is what that
-    // device asked for). Either way the reply's defaults are what this caller
-    // asked to see.
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { locale: true },
+    // An empty row, not a deleted one: `updatedAt` is the version clients
+    // compare to decide whether a save they never heard back about landed, so
+    // it must move forward on a reset rather than return to null — a null it
+    // had once before would make a landed save look unsent and replay it over
+    // the reset. `{}` reads as the defaults field by field, and those still
+    // follow the account's locale.
+    return this.prisma.$transaction(async (tx) => {
+      const [locked] = await tx.$queryRaw<{ locale: string }[]>`
+        SELECT "locale" FROM "User" WHERE "id" = ${userId} FOR NO KEY UPDATE`;
+      if (!locked) return null;
+      const saved = await tx.userPreferences.upsert({
+        where: { userId },
+        create: { userId, data: {} },
+        update: { data: {} },
+        select: { updatedAt: true },
+      });
+      return { locale: locked.locale, data: {}, updatedAt: saved.updatedAt };
     });
-    if (!user) return null;
-    await this.prisma.userPreferences.deleteMany({ where: { userId } });
-    return { locale: user.locale, data: null, updatedAt: null };
   }
 }

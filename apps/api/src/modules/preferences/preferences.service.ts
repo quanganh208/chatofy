@@ -52,7 +52,7 @@ export class PreferencesService {
     return toResponse(present(saved));
   }
 
-  /** Reset to defaults: the row goes, and the defaults come back. */
+  /** Reset to defaults: the row is emptied (its version still moves), and the defaults come back. */
   async reset(userId: string): Promise<PreferencesResponse> {
     return toResponse(present(await this.store.reset(userId)));
   }

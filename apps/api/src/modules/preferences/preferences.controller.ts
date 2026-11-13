@@ -78,7 +78,7 @@ export class PreferencesController {
   @ApiOperation({
     summary: 'Reset preferences to defaults',
     description:
-      'Deletes the stored document and answers with the defaults, `updatedAt: null`. Idempotent: an account holding only defaults gets the same answer.',
+      'Empties the stored document and answers with the defaults. `updatedAt` moves forward (it is the version clients compare), so it is never null after a reset. Repeating it gives the same document.',
   })
   @ApiEnvelopeResponse(PreferencesResponseDto)
   @ApiErrorResponses(401, 429)

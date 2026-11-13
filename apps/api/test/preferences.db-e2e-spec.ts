@@ -117,14 +117,13 @@ describe('Account preferences (db-e2e)', () => {
     expect(reread).toEqual(patched);
 
     const cleared = dataOf(await reset(alice).expect(200));
-    expect(cleared).toEqual({
-      preferences: defaultUserPreferences('en'),
-      updatedAt: null,
-    });
-    expect(
-      await prisma.userPreferences.count({ where: { userId: alice.userId } }),
-    ).toBe(0);
-    expect(dataOf(await get(alice).expect(200)).updatedAt).toBeNull();
+    expect(cleared.preferences).toEqual(defaultUserPreferences('en'));
+    // A version, so it moves forward rather than going back to null.
+    expect(cleared.updatedAt).not.toBeNull();
+    expect(Date.parse(cleared.updatedAt!)).toBeGreaterThan(
+      Date.parse(patched.updatedAt!),
+    );
+    expect(dataOf(await get(alice).expect(200))).toEqual(cleared);
   });
 
   it('clears a voice token with voice: null and stores no voice key', async () => {
@@ -159,6 +158,9 @@ describe('Account preferences (db-e2e)', () => {
   });
 
   it('refuses an invalid patch with 400 and stores nothing', async () => {
+    const before = await prisma.userPreferences.findUnique({
+      where: { userId: alice.userId },
+    });
     const res = await request(server())
       .patch('/me/preferences')
       .set('Authorization', alice.bearer)
@@ -168,8 +170,10 @@ describe('Account preferences (db-e2e)', () => {
       'VALIDATION_FAILED',
     );
     expect(
-      await prisma.userPreferences.count({ where: { userId: alice.userId } }),
-    ).toBe(0);
+      await prisma.userPreferences.findUnique({
+        where: { userId: alice.userId },
+      }),
+    ).toEqual(before);
   });
 
   it('refuses a document past the byte cap with 400 and keeps what was stored', async () => {

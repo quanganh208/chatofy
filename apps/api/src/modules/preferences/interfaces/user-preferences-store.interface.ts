@@ -47,6 +47,10 @@ export interface UserPreferencesStore {
     next: (current: StoredPreferences) => UserPreferences,
   ): Promise<StoredPreferences | null>;
 
-  /** Delete the row, if any. The answer carries `data: null`. */
+  /**
+   * Empty the document (`data: {}`) under the same lock as `update`, so its
+   * `updatedAt` moves forward. Clients use it as a version and must never see
+   * it go back to a value it held before.
+   */
   reset(userId: string): Promise<StoredPreferences | null>;
 }

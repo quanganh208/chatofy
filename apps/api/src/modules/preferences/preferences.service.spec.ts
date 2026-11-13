@@ -24,6 +24,7 @@ import type {
 const MINE = 'user-1';
 const OTHER = 'user-2';
 const STAMP = new Date('2026-11-13T00:00:00.000Z');
+const RESET_STAMP = new Date('2026-11-13T00:00:01.000Z');
 
 function fakeStore(
   users: Record<string, { locale: string; data?: unknown }> = {
@@ -62,7 +63,7 @@ function fakeStore(
     },
     async reset(id) {
       if (!users[id]) return null;
-      rows.delete(id);
+      rows.set(id, { data: {}, updatedAt: RESET_STAMP });
       return current(id);
     },
   };
@@ -196,7 +197,7 @@ describe('PreferencesService', () => {
     expect(rows.has(OTHER)).toBe(false);
   });
 
-  it('reset deletes the row and answers with the defaults', async () => {
+  it('reset empties the row, answers with the defaults, and moves updatedAt forward', async () => {
     const { store, rows } = fakeStore({
       [MINE]: {
         locale: 'en',
@@ -208,9 +209,9 @@ describe('PreferencesService', () => {
 
     expect(result).toEqual({
       preferences: defaultUserPreferences('en'),
-      updatedAt: null,
+      updatedAt: RESET_STAMP.toISOString(),
     });
-    expect(rows.has(MINE)).toBe(false);
+    expect(rows.get(MINE)?.data).toEqual({});
   });
 
   it('answers 401 on every route when the account behind the token is gone', async () => {
