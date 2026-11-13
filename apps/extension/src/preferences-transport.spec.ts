@@ -60,6 +60,13 @@ describe('preferences transport', () => {
     expect(retry.headers).toMatchObject({ authorization: 'Bearer renewed' });
   });
 
+  it('carries the HTTP status on the error', async () => {
+    const refused = vi.fn(() => Promise.resolve(new Response('{}', { status: 422 })));
+    await expect(createPreferencesTransport(BASE, refused as never).save({})).rejects.toMatchObject(
+      { status: 422 },
+    );
+  });
+
   it('throws when signed out, on an HTTP failure and on an unreadable body', async () => {
     const fail = vi.fn(() => Promise.resolve(new Response('{}', { status: 500 })));
     await expect(createPreferencesTransport(BASE, fail as never).load()).rejects.toBeInstanceOf(

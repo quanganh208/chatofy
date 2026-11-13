@@ -7,7 +7,11 @@ import {
 } from '@chatofy/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PENDING_PREFERENCES_KEY, PREFERENCES_KEY } from './preferences-cache';
-import { createExtensionPreferences, saveSyncedFields } from './preferences-store';
+import {
+  createExtensionPreferences,
+  recordSyncedFields,
+  sendPendingPreferences,
+} from './preferences-store';
 import { loadTheme } from './theme';
 
 const store = new Map<string, unknown>();
@@ -32,10 +36,7 @@ beforeEach(() => {
     },
   };
   // The account's server copy; PATCH merges into it like the API does.
-  let server: UserPreferences = {
-    ...defaultUserPreferences('en'),
-    pairs: { ...defaultUserPreferences('en').pairs, extension: languagePairOf('en', 'vi') },
-  };
+  let server: UserPreferences = defaultUserPreferences('en');
   vi.stubGlobal('fetch', (_url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     const body = (init?.body ? JSON.parse(init.body as string) : undefined) as
@@ -55,36 +56,56 @@ beforeEach(() => {
   });
 });
 
-describe('saveSyncedFields', () => {
+const save = async (change: Parameters<typeof recordSyncedFields>[0]) => {
+  const recorded = await recordSyncedFields(change);
+  if (recorded) await sendPendingPreferences('http://api.test');
+  return recorded;
+};
+
+describe('recording and sending synced fields', () => {
   it('does nothing when signed out', async () => {
-    await saveSyncedFields('http://api.test', { languagePair: languagePairOf('vi', 'en') });
+    expect(await save({ languagePair: languagePairOf('vi', 'en') })).toBe(false);
     expect(requests).toEqual([]);
     expect(store.has(PREFERENCES_KEY)).toBe(false);
   });
 
   it('patches the account and leaves the new value in the cache a capture reads', async () => {
     store.set('chatofy.accessToken', 'token');
-    await saveSyncedFields('http://api.test', {
-      languagePair: languagePairOf('vi', 'en'),
-      voiceGender: 'male',
-    });
+    await save({ languagePair: languagePairOf('en', 'zh'), voiceGender: 'male' });
     const patch = requests.find((r) => r.method === 'PATCH');
     expect(patch?.body).toEqual({
       preferences: {
-        pairs: { extension: { source: 'vi', target: 'en' } },
-        voices: { en: { gender: 'male' } },
+        pairs: { extension: { source: 'en', target: 'zh' } },
+        voices: { zh: { gender: 'male' } },
       },
     });
     expect(store.get(PREFERENCES_KEY)).toMatchObject({
-      pairs: { extension: { source: 'vi', target: 'en' } },
-      voices: { en: { gender: 'male' } },
+      pairs: { extension: { source: 'en', target: 'zh' } },
+      voices: { zh: { gender: 'male' } },
     });
+    expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
   });
 
   it('sends nothing when the account already holds the value', async () => {
     store.set('chatofy.accessToken', 'token');
-    await saveSyncedFields('http://api.test', { languagePair: languagePairOf('en', 'vi') });
-    expect(requests.some((r) => r.method === 'PATCH')).toBe(false);
+    store.set(PREFERENCES_KEY, defaultUserPreferences('en'));
+    expect(await save({ languagePair: defaultUserPreferences('en').pairs.extension })).toBe(false);
+    expect(requests).toEqual([]);
+  });
+
+  it('records locally with no request, so a capture can reopen before the network answers', async () => {
+    store.set('chatofy.accessToken', 'token');
+    store.set(PREFERENCES_KEY, defaultUserPreferences('en'));
+    expect(await recordSyncedFields({ languagePair: languagePairOf('en', 'zh') })).toBe(true);
+    // Nothing has gone over the wire, yet the cache a capture reads and the
+    // pending entry a dead worker's successor would send are both written.
+    expect(requests).toEqual([]);
+    expect(store.get(PREFERENCES_KEY)).toMatchObject({
+      pairs: { extension: { source: 'en', target: 'zh' } },
+    });
+    expect(store.get(PENDING_PREFERENCES_KEY)).toEqual({
+      contexts: { worker: { pairs: { extension: { source: 'en', target: 'zh' } } } },
+    });
   });
 });
 
@@ -97,10 +118,12 @@ describe('a save the worker could not finish', () => {
       if ((init?.method ?? 'GET') === 'PATCH') return Promise.reject(new Error('offline'));
       return healthy(_url, init);
     });
-    await saveSyncedFields('http://api.test', { languagePair: languagePairOf('vi', 'en') });
-    expect(store.get(PENDING_PREFERENCES_KEY)).toEqual({
-      pairs: { extension: { source: 'vi', target: 'en' } },
-    });
+    await save({ languagePair: languagePairOf('en', 'zh') });
+    // The failed store took the worker's entry over as its own; either way it is kept.
+    const slot = store.get(PENDING_PREFERENCES_KEY) as { contexts: Record<string, unknown> };
+    expect(Object.values(slot.contexts)).toEqual([
+      { pairs: { extension: { source: 'en', target: 'zh' } } },
+    ]);
 
     // The API is back; the popup's store re-applies it and sends it.
     vi.stubGlobal('fetch', healthy);
@@ -109,15 +132,15 @@ describe('a save the worker could not finish', () => {
     await popup.start();
     await popup.flush();
     expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({
-      preferences: { pairs: { extension: { source: 'vi', target: 'en' } } },
+      preferences: { pairs: { extension: { source: 'en', target: 'zh' } } },
     });
-    expect(popup.getState().preferences.pairs.extension).toEqual({ source: 'vi', target: 'en' });
+    expect(popup.getState().preferences.pairs.extension).toEqual({ source: 'en', target: 'zh' });
     expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
     await popup.dispose();
   });
 
   it('is dropped with the session, so it cannot be sent under another account', async () => {
-    store.set(PENDING_PREFERENCES_KEY, { theme: 'dark' });
+    store.set(PENDING_PREFERENCES_KEY, { contexts: { worker: { theme: 'dark' } } });
     store.set(PREFERENCES_KEY, defaultUserPreferences('en'));
     const { clearTokens } = await import('./token-storage');
     await clearTokens();
@@ -131,5 +154,14 @@ describe('loadTheme', () => {
     expect(await loadTheme()).toBe('system');
     store.set(PREFERENCES_KEY, { ...defaultUserPreferences('en'), theme: 'dark' });
     expect(await loadTheme()).toBe('dark');
+  });
+});
+
+describe('extensionDefaults', () => {
+  it('equals the server default for the browser language', async () => {
+    vi.stubGlobal('navigator', { language: 'vi-VN' });
+    const { extensionDefaults } = await import('./preferences-cache');
+    expect(extensionDefaults()).toEqual(defaultUserPreferences('vi'));
+    vi.unstubAllGlobals();
   });
 });

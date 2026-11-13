@@ -3,7 +3,7 @@ import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
 import { OverlayPublisher } from '../src/overlay-publisher';
-import { saveSyncedFields } from '../src/preferences-store';
+import { recordSyncedFields, sendPendingPreferences } from '../src/preferences-store';
 import { loadSettings, saveSettings } from '../src/settings';
 import {
   DEFAULT_SITE_ENABLEMENT,
@@ -570,10 +570,18 @@ export default defineBackground(() => {
           // The pair and the voice are the account's, so they go to its store
           // (and its cache, which `refreshSettingsHint` and the next capture
           // read) rather than to this machine's settings.
-          await saveSyncedFields(current.apiBaseUrl, {
+          // Recorded locally first (cache and pending slot, no network), so the
+          // capture below reopens on the new values at once. The account save
+          // runs alongside and is awaited only after the reopen.
+          const recorded = await recordSyncedFields({
             languagePair: languagePair.success ? languagePair.data : undefined,
             voiceGender: voiceGender.success ? voiceGender.data : undefined,
           });
+          const accountSave = recorded
+            ? sendPendingPreferences(current.apiBaseUrl).catch((error: unknown) => {
+                console.warn('Could not save preferences to your account.', error);
+              })
+            : Promise.resolve();
           await refreshSettingsHint();
 
           // Reopened rather than patched in place: the offscreen document is handed
@@ -587,6 +595,8 @@ export default defineBackground(() => {
           } else {
             publisher.republish();
           }
+          // Keeps the worker alive until the save settles; it never blocks the reopen.
+          await accountSave;
         })().catch(reportToggleFailure);
         return undefined;
 

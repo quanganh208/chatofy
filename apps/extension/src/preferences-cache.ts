@@ -1,10 +1,5 @@
-import {
-  defaultUserPreferences,
-  languagePairOf,
-  parseUserPreferences,
-  type UserPreferences,
-} from '@chatofy/types';
-import type { PreferencesCache } from '@chatofy/api-client';
+import { defaultUserPreferences, parseUserPreferences, type UserPreferences } from '@chatofy/types';
+import type { PendingSlot, PreferencesCache } from '@chatofy/api-client';
 
 /**
  * Where the account's preferences are kept on this machine.
@@ -24,7 +19,8 @@ import type { PreferencesCache } from '@chatofy/api-client';
 export const PREFERENCES_KEY = 'chatofy.preferences';
 
 /**
- * The changes this machine has made that the API has not acknowledged.
+ * The changes this machine has made that the API has not acknowledged, one
+ * entry per context (popup, worker) so neither overwrites or clears the other's.
  *
  * Kept apart from the document so a context that dies mid-save (the service
  * worker, a dismissed popup) leaves its change where the next store's `start`
@@ -35,13 +31,12 @@ export const PREFERENCES_KEY = 'chatofy.preferences';
 export const PENDING_PREFERENCES_KEY = 'chatofy.preferences.pending';
 
 /**
- * What an empty cache means: the account defaults for this browser's language,
- * with the extension's own opening pair (English into Vietnamese: the OTHER side
- * of a meeting is usually speaking English).
+ * What an empty cache means: exactly what the server would give a new account
+ * with this browser's language. No client-side override, so the pair never flips
+ * when the first fetch replaces the offline default with the stored document.
  */
 export function extensionDefaults(): UserPreferences {
-  const base = defaultUserPreferences(browserLanguage());
-  return { ...base, pairs: { ...base.pairs, extension: languagePairOf('en', 'vi') } };
+  return defaultUserPreferences(browserLanguage());
 }
 
 function browserLanguage(): string | null {
@@ -63,8 +58,9 @@ export const preferencesCache: PreferencesCache = {
   clear: () => chrome.storage.local.remove([PREFERENCES_KEY, PENDING_PREFERENCES_KEY]),
   readPending: async () =>
     (await chrome.storage.local.get(PENDING_PREFERENCES_KEY))[PENDING_PREFERENCES_KEY],
-  writePending: (patch) =>
-    patch === null
+  // Opaque: the store keeps one entry per context in the slot, stored as given.
+  writePending: (slot: PendingSlot | null) =>
+    slot === null
       ? chrome.storage.local.remove(PENDING_PREFERENCES_KEY)
-      : chrome.storage.local.set({ [PENDING_PREFERENCES_KEY]: patch }),
+      : chrome.storage.local.set({ [PENDING_PREFERENCES_KEY]: slot }),
 };

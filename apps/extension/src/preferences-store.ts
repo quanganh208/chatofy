@@ -1,6 +1,7 @@
-import { createPreferencesSync, type PreferencesSync } from '@chatofy/api-client';
+import { combinePreferencePatches, mergePreferences } from '@chatofy/types';
+import { createPreferencesSync, type PendingSlot, type PreferencesSync } from '@chatofy/api-client';
 import { loadAccessToken } from './token-storage';
-import { extensionDefaults, preferencesCache } from './preferences-cache';
+import { extensionDefaults, preferencesCache, readCachedPreferences } from './preferences-cache';
 import { patchFromSynced, type SyncedCaptureFields } from './preferences-mapping';
 import { createPreferencesTransport } from './preferences-transport';
 
@@ -24,35 +25,59 @@ export function createExtensionPreferences(apiBaseUrl: string): PreferencesSync 
   });
 }
 
+type SyncedChange = Partial<SyncedCaptureFields> & { contextId?: string | null };
+
+/** This worker's entry in the shared pending slot. */
+const WORKER_CONTEXT = 'worker';
+
 /**
- * Write the pair, the voice or the context from the service worker.
+ * Record the pair, the voice or the context locally, with no network.
  *
- * Built, started, written, flushed and disposed within the call, because a
- * service worker has no lifetime to hold a store across and a retry timer it
- * left behind would die with it. `start` runs first so the patch is computed
- * against the current account document and not against whatever this worker
- * last happened to see. Signed out there is no account to write to, so the call
- * does nothing — a capture cannot start without a session anyway.
- *
- * A save the API refused stays in the cache (the capture reads the change from
- * there) and is reported through `console.warn`, since the next popup open
- * re-reads the server copy and a failure here has no surface to show on.
+ * The patch is computed against the cached document, merged into the cache a
+ * capture reads, and added to the worker's entry in the pending slot. That entry
+ * is what survives a service worker that dies before the account save finishes:
+ * the next store's `start` takes it over and sends it. Returns whether anything
+ * changed. Signed out there is no account to write to, so nothing is recorded.
  */
-export async function saveSyncedFields(
-  apiBaseUrl: string,
-  change: Partial<SyncedCaptureFields> & { contextId?: string | null },
-): Promise<void> {
+export async function recordSyncedFields(change: SyncedChange): Promise<boolean> {
+  if ((await loadAccessToken()) === null) return false;
+
+  const current = (await readCachedPreferences()) ?? extensionDefaults();
+  const patch = patchFromSynced(current, change);
+  if (patch === null) return false;
+
+  const slot = (await preferencesCache.readPending?.()) as PendingSlot | null | undefined;
+  const contexts = { ...(slot?.contexts ?? {}) };
+  const earlier = contexts[WORKER_CONTEXT];
+  contexts[WORKER_CONTEXT] = earlier ? combinePreferencePatches(earlier, patch) : patch;
+  // Pending first: if the worker dies between the two writes the change is still
+  // sent, whereas the other order would leave a cached value nothing will send.
+  await preferencesCache.writePending?.({ contexts });
+  await preferencesCache.write(mergePreferences(current, patch));
+  return true;
+}
+
+/**
+ * Send whatever the pending slot holds, from a short-lived store.
+ *
+ * Built, started, flushed and disposed within the call, because a service worker
+ * has no lifetime to hold a store across and a retry timer it left behind would
+ * die with it. A save that fails stays in the slot (the capture reads the change
+ * from the cache) and is reported through `console.warn`, since the next popup
+ * open re-sends it and a failure here has no surface to show on.
+ */
+export async function sendPendingPreferences(apiBaseUrl: string): Promise<void> {
   if ((await loadAccessToken()) === null) return;
 
   const store = createExtensionPreferences(apiBaseUrl);
   try {
     await store.start();
-    const patch = patchFromSynced(store.getState().preferences, change);
-    if (patch === null) return;
-    store.update(patch);
     await store.flush();
-    if (store.getState().status === 'error') {
+    const { status } = store.getState();
+    if (status === 'error') {
       console.warn('Could not save preferences to your account; keeping them on this device.');
+    } else if (status === 'refused') {
+      console.warn('The API refused the preferences change; the account copy was kept.');
     }
   } finally {
     await store.dispose();

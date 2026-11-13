@@ -16,7 +16,15 @@ import { loadAccessToken } from './token-storage';
 
 const envelope = apiResponseSchema(preferencesResponseSchema);
 
-export class PreferencesRequestError extends Error {}
+/** `status` is the HTTP status when the API answered; the sync store reads it to tell a refusal from a failure. */
+export class PreferencesRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
 
 type Fetch = typeof fetch;
 
@@ -41,10 +49,10 @@ export function createPreferencesTransport(
     let res = await send(stored, method, body);
     if (res.status === 401) {
       const renewed = await getFreshAccessToken(apiBaseUrl);
-      if (renewed === null) throw new PreferencesRequestError('Session ended');
+      if (renewed === null) throw new PreferencesRequestError('Session ended', 401);
       res = await send(renewed, method, body);
     }
-    if (!res.ok) throw new PreferencesRequestError(`HTTP ${res.status}`);
+    if (!res.ok) throw new PreferencesRequestError(`HTTP ${res.status}`, res.status);
 
     const parsed = envelope.safeParse(await res.json().catch(() => null));
     if (!parsed.success || !parsed.data.success) {
