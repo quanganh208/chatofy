@@ -160,7 +160,7 @@ export function CreditPlanComparison({
                 {/* What the button buys, said in full: the visible words are short
                     because the column above already shows the price. */}
                 <span id={offerId} className="sr-only">
-                  {offerLabel(t, locale, option)}
+                  {offerLabel(locale, option)}
                 </span>
                 <Button
                   id={buttonId}
@@ -204,15 +204,15 @@ function proStatus(
   return undefined;
 }
 
-/** "Pro by card — $9.99 a month": the accessible tail of an Upgrade button. */
-function offerLabel(
-  t: ReturnType<typeof useTranslate>,
-  locale: ReturnType<typeof useLocale>,
-  option: UpgradeOption,
-): string {
+/**
+ * The accessible tail of an Upgrade or Renew button: just the price. The visible
+ * words already name the rail ("by card", "by VietQR"), so repeating them read
+ * "by VietQR" twice.
+ */
+function offerLabel(locale: ReturnType<typeof useLocale>, option: UpgradeOption): string {
   return option.rail === 'polar'
-    ? t('web.account.buyProCard', { price: formatUsd(option.plan.priceUsdCents ?? 0, locale) })
-    : t('web.account.buyProPass', { price: formatVnd(option.plan.priceVnd ?? 0, locale) });
+    ? formatUsd(option.plan.priceUsdCents ?? 0, locale)
+    : formatVnd(option.plan.priceVnd ?? 0, locale);
 }
 
 function count(locale: string, credits: number): string {

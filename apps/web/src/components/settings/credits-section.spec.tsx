@@ -130,7 +130,7 @@ describe('the plan comparison', () => {
     expect(free).toContain('120 credits every month');
     expect(free).toContain(en['web.billing.featureNoCarryOver']);
     const pro = planColumn('pro')?.textContent ?? '';
-    expect(pro).toContain('$9.99 a month by card');
+    expect(pro).toContain('$9.99\u00a0a\u00a0month by card');
     expect(pro).toContain('₫249,000 for 30 days by VietQR');
     expect(pro).toContain('600 credits each cycle');
     expect(pro).toContain(en['web.billing.featurePayOptions']);
@@ -175,7 +175,7 @@ describe('the plan comparison', () => {
     expect(button(/Upgrade/)).toBeUndefined();
     const renew = button(/Renew by VietQR/);
     expect(renew?.getAttribute('data-variant')).toBe('outline');
-    expect(accessibleName(renew!)).toBe('Renew by VietQR Pro for 30 days by VietQR — ₫249,000');
+    expect(accessibleName(renew!)).toBe('Renew by VietQR ₫249,000');
     await act(async () => {
       renew?.click();
       await settle();
@@ -309,8 +309,8 @@ describe('buying', () => {
     expect(container.textContent).not.toContain(en['common.billing.checkoutClosed']);
     expect(container.textContent).toContain(en['web.billing.railSandboxBoth']);
     expect(actions.map(accessibleName)).toEqual([
-      'Upgrade by card Pro by card — $9.99 a month',
-      'Upgrade by VietQR Pro for 30 days by VietQR — ₫249,000',
+      'Upgrade by card $9.99',
+      'Upgrade by VietQR ₫249,000',
       'Buy 250 credits by card — $5.00',
       'Buy 550 credits by card — $10.00',
       'Buy 1,500 credits by card — $25.00',
@@ -367,11 +367,11 @@ describe('buying', () => {
     expect(method('polar')?.disabled).toBe(true);
     expect(method('sepay')?.getAttribute('aria-checked')).toBe('true');
     // Prices are plan facts, as on /pricing: the card price stays though card is down.
-    expect(planColumn('pro')?.textContent).toContain('$9.99 a month by card');
+    expect(planColumn('pro')?.textContent).toContain('$9.99\u00a0a\u00a0month by card');
     expect(planColumn('pro')?.textContent).toContain('₫249,000 for 30 days by VietQR');
     expect(planColumn('pro')?.textContent).toContain(en['web.billing.featurePayOptions']);
     expect(buyButtons().map(accessibleName)).toEqual([
-      'Upgrade by VietQR Pro for 30 days by VietQR — ₫249,000',
+      'Upgrade by VietQR ₫249,000',
       'Buy 250 credits by VietQR — ₫125,000',
       'Buy 550 credits by VietQR — ₫250,000',
       'Buy 1,500 credits by VietQR — ₫625,000',

@@ -666,8 +666,6 @@ export const vi: Messages = {
   'web.account.buyTitle': 'Mua credit',
   // Each offer's button; its accessible name adds the offer's own label.
   'web.account.buy': 'Mua',
-  'web.account.buyProCard': 'Pro qua thẻ — {price} mỗi tháng',
-  'web.account.buyProPass': 'Pro 30 ngày qua VietQR — {price}',
   'web.account.buyTopupCard': '{credits} qua thẻ — {price}',
   'web.account.buyTopupQr': '{credits} qua VietQR — {price}',
   'web.account.railSandboxCard': 'Thanh toán thẻ đang ở chế độ thử: không trừ tiền thật.',
@@ -680,7 +678,7 @@ export const vi: Messages = {
   'web.billing.planTitle': 'Gói',
   'web.billing.yourPlan': 'Gói của bạn',
   'web.billing.freePrice': '{price} / tháng',
-  'web.billing.priceCard': '{price} mỗi tháng qua thẻ',
+  'web.billing.priceCard': '{price}\u00a0mỗi\u00a0tháng qua thẻ',
   'web.billing.pricePass': '{price} cho 30 ngày qua VietQR',
   'web.billing.featureCreditsMonthly': '{credits} credit mỗi tháng',
   'web.billing.featureNoCarryOver': 'Credit chưa dùng không được cộng dồn',

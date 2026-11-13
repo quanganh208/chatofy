@@ -853,8 +853,6 @@ export const en = {
   'web.account.buyTitle': 'Buy credits',
   // Each offer's button; its accessible name adds the offer's own label.
   'web.account.buy': 'Buy',
-  'web.account.buyProCard': 'Pro by card — {price} a month',
-  'web.account.buyProPass': 'Pro for 30 days by VietQR — {price}',
   'web.account.buyTopupCard': '{credits} by card — {price}',
   'web.account.buyTopupQr': '{credits} by VietQR — {price}',
   'web.account.railSandboxCard': 'Card payments are in test mode: no real money is charged.',
@@ -868,7 +866,7 @@ export const en = {
   'web.billing.planTitle': 'Plan',
   'web.billing.yourPlan': 'Your plan',
   'web.billing.freePrice': '{price} a month',
-  'web.billing.priceCard': '{price} a month by card',
+  'web.billing.priceCard': '{price}\u00a0a\u00a0month by card',
   'web.billing.pricePass': '{price} for 30 days by VietQR',
   'web.billing.featureCreditsMonthly': '{credits} credits every month',
   'web.billing.featureNoCarryOver': 'Unused credits do not carry over',
