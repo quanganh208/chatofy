@@ -308,7 +308,15 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       {/* Last, and quiet: signing out stops a running capture, so it belongs
           below the things someone came here to change rather than beside them. */}
       <div className="border-hairline flex items-center justify-between gap-2 border-t pt-3">
-        <p className="text-muted-foreground text-hint">Signed in</p>
+        <div className="flex min-w-0 flex-col gap-px">
+          <p className="text-muted-foreground text-hint">Signed in</p>
+          {/* The pair, voice, AI Context and theme above are the account's, not
+              this browser's — worth one line, since the popup used to keep them
+              per machine. */}
+          <p id="sync-note" className="text-muted-foreground text-hint">
+            Synced with your Chatofy account
+          </p>
+        </div>
         <Button id="sign-out" variant="ghost" size="sm" onClick={actions.signOut}>
           Sign out
         </Button>

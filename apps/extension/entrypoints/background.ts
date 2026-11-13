@@ -1,8 +1,9 @@
-import { languagePairSchema, micProcessingSchema } from '@chatofy/types';
+import { languagePairSchema, micProcessingSchema, voiceGenderSchema } from '@chatofy/types';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
 import { OverlayPublisher } from '../src/overlay-publisher';
+import { saveSyncedFields } from '../src/preferences-store';
 import { loadSettings, saveSettings } from '../src/settings';
 import {
   DEFAULT_SITE_ENABLEMENT,
@@ -558,14 +559,20 @@ export default defineBackground(() => {
           // keeps the stored one rather than writing a start the server refuses.
           const languagePair = languagePairSchema.safeParse(forWorker.languagePair);
           const micProcessing = micProcessingSchema.safeParse(forWorker.micProcessing);
+          const voiceGender = voiceGenderSchema.safeParse(forWorker.voiceGender);
           await saveSettings({
             ...current,
-            languagePair: languagePair.success ? languagePair.data : current.languagePair,
-            voiceGender: forWorker.voiceGender,
             outbound: forWorker.outbound,
             // Kept when absent or unreadable: the overlay sends this message too,
             // and it has no control for the mic processing switches.
             micProcessing: micProcessing.success ? micProcessing.data : current.micProcessing,
+          });
+          // The pair and the voice are the account's, so they go to its store
+          // (and its cache, which `refreshSettingsHint` and the next capture
+          // read) rather than to this machine's settings.
+          await saveSyncedFields(current.apiBaseUrl, {
+            languagePair: languagePair.success ? languagePair.data : undefined,
+            voiceGender: voiceGender.success ? voiceGender.data : undefined,
           });
           await refreshSettingsHint();
 
