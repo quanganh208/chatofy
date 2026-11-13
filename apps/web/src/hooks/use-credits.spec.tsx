@@ -36,7 +36,11 @@ vi.mock('@/clients/api-client', () => ({
 }));
 
 const pathname = vi.hoisted(() => vi.fn(() => '/translate/one-way'));
-vi.mock('next/navigation', () => ({ usePathname: () => pathname() }));
+const search = vi.hoisted(() => vi.fn(() => ''));
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname(),
+  useSearchParams: () => new URLSearchParams(search()),
+}));
 
 let root: Root;
 let container: HTMLElement;
@@ -160,6 +164,7 @@ describe('CreditBalanceProvider', () => {
 
   beforeEach(() => {
     pathname.mockReturnValue('/translate/one-way');
+    search.mockReturnValue('');
     now = 1_000_000;
     vi.spyOn(Date, 'now').mockImplementation(() => now);
   });
@@ -196,15 +201,31 @@ describe('CreditBalanceProvider', () => {
 
     getCreditBalance.mockResolvedValueOnce(balanceFixture({ totalCredits: 50 }));
     pastTheWindow();
-    pathname.mockReturnValue('/settings/billing');
+    pathname.mockReturnValue('/history');
     await mountShell();
     expect(getCreditBalance).toHaveBeenCalledTimes(2);
     expect(readers.sidebar?.balance?.totalCredits).toBe(50);
   });
 
+  it('reads again when Settings opens or changes tab over the same route', async () => {
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(1);
+
+    pastTheWindow();
+    search.mockReturnValue('settings=billing');
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+
+    // Another parameter changing is not a new place.
+    pastTheWindow();
+    search.mockReturnValue('settings=billing&q=x');
+    await mountShell();
+    expect(getCreditBalance).toHaveBeenCalledTimes(2);
+  });
+
   it('skips the automatic reads while the last answer is fresh, but never a refresh', async () => {
     await mountShell();
-    pathname.mockReturnValue('/settings/billing');
+    pathname.mockReturnValue('/history');
     await mountShell();
     act(() => {
       window.dispatchEvent(new Event('focus'));
