@@ -151,4 +151,39 @@ describe('useTranslateSettings', () => {
     act(() => void window.dispatchEvent(new Event('pagehide')));
     expect(setItem).not.toHaveBeenCalled();
   });
+
+  it('keeps two owners in step, so neither writes back a stale copy', () => {
+    // A translate page and the Settings dialog opened over it each own one. Without
+    // the change event the page kept its old pair and overwrote the dialog's change
+    // on its next write.
+    const values: UseTranslateSettings[] = [];
+    function Owner({ index }: { index: number }) {
+      const value = useTranslateSettings();
+      React.useEffect(() => {
+        values[index] = value;
+      });
+      return null;
+    }
+    act(() => {
+      root.render(
+        <>
+          <Owner index={0} />
+          <Owner index={1} />
+        </>,
+      );
+    });
+
+    act(() => values[1]!.set({ textSize: 4 }));
+    expect(values[0]!.settings.textSize).toBe(4);
+    expect(values[0]!.current().textSize).toBe(4);
+
+    // The page's next change carries the dialog's along with it.
+    act(() => values[0]!.set({ freeScroll: true }));
+    act(() => void vi.advanceTimersByTime(500));
+    const written = JSON.parse(
+      localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY) ?? '{}',
+    ) as Record<string, unknown>;
+    expect(written.textSize).toBe(4);
+    expect(written.freeScroll).toBe(true);
+  });
 });

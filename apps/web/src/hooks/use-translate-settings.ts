@@ -21,6 +21,23 @@ import {
  */
 const PERSIST_DEBOUNCE_MS = 200;
 
+/**
+ * Every change, told to every other owner in this document.
+ *
+ * Each `useTranslateSettings` holds its own copy of the whole stored object and writes
+ * all of it, so two owners mounted at once — a translate page, and the Settings dialog
+ * opened over it — would each overwrite the other's change with a stale copy, and the
+ * page would keep using the old value until a reload. A patch made in one is applied
+ * to the others as it is made; whichever writes next writes the merge.
+ */
+const CHANGE_EVENT = 'chatofy:translate-settings-change';
+
+interface ChangeDetail {
+  /** The owner that made the change, which does not apply it twice. */
+  source: object;
+  patch: Partial<TranslateSettings>;
+}
+
 /** Nothing outside this hook changes the answer to "has this client hydrated". */
 const subscribeNever = () => () => {};
 
@@ -70,21 +87,40 @@ export function useTranslateSettings(): UseTranslateSettings {
   // because a consumer may read it in the same tick a change is made.
   const settingsRef = useRef(settings);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // This owner's identity on the change event; see `CHANGE_EVENT`.
+  const [self] = useState<object>(() => ({}));
 
-  const set = useCallback((patch: Partial<TranslateSettings>) => {
-    const next = { ...settingsRef.current, ...patch };
-    settingsRef.current = next;
-    setSettings(next);
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const { source, patch } = (event as CustomEvent<ChangeDetail>).detail;
+      if (source === self) return;
+      settingsRef.current = { ...settingsRef.current, ...patch };
+      setSettings(settingsRef.current);
+    };
+    window.addEventListener(CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(CHANGE_EVENT, onChange);
+  }, [self]);
 
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      // The REF, not the `next` this closure captured, so the timer and `flush`
-      // write from the same place: whatever the ref holds is the merge of every
-      // patch so far, over what was stored.
-      saveTranslateSettings(settingsRef.current);
-    }, PERSIST_DEBOUNCE_MS);
-  }, []);
+  const set = useCallback(
+    (patch: Partial<TranslateSettings>) => {
+      const next = { ...settingsRef.current, ...patch };
+      settingsRef.current = next;
+      setSettings(next);
+      window.dispatchEvent(
+        new CustomEvent<ChangeDetail>(CHANGE_EVENT, { detail: { source: self, patch } }),
+      );
+
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        // The REF, not the `next` this closure captured, so the timer and `flush`
+        // write from the same place: whatever the ref holds is the merge of every
+        // patch so far, over what was stored.
+        saveTranslateSettings(settingsRef.current);
+      }, PERSIST_DEBOUNCE_MS);
+    },
+    [self],
+  );
 
   const flush = useCallback(() => {
     if (!timerRef.current) return;
