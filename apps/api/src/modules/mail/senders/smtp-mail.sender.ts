@@ -1,6 +1,6 @@
 import { createTransport, Transporter } from 'nodemailer';
 import {
-  buildMailContent,
+  buildMailMessage,
   MailDispatch,
   MailSender,
 } from '../interfaces/mail-sender.interface';
@@ -35,7 +35,14 @@ export class SmtpMailSender implements MailSender {
   private readonly transporter: Transporter;
   private readonly from: string;
 
-  constructor(config: SmtpMailSenderConfig) {
+  /**
+   * @param webBaseUrl The configured WEB_BASE_URL (validated as a URL by the
+   *   env schema) — where the HTML part loads its logo from.
+   */
+  constructor(
+    config: SmtpMailSenderConfig,
+    private readonly webBaseUrl: string,
+  ) {
     this.transporter = createTransport({
       host: config.host,
       port: config.port,
@@ -47,16 +54,20 @@ export class SmtpMailSender implements MailSender {
   }
 
   async send(dispatch: MailDispatch): Promise<void> {
-    const { subject, text } = buildMailContent(
+    // Both parts: the text one for clients that show no HTML, and as the
+    // fallback a multipart/alternative mail is expected to carry.
+    const { subject, text, html } = buildMailMessage(
       dispatch.purpose,
       dispatch.link,
       dispatch.locale,
+      this.webBaseUrl,
     );
     await this.transporter.sendMail({
       from: this.from,
       to: dispatch.to,
       subject,
       text,
+      html,
     });
   }
 }
