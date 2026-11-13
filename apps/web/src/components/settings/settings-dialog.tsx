@@ -139,7 +139,7 @@ export function SettingsDialog() {
             listing ? 'flex-1 sm:flex-none' : 'max-sm:hidden',
           )}
         >
-          <div className="flex h-14 shrink-0 items-center px-5 sm:h-auto sm:px-4 sm:pt-5 sm:pb-3">
+          <div className="flex h-14 shrink-0 items-center px-5 sm:h-auto sm:px-[1.125rem] sm:pt-6 sm:pb-4">
             <DialogTitle
               id={titleId}
               className="text-heading font-semibold tracking-tight sm:text-body"
@@ -151,14 +151,19 @@ export function SettingsDialog() {
             ref={navRef}
             aria-label={t('web.settings.nav')}
             onKeyDown={onNavKeyDown}
-            className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4 sm:px-2"
+            className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6 sm:gap-5 sm:px-2 sm:pt-0 sm:pb-4"
           >
             {SETTINGS_TAB_GROUPS.map((group) => (
-              <div key={group.labelKey} className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-hint px-2.5 font-medium">
+              <div key={group.labelKey} className="flex flex-col gap-2 sm:gap-1">
+                {/* Headed like a group inside a tab (`settings-section.tsx`), so the
+                    list and the pane read as one system. */}
+                <span className="text-muted-foreground text-label px-1 font-semibold tracking-wide uppercase sm:px-2.5">
                   {t(group.labelKey)}
                 </span>
-                <ul className="flex flex-col gap-0.5">
+                {/* A phone's list is a grouped box of 48px rows with hairlines
+                    between, like the groups in a tab; the column beside a pane is a
+                    compact list on the dialog's own ground. */}
+                <ul className="max-sm:border-hairline max-sm:divide-hairline flex flex-col max-sm:divide-y max-sm:overflow-hidden max-sm:rounded-lg max-sm:border sm:gap-0.5">
                   {group.tabs.map((tab) => {
                     const current = view === tab.id;
                     return (
@@ -169,16 +174,20 @@ export function SettingsDialog() {
                           aria-current={current ? 'page' : undefined}
                           onClick={() => select(tab.id)}
                           className={cn(
-                            'text-body duration-fast ease-standard flex w-full items-center gap-3 rounded-md px-2.5 text-left transition-colors outline-none motion-reduce:transition-none',
-                            'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-                            // A phone's list is rows to tap; the column is a compact list.
-                            'min-h-11 sm:min-h-0 sm:gap-2.5 sm:py-1.5 pointer-coarse:min-h-11',
+                            'text-body duration-fast ease-standard flex w-full items-center text-left transition-colors outline-none motion-reduce:transition-none',
+                            'focus-visible:ring-ring/50 focus-visible:ring-[3px] max-sm:focus-visible:ring-inset',
+                            // A phone's rows are 48px to tap, edge to edge in their box;
+                            // the column's are 36px (44 under a coarse pointer).
+                            'h-12 gap-3 px-4 sm:h-9 sm:gap-2.5 sm:rounded-md sm:px-2.5 pointer-coarse:sm:h-11',
                             current
                               ? 'bg-secondary text-foreground font-medium'
                               : 'text-foreground sm:text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
                           )}
                         >
-                          <tab.icon aria-hidden className="size-4 shrink-0" />
+                          <tab.icon
+                            aria-hidden
+                            className={cn('size-4 shrink-0', !current && 'text-muted-foreground')}
+                          />
                           <span className="min-w-0 flex-1 truncate">{t(tab.labelKey)}</span>
                           <ChevronRight
                             aria-hidden

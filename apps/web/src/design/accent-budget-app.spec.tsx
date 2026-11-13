@@ -179,6 +179,7 @@ const { AppToaster } = await import('@/components/layout/app-toaster');
 const { HistoryMasterDetail } = await import('@/components/history/history-master-detail');
 const { SettingsDialog } = await import('@/components/settings/settings-dialog');
 const { SettingsTabContent } = await import('@/components/settings/settings-dialog-tab-content');
+const { useReportConversationRunning } = await import('@/hooks/use-conversation-running');
 const { ChromeSlotsTestHost } = await import('@/components/history/chrome-slots-test-host');
 const { default: GlossaryPage } = await import('../../app/(app)/glossary/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
@@ -510,6 +511,12 @@ function settingsOverAPage() {
       <SettingsDialog />
     </>
   );
+}
+
+/** A page whose conversation is running, as `/translate` reports it to Settings. */
+function RunningConversation() {
+  useReportConversationRunning(true);
+  return null;
 }
 
 /** A `setup` that opens Settings on `tab` over an empty `/history`. */
@@ -1534,6 +1541,20 @@ const SCREENS: ScreenState[] = [
     },
     render: settingsOverAPage,
     shows: '[data-settings-pane="translation"] [role="switch"]',
+  },
+  {
+    // Frozen pairs and voices, and the one line saying why, spend nothing either.
+    name: 'settings dialog › translation — a conversation running underneath',
+    filled: 0,
+    surfaces: 1,
+    setup: settingsOn('translation'),
+    render: () => (
+      <>
+        <RunningConversation />
+        {settingsOverAPage()}
+      </>
+    ),
+    shows: '[data-settings-pane="translation"] [data-settings-locked]',
   },
   {
     name: 'settings dialog › ai-context',

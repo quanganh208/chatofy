@@ -887,18 +887,24 @@ export const en = {
   'web.settings.backToList': 'Back to all settings',
   'web.settings.appearance': 'Appearance',
   'web.settings.appearanceDescription': 'The language Chatofy speaks to you in, and how it looks.',
-  'web.settings.audio': 'Audio',
   'web.settings.audioDescription':
     'What the browser does to your microphone before anything is translated.',
-  'web.settings.defaults': 'Defaults',
-  'web.settings.defaultsDescription':
-    'What a new conversation starts with. Languages and voices stay fixed while one is running.',
   'web.settings.profile': 'Profile',
   'web.settings.profileDescription': 'Your photo, name and email address.',
   'web.settings.billing': 'Billing',
   'web.settings.billingDescription': 'Your credits, your plan, and what they were spent on.',
   'web.settings.securityDescription': "Your password, and this browser's session.",
   'web.settings.languageNote': 'Also the language of the emails we send you.',
+  'web.settings.interfaceLanguage': 'Interface language',
+  // Group headings on the Translation tab.
+  'web.settings.groupLanguages': 'Languages',
+  'web.settings.groupVoice': 'Voice',
+  'web.settings.groupDisplay': 'Display',
+  'web.settings.groupMicrophone': 'Microphone',
+  'web.settings.groupDefaultContext': 'Default AI context',
+  // Shown on the Translation tab while a conversation runs on the page under it.
+  'web.settings.lockedWhileRunning':
+    'Languages, voices and AI context are locked until the running conversation ends.',
   // What a toast calls the two language-pair rows on Defaults.
   'web.settings.oneWayPair': 'One-way languages',
   'web.settings.twoWayPair': 'Two-way languages',
