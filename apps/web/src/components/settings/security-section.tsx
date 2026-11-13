@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@chatofy/ui/react';
+import { useReturnFocus } from '@/hooks/use-return-focus';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
 import { signOutOfChatofy } from '@/lib/sign-out';
@@ -52,6 +53,8 @@ export function SecuritySection() {
   const [changeBusy, setChangeBusy] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  // The password dialog opens from state, so it has no Trigger to give focus back to.
+  const returnFocus = useReturnFocus();
 
   return (
     <SettingsSection>
@@ -112,7 +115,7 @@ export function SecuritySection() {
           if (!changeBusy) setChanging(next);
         }}
       >
-        <DialogContent closeLabel={t('web.chrome.close')}>
+        <DialogContent closeLabel={t('web.chrome.close')} {...returnFocus}>
           <DialogHeader>
             <DialogTitle>{t('web.account.changePassword')}</DialogTitle>
             <DialogDescription>{t('web.account.changePasswordHint')}</DialogDescription>

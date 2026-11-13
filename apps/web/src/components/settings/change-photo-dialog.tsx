@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@chatofy/ui/react';
 import { deleteAvatar, uploadAvatar } from '@/clients/api-client';
+import { useReturnFocus } from '@/hooks/use-return-focus';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
 import { AvatarResizeError, resizeAvatar } from '@/lib/resize-avatar';
@@ -57,6 +58,8 @@ export function ChangePhotoDialog({
   onChanged: (change: PhotoChange) => void;
 }) {
   const t = useTranslate();
+  // Opened from state, so there is no Trigger for Radix to give focus back to.
+  const returnFocus = useReturnFocus();
   const { update } = useSession();
   const fileInput = useRef<HTMLInputElement>(null);
   const [inlineError, setInlineError] = useState<MessageKey>();
@@ -119,7 +122,7 @@ export function ChangePhotoDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent closeLabel={t('web.chrome.close')} className="sm:max-w-md">
+      <DialogContent closeLabel={t('web.chrome.close')} className="sm:max-w-md" {...returnFocus}>
         <DialogHeader>
           <DialogTitle>{t('web.account.avatarChange')}</DialogTitle>
           <DialogDescription>{t('web.account.avatarHint')}</DialogDescription>
