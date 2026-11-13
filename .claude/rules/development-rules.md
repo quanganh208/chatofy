@@ -26,13 +26,16 @@ Use this file when editing code, tests, scripts, or configuration.
 
 **One accent-filled control per app screen**, and **at most two elevated surfaces**.
 `bg-primary` fills at most one control on `/translate/one-way`, `/translate/two-way`, `/history`,
-`/history/[conversationId]`, `/glossary`, `/conference` (lobby, room and end screen) and every
-`/settings/*` page; everything else is ghost, outline, or a readout. A card is for a thing you
+`/history/[conversationId]`, `/glossary`, `/conference` (lobby, room and end screen) and the
+Settings dialog in each of its tabs; everything else is ghost, outline, or a readout. A card is for a thing you
 act on as a unit — everything else is a list, a bar, or a region on the page ground. App screens
 draw no card at rest; what they spend a surface on is an open dialog, menu, popover or toast.
 The one exception is `/translate`: its two sides are hairline sheets with no shadow (source on
 `card`, translation on `muted`), because the swap flies one sheet into the other's place and
 that motion needs two objects to move. They are not elevated, so the surface gate does not count them.
+Settings is a dialog over the page, so it IS the screen's one surface: its groups are
+hairline boxes with no shadow, and a photo, password or sign-out dialog over it is the second.
+The gate counts it over an empty `/history`, one row per tab state.
 
 **Both have a gate.** `apps/web/src/design/accent-budget-app.spec.tsx` counts them per
 screen-state, sharing its accent counter with the marketing spec via
