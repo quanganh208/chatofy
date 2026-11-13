@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import type * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,8 +15,27 @@ import { followHistoryForTests, useTestSearchParams } from './settings-dialog-te
  */
 vi.mock('next/navigation', () => ({ useSearchParams: () => useTestSearchParams() }));
 vi.mock('./settings-dialog-tab-content', () => ({
-  SettingsTabContent: ({ tab }: { tab: string }) => <p data-stub-tab={tab}>content of {tab}</p>,
+  SettingsTabContent: ({ tab }: { tab: string }) => (
+    <>
+      <p data-stub-tab={tab}>content of {tab}</p>
+      {tab === 'billing' ? <ToastsOnceOnMount /> : null}
+    </>
+  ),
 }));
+
+/**
+ * Billing on a Polar return: its first effect raises "payment finished", ONCE. The
+ * real section's effect may run again on a later render and hide a late host; this
+ * one cannot.
+ */
+function ToastsOnceOnMount() {
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('checkout') === 'done') {
+      notify.success('Payment finished');
+    }
+  }, []);
+  return null;
+}
 
 const { SettingsDialog } = await import('./settings-dialog');
 const { AppToaster } = await import('@/components/layout/app-toaster');
@@ -73,6 +92,9 @@ afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
   document.body.replaceChildren();
+  // Toasts live in sonner's module state, not the tree: one a case left up (an error
+  // stays until dismissed) would be replayed into the next case's hosts.
+  notify.dismiss();
   unfollow();
   window.history.replaceState(null, '', '/');
   vi.restoreAllMocks();
@@ -355,5 +377,77 @@ describe('the settings dialog', () => {
       tabButton('general')?.click();
     });
     expect(window.location.search).toBe('?settings=general');
+  });
+
+  describe('when Settings closes over toasts it holds', () => {
+    const toastTexts = () =>
+      [...document.querySelectorAll('[data-sonner-toast]')].map((el) => ({
+        text: el.textContent ?? '',
+        inDialog: el.closest('[role="dialog"]') !== null,
+      }));
+
+    it("moves the page's error to the page's host, Retry and all — a conversation that failed", async () => {
+      await openAt('?settings=general', <AppToaster />);
+      const retry = vi.fn();
+      await act(async () => {
+        // What `useErrorToast` raises from a running `/translate` under Settings.
+        notify.error('The conversation stopped. Try again.', {
+          id: 'translate-conversation',
+          retry,
+        });
+        notify.success('Theme saved', { undo: vi.fn() });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(toastTexts().every((shown) => shown.inDialog)).toBe(true);
+
+      act(() => {
+        document
+          .querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]')
+          ?.click();
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+      expect(view()).toBeNull();
+      // The error is on the page, still with Retry; the Saved toast went with Settings.
+      const shown = toastTexts();
+      expect(shown).toHaveLength(1);
+      expect(shown[0]?.text).toContain('The conversation stopped. Try again.');
+      expect(shown[0]?.inDialog).toBe(false);
+      const button = [
+        ...document.querySelectorAll<HTMLButtonElement>('[data-sonner-toast] button'),
+      ].find((b) => b.textContent === 'Retry');
+      act(() => button?.click());
+      expect(retry).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not bring back an error the reader dismissed while Settings was open', async () => {
+      await openAt('?settings=general', <AppToaster />);
+      await act(async () => {
+        notify.error('Could not save', { id: 'gone' });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      act(() => notify.dismiss('gone'));
+      act(() => {
+        document
+          .querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]')
+          ?.click();
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+      expect(toastTexts()).toHaveLength(0);
+    });
+  });
+
+  it("puts a toast a tab raises as it mounts in Settings' own host — a Polar return", async () => {
+    await openAt('?checkout=done&settings=billing', <AppToaster />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const shown = [...document.querySelectorAll('[data-sonner-toast]')];
+    expect(shown).toHaveLength(1);
+    expect(shown[0]?.textContent).toContain('Payment finished');
+    expect(shown[0]?.closest('[role="dialog"]')).toBe(dialog());
   });
 });

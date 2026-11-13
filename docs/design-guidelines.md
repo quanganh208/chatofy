@@ -666,7 +666,7 @@ The old addresses redirect onto their tab over `/translate/one-way`, keeping the
   open (a disabled filled button reads as available, so a closed checkout shows every
   Buy outlined); AI Context fills Save only while its editor is open.
 - **A running conversation** — while one runs, the Translation tab freezes the language
-  pairs and the voice controls except volume, as the voice popover on `/translate`
+  pairs, the default AI context and the voice controls except volume, as the voice popover on `/translate`
   does. Settings opens over the conversation, so a change there would otherwise reach
   it while it runs. Volume stays live and is heard at once: the running page pushes
   a volume moved in Settings into its playback (`translate/cascade-panel.tsx`).
@@ -676,8 +676,10 @@ While Settings is open its toasts go to a host of its own inside the dialog
 (`layout/app-toaster.tsx` with `host="settings"`, routed by `lib/notify.ts`), so Undo
 is inside the focus trap and reachable by Tab and Alt+T as well as by a pointer. It sits
 at the window's bottom-right from `md` like the page's, and bottom-centre on a phone,
-clear of the dialog's back button and ✕. A toast belongs to one host only: closing
-Settings takes its toasts with it, so an Undo never reappears on the page. A failure
+clear of the dialog's back button and ✕. A toast belongs to one host at a time: closing
+Settings takes its saved and note toasts with it, so an Undo never reappears on the page,
+and moves an error still showing to the page's host, Retry and all — an error raised by
+the page underneath while Settings was open (a conversation that failed) is not lost. A failure
 inside a dialog opened from Settings (photo, password, sign-out) stays inline in that
 dialog, never a toast — a toast there would be a third surface.
 

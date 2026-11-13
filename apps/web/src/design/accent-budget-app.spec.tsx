@@ -1707,6 +1707,21 @@ const SCREENS: ScreenState[] = [
     render: settingsOverAPage,
   },
   {
+    // Back from Polar: Billing opens straight onto the "payment finished" toast, in
+    // Settings' own host inside the dialog — the dialog and the toast, two surfaces.
+    // (That the toast is routed there from the tab's first effect is pinned by
+    // `settings-dialog.spec.tsx`.)
+    name: 'settings dialog › billing — back from checkout',
+    filled: 0,
+    surfaces: 2,
+    setup() {
+      settingsOn('billing')();
+      url.query = 'settings=billing&checkout=done';
+    },
+    render: settingsOverAPage,
+    shows: '[role="dialog"] [data-sonner-toast]',
+  },
+  {
     // Checkout closed: the balance, the disabled buy actions and the usage list, all
     // in hairline groups and all outline — a disabled filled Buy would read as
     // available.

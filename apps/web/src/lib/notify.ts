@@ -42,63 +42,82 @@ function label(key: MessageKey): string {
  * focus: a "Saved" toast raised by a change made in Settings would be pressable but
  * not reachable by Tab or Alt+T. So while Settings is open it mounts a second host
  * INSIDE the dialog, with its own sonner id, and every toast raised meanwhile is
- * routed there. Each host shows only its own toasts, so nothing is shown twice and
- * nothing moves between hosts: closing Settings takes its toasts down with it (an
- * Undo cannot come back on the page and run a second time).
+ * routed there. Each host shows only its own toasts, so nothing is shown twice.
+ *
+ * Closing Settings settles its toasts by kind:
+ *
+ * - A success or a note is taken down. It said something about what was just done
+ *   in Settings, and its Undo must never come back on the page and run twice.
+ * - An error still on screen moves to the page's host, same id and same Retry. An
+ *   error stays until dismissed, and one raised by the page underneath while
+ *   Settings was open — a conversation that failed — is the page's to show. Its
+ *   raiser (`useErrorToast`) only raises again when the message changes, so taking
+ *   it down would lose it for good.
  */
 export const SETTINGS_TOASTER_ID = 'settings';
+type Kind = 'success' | 'error' | 'info';
+type ToastData = NonNullable<Parameters<typeof toast.success>[1]>;
 let routedTo: string | undefined;
-const raisedInSettings = new Set<string | number>();
+const raisedInSettings = new Map<
+  string | number,
+  { kind: Kind; message: string; data: ToastData }
+>();
 
-/** The Settings host announces itself on mount; on unmount its toasts are taken down. */
+/** The Settings host announces itself on mount, and settles its toasts on unmount. */
 export function routeToastsToSettings(open: boolean): void {
   routedTo = open ? SETTINGS_TOASTER_ID : undefined;
   if (open) return;
-  for (const id of raisedInSettings) toast.dismiss(id);
+  const active = new Set(toast.getToasts().map((shown) => shown.id));
+  for (const [id, { kind, message, data }] of raisedInSettings) {
+    if (!active.has(id)) continue;
+    if (kind === 'error') toast.error(message, { ...data, id, toasterId: undefined });
+    else toast.dismiss(id);
+  }
   raisedInSettings.clear();
+}
+
+/** One toast, into whichever host is current, remembered if that is Settings'. */
+function raise(kind: Kind, message: string, data: ToastData): string | number {
+  const routed = routedTo === undefined ? data : { ...data, toasterId: routedTo };
+  const id = toast[kind](message, routed);
+  if (routedTo !== undefined) raisedInSettings.set(id, { kind, message, data });
+  // Raised on the page with an id Settings held: it is the page's now.
+  else raisedInSettings.delete(id);
+  return id;
 }
 
 const base = ({ id, description }: NotifyOptions) => ({
   ...(id === undefined ? {} : { id }),
   ...(description === undefined ? {} : { description }),
-  ...(routedTo === undefined ? {} : { toasterId: routedTo }),
 });
-
-/** Remember a toast raised into the Settings host, so closing Settings can take it down. */
-function track<T extends string | number>(id: T): T {
-  if (routedTo !== undefined) raisedInSettings.add(id);
-  return id;
-}
 
 export const notify = {
   success(message: string, options: NotifyOptions & { undo?: () => void } = {}) {
     const { undo, ...rest } = options;
-    return track(
-      toast.success(message, {
-        ...base(rest),
-        ...(undo ? { action: { label: label('web.chrome.undo'), onClick: undo } } : {}),
-      }),
-    );
+    return raise('success', message, {
+      ...base(rest),
+      ...(undo ? { action: { label: label('web.chrome.undo'), onClick: undo } } : {}),
+    });
   },
 
   error(message: string, options: NotifyOptions & { retry?: () => void } = {}) {
     const { retry, ...rest } = options;
-    return track(
-      toast.error(message, {
-        ...base(rest),
-        duration: Number.POSITIVE_INFINITY,
-        closeButton: true,
-        ...(retry ? { action: { label: label('web.chrome.retry'), onClick: retry } } : {}),
-      }),
-    );
+    return raise('error', message, {
+      ...base(rest),
+      duration: Number.POSITIVE_INFINITY,
+      closeButton: true,
+      ...(retry ? { action: { label: label('web.chrome.retry'), onClick: retry } } : {}),
+    });
   },
 
   info(message: string, options: NotifyOptions = {}) {
-    return track(toast.info(message, base(options)));
+    return raise('info', message, base(options));
   },
 
   /** Takes one toast down by id, or every toast with no argument. */
   dismiss(id?: string | number) {
+    if (id === undefined) raisedInSettings.clear();
+    else raisedInSettings.delete(id);
     toast.dismiss(id);
   },
 };

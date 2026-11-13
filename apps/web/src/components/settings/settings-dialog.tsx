@@ -178,6 +178,17 @@ export function SettingsDialog() {
           'max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:border-0',
         )}
       >
+        {/* A toast host of its own, inside the dialog while it is open, so a toast's
+            Undo is in the focus trap — reachable by Tab and Alt+T, not only by a
+            pointer. Toasts raised meanwhile are routed here; see
+            `layout/app-toaster.tsx` and `lib/notify.ts`.
+
+            FIRST child, on purpose: React runs sibling effects in tree order, so the
+            host subscribes and turns routing on before any tab's mount effect raises
+            a toast — Billing's "payment finished" on a Polar return opens straight
+            onto its tab. It is `position: fixed`, so where it sits in the tree does
+            not move it on screen. */}
+        {dialog.isOpen ? <AppToaster host="settings" /> : null}
         <div
           className={cn(
             'border-hairline flex min-h-0 flex-col sm:w-56 sm:shrink-0 sm:border-r',
@@ -292,11 +303,6 @@ export function SettingsDialog() {
             </div>
           </div>
         </section>
-        {/* A toast host of its own, inside the dialog while it is open, so a toast's
-            Undo is in the focus trap — reachable by Tab and Alt+T, not only by a
-            pointer. Toasts raised meanwhile are routed here and stay here; see
-            `layout/app-toaster.tsx` and `lib/notify.ts`. */}
-        {dialog.isOpen ? <AppToaster host="settings" /> : null}
       </DialogContent>
     </Dialog>
   );

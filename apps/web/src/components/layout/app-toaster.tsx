@@ -18,7 +18,8 @@ import { routeToastsToSettings, SETTINGS_TOASTER_ID } from '@/lib/notify';
  * it is open): a modal traps focus, so a toast outside it — "Saved" with Undo — could
  * not be reached by Tab or Alt+T. Inside the dialog it is in the trap. It has its own
  * sonner id and `notify` routes to it while it is mounted, so each toast lives in
- * exactly one host and never moves between them. Bottom-right of the window from
+ * one host at a time; closing Settings moves an error still showing to the page's
+ * host and takes the rest down (`lib/notify.ts`). Bottom-right of the window from
  * 768px, like the page's; bottom-centre on a phone, where the dialog fills the screen
  * and its back button and ✕ are at the top.
  *
