@@ -33,7 +33,10 @@ const speaking = (speak: boolean, language: LanguageCode = 'en'): TranslateSetti
 let root: Root | undefined;
 let container: HTMLElement;
 
-async function render(settings: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS): Promise<void> {
+async function render(
+  settings: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS,
+  extra: { running?: boolean; lockNote?: boolean } = {},
+): Promise<void> {
   await act(async () => {
     root = createRoot(container);
     root.render(
@@ -41,7 +44,8 @@ async function render(settings: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS):
         <VoiceSettingsPanel
           settings={settings}
           language="en"
-          running={false}
+          running={extra.running ?? false}
+          lockNote={extra.lockNote}
           onChange={vi.fn()}
           onVolumeChange={vi.fn()}
         />
@@ -161,6 +165,35 @@ describe('the rate control', () => {
  * ADJUSTABLE is not being MEANINGFUL, and that conflation is what left a slider
  * on screen setting the loudness of silence.
  */
+/**
+ * Why the switch is frozen mid-conversation. Said by the panel by default — the
+ * `/translate` popover has nothing else to say it — and left to the host when it
+ * already says it once for several panels.
+ */
+describe('the reason the switch is frozen', () => {
+  const note = () => container.textContent?.includes(en['web.translate.speakLocked']);
+
+  it('is said while running by default', async () => {
+    await render(speaking(true), { running: true });
+    expect(note()).toBe(true);
+  });
+
+  it('is left to the host when it turns the note off', async () => {
+    await render(speaking(true), { running: true, lockNote: false });
+    expect(note()).toBe(false);
+    // The switch is still frozen: only the sentence moved.
+    const speak = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Speak the translation aloud"]',
+    );
+    expect(speak?.disabled).toBe(true);
+  });
+
+  it('is not said at rest', async () => {
+    await render(speaking(true));
+    expect(note()).toBe(false);
+  });
+});
+
 describe('what is reachable with playback off', () => {
   const volume = () => container.querySelector('[aria-label="Playback volume"]');
 

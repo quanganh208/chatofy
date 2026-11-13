@@ -75,6 +75,8 @@ export function VoiceDefaultsSection({
                     settings={settings}
                     language={language}
                     running={running}
+                    // The tab says why once, above every group.
+                    lockNote={false}
                     onChange={(patch) =>
                       save(`voice-${language}`, toastLabel, patch, (before, now) => ({
                         voiceByLanguage: {

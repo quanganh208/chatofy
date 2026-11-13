@@ -119,6 +119,8 @@ describe('Settings › Translation while a conversation runs', () => {
 
     expect(lockNote()?.textContent).toBe(en['web.settings.lockedWhileRunning']);
     expect(container.querySelectorAll('[data-settings-locked]')).toHaveLength(1);
+    // Said once for the tab, not again under each open voice.
+    expect(container.textContent).not.toContain(en['web.translate.speakLocked']);
 
     expect(pairControls().length).toBeGreaterThanOrEqual(4);
     for (const control of pairControls()) expect(control.disabled).toBe(true);

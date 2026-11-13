@@ -49,6 +49,13 @@ interface VoiceSettingsPanelProps {
   language: LanguageCode;
   /** A conversation is running, so everything but volume is fixed for its duration. */
   running: boolean;
+  /**
+   * Whether this panel says why its switch is frozen while running. On by default:
+   * in the `/translate` popover the panel is the only thing on screen to say it. A
+   * host that already says it once for several panels (the Settings dialog's
+   * Translation tab) turns it off so the reason is not repeated per language.
+   */
+  lockNote?: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
   /** Applies gain to this language immediately, without waiting for the debounced persist. */
   onVolumeChange: (volume: number, language: LanguageCode) => void;
@@ -58,6 +65,7 @@ export function VoiceSettingsPanel({
   settings,
   language,
   running,
+  lockNote = true,
   onChange,
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
@@ -102,7 +110,7 @@ export function VoiceSettingsPanel({
       {/* Why the switch is refusing, said as the thing to do instead. Only while
           running: at rest it is not refusing anything, and a permanent caveat
           under a working control is noise. */}
-      {running ? (
+      {running && lockNote ? (
         <p className="text-muted-foreground text-hint">{t('web.translate.speakLocked')}</p>
       ) : null}
 
