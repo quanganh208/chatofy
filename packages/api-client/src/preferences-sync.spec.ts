@@ -37,8 +37,8 @@ function fakeServer(initial: UserPreferences = defaults) {
     }),
     reset: vi.fn(async (): Promise<PreferencesResponse> => {
       stored = defaults;
-      updatedAt = null;
-      return { preferences: stored, updatedAt: null };
+      bump();
+      return { preferences: stored, updatedAt };
     }),
   };
   return {
@@ -620,5 +620,47 @@ describe('createPreferencesSync', () => {
     expect((cache.pending as { contexts: Record<string, unknown> }).contexts['newer']).toEqual(
       foreign,
     );
+  });
+
+  it('a flush while start is still out persists the change at once', async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    vi.mocked(server.transport.load).mockImplementationOnce(() => new Promise(() => undefined));
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    void sync.start();
+    await vi.advanceTimersByTimeAsync(0);
+    sync.update({ theme: 'dark' });
+    void sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cache.pendingPatches).toEqual([{ theme: 'dark' }]);
+    expect(cache.value).toMatchObject({ theme: 'dark' });
+  });
+
+  it('a reset pressed during start discards the orphans, sent or unsent', async () => {
+    const server = fakeServer();
+    const cache = memoryCache(null, {
+      contexts: {
+        a: { sent: { theme: 'dark' }, sentAfter: null, at: 1 },
+        b: { patch: { translateMode: 'two-way' }, at: 2 },
+      },
+    });
+    let answerRead!: () => void;
+    vi.mocked(server.transport.load).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerRead = () => resolve({ preferences: defaults, updatedAt: null });
+        }),
+    );
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    const started = sync.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const reset = sync.reset();
+    answerRead();
+    await reset;
+    await started;
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(server.saves).toEqual([]);
+    expect(server.stored).toEqual(defaults);
+    expect(cache.pending).toBeNull();
   });
 });

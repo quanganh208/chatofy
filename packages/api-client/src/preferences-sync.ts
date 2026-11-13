@@ -398,6 +398,9 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
    * orphan that never landed look landed.
    */
   async function flush(): Promise<void> {
+    // Persisted before any wait: a flush on pagehide or app background must
+    // leave the change in the cache and slot even if start is still running.
+    if (cacheTimer !== null && !disposed) writeCacheNow();
     if (starting) await starting.catch(() => undefined);
     return flushNow();
   }
@@ -517,6 +520,8 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     start() {
       if (started) return started;
       started = (async () => {
+        // Every orphan predates this start; a reset pressed meanwhile discards them.
+        const genAtStart = resetGen;
         try {
           const cached = await config.cache.read();
           if (cached !== null && cached !== undefined && !state.loaded) {
@@ -540,7 +545,8 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
           // Nothing recoverable; carry on with what the server holds.
         }
         const orphans = Object.entries(entries).sort(([, a], [, b]) => a.at - b.at);
-        const unsent = combineAll(orphans.map(([, entry]) => entry.patch));
+        const unsent =
+          resetGen === genAtStart ? combineAll(orphans.map(([, entry]) => entry.patch)) : null;
         if (unsent) {
           // Older than anything made in this instance, so it goes underneath.
           pending = pending ? combinePreferencePatches(unsent, pending) : unsent;
@@ -554,15 +560,16 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         // replaying it would undo another device's change. Undecidable while
         // offline, so it stays in the slot for a later start.
         const known = serverUpdatedAt !== undefined;
-        const resend = known
-          ? combineAll(
-              orphans.map(([, entry]) =>
-                entry.sent && entry.sentAfter !== undefined && entry.sentAfter === serverUpdatedAt
-                  ? entry.sent
-                  : undefined,
-              ),
-            )
-          : null;
+        const resend =
+          known && resetGen === genAtStart
+            ? combineAll(
+                orphans.map(([, entry]) =>
+                  entry.sent && entry.sentAfter !== undefined && entry.sentAfter === serverUpdatedAt
+                    ? entry.sent
+                    : undefined,
+                ),
+              )
+            : null;
         if (resend) {
           pending = pending ? combinePreferencePatches(resend, pending) : resend;
           if (holds === 0) publish({ preferences: mergePreferences(state.preferences, resend) });
