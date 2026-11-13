@@ -116,8 +116,9 @@ model User {
 // here. The API validates the whole merged document on every write and holds it
 // under `PREFERENCES_LIMITS.MAX_DOCUMENT_BYTES`.
 //
-// No row means "defaults": an account that never changed anything costs nothing,
-// and Reset to defaults is a delete.
+// No row means "defaults": an account that never changed anything costs nothing.
+// Reset to defaults empties the row (`{}`) rather than deleting it, so
+// `updatedAt` — the version clients compare — only ever moves forward.
 model UserPreferences {
   userId    String   @id
   data      Json

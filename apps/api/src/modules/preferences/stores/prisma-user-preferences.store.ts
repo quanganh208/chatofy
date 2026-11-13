@@ -9,7 +9,7 @@ import type {
 
 /**
  * The preferences document in Postgres: one `UserPreferences` row per account,
- * absent until the account first changes something.
+ * absent until the account first changes something or resets.
  */
 @Injectable()
 export class PrismaUserPreferencesStore implements UserPreferencesStore {
