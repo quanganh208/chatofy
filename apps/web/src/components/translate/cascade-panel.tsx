@@ -647,7 +647,7 @@ export function CascadePanel({
       </div>
 
       {/* The dock: a bar under one hairline, full width. Status and elapsed time at
-          one end, the action in the middle, the page's own controls as ghost icons
+          one end, the action in the middle, the page's own controls as outline buttons
           at the other — so the action sits in the same place whether or not there
           is anything to report beside it. Below 46rem of column width — the column, not the
           window, because the sidebar takes 280px of a 768px one — the action takes

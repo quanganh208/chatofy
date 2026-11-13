@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TranscriptScroller } from './transcript-scroller';
 import type { TranscriptOrder } from '@/lib/translate-settings';
 
@@ -278,24 +278,32 @@ describe('TranscriptScroller order switch', () => {
     render('a new turn, then the conversation', 1200, false, 'newest-first');
     expect(node.scrollTop, 'new turns did not pin to the top after the switch').toBe(0);
   });
+
+  it('jumps to the newest edge on a switch even with free scroll on', () => {
+    render('a conversation', 900, true);
+    const node = region();
+    node.scrollTop = 200;
+
+    render('a conversation, newest first', 900, true, 'newest-first');
+    expect(node.scrollTop).toBe(0);
+  });
 });
 
 /**
- * Where the browser has no scroll anchoring (Safari), newest first keeps a
- * scrolled-away reader on the turn they were reading by hand. happy-dom has no
- * layout, so each turn's place comes from `data-top`/`data-height` and the region
- * is a 400px window at the top of the page.
+ * Newest first keeps a scrolled-away reader on the turn they were reading, by
+ * hand and in every browser (the region turns native anchoring off). happy-dom
+ * has no layout, so each turn's place comes from `data-top`/`data-height`.
  */
-describe('TranscriptScroller place-keeping without scroll anchoring', () => {
+describe('TranscriptScroller newest-first place-keeping', () => {
   const turn = (id: string, top: number, height: number) => (
     <li key={id} data-id={id} data-top={top} data-height={height} />
   );
 
-  function renderTurns(turns: React.ReactNode[], contentHeight: number) {
+  function renderTurns(turns: React.ReactNode[], contentHeight: number, freeScroll = false) {
     geometry.scrollHeight = contentHeight;
     act(() => {
       root.render(
-        <TranscriptScroller label="Transcript" order="newest-first">
+        <TranscriptScroller label="Transcript" order="newest-first" freeScroll={freeScroll}>
           <ol>{turns}</ol>
         </TranscriptScroller>,
       );
@@ -309,22 +317,35 @@ describe('TranscriptScroller place-keeping without scroll anchoring', () => {
     });
   }
 
-  let anchoring = false;
-  beforeEach(() => {
-    anchoring = false;
-    vi.stubGlobal('CSS', { supports: () => anchoring });
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: Element,
-    ) {
-      const scroller = this.closest<HTMLElement>('[role="region"]');
-      if (this.getAttribute('role') === 'region') return new DOMRect(0, 0, 400, 400);
-      const top = Number(this.getAttribute('data-top') ?? 0) - (scroller?.scrollTop ?? 0);
-      return new DOMRect(0, top, 400, Number(this.getAttribute('data-height') ?? 0));
-    });
-  });
+  const layoutProperties = ['offsetTop', 'offsetHeight', 'offsetParent'] as const;
+  const originals = layoutProperties.map((property) => [
+    property,
+    Object.getOwnPropertyDescriptor(HTMLElement.prototype, property),
+  ]);
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
+    for (const [property, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, property as string, descriptor);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property as string];
+    }
+  });
+
+  beforeEach(() => {
+    const read = (attribute: string) =>
+      function (this: HTMLElement) {
+        return Number(this.getAttribute(attribute) ?? 0);
+      };
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      get: read('data-top'),
+      configurable: true,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: read('data-height'),
+      configurable: true,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+      get: () => null,
+      configurable: true,
+    });
   });
 
   it('holds the turn being read when a new one lands above it', () => {
@@ -346,13 +367,27 @@ describe('TranscriptScroller place-keeping without scroll anchoring', () => {
     expect(node.scrollTop).toBe(100);
   });
 
-  it('leaves the place to the browser where it anchors itself', () => {
-    anchoring = true;
+  it('falls back to the turn below when the one being read is merged away', () => {
     renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
     const node = region();
-    scrollTo(node, 400);
+    scrollTo(node, 100); // reading b; a is the spare
 
-    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200);
-    expect(node.scrollTop, 'moved the reader a second time').toBe(400);
+    // b merges into a block above, which is now taller: a moved down 150px.
+    renderTurns([turn('c', 0, 450), turn('a', 450, 600)], 1050);
+    expect(node.scrollTop).toBe(250);
+  });
+
+  it('holds a free-scroll reader parked at the top instead of following', () => {
+    // Native anchoring skips scrollTop 0, which is why this is done by hand.
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900, true);
+    const node = region();
+
+    renderTurns([turn('c', 0, 300), turn('b', 300, 300), turn('a', 600, 600)], 1200, true);
+    expect(node.scrollTop).toBe(300);
+  });
+
+  it('turns the browser anchoring off so the reader is not moved twice', () => {
+    renderTurns([turn('a', 0, 300)], 300);
+    expect(region().className).toContain('[overflow-anchor:none]');
   });
 });

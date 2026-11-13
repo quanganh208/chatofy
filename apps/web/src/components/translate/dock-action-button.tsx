@@ -20,10 +20,12 @@ import { cn } from '@/lib/utils';
  * hairline and a surface behind each, and the text is `foreground`, so they read as
  * things to press. Never accent: the screen's one filled control is Start.
  *
- * **The label shows when the main column is wide enough** (`@[46rem]/main`, the
- * breakpoint the dock itself switches layout at). Narrower, the button is a square
- * icon and the label moves to a tooltip on hover and focus, so the row does not
- * crowd Start on a phone. The accessible name is passed separately and must contain
+ * **The label shows only on a wide main column** (`@[72rem]/main`), not at the
+ * dock's own 46rem layout switch. Measured live: at a 768px column (a 1024px
+ * window) the three labelled buttons overlapped End while a conversation ran, and
+ * a 1024px column only just fits them before a context name or the longer
+ * Vietnamese words are added. Narrower, the button is a square icon and the label
+ * moves to a tooltip on hover and focus. The accessible name is passed separately and must contain
  * the visible word (WCAG 2.5.3, label in name).
  *
  * `dock={false}` is the fullscreen bar: icon-only, outline, named by `title`. The
@@ -95,11 +97,11 @@ function DockButtonWithTooltip({
           <Button
             variant="outline"
             size="icon"
-            className={cn('text-foreground @[46rem]/main:w-auto @[46rem]/main:px-3', className)}
+            className={cn('text-foreground @[72rem]/main:w-auto @[72rem]/main:px-3', className)}
             {...props}
           >
             {children}
-            <span ref={word} className="hidden @[46rem]/main:inline">
+            <span ref={word} className="hidden @[72rem]/main:inline">
               {label}
             </span>
           </Button>

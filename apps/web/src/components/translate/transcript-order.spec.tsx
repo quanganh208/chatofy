@@ -78,7 +78,7 @@ const stream = {
   onRemoveSpeaker: vi.fn(),
 };
 
-function renderPanes(overrides: Partial<TranslateSettings>) {
+function renderPanes(overrides: Partial<TranslateSettings>, stage = false) {
   act(() => {
     root.render(
       <LocaleProvider locale="en">
@@ -86,6 +86,7 @@ function renderPanes(overrides: Partial<TranslateSettings>) {
           conversationMode="one-way"
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running
+          stage={stage}
           stream={stream}
         />
       </LocaleProvider>,
@@ -146,6 +147,13 @@ describe('transcript order on the page', () => {
     const [source, target] = regions();
     expect(readingOrder(source!, SOURCE_OLDEST)).toEqual(SOURCE_OLDEST);
     expect(readingOrder(target!, TARGET_OLDEST)).toEqual(TARGET_OLDEST);
+  });
+
+  it('turns the fullscreen stage over too', () => {
+    renderPanes({ displayMode: 'list', transcriptOrder: 'newest-first' }, true);
+    const [list] = regions();
+    expect(readingOrder(list!, SOURCE_NEWEST)).toEqual(SOURCE_NEWEST);
+    expect(readingOrder(list!, TARGET_NEWEST)).toEqual(TARGET_NEWEST);
   });
 
   it('turns translation-only over too', () => {
