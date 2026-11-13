@@ -210,3 +210,36 @@ export type {
   CheckoutOrder,
   BillingPortalResponse,
 } from './billing.js';
+
+// Account preferences — one document per user, shared by every client.
+export {
+  PREFERENCES_LIMITS,
+  themeChoiceSchema,
+  translateModeSchema,
+  captionSizeSchema,
+  languageVoicePreferenceSchema,
+  callPreferencesSchema,
+  surfacePairsSchema,
+  userPreferencesSchema,
+  userPreferencesPatchSchema,
+  updatePreferencesRequestSchema,
+  preferencesResponseSchema,
+  defaultUserPreferences,
+  parseUserPreferences,
+  mergePreferences,
+  combinePreferencePatches,
+  preferencesByteLength,
+} from './preferences.js';
+export type {
+  ThemeChoice,
+  TranslateModePreference,
+  CaptionSizePreference,
+  LanguageVoicePreference,
+  CallPreferencesDocument,
+  SurfacePairs,
+  PreferenceSurface,
+  UserPreferences,
+  UserPreferencesPatch,
+  UpdatePreferencesRequest,
+  PreferencesResponse,
+} from './preferences.js';
