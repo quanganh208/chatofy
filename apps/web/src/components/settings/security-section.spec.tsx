@@ -237,12 +237,17 @@ describe('sign out', () => {
     expect(document.querySelector<HTMLButtonElement>('#sign-out-confirm')?.disabled).toBe(true);
   });
 
-  it('says so with a toast when signing out fails, and lets the reader try again', async () => {
+  it('says so inline in the confirmation when signing out fails, and lets the reader try again', async () => {
+    // Inline, not a toast: over Settings a toast would be a third surface, out of the
+    // focus trap and silenced by the modal.
     signOut.mockRejectedValue(new Error('offline'));
     await render();
     await click('#sign-out-account');
     await click('#sign-out-confirm');
-    expect(notify.error).toHaveBeenCalledWith(en['web.settings.signOutFailed'], { id: 'sign-out' });
+    expect(document.querySelector('[role="alertdialog"] #sign-out-failed')?.textContent).toBe(
+      en['web.settings.signOutFailed'],
+    );
+    expect(notify.error).not.toHaveBeenCalled();
     expect(document.querySelector<HTMLButtonElement>('#sign-out-confirm')?.disabled).toBe(false);
   });
 });

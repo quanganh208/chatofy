@@ -32,12 +32,13 @@ export interface PhotoChange {
  * Change photo, as a dialog: the photo as it is, a way to pick another, a way to
  * remove it.
  *
- * **Outcomes are toasts, and the dialog closes on success.** A failure is split by
- * what the reader can do about it. A file that is not an image, or is too large, is
- * about THIS pick and is said inline under the photo, where the next pick happens. A
- * failure of the server (storage down or unconfigured, the request failed) is said
- * with an error toast that offers Retry, because the same file may well go through
- * the second time.
+ * **Success is a toast, and the dialog closes on it. A failure stays inline**, under
+ * the photo where the next pick happens — a file that is not an image or is too
+ * large, and a failure of the server (storage down or unconfigured, the request
+ * failed) alike. The dialog opens over Settings, so a toast here would be a third
+ * elevated surface, outside the focus trap and silenced by the modal; and a refusal
+ * inside an open dialog stays in it (`docs/design-guidelines.md`). Pressing again is
+ * the retry: the same file may well go through the second time.
  *
  * The previous image stays on screen through a failure: a failed change has changed
  * nothing, and blanking it would claim otherwise.
@@ -68,17 +69,14 @@ export function ChangePhotoDialog({
   const run = async (kind: PhotoChange['kind'], work: () => Promise<string | null>) => {
     setBusy(true);
     setInlineError(undefined);
-    notify.dismiss('photo-change');
     let avatarUrl: string | null;
     try {
       avatarUrl = await work();
     } catch (err) {
-      const key = messageFor(err);
-      if (key === 'web.account.avatarNotAnImage' || key === 'web.account.avatarTooLarge') {
-        setInlineError(key);
-      } else {
-        notify.error(t(key), { id: 'photo-change', retry: () => void run(kind, work) });
-      }
+      // Every refusal stays inline in this dialog, the server's included: a toast
+      // would be a third surface over Settings and this dialog, outside the focus
+      // trap and silenced by the modal. Pressing again is the retry.
+      setInlineError(messageFor(err));
       setBusy(false);
       return;
     }
@@ -151,6 +149,7 @@ export function ChangePhotoDialog({
         <DialogFooter>
           {current !== null ? (
             <Button
+              id="photo-remove"
               variant="ghost"
               disabled={busy}
               onClick={() => void run('removed', async () => (await deleteAvatar()).avatarUrl)}

@@ -196,22 +196,21 @@ describe('the Change photo dialog', () => {
     expect(notify.success).toHaveBeenCalledWith('Photo removed', { id: 'photo-change' });
   });
 
-  it('reports a server failure as a toast with Retry, keeping the dialog and the photo', async () => {
+  it('reports a server failure inline, keeping the dialog and the photo; pressing again retries', async () => {
     uploadAvatar.mockRejectedValue(new Error('nope'));
     await render('https://cdn.example.com/a/k.webp');
     await openDialog();
     await pickFile();
 
+    // Inline, not a toast: over Settings a toast would be a third surface, out of the
+    // focus trap.
     expect(dialog()).not.toBeNull();
     expect(buttonIn(dialog(), 'Remove photo')).toBeDefined();
-    const [message, options] = notify.error.mock.calls[0]!;
-    expect(message).toContain('Try again');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('Try again');
+    expect(notify.error).not.toHaveBeenCalled();
 
     uploadAvatar.mockResolvedValue({ avatarUrl: 'https://cdn.example.com/a/new.webp' });
-    await act(async () => {
-      options?.retry?.();
-      for (let i = 0; i < 4; i += 1) await Promise.resolve();
-    });
+    await pickFile();
     expect(uploadAvatar).toHaveBeenCalledTimes(2);
     expect(dialog()).toBeNull();
   });
@@ -247,7 +246,8 @@ describe('the Change photo dialog', () => {
     await openDialog();
     await pickFile();
 
-    expect(notify.error.mock.calls[0]?.[0]).toContain('nothing was changed');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('nothing was changed');
+    expect(notify.error).not.toHaveBeenCalled();
   });
 });
 
