@@ -112,7 +112,12 @@ illustration, the surfaces tiles' band, and the same illustration above the firs
 the translate screen's empty source pane (above the sentence, never behind it; hidden below
 `sm`, where the stacked panes are too short to hold it). They measure 1.44, 1.69 and 1.30:1 on stone, so
 a dawn value is **never behind text, never on a control, and never carries a state**.
-It is not a palette key, and the contrast table never sees it. The illustration's two
+It is not a palette key, and the contrast table never sees it. **One exception: the Pro
+plan pill** (`layout/plan-badge.tsx`) sits on the dawn gradient with a label in the LIGHT
+palette's `text` in both schemes — the stops are light in dark mode too, so a
+scheme-following ink would turn near-white on a pastel. That ink clears 4.5:1 on every
+stop, asserted in `plan-badge.spec.tsx`; the rail's Pro dot is the same gradient, decorative.
+The illustration's two
 extra stops, sky `#A8C8E8` and rose `#E8B8C4`, are local to the lotus mark data and the
 landing component; nothing else reaches for them.
 
@@ -617,6 +622,15 @@ breadcrumb and tab bar read.
   sits in the footer beside who you are, over the credit line, as a button that opens
   the Settings dialog rather than a destination; its meter is dropped
   when the balance read fails, because Billing is where a failure is explained.
+  A plan pill follows the name — Free as a muted outline, Pro on the dawn — and opens
+  Settings › Billing. It is a sibling of the account menu's trigger, not inside it (a
+  button in a button is invalid): the trigger is the row's hit area underneath, the name,
+  pill and credit line a `pointer-events-none` layer over it that only the pill opts out
+  of. Nothing renders while the balance loads or after it fails, and the pill is shorter
+  than the name's line so its arrival does not move the footer. On the icon rail Pro is
+  a dawn dot on the avatar and the trigger's name carries the plan ("Account, Pro plan");
+  in the More sheet the pill is text inside the identity row, which already opens Billing.
+  Neither treatment is `bg-primary`: the pill is a readout and spends no accent.
 - **Topbar** — a breadcrumb whose last crumb is the page's `<h1>`, so the heading a
   screen reader jumps to is in the sidebar's words; there is no display-face page
   header. A page adds its own name (`TopbarCrumb`) and actions (`TopbarActions`) through

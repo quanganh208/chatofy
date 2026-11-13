@@ -207,6 +207,8 @@ export const vi: Messages = {
   'web.chrome.confirmTitleNamed': '{action} “{name}”?',
   'web.chrome.confirmIrreversible': 'Không thể hoàn tác thao tác này.',
   'web.chrome.accountMenu': 'Tài khoản của bạn',
+  'web.chrome.planAccountMenu': 'Tài khoản của bạn, gói {plan}',
+  'web.chrome.planOpenBilling': 'Gói: {plan} — mở Thanh toán',
   'web.chrome.signedInAs': 'Đang đăng nhập bằng',
   'web.chrome.getStarted': 'Bắt đầu',
   'web.chrome.openApp': 'Mở Chatofy',
