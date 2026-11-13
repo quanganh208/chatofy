@@ -34,6 +34,18 @@ export const en = {
   'common.theme.dark': 'Dark',
   'common.theme.system': 'Match system',
   'common.theme.label': 'Colour theme',
+  // Account preferences: one copy per account, shared by every app and device.
+  'common.preferences.title': 'Your preferences',
+  'common.preferences.syncNote': 'Synced across your devices.',
+  'common.preferences.saving': 'Saving…',
+  'common.preferences.saved': 'Saved',
+  'common.preferences.saveRetrying': "Couldn't save, retrying",
+  'common.preferences.reset': 'Reset to defaults',
+  'common.preferences.resetPending': 'Resetting…',
+  'common.preferences.resetNote':
+    'Theme, languages, voices, display and call settings go back to their defaults on all your devices. Your AI contexts, glossaries and history stay.',
+  'common.preferences.resetFailed': "Couldn't reset. Check your connection and try again.",
+  'common.preferences.resetDone': 'Preferences reset',
   // Mic processing: named as Saydi names them, because that is what people compare.
   'common.audio.title': 'Audio settings',
   'common.audio.echoCancellation': 'Echo cancellation',
