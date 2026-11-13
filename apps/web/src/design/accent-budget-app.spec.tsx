@@ -92,6 +92,7 @@ const listCreditUsage = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listPlans = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const createCheckout = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The glossary library and the open glossary's terms.
+const deleteAvatar = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listGlossaries = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listGlossaryItems = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
@@ -121,6 +122,9 @@ vi.mock('@/clients/api-client', () => ({
   listGlossaries: () => listGlossaries(),
   listGlossaryItems: () => listGlossaryItems(),
   createConference: () => createConference(),
+  // The photo dialog's Remove; only the failed-removal row presses it.
+  deleteAvatar: () => deleteAvatar(),
+  uploadAvatar: vi.fn(),
 }));
 
 // The detail screen fetches minutes of its own. Its generate button is the one
@@ -156,8 +160,10 @@ vi.mock('@/components/history/use-container-wide', () => ({
   useContainerWide: () => historyBox.wide,
 }));
 
+// Hoisted so the sign-out-failed row can make it fail.
+const signOut = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('next-auth/react', () => ({
-  signOut: vi.fn(),
+  signOut: () => signOut(),
   useSession: () => ({ data: null, status: 'unauthenticated' }),
 }));
 
@@ -1651,6 +1657,53 @@ const SCREENS: ScreenState[] = [
     },
     press: '#sign-out-account',
     shows: '[role="alertdialog"] #sign-out-confirm',
+    render: settingsOverAPage,
+  },
+  {
+    // A sign-out that failed says so INSIDE its confirmation, never as a toast: a
+    // toast would be a third surface over Settings and the confirmation. The confirm
+    // is still the one filled control, for pressing again.
+    name: 'settings dialog › account — sign-out failed',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      settingsOn('account')();
+      getMe.mockRejectedValue(new Error('not read in this row'));
+      signOut.mockRejectedValue(new Error('offline'));
+    },
+    steps: ['#sign-out-account', '#sign-out-confirm'],
+    shows: '[role="alertdialog"] #sign-out-failed',
+    render: settingsOverAPage,
+  },
+  {
+    // A photo removal the server refused: inline under the photo, never a toast.
+    name: 'settings dialog › account — photo change failed',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      settingsOn('account')();
+      getMe.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.co',
+        name: 'Quang Anh',
+        createdAt: '2026-01-09T00:00:00.000Z',
+        avatarUrl: 'https://cdn.example.com/a/k.webp',
+      });
+      deleteAvatar.mockRejectedValue(new Error('offline'));
+    },
+    steps: ['#photo-change-open', '#photo-remove'],
+    shows: '[role="dialog"] [role="alert"]',
+    render: settingsOverAPage,
+  },
+  {
+    // The commonest Settings state: a change saved, its toast offering Undo. The toast
+    // is in Settings' own host, inside the dialog: two surfaces, and Undo is quiet.
+    name: 'settings dialog › general — saved, Undo toast',
+    filled: 0,
+    surfaces: 2,
+    setup: settingsOn('general'),
+    steps: ['[data-theme-tile="dark"] [role="radio"]'],
+    shows: '[role="dialog"] [data-sonner-toast]',
     render: settingsOverAPage,
   },
   {

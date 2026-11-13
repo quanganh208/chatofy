@@ -234,25 +234,25 @@ describe('the settings dialog', () => {
       (b) => b.textContent === 'Undo',
     );
     expect(button, 'the toast never showed its Undo').toBeDefined();
-    // The modal sets `pointer-events: none` on the body; the toaster must take it back
-    // or a real pointer never reaches Undo at all.
-    const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]');
-    expect(toaster?.style.pointerEvents).toBe('auto');
+    // Inside the dialog, so the modal's `pointer-events: none` on the body does not
+    // reach it and a press on it is not a press beside the dialog.
+    expect(button?.closest('[role="dialog"]')).toBe(dialog());
     pressAsPointer(button);
     expect(undo).toHaveBeenCalledTimes(1);
     expect(view()).toBe('general');
     expect(dialog()).not.toBeNull();
   });
 
-  it('puts the toast inside the dialog while it is open, so Undo is reachable by keyboard', async () => {
-    // The page's host is mounted too, as the app layout mounts it; it steps aside.
+  it('puts the toast in its own host inside the dialog, so Undo is reachable by keyboard', async () => {
+    // The page's host is mounted too, as the app layout mounts it; it shows nothing
+    // raised while Settings is open.
     await openAt('?settings=general', <AppToaster />);
     const undo = vi.fn();
     await act(async () => {
       notify.success('Theme saved', { undo });
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
-    expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(1);
     const button = [
       ...document.querySelectorAll<HTMLButtonElement>('[data-sonner-toaster] button'),
     ].find((b) => b.textContent === 'Undo');
@@ -262,12 +262,38 @@ describe('the settings dialog', () => {
     // Inside the trap, focus stays where it is put — outside, FocusScope pulled it back.
     act(() => button?.focus());
     expect(document.activeElement).toBe(button);
-    act(() => {
-      button?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      button?.click();
-    });
+    act(() => button?.click());
     expect(undo).toHaveBeenCalledTimes(1);
     expect(view()).toBe('general');
+  });
+
+  it('never brings a toast back on the page after Settings closes, so Undo cannot run twice', async () => {
+    await openAt('?settings=general', <AppToaster />);
+    const undo = vi.fn();
+    await act(async () => {
+      notify.success('Theme saved', { undo });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const button = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-sonner-toaster] button'),
+    ].find((b) => b.textContent === 'Undo');
+    // Undo, then Esc inside the toast's 200ms leave.
+    act(() => button?.click());
+    act(() => {
+      dialog()?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+    });
+    expect(view()).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    // The page's host shows nothing: the toast belonged to the Settings host.
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(0);
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-sonner-toaster] button')) {
+      if (b.textContent === 'Undo') b.click();
+    }
+    expect(undo).toHaveBeenCalledTimes(1);
   });
 
   it('still closes on a press on the dimmed page beside it', async () => {

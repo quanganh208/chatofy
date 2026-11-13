@@ -147,15 +147,12 @@ export function SettingsDialog() {
               : navRef.current?.querySelector<HTMLElement>(`[data-settings-tab="${paneTab}"]`);
           target?.focus({ focusVisible: false });
         }}
-        // A toast is outside the dialog's layer, so pressing its Undo or Retry counted as
-        // a press beside the dialog and closed Settings at the moment the reader was
-        // correcting a change made in it. A toast belongs to what this dialog did.
-        //
-        // Unsaved typing (an AI Context draft) also keeps a press or focus beside the
-        // dialog and Esc from closing it; ✕ and Back still close.
+        // Unsaved typing (an AI Context draft) keeps a press or focus beside the dialog
+        // and Esc from closing it; ✕ and Back still close. (A toast raised while
+        // Settings is open is inside this dialog — see the host at the end — so pressing
+        // its Undo is not a press beside it.)
         onInteractOutside={(event) => {
-          if (isInToaster(event.target)) event.preventDefault();
-          else if (heldByDraft()) event.preventDefault();
+          if (heldByDraft()) event.preventDefault();
         }}
         onEscapeKeyDown={(event) => {
           if (heldByDraft()) event.preventDefault();
@@ -167,11 +164,18 @@ export function SettingsDialog() {
         data-settings-dialog={view ?? 'menu'}
         className={cn(
           'flex gap-0 overflow-hidden p-0',
+          // Centred by `inset-0` and `m-auto` rather than the primitive's 50% offset and
+          // -50% translate. Any `translate` makes this box the containing block of the
+          // fixed-position toast host inside it, which then sat in the dialog's corner,
+          // over the pane, clipped by `overflow-hidden`. With no translate the host is
+          // placed against the window like the page's. Only this dialog: the
+          // primitive is unchanged for every other one.
+          'inset-0 m-auto translate-none',
           // Clear of the window edge at 768px as everywhere else: the primitive's own
           // `calc(100%-2rem)` cap is replaced by this one from `sm`.
           'sm:h-[min(85vh,720px)] sm:max-w-[min(880px,calc(100%-2rem))]',
           // A phone: the whole screen, no frame.
-          'max-sm:inset-0 max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0',
+          'max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:border-0',
         )}
       >
         <div
@@ -288,16 +292,12 @@ export function SettingsDialog() {
             </div>
           </div>
         </section>
-        {/* The toast host, inside the dialog while it is open, so a toast's Undo is in
-            the focus trap — reachable by Tab and by Alt+T, not only by a pointer. The
-            page's host steps aside meanwhile; see `layout/app-toaster.tsx`. */}
+        {/* A toast host of its own, inside the dialog while it is open, so a toast's
+            Undo is in the focus trap — reachable by Tab and Alt+T, not only by a
+            pointer. Toasts raised meanwhile are routed here and stay here; see
+            `layout/app-toaster.tsx` and `lib/notify.ts`. */}
         {dialog.isOpen ? <AppToaster host="settings" /> : null}
       </DialogContent>
     </Dialog>
   );
-}
-
-/** Whether an event landed on the toast host (`layout/app-toaster.tsx`). */
-function isInToaster(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest('[data-sonner-toaster]') !== null;
 }

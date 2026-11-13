@@ -43,8 +43,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           matcher gates. */}
       <SessionGuard />
       <AppChrome defaultOpen={sidebarOpen}>{children}</AppChrome>
-      {/* The one toast host for this surface, after the chrome so it stacks above it.
-          Screens speak through `lib/notify.ts`, never by mounting a second host. */}
+      {/* The page's toast host, after the chrome so it stacks above it. The only other
+          host is Settings' own, mounted inside its dialog while it is open (see
+          `layout/app-toaster.tsx`). Screens speak through `lib/notify.ts`, never by
+          mounting a host of their own. */}
       <AppToaster />
     </>
   );

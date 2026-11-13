@@ -1,22 +1,28 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useSyncExternalStore } from 'react';
 import { Toaster } from '@chatofy/ui/react';
 import { useResolvedColorScheme } from '@/hooks/use-resolved-color-scheme';
 import { useTranslate } from '@/i18n/provider';
-import { readSettingsDialog } from '@/components/settings/settings-dialog-url';
+import { routeToastsToSettings, SETTINGS_TOASTER_ID } from '@/lib/notify';
 
 /**
- * The one toast host for the signed-in app; `lib/notify.ts` is how a screen speaks
- * through it.
+ * The signed-in app's toast hosts; `lib/notify.ts` is how a screen speaks through them.
  *
- * Bottom-right from 768px, where it sits away from the topbar's actions and the
- * translator's dock is centred. Top-centre below, because the bottom of a phone is the
- * tab bar and the thumb. Four seconds by default; `notify.error` overrides that to
- * stay until dismissed.
+ * **The page's host** (`host="page"`, mounted once by `app/(app)/layout.tsx`):
+ * bottom-right from 768px, where it sits away from the topbar's actions and the
+ * translator's dock is centred; top-centre below, because the bottom of a phone is
+ * the tab bar and the thumb.
  *
- * Pressable over an open modal dialog: see the `pointerEvents` note below.
+ * **The Settings host** (`host="settings"`, mounted inside the Settings dialog while
+ * it is open): a modal traps focus, so a toast outside it — "Saved" with Undo — could
+ * not be reached by Tab or Alt+T. Inside the dialog it is in the trap. It has its own
+ * sonner id and `notify` routes to it while it is mounted, so each toast lives in
+ * exactly one host and never moves between them. Bottom-right of the window from
+ * 768px, like the page's; bottom-centre on a phone, where the dialog fills the screen
+ * and its back button and ✕ are at the top.
+ *
+ * Four seconds by default; `notify.error` overrides that to stay until dismissed.
  */
 const DESKTOP = '(min-width: 768px)';
 
@@ -30,28 +36,25 @@ const isDesktop = () => window.matchMedia?.(DESKTOP).matches ?? true;
 
 export function AppToaster({ host = 'page' }: { host?: 'page' | 'settings' }) {
   const t = useTranslate();
-  // While Settings is open the host moves INSIDE the dialog (`settings-dialog.tsx`
-  // renders `<AppToaster host="settings" />`). A modal traps focus, so a toast outside
-  // it — "Saved" with Undo, raised by a change made in Settings — could be clicked
-  // but never reached by Tab or by sonner's Alt+T. Inside, it is part of the trap.
-  // One host at a time, so a toast never shows twice.
-  const settingsOpen = readSettingsDialog(useSearchParams()) !== undefined;
   const scheme = useResolvedColorScheme();
   const desktop = useSyncExternalStore(subscribe, isDesktop, () => true);
+  const inSettings = host === 'settings';
 
-  if (host === 'page' && settingsOpen) return null;
+  useEffect(() => {
+    if (!inSettings) return;
+    routeToastsToSettings(true);
+    return () => routeToastsToSettings(false);
+  }, [inSettings]);
 
   return (
     <Toaster
+      id={inSettings ? SETTINGS_TOASTER_ID : undefined}
       theme={scheme}
-      position={desktop ? 'bottom-right' : 'top-center'}
+      position={desktop ? 'bottom-right' : inSettings ? 'bottom-center' : 'top-center'}
+      // Clear of the home indicator on a notched phone.
+      mobileOffset={inSettings ? { bottom: 'calc(16px + env(safe-area-inset-bottom))' } : undefined}
       duration={4000}
       containerAriaLabel={t('web.chrome.notifications')}
-      // A modal dialog sets `pointer-events: none` on the body, and the toaster
-      // inherits it — so a toast raised from inside Settings (Saved, with Undo) could
-      // not be pressed while Settings was open. The dialog lets a press on the toaster
-      // through (`settings/settings-dialog.tsx`); this lets the press land.
-      style={{ pointerEvents: 'auto' }}
       toastOptions={{ closeButtonAriaLabel: t('web.chrome.dismiss') }}
     />
   );
