@@ -58,9 +58,8 @@ export function settingsFromPreferences(
  * against the NEXT pair's target, the language they now apply to; a pair change
  * alone does not write them, since they are read back per target.
  *
- * A voice removed locally cannot be expressed: a patch only sets fields. The one
- * way the phone removes voices is a gender change, which writes the new gender
- * and leaves the old token for the picker to replace.
+ * A voice removed locally (a gender change clears them) is sent as `voice: null`,
+ * which the document reads as "the gender's default voice".
  */
 export function patchFromSettings(
   previous: TranslateSettings,
@@ -80,9 +79,10 @@ export function patchFromSettings(
 
   for (const code of LANGUAGE_CODES) {
     const token = next.voices[code];
-    if (token !== undefined && token !== previous.voices[code]) {
-      voices[code] = { ...voices[code], voice: token };
-    }
+    const before = previous.voices[code];
+    if (token === before) continue;
+    // `null`, not undefined: JSON drops undefined, so the old token would come back.
+    voices[code] = { ...voices[code], voice: token ?? null };
   }
   if (Object.keys(voices).length > 0) patch.voices = voices;
 

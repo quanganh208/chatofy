@@ -73,6 +73,20 @@ describe('patchFromSettings', () => {
     assert.deepEqual(patch?.voices?.[previous.pair.target], { speak: false, voice: 'tok' });
   });
 
+  it('sends null for a voice the settings dropped', () => {
+    const had = { ...previous, voices: { en: 'en-1', zh: 'zh-1' } };
+    const next = { ...had, voiceGender: 'male' as const, voices: {} };
+    const patch = patchFromSettings(had, next);
+    assert.equal(patch?.voices?.en?.voice, null);
+    assert.equal(patch?.voices?.zh?.voice, null);
+    const cleared = mergePreferences(
+      mergePreferences(base(), { voices: { en: { voice: 'en-1' } } }),
+      patch ?? {},
+    );
+    assert.equal(cleared.voices.en?.voice, undefined);
+    assert.equal(JSON.parse(JSON.stringify(patch)).voices.en.voice, null);
+  });
+
   it('round-trips through the document', () => {
     const next = {
       ...previous,
