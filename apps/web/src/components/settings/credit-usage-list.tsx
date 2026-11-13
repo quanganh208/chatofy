@@ -16,7 +16,7 @@ import type { MessageKey } from '@chatofy/i18n';
 import { Button, Skeleton } from '@chatofy/ui/react';
 import type { UseCreditUsage } from '@/hooks/use-credits';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { formatCredits, formatDay } from '@/lib/credit-format';
+import { formatDay, formatSignedCredits } from '@/lib/credit-format';
 import { cn } from '@/lib/utils';
 import { groupUsageByDay, type UsageDay } from './credit-usage-days';
 
@@ -134,8 +134,6 @@ function UsageEntryRow({ entry }: { entry: CreditUsageEntry }) {
   const t = useTranslate();
   const locale = useLocale();
   const { label, icon: Icon } = KIND[entry.kind];
-  const amount = formatCredits(t, locale, Math.abs(entry.credits));
-  const sign = entry.credits < 0 ? '−' : entry.credits > 0 ? '+' : '';
   const body = (
     <>
       <Icon aria-hidden className="text-muted-foreground size-4 shrink-0" />
@@ -152,8 +150,7 @@ function UsageEntryRow({ entry }: { entry: CreditUsageEntry }) {
           entry.credits > 0 && 'text-speaking',
         )}
       >
-        {sign}
-        {amount}
+        {formatSignedCredits(t, locale, entry.credits)}
       </span>
     </>
   );

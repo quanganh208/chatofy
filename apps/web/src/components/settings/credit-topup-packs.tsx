@@ -6,7 +6,7 @@ import { Button, SegmentedControl } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatCredits } from '@/lib/credit-format';
 import { formatUsd, formatVnd } from '@/lib/pricing-content';
-import { SettingsSection } from './settings-section';
+import { CreditBillingGroup } from './credit-billing-group';
 import { canBuyOn, checkoutKey, type UseCreditCheckout } from './use-credit-checkout';
 
 const RAILS = ['polar', 'sepay'] as const satisfies readonly PaymentRail[];
@@ -56,71 +56,71 @@ export function CreditTopupPacks({
   const shown = packs.filter((pack) => canBuyOn(pack, rail, balance));
 
   return (
-    <div data-credit-topups>
-      <SettingsSection title={t('web.account.buyTitle')} note={t('web.pricing.topupsSummary')}>
-        {/* One row of the box: the method and the packs it prices belong together, so
-            no divider runs between them. */}
-        <div className="flex flex-col gap-4 py-4">
-          <SegmentedControl
-            label={t('web.billing.payWith')}
-            value={rail}
-            options={RAILS.map((value) => ({
-              value,
-              label: t(value === 'polar' ? 'web.billing.methodCard' : 'web.billing.methodQr'),
-              disabled: !usable.includes(value),
-            }))}
-            onChange={setChosen}
-          />
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-credit-topup-list>
-            {shown.map((pack) => {
-              const key = checkoutKey({ planCode: pack.code, rail });
-              const buttonId = `${baseId}-${key}`;
-              const offerId = `${buttonId}-offer`;
-              const credits = formatCredits(t, locale, pack.credits);
-              const price =
-                rail === 'polar'
-                  ? formatUsd(pack.priceUsdCents ?? 0, locale)
-                  : formatVnd(pack.priceVnd ?? 0, locale);
-              return (
-                <li
-                  key={key}
-                  data-topup-pack={pack.code}
-                  className="border-hairline flex items-center justify-between gap-4 rounded-md border p-4 sm:flex-col sm:items-stretch"
-                >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-heading font-display leading-tight font-light tabular-nums">
-                      {credits}
-                    </span>
-                    <span className="text-prose text-body tabular-nums">{price}</span>
-                  </div>
-                  {/* The whole offer, for the button's accessible name; the tile shows
-                    it as two lines a screen reader would otherwise read apart. */}
-                  <span id={offerId} className="sr-only">
-                    {t(rail === 'polar' ? 'web.account.buyTopupCard' : 'web.account.buyTopupQr', {
-                      credits,
-                      price,
-                    })}
+    <CreditBillingGroup
+      data-credit-topups
+      title={t('web.account.buyTitle')}
+      note={t('web.pricing.topupsSummary')}
+    >
+      <div className="flex flex-col gap-4">
+        <SegmentedControl
+          label={t('web.billing.payWith')}
+          value={rail}
+          options={RAILS.map((value) => ({
+            value,
+            label: t(value === 'polar' ? 'web.billing.methodCard' : 'web.billing.methodQr'),
+            disabled: !usable.includes(value),
+          }))}
+          onChange={setChosen}
+        />
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-credit-topup-list>
+          {shown.map((pack) => {
+            const key = checkoutKey({ planCode: pack.code, rail });
+            const buttonId = `${baseId}-${key}`;
+            const offerId = `${buttonId}-offer`;
+            const credits = formatCredits(t, locale, pack.credits);
+            const price =
+              rail === 'polar'
+                ? formatUsd(pack.priceUsdCents ?? 0, locale)
+                : formatVnd(pack.priceVnd ?? 0, locale);
+            return (
+              <li
+                key={key}
+                data-topup-pack={pack.code}
+                className="border-hairline flex items-center justify-between gap-4 rounded-md border p-4 sm:flex-col sm:items-stretch"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="text-heading font-display leading-tight font-light tabular-nums">
+                    {credits}
                   </span>
-                  <Button
-                    id={buttonId}
-                    variant="outline"
-                    size="sm"
-                    disabled={closed || checkout.pending !== null}
-                    aria-labelledby={`${buttonId} ${offerId}`}
-                    aria-describedby={closed ? closedId : undefined}
-                    onClick={() => void checkout.start({ planCode: pack.code, rail })}
-                  >
-                    {checkout.pending === key
-                      ? t('web.account.checkoutOpening')
-                      : t('web.account.buy')}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        {after}
-      </SettingsSection>
-    </div>
+                  <span className="text-prose text-body tabular-nums">{price}</span>
+                </div>
+                {/* The whole offer, for the button's accessible name; the tile shows
+                    it as two lines a screen reader would otherwise read apart. */}
+                <span id={offerId} className="sr-only">
+                  {t(rail === 'polar' ? 'web.account.buyTopupCard' : 'web.account.buyTopupQr', {
+                    credits,
+                    price,
+                  })}
+                </span>
+                <Button
+                  id={buttonId}
+                  variant="outline"
+                  size="sm"
+                  disabled={closed || checkout.pending !== null}
+                  aria-labelledby={`${buttonId} ${offerId}`}
+                  aria-describedby={closed ? closedId : undefined}
+                  onClick={() => void checkout.start({ planCode: pack.code, rail })}
+                >
+                  {checkout.pending === key
+                    ? t('web.account.checkoutOpening')
+                    : t('web.account.buy')}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      {after}
+    </CreditBillingGroup>
   );
 }

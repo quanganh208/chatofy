@@ -1,52 +1,76 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check, CircleCheck } from 'lucide-react';
 import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 
-/** One plan: its name, what it gives, what it costs, and — when it is yours — a mark. */
+/**
+ * One plan in the Free | Pro comparison. Both columns have the same structure so
+ * their parts line up across: the name (and "Your plan" on the current one), the
+ * price — the first line large, a second rail's price under it — then a short
+ * list of what you get, then where the current plan stands, then actions pinned
+ * to the bottom.
+ *
+ * A hairline region on the pane ground with no shadow, not a card; the current
+ * plan's edge is `border-strong`, never a fill, because a fill would read as a
+ * control and the tab's one accent belongs to Upgrade.
+ */
 export function PlanColumn({
   id,
   name,
   current,
-  summary,
-  prices = [],
+  prices,
+  features,
   status,
   children,
 }: {
   id: 'free' | 'pro';
   name: string;
   current: boolean;
-  summary?: string;
-  prices?: string[];
+  /** First line is the headline price; any further line is another rail's. */
+  prices: string[];
+  features: string[];
   status?: string;
   children?: React.ReactNode;
 }) {
   const t = useTranslate();
+  const [headline, ...others] = prices;
   return (
     <div
       data-plan-column={id}
       data-current-plan={current || undefined}
       className={cn(
-        'flex flex-col gap-3 rounded-md border p-4',
+        'flex flex-col gap-4 rounded-lg border p-4',
         current ? 'border-border-strong' : 'border-hairline',
       )}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-translation font-medium">{name}</span>
-        {current ? (
-          <span className="text-muted-foreground text-hint flex items-center gap-1">
-            <Check aria-hidden className="size-3.5" />
-            {t('web.billing.yourPlan')}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-body font-semibold">{name}</span>
+          {current ? (
+            <span className="text-muted-foreground text-hint flex items-center gap-1">
+              <CircleCheck aria-hidden className="size-3.5" />
+              {t('web.billing.yourPlan')}
+            </span>
+          ) : null}
+        </div>
+        {headline ? (
+          <span className="text-heading font-display leading-tight font-light tabular-nums">
+            {headline}
           </span>
         ) : null}
+        {others.map((price) => (
+          <span key={price} className="text-prose text-body tabular-nums">
+            {price}
+          </span>
+        ))}
       </div>
-      {summary ? <p className="text-prose text-hint">{summary}</p> : null}
-      {prices.length > 0 ? (
-        <ul className="flex flex-col gap-1">
-          {prices.map((price) => (
-            <li key={price} className="text-body tabular-nums">
-              {price}
+      {features.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {features.map((feature) => (
+            <li key={feature} className="text-body flex items-start gap-2">
+              <Check aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              {feature}
             </li>
           ))}
         </ul>

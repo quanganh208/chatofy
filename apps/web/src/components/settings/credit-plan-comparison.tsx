@@ -8,7 +8,7 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatDay } from '@/lib/credit-format';
 import { formatUsd, formatVnd } from '@/lib/pricing-content';
 import { PlanColumn } from './credit-plan-column';
-import { SettingsSection } from './settings-section';
+import { CreditBillingGroup } from './credit-billing-group';
 import { canBuyOn, checkoutKey, type UseCreditCheckout } from './use-credit-checkout';
 
 /** One way to upgrade: the Pro plan sold on a rail, and what its button says. */
@@ -33,8 +33,8 @@ interface UpgradeOption {
  * account sees where Pro came from, when it renews or ends, and — for a card
  * subscription — Manage subscription.
  *
- * Two columns from `sm`, stacked on a phone. Each column is a hairline region inside
- * the group's box, not a card: neither has a shadow.
+ * Two columns from `sm`, stacked on a phone, straight on the pane ground under the
+ * heading. Each is a hairline region, not a card: neither has a shadow.
  */
 export function CreditPlanComparison({
   balance,
@@ -54,7 +54,7 @@ export function CreditPlanComparison({
   /** The id of the line saying why, for `aria-describedby`. */
   closedId: string;
   onManage: () => void;
-  /** Last rows of the group: the checkout notice and an open QR panel. */
+  /** Under the columns: the checkout notice and an open QR panel. */
   footer?: React.ReactNode;
 }) {
   const t = useTranslate();
@@ -63,11 +63,9 @@ export function CreditPlanComparison({
 
   if (plans === null) {
     return (
-      <SettingsSection title={t('web.billing.planTitle')}>
-        <div className="py-4">
-          <Skeleton className="h-32 w-full" />
-        </div>
-      </SettingsSection>
+      <CreditBillingGroup title={t('web.billing.planTitle')}>
+        <Skeleton className="h-48 w-full" />
+      </CreditBillingGroup>
     );
   }
 
@@ -87,35 +85,44 @@ export function CreditPlanComparison({
 
   const proPrices: string[] = [];
   if (card?.priceUsdCents != null) {
-    proPrices.push(t('web.pricing.proPriceCard', { price: formatUsd(card.priceUsdCents, locale) }));
+    proPrices.push(t('web.billing.priceCard', { price: formatUsd(card.priceUsdCents, locale) }));
   }
   if (pass?.priceVnd != null) {
-    proPrices.push(t('web.pricing.proPricePass', { price: formatVnd(pass.priceVnd, locale) }));
+    proPrices.push(t('web.billing.pricePass', { price: formatVnd(pass.priceVnd, locale) }));
   }
+  const topups = t('web.billing.featureTopups');
+  const freeFeatures = [
+    ...(free
+      ? [t('web.billing.featureCreditsMonthly', { credits: count(locale, free.credits) })]
+      : []),
+    t('web.billing.featureNoCarryOver'),
+    topups,
+  ];
+  const proFeatures = [
+    ...(proCredits === undefined
+      ? []
+      : [t('web.billing.featureCreditsCycle', { credits: count(locale, proCredits) })]),
+    t('web.billing.featureCycleReset'),
+    t('web.billing.featurePayOptions'),
+    topups,
+  ];
 
   return (
-    <SettingsSection title={t('web.billing.planTitle')}>
-      <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2" data-credit-plans>
+    <CreditBillingGroup title={t('web.billing.planTitle')}>
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2" data-credit-plans>
         <PlanColumn
           id="free"
           name={t('common.billing.planFree')}
           current={!isPro}
-          summary={
-            free
-              ? t('web.pricing.freeSummary', { credits: count(locale, free.credits) })
-              : undefined
-          }
+          prices={[t('web.billing.freePrice')]}
+          features={freeFeatures}
         />
         <PlanColumn
           id="pro"
           name={t('common.billing.planPro')}
           current={isPro}
-          summary={
-            proCredits === undefined
-              ? undefined
-              : t('web.pricing.proSummary', { credits: count(locale, proCredits) })
-          }
           prices={proPrices}
+          features={proFeatures}
           status={isPro ? proStatus(t, locale, balance) : undefined}
         >
           {balance.proSource === 'polar' ? (
@@ -153,12 +160,10 @@ export function CreditPlanComparison({
         </PlanColumn>
       </div>
       {plans.length === 0 ? (
-        <p className="text-muted-foreground text-hint py-3.5">
-          {t('web.pricing.pricesUnavailable')}
-        </p>
+        <p className="text-muted-foreground text-hint px-1">{t('web.pricing.pricesUnavailable')}</p>
       ) : null}
       {footer}
-    </SettingsSection>
+    </CreditBillingGroup>
   );
 }
 

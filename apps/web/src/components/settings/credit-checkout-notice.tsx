@@ -25,7 +25,7 @@ export function CheckoutNotice({
   const t = useTranslate();
   if (!balance.checkoutAllowed || refused) {
     return (
-      <p id={closedId} className="text-muted-foreground text-hint max-w-prose py-3">
+      <p id={closedId} className="text-muted-foreground text-hint max-w-prose px-1">
         {t('common.billing.checkoutClosed')}
       </p>
     );
@@ -34,7 +34,7 @@ export function CheckoutNotice({
   if (sandbox.length === 0) return null;
   return (
     <p
-      className="text-muted-foreground text-hint max-w-prose py-3"
+      className="text-muted-foreground text-hint max-w-prose px-1"
       data-rail-sandbox={sandbox.join(' ')}
     >
       {sandbox.length === 2

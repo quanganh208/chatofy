@@ -125,11 +125,26 @@ describe('the credits region', () => {
 describe('the plan comparison', () => {
   it('sets Free beside Pro at the numbers the API answers, and marks Free as yours', async () => {
     await render();
-    expect(planColumn('free')?.textContent).toContain('120 credits every month');
+    const free = planColumn('free')?.textContent ?? '';
+    expect(free).toContain(en['web.billing.freePrice']);
+    expect(free).toContain('120 credits every month');
+    expect(free).toContain(en['web.billing.featureNoCarryOver']);
     const pro = planColumn('pro')?.textContent ?? '';
+    expect(pro).toContain('$9.99 a month by card');
+    expect(pro).toContain('₫249,000 for 30 days by VietQR');
     expect(pro).toContain('600 credits each cycle');
-    expect(pro).toContain('$9.99 a month by card, renews automatically');
-    expect(pro).toContain('₫249,000 for 30 days by VietQR, does not renew');
+    expect(pro).toContain(en['web.billing.featurePayOptions']);
+    // Same structure on both sides, so the parts line up across.
+    for (const id of ['free', 'pro'] as const) {
+      expect(planColumn(id)?.querySelectorAll('li').length).toBeGreaterThanOrEqual(3);
+    }
+    // On the pane ground: no group box drawn around the bordered columns or tiles.
+    expect(planColumn('free')?.closest('[data-slot="settings-section-box"]')).toBeNull();
+    expect(
+      container
+        .querySelector('[data-credit-topups] li')
+        ?.closest('[data-slot="settings-section-box"]'),
+    ).toBeNull();
     expect(planColumn('free')?.hasAttribute('data-current-plan')).toBe(true);
     expect(planColumn('free')?.textContent).toContain(en['web.billing.yourPlan']);
     expect(planColumn('pro')?.hasAttribute('data-current-plan')).toBe(false);

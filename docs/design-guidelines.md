@@ -667,16 +667,20 @@ The old addresses redirect onto their tab over `/translate/one-way`, keeping the
   nothing, and a closed checkout shows every Upgrade and Buy outlined and disabled, since
   a disabled filled button reads as available. AI Context fills Save only while its
   editor is open.
-- **Billing** (`settings/credits-section.tsx`) — four groups: the balance with its dawn
-  split bar; Plan, Free beside Pro (stacked on a phone) at the numbers `/billing/plans`
-  answers, the current one marked "Your plan" by a check and a `border-strong` edge,
-  never a fill; Buy credits, a payment-method `SegmentedControl` chosen once (a rail
-  reported unavailable is a disabled segment) over one tile per top-up pack; Usage,
-  grouped under Today, Yesterday or the date, an icon per kind, a spend in the plain
-  foreground and an addition `+` in `speaking` green — spending is never drawn as an
-  error. Why buying is closed, or which rail is in test mode, is one muted line closing
-  the Plan group. The plan columns and pack tiles are hairline regions with no shadow,
-  and the VietQR panel opens as a row of whichever group's button made the order.
+- **Billing** (`settings/credits-section.tsx`) — four groups. The balance (with its dawn
+  split bar) and Usage are hairline boxes like every other group. Plan and Buy credits
+  are not boxed: their content is already hairline regions, and a box around them drew
+  every edge twice, so they sit on the pane ground under their heading. Plan is Free
+  beside Pro (stacked on a phone), both columns built the same way — price on top, a
+  check-list of what you get, actions pinned under Pro — at the numbers `/billing/plans`
+  answers; the current plan is marked "Your plan" and a `border-strong` edge, never a
+  fill. Buy credits is a payment-method `SegmentedControl` chosen once (a rail reported
+  unavailable is a disabled segment) over one tile per top-up pack. Usage is grouped
+  under Today, Yesterday or the date, an icon per kind, a spend in the plain foreground
+  with a true minus (U+2212, `formatSignedCredits`) and an addition `+` in `speaking`
+  green — spending is never drawn as an error. Why buying is closed, or which rail is in
+  test mode, is one muted line under the plans; the VietQR panel opens as a hairline
+  region under whichever group's button made the order.
 - **A running conversation** — while one runs, the Translation tab freezes the language
   pairs, the default AI context and the voice controls except volume, as the voice popover on `/translate`
   does. Settings opens over the conversation, so a change there would otherwise reach
