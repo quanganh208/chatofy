@@ -1,67 +1,84 @@
 /**
- * The translate settings as screen state: read once per app launch, written
- * through on every change. Until the stored value is read every screen shows the
- * defaults, and a change made in that gap wins over the late read.
+ * The translate settings as screen state. Everything but the microphone chain
+ * comes from the signed-in account's preferences (synced with web and the
+ * extension); the microphone chain is this phone's own and lives in
+ * `mic-processing-store.ts`. Every change is applied at once and saved behind it.
  *
  * One value shared by every screen that uses it. The translate tab and Settings
- * stay mounted side by side; with a copy each, a pair picked on the translate tab
- * would save that tab's stale microphone choice over the one just made in
- * Settings, and the next start would open the microphone the old way.
+ * stay mounted side by side, so both read the same store instead of a copy each.
  */
 
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { DEFAULT_TRANSLATE_SETTINGS, type TranslateSettings } from './translate-settings';
-import { loadTranslateSettings, saveTranslateSettings } from './translate-settings-store';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
+import { loadMicProcessing, saveMicProcessing } from '@/preferences/mic-processing-store';
+import { updateAccountPreferences, useAccountPreferences } from '@/preferences/account-preferences';
+import {
+  patchFromSettings,
+  settingsFromPreferences,
+} from '@/preferences/translate-preferences-mapping';
+import type { TranslateSettings } from './translate-settings';
 
-let current: TranslateSettings = DEFAULT_TRANSLATE_SETTINGS;
+let mic: MicProcessing = { ...DEFAULT_MIC_PROCESSING };
 /** Flips once: when the stored value is read, or when a change lands before it. */
-let loaded = false;
-let loading: Promise<void> | null = null;
-const listeners = new Set<() => void>();
+let micLoaded = false;
+let micLoading: Promise<void> | null = null;
+const micListeners = new Set<() => void>();
 
-function notify(): void {
-  for (const listener of listeners) listener();
+function notifyMic(): void {
+  for (const listener of micListeners) listener();
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+function subscribeMic(listener: () => void): () => void {
+  micListeners.add(listener);
+  return () => micListeners.delete(listener);
 }
 
 /** One read per launch, however many screens ask for it. */
-function ensureLoaded(): void {
-  if (loaded || loading) return;
-  loading = loadTranslateSettings().then((stored) => {
+function ensureMicLoaded(): void {
+  if (micLoaded || micLoading) return;
+  micLoading = loadMicProcessing().then((stored) => {
     // A change made before the read was made on the defaults and is kept.
-    if (!loaded) {
-      current = stored;
-      loaded = true;
-      notify();
+    if (!micLoaded) {
+      mic = stored;
+      micLoaded = true;
+      notifyMic();
     }
   });
 }
 
-function change(next: (settings: TranslateSettings) => TranslateSettings): void {
-  current = next(current);
-  loaded = true;
-  void saveTranslateSettings(current);
-  notify();
+function changeMic(next: MicProcessing): void {
+  mic = next;
+  micLoaded = true;
+  void saveMicProcessing(next);
+  notifyMic();
 }
 
 export function useTranslateSettings(): {
   settings: TranslateSettings;
+  /** The microphone choice has been read, so a switch on it is safe to offer. */
   loaded: boolean;
   update: (change: (current: TranslateSettings) => TranslateSettings) => void;
 } {
-  const settings = useSyncExternalStore(subscribe, () => current);
-  const isLoaded = useSyncExternalStore(subscribe, () => loaded);
+  const account = useAccountPreferences();
+  const micProcessing = useSyncExternalStore(subscribeMic, () => mic);
+  const loaded = useSyncExternalStore(subscribeMic, () => micLoaded);
 
-  useEffect(ensureLoaded, []);
+  useEffect(ensureMicLoaded, []);
 
-  const update = useCallback(
-    (next: (current: TranslateSettings) => TranslateSettings) => change(next),
-    [],
+  const settings = useMemo(
+    () => settingsFromPreferences(account.preferences, micProcessing),
+    [account.preferences, micProcessing],
   );
 
-  return { settings, loaded: isLoaded, update };
+  const update = useCallback(
+    (next: (current: TranslateSettings) => TranslateSettings) => {
+      const changed = next(settings);
+      if (changed.micProcessing !== settings.micProcessing) changeMic(changed.micProcessing);
+      const patch = patchFromSettings(settings, changed);
+      if (patch) updateAccountPreferences(patch);
+    },
+    [settings],
+  );
+
+  return { settings, loaded, update };
 }

@@ -2,6 +2,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  defaultUserPreferences,
+  mergePreferences,
+  type UserPreferences,
+  type UserPreferencesPatch,
+} from '@chatofy/types';
 
 /**
  * Scoped to this file, because the cost it covers is this file's alone.
@@ -53,6 +59,8 @@ interface Stubs {
   contexts?: unknown[];
   /** Merged over the stored settings, for cases that turn on one of them. */
   settings?: Record<string, unknown>;
+  /** Merged over the cached account preferences the popup opens from. */
+  account?: Record<string, unknown>;
   /** What `GET /billing/me` answers with. Unset answers 503, which the pane reports. */
   balance?: unknown;
   /** The entries `GET /billing/usage` answers with. */
@@ -60,6 +68,8 @@ interface Stubs {
 }
 
 const sent: unknown[] = [];
+/** Every request the popup made to `/me/preferences`. */
+const patches: { method: string; patch: unknown }[] = [];
 const written: Record<string, unknown> = {};
 let root: Root | undefined;
 
@@ -71,19 +81,26 @@ function installChrome({
   overlay = { capturing: false, lines: [], outbound: 'off', errors: {} },
   contexts = [],
   settings = {},
+  account = {},
   balance,
   usage = [],
 }: Stubs) {
   const store: Record<string, unknown> = {
     'chatofy.settings': {
-      languagePair: { source: 'en', target: 'vi' },
-      voiceGender: 'female',
       reportMetrics: true,
       outbound: false,
       ...settings,
     },
     'chatofy.sites': { enabled: true, disabledSites: [] },
   };
+  // The pair, voice and context are the account's, read from its cached document.
+  const base = defaultUserPreferences('en');
+  const accountDoc = {
+    ...base,
+    pairs: { ...base.pairs, extension: { source: 'en', target: 'vi' } },
+    ...account,
+  };
+  if (signedIn) store['chatofy.preferences'] = accountDoc;
   if (consentSeen) store['chatofy.recordingNoticeSeen'] = true;
   if (signedIn) store['chatofy.accessToken'] = 'a-stored-access-token';
 
@@ -97,6 +114,7 @@ function installChrome({
         },
         remove: () => Promise.resolve(),
       },
+      onChanged: { addListener: () => undefined, removeListener: () => undefined },
     },
     tabs: { query: () => Promise.resolve([{ id: 1, url: tabUrl, active: true }]) },
     runtime: {
@@ -130,7 +148,17 @@ function installChrome({
       ok: true,
       json: () => Promise.resolve({ success: true, data }),
     } as Response);
-  vi.stubGlobal('fetch', (url: string) => {
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+    if (typeof url === 'string' && url.endsWith('/me/preferences')) {
+      const patch = init?.body
+        ? (JSON.parse(init.body as string) as { preferences: UserPreferencesPatch }).preferences
+        : {};
+      patches.push({ method: init?.method ?? 'GET', patch });
+      return enveloped({
+        preferences: mergePreferences(accountDoc as UserPreferences, patch),
+        updatedAt: null,
+      });
+    }
     if (typeof url === 'string' && url.endsWith('/billing/me')) {
       return balance === undefined
         ? Promise.resolve({ status: 503, ok: false } as Response)
@@ -198,6 +226,7 @@ const toggle = () => document.getElementById('toggle') as HTMLButtonElement | nu
 
 beforeEach(() => {
   sent.length = 0;
+  patches.length = 0;
   for (const key of Object.keys(written)) delete written[key];
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -380,9 +409,16 @@ describe('the popup', () => {
         mouse('pointerup', option);
       });
 
-      expect(written['chatofy.settings']).toMatchObject({
+      // The context is the account's: written to its cached document and sent
+      // to the API, and never into this machine's settings.
+      expect(written['chatofy.preferences']).toMatchObject({
         contextId: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',
       });
+      expect(patches).toContainEqual({
+        method: 'PATCH',
+        patch: { contextId: 'a5f3e2b1-1234-4a5b-8c9d-000000000001' },
+      });
+      expect(written['chatofy.settings']).toBeUndefined();
     });
 
     it('reads as no context when the stored id is not in the library', async () => {
@@ -391,7 +427,7 @@ describe('the popup', () => {
       // label — it renders blank, and the meeting runs unhinted while the popup
       // looks like it has a selection.
       await mount({
-        settings: { contextId: 'a5f3e2b1-1234-4a5b-8c9d-00000000dead' },
+        account: { contextId: 'a5f3e2b1-1234-4a5b-8c9d-00000000dead' },
         contexts: [
           {
             id: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',

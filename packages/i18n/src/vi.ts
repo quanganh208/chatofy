@@ -934,6 +934,14 @@ export const vi: Messages = {
 
   'mobile.settings.buyOnWeb': 'Mua credit trên web',
 
+  'mobile.settings.sync.note': 'Cài đặt dịch của bạn được đồng bộ trên mọi thiết bị.',
+  'mobile.settings.sync.error': 'Không lưu được cài đặt. Đang tự thử lại.',
+  'mobile.settings.sync.reset': 'Đặt lại mặc định',
+  'mobile.settings.sync.resetTitle': 'Đặt lại toàn bộ cài đặt?',
+  'mobile.settings.sync.resetBody':
+    'Cặp ngôn ngữ, giọng đọc và tùy chọn cuộc gọi trở về mặc định trên mọi thiết bị.',
+  'mobile.settings.sync.resetFailed': 'Không đặt lại được cài đặt. Kiểm tra kết nối.',
+
   // ---- web.glossary ----
   'web.glossary.title': 'Bảng thuật ngữ',
   'web.glossary.new': 'Bảng thuật ngữ mới',

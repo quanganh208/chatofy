@@ -45,9 +45,17 @@ function fakeServer(initial: UserPreferences = defaults) {
   };
 }
 
-function memoryCache(initial: unknown = null) {
+function memoryCache(initial: unknown = null, initialPending: unknown = null) {
   let value = initial;
+  let pendingValue = initialPending;
   return {
+    readPending: () => pendingValue,
+    writePending: (patch: UserPreferencesPatch | null) => {
+      pendingValue = patch;
+    },
+    get pending() {
+      return pendingValue;
+    },
     read: () => value,
     write: (next: UserPreferences) => {
       value = next;
@@ -158,5 +166,37 @@ describe('createPreferencesSync', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     expect(sync.getState().preferences.theme).toBe('light');
     expect(server.saves).toHaveLength(1);
+  });
+
+  it('keeps an unsent change across a closed instance and sends it at the next start', async () => {
+    const server = fakeServer();
+    const cache = memoryCache();
+    const first = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await first.start();
+    server.failTimes(1);
+    first.update({ theme: 'dark' });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(cache.pending).toEqual({ theme: 'dark' });
+    await first.dispose();
+
+    const second = createPreferencesSync({ transport: server.transport, cache, defaults });
+    await second.start();
+    expect(second.getState().preferences.theme).toBe('dark');
+    expect(server.saves).toEqual([{ theme: 'dark' }]);
+    expect(cache.pending).toBeNull();
+  });
+
+  it('clears the persisted patch on reset and on a sign-out dispose', async () => {
+    const server = fakeServer();
+    const cache = memoryCache(null, { theme: 'dark' });
+    const sync = createPreferencesSync({ transport: server.transport, cache, defaults });
+    server.failTimes(1);
+    await sync.start();
+    expect(cache.pending).toEqual({ theme: 'dark' });
+    await sync.reset();
+    expect(cache.pending).toBeNull();
+    sync.update({ theme: 'light' });
+    await sync.dispose(true);
+    expect(cache.pending).toBeNull();
   });
 });

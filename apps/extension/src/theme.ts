@@ -1,6 +1,11 @@
+import { readCachedPreferences } from './preferences-cache';
+
 /**
- * Which ground the popup renders on, and where that answer is kept.
+ * Which ground the popup renders on.
  *
+ * The choice belongs to the account (`theme` in its preferences) and this module
+ * only reads it back from the cache, which is what lets the popup paint the right
+ * ground before the network answers. Writes go through the preferences store.
  * Deliberately NOT part of `CaptureSettings`. That object is what the worker hands
  * the offscreen document when a capture starts, and a change to it is a change the
  * worker has to process — so folding an appearance preference in would make choosing
@@ -11,23 +16,20 @@
  * `prefers-color-scheme` answers for the operating system rather than for the meeting
  * page, so following a preference there would put a light panel over a dark call.
  */
-const KEY = 'chatofy.theme';
+/** The key older builds kept the choice under, before the account held it. */
+const LEGACY_KEY = 'chatofy.theme';
 
-/** What the reader chose. `system` is stored as the absence of a value. */
+/** What the reader chose. `system` follows the machine. */
 export type ThemeChoice = 'light' | 'dark' | 'system';
 
+/** The cached account's choice; `system` while signed out or never synced. */
 export async function loadTheme(): Promise<ThemeChoice> {
-  const stored = await chrome.storage.local.get(KEY);
-  const value = stored[KEY];
-  return value === 'light' || value === 'dark' ? value : 'system';
+  return (await readCachedPreferences())?.theme ?? 'system';
 }
 
-export async function saveTheme(choice: ThemeChoice): Promise<void> {
-  // Removed rather than written as the word "system": one representation of "no
-  // choice" means there is no second one to forget to handle, and the CSS already
-  // treats the absence of a class as the machine's decision.
-  if (choice === 'system') await chrome.storage.local.remove(KEY);
-  else await chrome.storage.local.set({ [KEY]: choice });
+/** Forget the per-browser value: the account's choice replaces it, unimported. */
+export async function dropLegacyTheme(): Promise<void> {
+  await chrome.storage.local.remove(LEGACY_KEY);
 }
 
 /**

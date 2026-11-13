@@ -1,6 +1,8 @@
 import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadSettings, saveSettings } from './settings';
+import { PREFERENCES_KEY } from './preferences-cache';
+import { defaultUserPreferences } from '@chatofy/types';
+import { dropLegacySyncedSettings, loadSettings, saveSettings } from './settings';
 
 /**
  * `settings.ts` is the only module under `src/` that reaches for a Chrome API
@@ -16,6 +18,10 @@ beforeEach(() => {
     storage: {
       local: {
         get: (key: string) => Promise.resolve(store.has(key) ? { [key]: store.get(key) } : {}),
+        remove: (key: string) => {
+          store.delete(key);
+          return Promise.resolve();
+        },
         set: (items: Record<string, unknown>) => {
           for (const [key, value] of Object.entries(items)) store.set(key, value);
           return Promise.resolve();
@@ -47,11 +53,11 @@ describe('loadSettings', () => {
     expect((await loadSettings()).apiBaseUrl).not.toBe('http://stale.example:9999');
   });
 
-  it('still merges the settings a user does control', async () => {
-    store.set(KEY, { languagePair: VI_TO_EN, outbound: true });
+  it('still merges the settings this machine owns', async () => {
+    store.set(KEY, { outbound: true, reportMetrics: true });
     const settings = await loadSettings();
-    expect(settings.languagePair).toEqual(VI_TO_EN);
     expect(settings.outbound).toBe(true);
+    expect(settings.reportMetrics).toBe(true);
   });
 
   it('fills every field when nothing has been stored', async () => {
@@ -60,55 +66,37 @@ describe('loadSettings', () => {
     expect(settings.voiceGender).toBeDefined();
     expect(settings.apiBaseUrl).toMatch(/^https?:\/\//);
     expect(settings.outbound).toBe(false);
-  });
-
-  // A stale id is harmless — it resolves to nothing where the list is fetched —
-  // so unlike `apiBaseUrl` it is not whitelisted away. This is the
-  // load half of that: nothing here should reject or rewrite it.
-  it('a stored object with no contextId loads', async () => {
-    store.set(KEY, { languagePair: VI_TO_EN });
-    const settings = await loadSettings();
     expect(settings.contextId).toBeUndefined();
-    expect(settings.languagePair).toEqual(VI_TO_EN);
   });
 
-  // Builds before the pair stored a `direction` string. A profile that chose its
-  // languages then must keep them rather than reopening on the default.
-  it('reads a pre-pair stored direction as its language pair', async () => {
-    store.set(KEY, { direction: 'zh_to_en', outbound: true });
+  // The pair, the voice and the context are the account's. A value an older build
+  // left in the local object is not imported, so it cannot be mistaken for one
+  // the account chose.
+  it('does not read the synced fields from the local object', async () => {
+    store.set(KEY, {
+      languagePair: VI_TO_EN,
+      voiceGender: 'male',
+      contextId: 'old',
+      direction: 'zh_to_en',
+    });
     const settings = await loadSettings();
-    expect(settings.languagePair).toEqual({ source: 'zh', target: 'en' });
-    expect(settings.outbound).toBe(true);
+    expect(settings.languagePair).toEqual({ source: 'en', target: 'vi' });
+    expect(settings.voiceGender).toBe('female');
+    expect(settings.contextId).toBeUndefined();
   });
 
-  it('does not carry the pre-pair key into what the next save writes', async () => {
-    store.set(KEY, { direction: 'vi_to_en' });
-    await saveSettings(await loadSettings());
-    expect(store.get(KEY)).not.toHaveProperty('direction');
-    expect(store.get(KEY)).toMatchObject({ languagePair: VI_TO_EN });
-  });
-
-  it('prefers a stored pair over a leftover direction', async () => {
-    store.set(KEY, { languagePair: VI_TO_EN, direction: 'en_to_zh' });
-    expect((await loadSettings()).languagePair).toEqual(VI_TO_EN);
-  });
-
-  it('falls back to the default for a malformed pair or direction', async () => {
-    for (const stored of [
-      { languagePair: { source: 'vi', target: 'vi' } },
-      { languagePair: { source: 'xx', target: 'en' } },
-      { languagePair: 'vi_to_en' },
-      { direction: 'vi_to_vi' },
-      { direction: 42 },
-    ]) {
-      store.set(KEY, stored);
-      expect((await loadSettings()).languagePair).toEqual({ source: 'en', target: 'vi' });
-    }
-  });
-
-  it('contextId is not stripped by the whitelist', async () => {
-    store.set(KEY, { contextId: 'some-old-context-id' });
-    expect((await loadSettings()).contextId).toBe('some-old-context-id');
+  it('reads the pair, voice and context from the cached account preferences', async () => {
+    const prefs = defaultUserPreferences('en');
+    store.set(PREFERENCES_KEY, {
+      ...prefs,
+      contextId: 'ctx-1',
+      pairs: { ...prefs.pairs, extension: VI_TO_EN },
+      voices: { en: { gender: 'male' } },
+    });
+    const settings = await loadSettings();
+    expect(settings.languagePair).toEqual(VI_TO_EN);
+    expect(settings.voiceGender).toBe('male');
+    expect(settings.contextId).toBe('ctx-1');
   });
 
   const ALL_ON = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
@@ -145,34 +133,50 @@ describe('saveSettings', () => {
   it('does not persist apiBaseUrl, even when the caller passes one', async () => {
     const loaded = await loadSettings();
     expect(loaded).toHaveProperty('apiBaseUrl');
-    await saveSettings({ ...loaded, languagePair: VI_TO_EN });
+    await saveSettings({ ...loaded, outbound: true });
     expect(store.get(KEY)).not.toHaveProperty('apiBaseUrl');
   });
 
-  it('round-trips the settings a user does control', async () => {
+  // Same spread, same blind spot: the account's fields must not ride along into
+  // this machine's object either.
+  it('does not persist the synced fields, even when the caller spreads them in', async () => {
+    const loaded = await loadSettings();
+    await saveSettings({ ...loaded, contextId: 'ctx-123' } as Parameters<typeof saveSettings>[0]);
+    expect(Object.keys(store.get(KEY) as object).sort()).toEqual([
+      'micProcessing',
+      'outbound',
+      'reportMetrics',
+    ]);
+  });
+
+  it('round-trips the settings this machine owns', async () => {
     await saveSettings({
-      languagePair: VI_TO_EN,
-      voiceGender: 'male',
       reportMetrics: true,
       outbound: true,
       micProcessing: DEFAULT_MIC_PROCESSING,
     });
     const settings = await loadSettings();
-    expect(settings.languagePair).toEqual(VI_TO_EN);
-    expect(settings.voiceGender).toBe('male');
     expect(settings.reportMetrics).toBe(true);
     expect(settings.outbound).toBe(true);
   });
+});
 
-  it('a contextId survives the round-trip', async () => {
-    await saveSettings({
-      languagePair: { source: 'en', target: 'vi' },
-      voiceGender: 'female',
-      reportMetrics: false,
-      outbound: false,
-      micProcessing: DEFAULT_MIC_PROCESSING,
-      contextId: 'ctx-123',
+describe('dropLegacySyncedSettings', () => {
+  it('removes the fields the account owns and keeps the rest', async () => {
+    store.set(KEY, {
+      languagePair: VI_TO_EN,
+      voiceGender: 'male',
+      contextId: 'x',
+      direction: 'a',
+      mode: 'b',
+      outbound: true,
     });
-    expect((await loadSettings()).contextId).toBe('ctx-123');
+    await dropLegacySyncedSettings();
+    expect(store.get(KEY)).toEqual({ outbound: true });
+  });
+
+  it('does nothing when nothing is stored', async () => {
+    await dropLegacySyncedSettings();
+    expect(store.has(KEY)).toBe(false);
   });
 });
