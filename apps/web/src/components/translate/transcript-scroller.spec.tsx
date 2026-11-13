@@ -287,6 +287,26 @@ describe('TranscriptScroller order switch', () => {
     render('a conversation, newest first', 900, true, 'newest-first');
     expect(node.scrollTop).toBe(0);
   });
+
+  it('follows the top after a switch from a reader parked mid-way, not just at 0', () => {
+    render('a conversation', 900);
+    const node = region();
+    // 200px from the bottom: oldest first, not following.
+    node.scrollTop = 300;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    render('a conversation, newest first', 900, false, 'newest-first');
+    expect(node.scrollTop, 'the switch did not jump to the newest edge').toBe(0);
+    render('a new turn, then the conversation', 1200, false, 'newest-first');
+    expect(node.scrollTop, 'following was not switched back on').toBe(0);
+  });
+
+  it('leaves oldest first to the browser: anchoring stays on', () => {
+    render('a conversation', 900);
+    expect(region().className).not.toContain('overflow-anchor');
+  });
 });
 
 /**
@@ -404,6 +424,23 @@ describe('TranscriptScroller newest-first place-keeping', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it('does not let its own hold switch following back on', () => {
+    renderTurns([turn('b', 0, 300), turn('a', 300, 600)], 900);
+    const node = region();
+    scrollTo(node, 400); // reading a, not following
+
+    // Something above a shrinks by 350px: the hold lowers the reader to 50,
+    // inside the follow slack, through a scroll event of its own.
+    renderTurns([turn('b', 0, 300), turn('a', -50, 600)], 550);
+    expect(node.scrollTop).toBe(50);
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    renderTurns([turn('c', 0, 100), turn('a', 50, 600)], 650);
+    expect(node.scrollTop, 'the reader was pulled to the top').not.toBe(0);
   });
 
   it('holds a free-scroll reader parked at the top instead of following', () => {

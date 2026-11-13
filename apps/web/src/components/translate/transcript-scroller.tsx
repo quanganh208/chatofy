@@ -115,6 +115,8 @@ export function TranscriptScroller({
   // only newest first while the reader is away from the top — nothing reads it
   // otherwise, and it measures every turn above the view.
   const anchor = useRef<Anchor[] | null>(null);
+  // The offset the last hold wrote, so its own scroll event can be told apart.
+  const heldAt = useRef<number | null>(null);
   const recordAnchor = useCallback(() => {
     const node = region.current;
     anchor.current =
@@ -127,7 +129,11 @@ export function TranscriptScroller({
     const fromNewest = followsTop
       ? node.scrollTop
       : node.scrollHeight - node.scrollTop - node.clientHeight;
-    following.current = fromNewest <= ANCHOR_SLACK_PX;
+    // A scroll this component's own hold caused is not the reader moving: a hold
+    // that lowers the offset into the slack must not switch following back on and
+    // have the next commit pull them to the top.
+    if (node.scrollTop !== heldAt.current) following.current = fromNewest <= ANCHOR_SLACK_PX;
+    heldAt.current = null;
     recordAnchor();
   }, [followsTop, recordAnchor]);
 
@@ -145,7 +151,13 @@ export function TranscriptScroller({
   const holdPlace = useCallback(() => {
     const node = region.current;
     const held = anchor.current?.find(({ element }) => element.isConnected);
-    if (node && held) node.scrollTop += contentTop(node, held.element) - held.top;
+    if (!node || !held) return;
+    // Only when something moved: a write of the same offset still interrupts a
+    // touch fling in WebKit, and this runs every frame while text types in.
+    const delta = contentTop(node, held.element) - held.top;
+    if (!delta) return;
+    node.scrollTop += delta;
+    heldAt.current = node.scrollTop;
   }, []);
 
   // The order the last commit drew, so a switch can be told apart from an update.
