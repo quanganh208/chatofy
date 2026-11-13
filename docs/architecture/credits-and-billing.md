@@ -362,12 +362,13 @@ is in [deployment-guide.md → Deploying credits and billing](../deployment-guid
 Use the owner's allowlisted account on production. Open Settings › Billing
 (`/translate/one-way?settings=billing`) in a second tab to watch the balance.
 
-1. **Polar sandbox subscription.** In Billing, buy Pro on Polar and pay with a Stripe
-   test card (table below). Polar returns to `/settings/billing?checkout=done` (the API's
+1. **Polar sandbox subscription.** In Billing, press **Upgrade by card** in the Pro column
+   and pay with a Stripe test card (table below). Polar returns to `/settings/billing?checkout=done` (the API's
    `success_url`), which redirects to `/translate/one-way?checkout=done&settings=billing`
    (`apps/web/src/components/settings/legacy-settings-redirects.ts`), so Billing opens with
-   the return toast. The plan shows Pro (Polar)
-   and the balance gains 600; a Polar top-up gains its 250, 550 or 1500 the same way.
+   the return toast. The Pro column is marked "Your plan" with its renewal date, the sidebar
+   badge reads Pro, and the balance gains 600; a top-up bought under **Buy credits** with
+   Card selected gains its 250, 550 or 1500 the same way.
    The grant lands when `order.paid` arrives, usually within seconds of the redirect.
 
    Polar's sandbox charges through Stripe's test mode, so only Stripe test cards work
@@ -384,7 +385,8 @@ Use the owner's allowlisted account on production. Open Settings › Billing
    drops it from the address bar and history as it loads; the portal button mints its
    own session.
 
-2. **SePay test QR.** Buy "250 credits by VietQR". The QR panel shows the amount and the
+2. **SePay test QR.** Under **Buy credits**, pick VietQR and press Buy on the 250-credit
+   tile. The QR panel shows the amount and the
    transfer note. Simulate a transfer carrying that note from SePay's Test-mode dashboard.
    Within one poll the panel says "Payment received", and a +250 "Credits added" usage
    row appears.
