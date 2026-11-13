@@ -20,6 +20,7 @@
     "verify:build": "node scripts/verify-content-script-css.mjs && node scripts/verify-mv3-csp.mjs"
   },
   "dependencies": {
+    "@chatofy/api-client": "workspace:*",
     "@chatofy/realtime-client": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@chatofy/ui": "workspace:*",

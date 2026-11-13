@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const KEY = 'chatofy.accessToken';
 const REFRESH_KEY = 'chatofy.refreshToken';
+const PREFERENCES_KEY = 'chatofy.preferences';
 const API = 'http://localhost:3000';
 
 let stored: Record<string, unknown>;
@@ -140,7 +141,7 @@ describe('verifyAccessToken', () => {
     vi.stubGlobal('fetch', fetchAnswering(401));
 
     await expect(verify()).resolves.toBe(false);
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
   });
 
   it('renews on a 401 and keeps the session', async () => {
@@ -165,7 +166,7 @@ describe('verifyAccessToken', () => {
     vi.stubGlobal('fetch', fetchRouting({ '/auth/me': answer(401), '/auth/refresh': answer(401) }));
 
     await expect(verify()).resolves.toBe(false);
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
     expect(stored).toEqual({});
   });
 
@@ -291,7 +292,7 @@ describe('getFreshAccessToken', () => {
     vi.stubGlobal('fetch', fetchAnswering(401));
 
     await expect(fresh()).resolves.toBeNull();
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
   });
 
   it('asks nothing when no token is stored', async () => {
@@ -341,6 +342,25 @@ describe('signIn', () => {
     expect(stored[KEY]).toBe('a.fresh.token');
     expect(stored[REFRESH_KEY]).toBe('a-refresh-token');
   });
+
+  // Signing in as someone else on a profile that never signed out must not
+  // inherit the previous account's cached preferences.
+  it("drops the previous account's cached preferences", async () => {
+    installChrome(null);
+    stored[PREFERENCES_KEY] = { theme: 'dark' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        answer(200, {
+          success: true,
+          data: { user: { id: 'u2' }, token: { accessToken: 'a', refreshToken: 'r' } },
+        }),
+      ),
+    );
+    const { signIn } = await import('./access-token');
+    await signIn(API, 'other@example.com', 'hunter2');
+    expect(stored[PREFERENCES_KEY]).toBeUndefined();
+  });
 });
 
 describe('signOut', () => {
@@ -362,7 +382,7 @@ describe('signOut', () => {
 
     expect(requestAt(fetchSpy, 0)[0]).toBe(`${API}/auth/revoke`);
     expect(bodyOf(requestAt(fetchSpy, 0))).toEqual({ refreshToken: 'a-refresh-token' });
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
     expect(stored).toEqual({});
   });
 
@@ -375,7 +395,7 @@ describe('signOut', () => {
     const { signOut } = await import('./access-token');
     await signOut(API);
 
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
     expect(stored).toEqual({});
   });
 
@@ -388,6 +408,6 @@ describe('signOut', () => {
     await signOut(API);
 
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(removed).toEqual([KEY, REFRESH_KEY]);
+    expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY]);
   });
 });

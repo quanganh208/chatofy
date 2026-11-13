@@ -230,6 +230,9 @@ importers:
 
   apps/extension:
     dependencies:
+      '@chatofy/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@chatofy/realtime-client':
         specifier: workspace:*
         version: link:../../packages/realtime-client

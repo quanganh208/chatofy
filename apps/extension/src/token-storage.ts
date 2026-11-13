@@ -15,6 +15,8 @@
  * is named, which is what makes "both keys, always together" checkable.
  */
 
+import { PREFERENCES_KEY } from './preferences-cache';
+
 const ACCESS_KEY = 'chatofy.accessToken';
 const REFRESH_KEY = 'chatofy.refreshToken';
 
@@ -55,5 +57,8 @@ export async function saveTokens(accessToken: string, refreshToken?: string): Pr
  * token is a credential nothing on this machine will ever spend or expire.
  */
 export async function clearTokens(): Promise<void> {
-  await chrome.storage.local.remove([ACCESS_KEY, REFRESH_KEY]);
+  // The account's cached preferences go with the session they were fetched
+  // under, so the next person to sign in on this profile never starts from
+  // someone else's theme or languages.
+  await chrome.storage.local.remove([ACCESS_KEY, REFRESH_KEY, PREFERENCES_KEY]);
 }
