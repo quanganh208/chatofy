@@ -383,7 +383,7 @@ app builds them, since shadcn exists only for web. No spec counts accents on mob
 | In-call                         | 0 — Leave is filled `destructive`, a state colour | 0 — the control bar is a bordered bar |
 | Chat, roster or transcript open | 0                                                 | 1 — the bottom sheet (`Modal`)        |
 | Error states                    | 1 — Back to lobby                                 | 0                                     |
-| End screen, loaded              | 1 — Back to lobby                                 | 2 — summary card, minutes card        |
+| End screen, loaded              | 1 — Back to lobby                                 | 1 — summary card                      |
 
 Web and mobile differ on Leave: the accent on web, the destructive state colour on
 mobile. Both pass the budget.
@@ -396,9 +396,9 @@ Built on web as `apps/web/app/(app)/conference/[roomId]/ended/page.tsx`. In-call
 `conference:active` session key, so the lobby does not bounce back into the room.
 Error states still offer **Back to lobby**. Mobile mirrors it as
 `apps/mobile/app/(app)/conference/ended.tsx` (Leave and owner-ended both `replace` to it),
-with the one accent but still two cards, since the minutes are a card there; it writes
-the minutes in the language the caller spoke in the call, since the mobile UI has no
-locale of its own yet.
+with the same budget: one accent and one card, the minutes on the screen ground under a
+hairline with hairline-divided groups. It writes the minutes in the language the caller
+spoke in the call, since the mobile UI has no locale of its own yet.
 
 ```
 ┌─────────────────────────────────────────┐
