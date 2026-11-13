@@ -104,3 +104,25 @@ describe('userPreferencesPatchSchema', () => {
     expect(userPreferencesPatchSchema.safeParse({ theme: 'dark' }).success).toBe(true);
   });
 });
+
+describe('clearing a voice token', () => {
+  it('removes the stored token on voice: null and keeps the other fields', () => {
+    const base = mergePreferences(defaultUserPreferences('en'), {
+      voices: { en: { voice: 'af_heart', gender: 'female', speed: 1.25 } },
+    });
+    const patch = userPreferencesPatchSchema.parse({
+      voices: { en: { gender: 'male', voice: null } },
+    });
+    const next = mergePreferences(base, patch);
+    expect(next.voices.en).toEqual({ gender: 'male', speed: 1.25 });
+    expect(userPreferencesSchema.safeParse(next).success).toBe(true);
+  });
+
+  it('keeps the null through combining so a queued clear still reaches the server', () => {
+    const combined = combinePreferencePatches(
+      { voices: { en: { voice: null } } },
+      { voices: { en: { speed: 2 } } },
+    );
+    expect(combined.voices?.en).toEqual({ voice: null, speed: 2 });
+  });
+});
