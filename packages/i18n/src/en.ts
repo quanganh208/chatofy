@@ -40,6 +40,7 @@ export const en = {
   'common.preferences.saving': 'Saving…',
   'common.preferences.saved': 'Saved',
   'common.preferences.saveRetrying': "Couldn't save, retrying",
+  'common.preferences.saveRefused': "Couldn't save that change",
   'common.preferences.reset': 'Reset to defaults',
   'common.preferences.resetPending': 'Resetting…',
   'common.preferences.resetNote':

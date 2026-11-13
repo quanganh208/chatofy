@@ -52,6 +52,7 @@ export const vi: Messages = {
   'common.preferences.saving': 'Đang lưu…',
   'common.preferences.saved': 'Đã lưu',
   'common.preferences.saveRetrying': 'Chưa lưu được, đang thử lại',
+  'common.preferences.saveRefused': 'Không lưu được thay đổi đó',
   'common.preferences.reset': 'Đặt lại mặc định',
   'common.preferences.resetPending': 'Đang đặt lại…',
   'common.preferences.resetNote':

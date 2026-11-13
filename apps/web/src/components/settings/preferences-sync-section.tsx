@@ -21,7 +21,9 @@ import { SettingsSection, SettingsSectionRow } from './settings-section';
  * "Saved" appears only once something was saved since the tab opened — before that,
  * the line is just where the settings live. A failed save keeps retrying on its own
  * (the store backs off and tries again, and again on reconnect), so the line says so
- * rather than asking for a press.
+ * rather than asking for a press. A REFUSED save is different and says so: the
+ * server turned that change down for good, the store dropped it and re-read what is
+ * stored, so nothing is retrying — the line holds until the next change.
  */
 export function PreferencesSyncNote() {
   const t = useTranslate();
@@ -31,15 +33,17 @@ export function PreferencesSyncNote() {
   if (status === 'saving' && !sawSave) setSawSave(true);
 
   if (!synced) return null;
-  const failed = status === 'error';
+  const failed = status === 'error' || status === 'refused';
   const state =
     status === 'saving'
       ? t('common.preferences.saving')
-      : failed
-        ? t('common.preferences.saveRetrying')
-        : sawSave
-          ? t('common.preferences.saved')
-          : null;
+      : status === 'refused'
+        ? t('common.preferences.saveRefused')
+        : status === 'error'
+          ? t('common.preferences.saveRetrying')
+          : sawSave
+            ? t('common.preferences.saved')
+            : null;
   const Icon = failed ? CloudAlert : Cloud;
 
   return (

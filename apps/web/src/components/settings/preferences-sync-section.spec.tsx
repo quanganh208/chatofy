@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError } from '@chatofy/api-client';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 import { activePreferences } from '@/lib/preferences/active-preferences';
@@ -66,6 +67,29 @@ describe('the sync line', () => {
     await settle(1_100);
     expect(note()?.textContent).toContain(en['common.preferences.saved']);
     expect(server.stored().theme).toBe('dark');
+  });
+
+  it('says a refused save was not kept, apart from a retry, until the next change', async () => {
+    render(<PreferencesSyncNote />);
+    // The web transport's own error for a 4xx: the store reads its `status`.
+    vi.spyOn(server.transport, 'save').mockRejectedValueOnce(
+      new ApiClientError({ code: 'VALIDATION_FAILED', message: 'refused' }, 400),
+    );
+    act(() => activePreferences().update({ theme: 'dark' }));
+    await settle(60);
+    expect(note()?.getAttribute('data-preferences-sync')).toBe('refused');
+    expect(note()?.textContent).toContain(en['common.preferences.saveRefused']);
+    expect(note()?.textContent).not.toContain(en['common.preferences.saveRetrying']);
+    expect(note()?.querySelector('.text-destructive')).not.toBeNull();
+    // Dropped, not retried: the screen shows what the server holds.
+    await settle(2_000);
+    expect(server.stored().theme).toBe('system');
+    expect(activePreferences().getSnapshot().preferences.theme).toBe('system');
+
+    act(() => activePreferences().update({ theme: 'light' }));
+    await settle(60);
+    expect(note()?.textContent).toContain(en['common.preferences.saved']);
+    expect(server.stored().theme).toBe('light');
   });
 
   it('is not drawn for a signed-out visitor, whose choices stay in this browser', async () => {
