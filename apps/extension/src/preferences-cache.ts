@@ -24,6 +24,17 @@ import type { PreferencesCache } from '@chatofy/api-client';
 export const PREFERENCES_KEY = 'chatofy.preferences';
 
 /**
+ * The changes this machine has made that the API has not acknowledged.
+ *
+ * Kept apart from the document so a context that dies mid-save (the service
+ * worker, a dismissed popup) leaves its change where the next store's `start`
+ * finds and sends it, instead of the refresh overwriting it. Like the document
+ * it holds no user id and is cleared with it: `clearTokens` and `signIn` remove
+ * both keys, so a pending change is never sent under another account.
+ */
+export const PENDING_PREFERENCES_KEY = 'chatofy.preferences.pending';
+
+/**
  * What an empty cache means: the account defaults for this browser's language,
  * with the extension's own opening pair (English into Vietnamese: the OTHER side
  * of a meeting is usually speaking English).
@@ -49,5 +60,11 @@ export async function readCachedPreferences(): Promise<UserPreferences | null> {
 export const preferencesCache: PreferencesCache = {
   read: readCachedPreferences,
   write: (preferences) => chrome.storage.local.set({ [PREFERENCES_KEY]: preferences }),
-  clear: () => chrome.storage.local.remove(PREFERENCES_KEY),
+  clear: () => chrome.storage.local.remove([PREFERENCES_KEY, PENDING_PREFERENCES_KEY]),
+  readPending: async () =>
+    (await chrome.storage.local.get(PENDING_PREFERENCES_KEY))[PENDING_PREFERENCES_KEY],
+  writePending: (patch) =>
+    patch === null
+      ? chrome.storage.local.remove(PENDING_PREFERENCES_KEY)
+      : chrome.storage.local.set({ [PENDING_PREFERENCES_KEY]: patch }),
 };

@@ -6,8 +6,8 @@ import {
   type UserPreferencesPatch,
 } from '@chatofy/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PREFERENCES_KEY } from './preferences-cache';
-import { saveSyncedFields } from './preferences-store';
+import { PENDING_PREFERENCES_KEY, PREFERENCES_KEY } from './preferences-cache';
+import { createExtensionPreferences, saveSyncedFields } from './preferences-store';
 import { loadTheme } from './theme';
 
 const store = new Map<string, unknown>();
@@ -24,8 +24,8 @@ beforeEach(() => {
           for (const [k, v] of Object.entries(items)) store.set(k, v);
           return Promise.resolve();
         },
-        remove: (key: string) => {
-          store.delete(key);
+        remove: (keys: string | string[]) => {
+          for (const key of [keys].flat()) store.delete(key);
           return Promise.resolve();
         },
       },
@@ -85,6 +85,44 @@ describe('saveSyncedFields', () => {
     store.set('chatofy.accessToken', 'token');
     await saveSyncedFields('http://api.test', { languagePair: languagePairOf('en', 'vi') });
     expect(requests.some((r) => r.method === 'PATCH')).toBe(false);
+  });
+});
+
+describe('a save the worker could not finish', () => {
+  it('is kept and sent by the next store that starts', async () => {
+    store.set('chatofy.accessToken', 'token');
+    const healthy = globalThis.fetch;
+    // The API is down for the worker's write.
+    vi.stubGlobal('fetch', (_url: string, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'PATCH') return Promise.reject(new Error('offline'));
+      return healthy(_url, init);
+    });
+    await saveSyncedFields('http://api.test', { languagePair: languagePairOf('vi', 'en') });
+    expect(store.get(PENDING_PREFERENCES_KEY)).toEqual({
+      pairs: { extension: { source: 'vi', target: 'en' } },
+    });
+
+    // The API is back; the popup's store re-applies it and sends it.
+    vi.stubGlobal('fetch', healthy);
+    requests.length = 0;
+    const popup = createExtensionPreferences('http://api.test');
+    await popup.start();
+    await popup.flush();
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({
+      preferences: { pairs: { extension: { source: 'vi', target: 'en' } } },
+    });
+    expect(popup.getState().preferences.pairs.extension).toEqual({ source: 'vi', target: 'en' });
+    expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
+    await popup.dispose();
+  });
+
+  it('is dropped with the session, so it cannot be sent under another account', async () => {
+    store.set(PENDING_PREFERENCES_KEY, { theme: 'dark' });
+    store.set(PREFERENCES_KEY, defaultUserPreferences('en'));
+    const { clearTokens } = await import('./token-storage');
+    await clearTokens();
+    expect(store.has(PENDING_PREFERENCES_KEY)).toBe(false);
+    expect(store.has(PREFERENCES_KEY)).toBe(false);
   });
 });
 

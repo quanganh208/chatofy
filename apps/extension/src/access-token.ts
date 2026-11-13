@@ -1,5 +1,5 @@
 import type { AuthSession, AuthToken } from '@chatofy/types';
-import { PREFERENCES_KEY } from './preferences-cache';
+import { PENDING_PREFERENCES_KEY, PREFERENCES_KEY } from './preferences-cache';
 import { clearTokens, loadAccessToken, loadRefreshToken, saveTokens } from './token-storage';
 
 /**
@@ -206,7 +206,7 @@ export async function signIn(
   const token = body.data.token;
   // Signing in as someone else on a profile that never signed out must not
   // inherit the previous account's cached preferences.
-  await chrome.storage.local.remove(PREFERENCES_KEY);
+  await chrome.storage.local.remove([PREFERENCES_KEY, PENDING_PREFERENCES_KEY]);
   await saveTokens(token.accessToken, token.refreshToken);
   return { ok: true, token: token.accessToken };
 }
