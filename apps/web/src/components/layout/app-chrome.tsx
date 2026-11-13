@@ -150,7 +150,9 @@ export function AppChrome({
           <ChromeContent pathname={pathname}>{children}</ChromeContent>
         </SidebarProvider>
         {/* All of Settings, over whatever page is open; its state is `?settings=`.
-            Suspense because it reads the query string, which a prerender cannot. */}
+            Suspense because it reads the query string, which a prerender cannot; every route
+            here is dynamic today, so this is a guard, not a requirement — see the same note
+            on `CreditBalanceProvider`. */}
         <React.Suspense fallback={null}>
           <SettingsDialog />
         </React.Suspense>

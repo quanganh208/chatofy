@@ -38,9 +38,9 @@ export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
  * What a new conversation starts with, then the microphone processors, as named
  * groups.
  *
- * ONE `useTranslateSettings` for both sections: each owner holds a copy of the whole
- * stored object and writes all of it, so two owners in one tab would each overwrite
- * the other's change.
+ * ONE `useTranslateSettings` for both sections: they write the same stored object, so
+ * one owner is enough, and there is no reason to keep two copies in step through the
+ * owner sync in `use-translate-settings.ts`.
  *
  * While a conversation runs on the page under the dialog, the pair, voice and
  * context freeze as they do on `/translate`, and one line at the top says why — the

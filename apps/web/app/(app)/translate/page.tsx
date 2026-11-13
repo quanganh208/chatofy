@@ -6,10 +6,10 @@ import { redirect } from 'next/navigation';
  * `next` written before the split points here, and it opens one-way, the mode
  * that asks nothing of the other side.
  *
- * The query string comes along. The retired settings routes land here as
- * `/translate?settings=<tab>` (`settings/legacy-settings-redirects.ts`) — Polar's
- * checkout return among them, as `?settings=billing&checkout=done` — and dropping
- * the query would drop the dialog they were sent to open.
+ * The query string comes along: a link written as `/translate?settings=<tab>` opens
+ * the Settings dialog it names, and dropping the query would drop it. (The retired
+ * settings routes redirect straight to `/translate/one-way` and never come through
+ * here — `settings/legacy-settings-redirects.ts`.)
  */
 export default async function TranslatePage({
   searchParams,

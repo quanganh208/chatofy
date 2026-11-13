@@ -360,11 +360,11 @@ is in [deployment-guide.md → Deploying credits and billing](../deployment-guid
 ## Demo runbook
 
 Use the owner's allowlisted account on production. Open Settings › Billing
-(`/translate?settings=billing`) in a second tab to watch the balance.
+(`/translate/one-way?settings=billing`) in a second tab to watch the balance.
 
 1. **Polar sandbox subscription.** In Billing, buy Pro on Polar and pay with a Stripe
    test card (table below). Polar returns to `/settings/billing?checkout=done` (the API's
-   `success_url`), which redirects to `/translate?checkout=done&settings=billing`
+   `success_url`), which redirects to `/translate/one-way?checkout=done&settings=billing`
    (`apps/web/src/components/settings/legacy-settings-redirects.ts`), so Billing opens with
    the return toast. The plan shows Pro (Polar)
    and the balance gains 600; a Polar top-up gains its 250, 550 or 1500 the same way.

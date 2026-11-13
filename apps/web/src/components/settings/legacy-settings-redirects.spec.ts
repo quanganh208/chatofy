@@ -7,9 +7,10 @@ import { SETTINGS_TAB_IDS } from './settings-tab-ids';
  * The retired settings routes answer with redirects to the Settings dialog on the tab
  * that now holds what each page held.
  *
- * The real 307s are checked against a running server; this holds the table: every
- * old address is listed, every destination opens a tab that exists over `/translate`,
- * none is permanent, and a Polar return keeps the query Billing reads.
+ * This holds the table: every old address is listed, every destination opens a tab
+ * that exists over `/translate/one-way`, none is permanent, and — under the model of
+ * Next's query merge below, which is Next's behaviour and not proven here — a Polar
+ * return keeps the query Billing reads.
  */
 const destinationOf = (source: string) =>
   LEGACY_SETTINGS_REDIRECTS.find((rule) => rule.source === source)?.destination;
@@ -41,8 +42,8 @@ describe('legacy settings redirects', () => {
     ['/settings/billing', 'billing'],
     ['/account', 'billing'],
     ['/preferences', 'general'],
-  ])('sends %s to the %s tab over /translate', (source, tab) => {
-    expect(destinationOf(source)).toBe(`/translate?settings=${tab}`);
+  ])('sends %s to the %s tab over /translate/one-way', (source, tab) => {
+    expect(destinationOf(source)).toBe(`/translate/one-way?settings=${tab}`);
   });
 
   it('opens a tab that exists from every rule, and lists each source once', () => {
@@ -62,10 +63,10 @@ describe('legacy settings redirects', () => {
 
   it("keeps Polar's checkout return, so Billing still reads it", () => {
     expect(follow('/settings/billing?checkout=done')).toBe(
-      '/translate?checkout=done&settings=billing',
+      '/translate/one-way?checkout=done&settings=billing',
     );
     expect(follow('/account?checkout=done&x=1')).toBe(
-      '/translate?checkout=done&x=1&settings=billing',
+      '/translate/one-way?checkout=done&x=1&settings=billing',
     );
   });
 });

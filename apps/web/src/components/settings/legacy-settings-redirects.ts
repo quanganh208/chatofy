@@ -6,7 +6,8 @@ type Redirect = Awaited<ReturnType<NonNullable<NextConfig['redirects']>>>[number
 
 /**
  * Where the retired settings routes go, read by `next.config.ts`: the Settings dialog
- * on its tab, over `/translate` (which opens one-way and carries the query along).
+ * on its tab, over `/translate/one-way` — the page `/translate` itself opens, named
+ * directly so an old address costs one redirect rather than two.
  *
  * Settings stopped being pages and became one dialog over whatever page is open, so
  * every old address — `/settings`, each of its seven sections, `/account` and
@@ -14,10 +15,10 @@ type Redirect = Awaited<ReturnType<NonNullable<NextConfig['redirects']>>>[number
  *
  * Config redirects rather than `redirect()` in a page: they run before the filesystem
  * and before `proxy.ts`, so an old bookmark costs one redirect and no render, and a
- * signed-out visitor is sent to `/login?next=/translate?settings=…`. Next carries the
+ * signed-out visitor is sent to `/login?next=/translate/one-way?settings=…`. Next carries the
  * request's query string across and merges it with the destination's, so Polar's
  * success URL `/settings/billing?checkout=done` arrives as
- * `/translate?settings=billing&checkout=done` and Billing still reads its return.
+ * `/translate/one-way?checkout=done&settings=billing` and Billing still reads its return.
  * The browser keeps a `#fragment`.
  *
  * Every rule is temporary (307), including `/account` and `/preferences`, which used
@@ -40,7 +41,7 @@ const LEGACY_TABS: readonly (readonly [source: string, tab: SettingsTabId])[] = 
 ];
 
 /** The page the dialog opens over when an old address is followed. */
-export const LEGACY_SETTINGS_LANDING = '/translate';
+export const LEGACY_SETTINGS_LANDING = '/translate/one-way';
 
 export const LEGACY_SETTINGS_REDIRECTS: readonly Redirect[] = LEGACY_TABS.map(([source, tab]) => ({
   source,

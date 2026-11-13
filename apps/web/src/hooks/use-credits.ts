@@ -131,6 +131,11 @@ const CreditBalanceContext = createContext<UseCreditBalance | null>(null);
  */
 export function CreditBalanceProvider({ children }: { children: ReactNode }) {
   const { balance, state, refresh, recentlyRead } = useBalanceRead(true);
+  // `useSearchParams` with no Suspense boundary of its own, unlike the dialog in
+  // `app-chrome.tsx`: this provider wraps the whole signed-in frame, and every route
+  // under `app/(app)/layout.tsx` is dynamic (the layout reads `auth()` and
+  // `cookies()`), so nothing here is ever prerendered. Make a route under that layout
+  // static and this needs a boundary — or its read moved into the dialog's subtree.
   const settings = readSettingsDialog(useSearchParams());
   const place = `${usePathname()}#${settings === undefined ? '' : (settings ?? 'menu')}`;
   const lastPlace = useRef(place);
