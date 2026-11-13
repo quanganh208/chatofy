@@ -397,8 +397,9 @@ model as fenced DATA, never as instruction.
 
 The path, and the one thing about it that is not obvious:
 
-1. The client stores only the **id** (`apps/web/src/lib/translate-settings.ts`,
-   `apps/extension/src/settings.ts`). The content lives on the server.
+1. The client stores only the **id**, as `contextId` in the account's
+   preferences (see [Account preferences](#account-preferences-one-document-per-account-every-client)).
+   The content lives on the server.
 2. The **client** resolves that id against the fetched list and maps it to
    `TranslationHints` (`apps/web/src/hooks/use-translation-contexts.ts`,
    `apps/extension/src/translation-contexts.ts`).
@@ -484,6 +485,51 @@ With no context selected, `hints` is absent, `buildContextBlock` returns `null`,
 and the prompt is byte-identical to the one without this feature
 (`packages/ai-providers/src/interfaces/translation-provider.ts`) — which is what
 lets the recorded injection baseline keep describing the default path.
+
+### Account preferences (one document per account, every client)
+
+What a person chose — theme, how each language is spoken, how the transcript
+reads, the pair each surface opens with, call captions, the meeting language,
+the last translate mode, the default AI Context — is ONE JSON document per
+account, read and written by web, mobile and the extension alike.
+
+- **Contract:** `packages/types/src/http/preferences.ts`. Reads are tolerant
+  (`parseUserPreferences` falls back one field at a time); writes are strict (a
+  PATCH is merged with `mergePreferences` and the RESULT must pass
+  `userPreferencesSchema` and the 16 KiB cap, or nothing is stored). `voice: null`
+  in a patch removes a voice token; the stored document never holds null.
+  `reading` is a web-owned object, whitelisted by web.
+- **API:** `GET`, `PATCH`, `DELETE /me/preferences`
+  (`apps/api/src/modules/preferences/`). No row means the defaults for the
+  account's `locale` (`defaultUserPreferences`: every surface translates into
+  that language; theme follows the system). PATCH reads, merges and writes under
+  a `FOR NO KEY UPDATE` lock on the `User` row, so two devices saving different
+  fields at once both keep theirs, including the very first save. DELETE is
+  "Reset to defaults".
+- **Clients:** one store each, `createPreferencesSync`
+  (`packages/api-client/src/preferences-sync.ts`). A change applies at once,
+  is cached, and is saved after a short debounce with backoff retries. Anything
+  the server has not acknowledged is persisted beside the cache and re-sent by
+  the next start, so closing a tab, a popup or the app offline loses nothing.
+  The cache is what first paint reads (no theme flash) and what offline serves.
+- **When another device's change arrives:** on focus / app foreground, and at
+  once in other tabs of the same browser (`BroadcastChannel` on web,
+  `chrome.storage.onChanged` in the extension). Never in the middle of a
+  conversation or call: the store is `hold()`-ing, and the change lands at the
+  next start. There is no push over the socket.
+- **Stays on the device:** panel widths, the microphone processing chain, auth
+  tokens, the tab-scoped `conference:active` marker, and the extension's
+  `outbound`, `reportMetrics` and recording-notice flags — properties of a
+  screen, a machine or a tab, not of the person.
+
+Cache keys: web `localStorage['chatofy.preferences']` (`{ userId, preferences,
+pending }`, theme-only with `userId: null` for a signed-out visitor), mobile
+SecureStore `chatofy.preferences` + `chatofy.preferences.pending`, extension
+`chrome.storage.local` under the same two names. Each is cleared on sign-out.
+The per-browser keys this replaced (`chatofy.translate-settings`,
+`chatofy.theme`, `chatofy.translate-mode`, `chatofy.call-preferences`,
+`chatofy.conference.language`, mobile `chatofy.translate.settings`) are removed
+by the clients; their values were deliberately not imported.
 
 ### Meeting speaker legs (the same cascade, relayed into a room)
 

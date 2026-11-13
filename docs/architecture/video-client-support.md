@@ -303,8 +303,8 @@ shown while the call hook is `idle` and nobody has pressed Join now:
   constraints, so an unplugged device falls back to the default). Mic and camera toggles
   carry into the call.
 - **Voice chip** (`components/conference-voice-chip.tsx`): gender and speed of the voice
-  others hear this speaker's translation in. It edits `chatofy.translate-settings`, the
-  store `/translate` uses, and is saved before joining because the speaker leg reads it
+  others hear this speaker's translation in. It edits the account's voice
+  preferences, the store `/translate` uses, and is saved before joining because the speaker leg reads it
   when it is built. Changing gender clears per-language voice picks.
 - **Colour, inside the system:** mic and camera toggles turn `destructive` (the live fill)
   when off, the mic meter fills with `speaking`, and the dawn trio glows behind the

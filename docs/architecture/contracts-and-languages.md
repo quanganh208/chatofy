@@ -205,8 +205,8 @@ anything nearby.
 
 **Data plus pure functions, deliberately not a class per language.** A
 conversation declares its languages as a plain `LanguagePair`
-(`{ source, target }`, field `languagePair`) across the socket, `localStorage`
-and React state, and Postgres stores them as `Conversation.languages`
+(`{ source, target }`, field `languagePair`) across the socket, the account's
+preferences document and React state, and Postgres stores them as `Conversation.languages`
 (`pairLanguages(pair)`, declared source first) — a class instance would not
 survive a serializer on that path. A pair is an object, so two equal pairs are
 never `===`: compare with `samePair`, and keep a pair used as an effect
