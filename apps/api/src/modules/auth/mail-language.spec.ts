@@ -70,7 +70,6 @@ describe('mail language', () => {
         const parsed = forgotPasswordRequestSchema.safeParse({
           email: 'a@b.com',
           locale,
-          client: 'web',
         });
         expect(parsed.success).toBe(true);
         expect(parsed.success && parsed.data.locale).toBe('en');
@@ -149,7 +148,6 @@ describe('mail language', () => {
       await service.forgotPassword({
         email: 'a@b.com',
         locale: 'en',
-        client: 'web',
       });
       await settle();
 
@@ -164,7 +162,6 @@ describe('mail language', () => {
       await service.forgotPassword({
         email: 'nobody@b.com',
         locale: 'vi',
-        client: 'web',
       });
       await settle();
 
@@ -197,7 +194,6 @@ describe('mail language', () => {
       await service.forgotPassword({
         email: 'a@b.com',
         locale: 'en',
-        client: 'web',
       });
       const found = awaited();
 
@@ -206,7 +202,6 @@ describe('mail language', () => {
       await service.forgotPassword({
         email: 'nobody@b.com',
         locale: 'en',
-        client: 'web',
       });
       const missing = awaited();
 
@@ -229,14 +224,12 @@ describe('mail language', () => {
         const found = await service.forgotPassword({
           email: 'a@b.com',
           locale,
-          client: 'web',
         });
 
         users.findCredentialsByEmail.mockResolvedValue(null);
         const missing = await service.forgotPassword({
           email: 'nobody@b.com',
           locale,
-          client: 'web',
         });
 
         // The HTTP body is one constant and stays one. Localizing it would have to

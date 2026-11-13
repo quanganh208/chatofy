@@ -367,20 +367,23 @@ answers 501. The phone app obtains the token with Expo's auth session and posts 
 `POST /auth/google` like the web does; the session it gets back goes through the same
 refresh rotation. Setup steps are in `environment-variables.md`.
 
-### Which client a mailed link opens
+### Every mailed link is a web link
 
-`register` and `forgot-password` take `client: 'web' | 'mobile'` (absent or anything
-else reads as `web`). `AuthMailer.link` uses it to pick between two origins the
-operator fixed: `WEB_BASE_URL`, or the app's own `chatofy://` scheme
-(`chatofy://verify-email?token=…`, a constant in `AuthMailer`). The request never supplies
-an origin, so the host-header poisoning rule above still holds.
+Mail from `register` and `forgot-password` always links to `WEB_BASE_URL`
+(`/verify-email?token=…`, `/reset-password?token=…`, `/forgot-password`, `/register`),
+including when the phone app made the request. The web pages redeem the tokens with the
+same endpoints the app would, so the reader confirms or resets in the browser and signs
+in on the app afterwards.
 
-What a request can still do is make a victim's mail carry the app link instead of the
-web link. The token reaches only the mailbox either way, so the cost is a link that does
-nothing on a computer, not a leak. A custom scheme can also be claimed by another Android
-app: before the app is published to a store, move these links to verified app links on
-the web origin. The phone app has screens for `verify-email` and `reset-password` that redeem the
-token with the same two endpoints the web pages call.
+The app used to send `client: 'mobile'` and get a `chatofy://` link. That was dropped
+because webmail removes the `href` of a scheme it does not know, which leaves a dead
+button, and because any Android app can register the same scheme and receive the
+token. Older app builds still send the field; the request schemas no longer declare it,
+so it is dropped, not refused. Opening mailed links in the app again needs verified app
+links on the web origin, signed with a release key the app does not have yet.
+
+The app's `verify-email` and `reset-password` screens remain, for a `chatofy://` link
+opened by hand.
 
 ### Google account linking
 

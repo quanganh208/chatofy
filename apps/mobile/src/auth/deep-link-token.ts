@@ -1,5 +1,5 @@
 /**
- * Reads the token a mailed link carries (`chatofy://verify-email?token=…`).
+ * Reads the token an app link carries (`chatofy://verify-email?token=…`).
  *
  * The router hands screens their query values as `string | string[]`; a link
  * that was cut short or tampered with yields neither a string nor one of a

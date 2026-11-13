@@ -34,8 +34,6 @@ export {
   resetPasswordRequestSchema,
   changePasswordRequestSchema,
   requestLocaleSchema,
-  requestClientSchema,
-  type RequestClient,
   updateMeRequestSchema,
   uploadAvatarRequestSchema,
   authMessageSchema,

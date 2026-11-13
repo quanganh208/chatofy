@@ -5,6 +5,7 @@ import {
   MailBudgetClass,
   MailPurpose,
 } from '../mail/interfaces/mail-sender.interface';
+import { registerRequestSchema } from '@chatofy/types';
 import { RegistrationService } from './registration.service';
 import type { PendingRegistration, PurposeTokenService } from './purpose-token';
 import type { AuthMailer } from './auth-mailer';
@@ -49,7 +50,6 @@ describe('RegistrationService', () => {
         password: 'correct horse battery',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       await settle();
 
@@ -63,7 +63,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
 
       users.findByEmail.mockResolvedValue(record());
@@ -72,7 +71,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
 
       expect(taken).toEqual(fresh);
@@ -99,7 +97,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
 
       expect(hashSpy.mock.calls.length).toBeGreaterThan(0);
@@ -118,7 +115,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       await settle();
 
@@ -136,33 +132,30 @@ describe('RegistrationService', () => {
       expect(mail.sent[0]!.link.startsWith('http://localhost:3001')).toBe(true);
     });
 
-    it('links the app, not the web, when the request comes from the app', async () => {
-      users.findByEmail.mockResolvedValue(null);
-      await service.register({
+    it('links the web even for a request from an older app build', async () => {
+      // Those builds send `client: 'mobile'`; it no longer picks a link.
+      const body = registerRequestSchema.parse({
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
         client: 'mobile',
       });
+      users.findByEmail.mockResolvedValue(null);
+      await service.register(body);
       await settle();
-
       expect(
-        mail.sent[0]!.link.startsWith('chatofy://verify-email?token='),
+        mail.sent[0]!.link.startsWith(
+          'http://localhost:3001/verify-email?token=',
+        ),
       ).toBe(true);
 
-      // The taken-address notice goes to the mailbox owner and points at the same client.
+      // The taken-address notice goes to the mailbox owner, on the web too.
       mail.sent.length = 0;
       users.findByEmail.mockResolvedValue(record());
-      await service.register({
-        email: 'a@b.com',
-        password: 'a-long-enough-password',
-        name: 'A',
-        locale: 'en',
-        client: 'mobile',
-      });
+      await service.register(body);
       await settle();
-      expect(mail.sent[0]!.link).toBe('chatofy://forgot-password');
+      expect(mail.sent[0]!.link).toBe('http://localhost:3001/forgot-password');
     });
 
     it('mails an account-exists notice for a taken address, from the attacker-class budget', async () => {
@@ -172,7 +165,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       await settle();
 
@@ -204,7 +196,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
 
@@ -222,7 +213,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: '\n\nSecurity alert: confirm at https://evil.tld\n\n',
         locale: 'en',
-        client: 'web',
       });
       await settle();
 
@@ -252,7 +242,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
       await settle();
@@ -335,7 +324,6 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
-        client: 'web',
       });
       // The folded address is what the existence check asks about, and what the
       // verification link is later minted for. `auth.service.spec.ts` proves

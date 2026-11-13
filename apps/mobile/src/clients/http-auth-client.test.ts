@@ -237,9 +237,8 @@ describe('HttpAuthClient', () => {
       email: 'a@example.com',
       password: 'a long password',
       name: 'A',
-      client: 'mobile',
     });
-    assert.deepEqual(f.calls[1]?.body, { email: 'a@example.com', client: 'mobile' });
+    assert.deepEqual(f.calls[1]?.body, { email: 'a@example.com' });
   });
 
   it('redeems mailed tokens without signing anyone in', async () => {

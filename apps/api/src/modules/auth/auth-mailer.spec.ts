@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
-import { requestClientSchema } from '@chatofy/types';
+import {
+  forgotPasswordRequestSchema,
+  registerRequestSchema,
+} from '@chatofy/types';
 import { AuthMailer } from './auth-mailer';
 
 const WEB = 'https://chatofy.example';
@@ -11,40 +14,37 @@ function mailer() {
 }
 
 describe('AuthMailer.link', () => {
-  it('builds a web link by default', () => {
+  it('builds a web link from the configured origin', () => {
     expect(mailer().link('/verify-email', 'tok')).toBe(
       `${WEB}/verify-email?token=tok`,
     );
-  });
-
-  it('builds an app link for the mobile client', () => {
-    expect(mailer().link('/verify-email', 'tok', 'mobile')).toBe(
-      'chatofy://verify-email?token=tok',
-    );
-  });
-
-  it('names the app screens it differs on', () => {
-    expect(mailer().link('/register', undefined, 'mobile')).toBe(
-      'chatofy://sign-up',
-    );
-    expect(mailer().link('/forgot-password', undefined, 'mobile')).toBe(
-      'chatofy://forgot-password',
-    );
+    expect(mailer().link('/register')).toBe(`${WEB}/register`);
   });
 
   it('never carries anything from a token into the origin', () => {
     // The token is a query value; a hostile one cannot change scheme or host.
-    const link = mailer().link('/verify-email', '//evil.test/x?y=1', 'mobile');
-    expect(link.startsWith('chatofy://verify-email?token=')).toBe(true);
-    expect(new URL(link).hostname).toBe('verify-email');
+    const link = mailer().link('/verify-email', '//evil.test/x?y=1');
+    expect(link.startsWith(`${WEB}/verify-email?token=`)).toBe(true);
+    expect(new URL(link).origin).toBe(WEB);
   });
 });
 
-describe('requestClientSchema', () => {
-  it('defaults and coerces to web, so an unknown client gets the safe link', () => {
-    expect(requestClientSchema.parse(undefined)).toBe('web');
-    expect(requestClientSchema.parse('mobile')).toBe('mobile');
-    expect(requestClientSchema.parse('https://evil.test')).toBe('web');
-    expect(requestClientSchema.parse(42)).toBe('web');
+describe('a request from an older app build', () => {
+  // Those builds still send `client: 'mobile'`, which used to pick a
+  // `chatofy://` link. The field is gone; the request must still be taken.
+  it('is accepted, and the client field is dropped', () => {
+    const register = registerRequestSchema.parse({
+      email: 'a@b.com',
+      password: 'a-long-enough-password',
+      name: 'A',
+      client: 'mobile',
+    });
+    expect(register).not.toHaveProperty('client');
+
+    const forgot = forgotPasswordRequestSchema.parse({
+      email: 'a@b.com',
+      client: 'mobile',
+    });
+    expect(forgot).not.toHaveProperty('client');
   });
 });

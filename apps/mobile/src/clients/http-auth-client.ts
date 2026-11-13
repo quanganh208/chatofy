@@ -100,14 +100,13 @@ export class HttpAuthClient implements AuthClient {
   }
 
   async signUp(email: string, password: string, name: string): Promise<AuthMessage> {
-    // `client: 'mobile'` makes the verification mail link into the app. The API
-    // only chooses between two origins it was configured with; see AuthMailer.
-    const res = await this.post('/auth/register', { email, password, name, client: 'mobile' });
+    // The mailed link is a web link: the reader confirms in the browser, then signs in here.
+    const res = await this.post('/auth/register', { email, password, name });
     return messageEnvelope.parse(await res.json()).data;
   }
 
   async forgotPassword(email: string): Promise<AuthMessage> {
-    const res = await this.post('/auth/forgot-password', { email, client: 'mobile' });
+    const res = await this.post('/auth/forgot-password', { email });
     return messageEnvelope.parse(await res.json()).data;
   }
 

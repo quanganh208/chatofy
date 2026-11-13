@@ -126,7 +126,7 @@ export class RegistrationService {
         to: email,
         purpose: MailPurpose.AccountExistsNotice,
         budgetClass: MailBudgetClass.AttackerTriggerable,
-        link: this.mailer.link('/forgot-password', undefined, dto.client),
+        link: this.mailer.link('/forgot-password'),
         // The ROW's language, not the request's. This mail reaches the mailbox owner,
         // who may not be the person who just typed their address into a form — and
         // reading it off `existing`, which this branch already holds, costs no extra
@@ -153,7 +153,7 @@ export class RegistrationService {
           // while every route still answered 202. Reserved is for mail that
           // can only be sent to a row that already exists.
           budgetClass: MailBudgetClass.AttackerTriggerable,
-          link: this.mailer.link('/verify-email', token, dto.client),
+          link: this.mailer.link('/verify-email', token),
           // The REQUEST's language, and this is the one purpose where that is
           // correct rather than a compromise: no row exists to read a column from —
           // this mail is what eventually creates one. The value is persisted with
