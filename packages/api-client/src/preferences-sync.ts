@@ -1,5 +1,6 @@
 import {
   combinePreferencePatches,
+  userPreferencesPatchSchema,
   mergePreferences,
   parseUserPreferences,
   type PreferencesResponse,
@@ -49,6 +50,18 @@ export interface PreferencesCache {
   read(): unknown | Promise<unknown>;
   write(preferences: UserPreferences): void | Promise<void>;
   clear(): void | Promise<void>;
+  /**
+   * Where changes the server has not acknowledged yet are kept, so they outlive
+   * the tab, popup, service worker or app process that made them.
+   *
+   * Without it a change made offline survives only in the cached document, and
+   * the next start's server read replaces that document — the change is lost
+   * without a word. With it, `start` re-applies the saved patch over the server
+   * copy and sends it. `null` means nothing is pending. Optional so a cache that
+   * cannot persist still works; it just loses an unsent change on close.
+   */
+  readPending?(): unknown | Promise<unknown>;
+  writePending?(patch: UserPreferencesPatch | null): void | Promise<void>;
 }
 
 export interface PreferencesTransport {
@@ -111,12 +124,16 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
   const listeners = new Set<(state: PreferencesSyncState) => void>();
 
   let pending: UserPreferencesPatch | null = null;
+  /** The patch being sent right now, until the server answers. */
+  let sending: UserPreferencesPatch | null = null;
   let inFlight: Promise<void> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let retryMs = FIRST_RETRY_MS;
   let holds = 0;
   let heldRemote: UserPreferences | null = null;
   let disposed = false;
+  /** Set by a sign-out dispose: nothing may be written to this cache again. */
+  let forgotten = false;
   let started: Promise<void> | null = null;
 
   const publish = (next: Partial<PreferencesSyncState>) => {
@@ -126,9 +143,22 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
 
   const writeCache = (preferences: UserPreferences) => {
     void Promise.resolve()
-      .then(() => config.cache.write(preferences))
+      .then(() => (forgotten ? undefined : config.cache.write(preferences)))
       .catch(() => {
         // A full or blocked store must never break the page; the server copy stands.
+      });
+  };
+
+  /** Persist everything not yet acknowledged: what is in flight, then what queued after it. */
+  const persistUnsaved = () => {
+    if (!config.cache.writePending) return;
+    const unsaved =
+      sending && pending ? combinePreferencePatches(sending, pending) : (sending ?? pending);
+    void Promise.resolve()
+      // A sign-out that cleared the cache meanwhile must not have it rewritten.
+      .then(() => (forgotten ? undefined : config.cache.writePending?.(unsaved)))
+      .catch(() => {
+        // Same as the document cache: storage trouble never breaks the page.
       });
   };
 
@@ -170,13 +200,16 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     }
     if (!pending) return;
 
-    const sending = pending;
+    const outgoing = pending;
+    sending = outgoing;
     pending = null;
     publish({ status: 'saving' });
 
     inFlight = (async () => {
       try {
-        const response = await config.transport.save(sending);
+        const response = await config.transport.save(outgoing);
+        sending = null;
+        persistUnsaved();
         retryMs = FIRST_RETRY_MS;
         const saved = parseUserPreferences(response.preferences, config.defaults);
         // The server's answer is authoritative for what it stored; anything
@@ -190,7 +223,9 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         if (pending) schedule(debounceMs);
       } catch {
         // Put the failed patch back UNDER anything queued since.
-        pending = pending ? combinePreferencePatches(sending, pending) : sending;
+        sending = null;
+        pending = pending ? combinePreferencePatches(outgoing, pending) : outgoing;
+        persistUnsaved();
         publish({ status: 'error' });
         schedule(retryMs);
         retryMs = Math.min(retryMs * 2, maxRetryMs);
@@ -233,7 +268,18 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
         } catch {
           // An unreadable cache is a first visit.
         }
+        try {
+          const saved = userPreferencesPatchSchema.safeParse(await config.cache.readPending?.());
+          if (saved.success && Object.keys(saved.data).length > 0) {
+            // Older than anything made in this instance, so it goes underneath.
+            pending = pending ? combinePreferencePatches(saved.data, pending) : saved.data;
+            publish({ preferences: mergePreferences(state.preferences, pending) });
+          }
+        } catch {
+          // Nothing recoverable; carry on with what the server holds.
+        }
         await refresh();
+        if (pending) await flush();
       })();
       return started;
     },
@@ -241,6 +287,7 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
     update(patch) {
       if (disposed) return;
       pending = pending ? combinePreferencePatches(pending, patch) : patch;
+      persistUnsaved();
       const next = mergePreferences(state.preferences, patch);
       publish({ preferences: next });
       writeCache(next);
@@ -256,7 +303,10 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       clearTimer();
       pending = null;
       if (inFlight) await inFlight.catch(() => undefined);
+      clearTimer();
       pending = null;
+      sending = null;
+      persistUnsaved();
       publish({ status: 'saving' });
       try {
         const response = await config.transport.reset();
@@ -296,7 +346,9 @@ export function createPreferencesSync(config: PreferencesSyncConfig): Preference
       pending = null;
       listeners.clear();
       if (clearCache) {
+        forgotten = true;
         try {
+          await config.cache.writePending?.(null);
           await config.cache.clear();
         } catch {
           // Nothing to undo.
