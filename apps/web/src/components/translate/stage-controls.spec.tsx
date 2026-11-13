@@ -6,9 +6,8 @@ import { LocaleProvider } from '@/i18n/provider';
 import { StageControls } from './stage-controls';
 
 /**
- * The two icon-only buttons beside the display gear carry an accessible name but no
- * visible word, so a sighted new user had to guess what an arrow-out icon does. The
- * name is repeated as a hover and long-press tooltip.
+ * Outline buttons, not ghost: grey icons beside Start read as disabled. Each shows its
+ * word above the dock's wide breakpoint and keeps an accessible name that contains it.
  */
 let container: HTMLDivElement;
 let root: Root;
@@ -26,14 +25,14 @@ afterEach(() => {
 });
 
 describe('StageControls', () => {
-  it('shows each button name as a tooltip as well as an accessible name', () => {
+  it('renders outline buttons whose accessible name contains the visible word', () => {
     act(() => {
       root.render(
         <LocaleProvider locale="en">
           <StageControls
             onFullscreen={vi.fn()}
             windowKind="pip"
-            windowOpen={false}
+            windowOpen
             onToggleWindow={vi.fn()}
           />
         </LocaleProvider>,
@@ -42,9 +41,14 @@ describe('StageControls', () => {
     const buttons = [...container.querySelectorAll('button')];
     expect(buttons.length).toBe(2);
     for (const button of buttons) {
-      const name = button.getAttribute('aria-label');
-      expect(name).toBeTruthy();
-      expect(button.getAttribute('title')).toBe(name);
+      expect(button.getAttribute('data-variant')).toBe('outline');
+      expect(button.className).toContain('text-foreground');
+      const word = button.querySelector('span')?.textContent;
+      expect(word).toBeTruthy();
+      expect(button.getAttribute('aria-label')).toContain(word);
     }
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('Full screen');
+    expect(buttons[1]?.getAttribute('aria-label')).toMatch(/^Captions: /);
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('true');
   });
 });

@@ -702,7 +702,7 @@ export function CascadePanel({
             windowOpen={captionWindow.container !== null}
             onToggleWindow={captionWindow.container ? captionWindow.close : captionWindow.open}
           />
-          <DisplaySettingsPopover settings={settings} onChange={onChange} />
+          <DisplaySettingsPopover dock settings={settings} onChange={onChange} />
         </div>
       </div>
 
