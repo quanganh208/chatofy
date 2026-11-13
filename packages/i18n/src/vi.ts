@@ -690,6 +690,7 @@ export const vi: Messages = {
   'web.billing.featureTopups': 'Nạp thêm bất cứ lúc nào; credit nạp không hết hạn',
   'web.billing.upgradeCard': 'Nâng cấp qua thẻ',
   'web.billing.upgradeQr': 'Nâng cấp qua VietQR',
+  'web.billing.renewQr': 'Gia hạn qua VietQR',
   'web.billing.proRenewsOn': 'Thuê bao qua thẻ, gia hạn vào {date}',
   'web.billing.payWith': 'Thanh toán qua',
   'web.billing.methodCard': 'Thẻ',

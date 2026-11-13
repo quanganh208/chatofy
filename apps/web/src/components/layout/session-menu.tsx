@@ -81,7 +81,9 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
   return (
     <SidebarMenuItem>
       <DropdownMenu>
-        <div className="grid">
+        {/* `group/session`: the text layer is outside the trigger, so it follows the
+            row's hover through the group rather than inheriting the button's colour. */}
+        <div className="group/session grid">
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               ref={trigger}
@@ -107,7 +109,7 @@ export function SessionMenu({ detail }: { detail?: React.ReactNode }) {
               others. */}
           <span
             data-slot="session-text"
-            className="text-body pointer-events-none col-start-1 row-start-1 flex min-w-0 flex-col justify-center gap-0.5 py-2 pr-8 pl-12 group-data-[collapsible=icon]:hidden"
+            className="text-body group-hover/session:text-sidebar-accent-foreground pointer-events-none col-start-1 row-start-1 flex min-w-0 flex-col justify-center gap-0.5 py-2 pr-8 pl-12 group-data-[collapsible=icon]:hidden"
           >
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-medium">{identity.name ?? identity.email}</span>

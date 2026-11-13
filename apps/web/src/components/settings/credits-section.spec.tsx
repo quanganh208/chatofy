@@ -164,12 +164,33 @@ describe('the plan comparison', () => {
     expect(button(/Upgrade/)).toBeUndefined();
   });
 
-  it('marks a VietQR pass with its end date, without Manage or Upgrade', async () => {
-    getCreditBalance.mockResolvedValue(balanceFixture({ plan: 'pro', proSource: 'sepay' }));
+  it('marks a VietQR pass with its end date and offers an outline Renew, not Upgrade', async () => {
+    getCreditBalance.mockResolvedValue(
+      balanceFixture({ plan: 'pro', proSource: 'sepay', checkoutAllowed: true }),
+    );
+    createCheckout.mockResolvedValue({ ...SEPAY_ORDER, amountVnd: 249000 });
     await render();
     expect(planColumn('pro')?.textContent).toContain('VietQR pass, ends Dec 1, 2026');
     expect(button(/Manage subscription/)).toBeUndefined();
     expect(button(/Upgrade/)).toBeUndefined();
+    const renew = button(/Renew by VietQR/);
+    expect(renew?.getAttribute('data-variant')).toBe('outline');
+    expect(accessibleName(renew!)).toBe('Renew by VietQR Pro for 30 days by VietQR — ₫249,000');
+    await act(async () => {
+      renew?.click();
+      await settle();
+    });
+    // The same pass checkout; the API keeps whichever end date is later.
+    expect(createCheckout).toHaveBeenCalledWith({ planCode: 'pro_pass_30d', rail: 'sepay' });
+    expect(container.querySelector('[data-credit-plans] ~ [data-sepay-qr-panel]')).not.toBeNull();
+  });
+
+  it('offers no Renew to a card subscription, which renews itself', async () => {
+    getCreditBalance.mockResolvedValue(
+      balanceFixture({ plan: 'pro', proSource: 'polar', checkoutAllowed: true }),
+    );
+    await render();
+    expect(button(/Renew/)).toBeUndefined();
   });
 
   it('opens the billing portal from Manage, and toasts with Retry when it will not open', async () => {
@@ -189,6 +210,8 @@ describe('the plan comparison', () => {
   it('says the prices are unavailable when the plans cannot be read', async () => {
     listPlans.mockRejectedValue(new Error('503'));
     await render();
+    // No Free price either: it is shown only when the API listed the Free plan.
+    expect(planColumn('free')?.textContent).not.toContain('$0.00');
     expect(container.textContent).toContain(en['web.pricing.pricesUnavailable']);
     expect(planColumn('free')?.hasAttribute('data-current-plan')).toBe(true);
     expect(container.querySelector('[data-credit-topups]')).toBeNull();
@@ -343,6 +366,9 @@ describe('buying', () => {
     await render();
     expect(method('polar')?.disabled).toBe(true);
     expect(method('sepay')?.getAttribute('aria-checked')).toBe('true');
+    // Only prices this deployment can charge: no card price for Pro.
+    expect(planColumn('pro')?.textContent).not.toContain('$9.99');
+    expect(planColumn('pro')?.textContent).toContain('₫249,000 for 30 days by VietQR');
     expect(buyButtons().map(accessibleName)).toEqual([
       'Upgrade by VietQR Pro for 30 days by VietQR — ₫249,000',
       'Buy 250 credits by VietQR — ₫125,000',

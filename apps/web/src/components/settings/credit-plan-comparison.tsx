@@ -31,7 +31,9 @@ interface UpgradeOption {
  * them — card when card is available — is the tab's one filled control; closed, both
  * are outline and disabled, and described by the tab's closed line (`closedId`). A Pro
  * account sees where Pro came from, when it renews or ends, and — for a card
- * subscription — Manage subscription.
+ * subscription — Manage subscription, or for a VietQR pass an outline Renew by
+ * VietQR (the pass does not renew itself). A price is listed only for a rail this
+ * deployment can charge.
  *
  * Two columns from `sm`, stacked on a phone, straight on the pane ground under the
  * heading. Each is a hairline region, not a card: neither has a shadow.
@@ -76,18 +78,28 @@ export function CreditPlanComparison({
   const isPro = balance.plan === 'pro';
 
   const upgrades: UpgradeOption[] = [];
-  if (!isPro && card && canBuyOn(card, 'polar', balance)) {
+  const cardBuyable = card !== undefined && canBuyOn(card, 'polar', balance);
+  const passBuyable = pass !== undefined && canBuyOn(pass, 'sepay', balance);
+  if (!isPro && cardBuyable) {
     upgrades.push({ plan: card, rail: 'polar', label: 'web.billing.upgradeCard' });
   }
-  if (!isPro && pass && canBuyOn(pass, 'sepay', balance)) {
-    upgrades.push({ plan: pass, rail: 'sepay', label: 'web.billing.upgradeQr' });
+  // A Free account upgrades by VietQR; a VietQR pass is renewed the same way — the
+  // API keeps whichever end date is later, so renewing early loses nothing. A card
+  // subscription renews itself and gets Manage instead.
+  if (passBuyable && (!isPro || balance.proSource === 'sepay')) {
+    upgrades.push({
+      plan: pass,
+      rail: 'sepay',
+      label: isPro ? 'web.billing.renewQr' : 'web.billing.upgradeQr',
+    });
   }
 
+  // Only the prices this deployment can actually charge.
   const proPrices: string[] = [];
-  if (card?.priceUsdCents != null) {
+  if (cardBuyable && card.priceUsdCents !== null) {
     proPrices.push(t('web.billing.priceCard', { price: formatUsd(card.priceUsdCents, locale) }));
   }
-  if (pass?.priceVnd != null) {
+  if (passBuyable && pass.priceVnd !== null) {
     proPrices.push(t('web.billing.pricePass', { price: formatVnd(pass.priceVnd, locale) }));
   }
   const topups = t('web.billing.featureTopups');
@@ -103,7 +115,8 @@ export function CreditPlanComparison({
       ? []
       : [t('web.billing.featureCreditsCycle', { credits: count(locale, proCredits) })]),
     t('web.billing.featureCycleReset'),
-    t('web.billing.featurePayOptions'),
+    // Names both rails, so only where both can be paid with.
+    ...(cardBuyable && passBuyable ? [t('web.billing.featurePayOptions')] : []),
     topups,
   ];
 
@@ -114,12 +127,17 @@ export function CreditPlanComparison({
           id="free"
           name={t('common.billing.planFree')}
           current={!isPro}
-          prices={[
+          prices={
+            // Only when the API listed the Free plan; with no plans there is no price.
             // In the reader's own currency: dollars beside the card price, đồng in Vietnamese.
-            t('web.billing.freePrice', {
-              price: locale === 'vi' ? formatVnd(0, locale) : formatUsd(0, locale),
-            }),
-          ]}
+            free
+              ? [
+                  t('web.billing.freePrice', {
+                    price: locale === 'vi' ? formatVnd(0, locale) : formatUsd(0, locale),
+                  }),
+                ]
+              : []
+          }
           features={freeFeatures}
         />
         <PlanColumn
@@ -148,7 +166,9 @@ export function CreditPlanComparison({
                 </span>
                 <Button
                   id={buttonId}
-                  variant={index === 0 && !closed ? 'default' : 'outline'}
+                  data-plan-checkout={option.rail}
+                  // Upgrade is what a Free account came for; Renew is housekeeping.
+                  variant={index === 0 && !closed && !isPro ? 'default' : 'outline'}
                   size="sm"
                   disabled={closed || checkout.pending !== null}
                   aria-labelledby={`${buttonId} ${offerId}`}

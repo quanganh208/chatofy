@@ -878,6 +878,7 @@ export const en = {
   'web.billing.featureTopups': 'Add top-ups any time; they never expire',
   'web.billing.upgradeCard': 'Upgrade by card',
   'web.billing.upgradeQr': 'Upgrade by VietQR',
+  'web.billing.renewQr': 'Renew by VietQR',
   'web.billing.proRenewsOn': 'Card subscription, renews on {date}',
   'web.billing.payWith': 'Pay with',
   'web.billing.methodCard': 'Card',

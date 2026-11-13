@@ -685,7 +685,9 @@ export function CascadePanel({
           {/* Renders nothing when the account has authored no contexts, so the
               dock is unchanged for everyone who does not use this. A `Select`, so
               it spends no accent — Start is still the screen's one. */}
-          <div className="max-w-32 min-w-0 empty:hidden">
+          {/* Capped only in the narrow dock, where its row shares the width with the
+              stage icons; the wide dock has room for the context's whole name. */}
+          <div className="max-w-32 min-w-0 empty:hidden @[46rem]/main:max-w-none">
             <ContextPicker
               contexts={contexts}
               status={contextStatus}
