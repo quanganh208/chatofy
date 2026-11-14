@@ -134,7 +134,7 @@ node decision-score.mjs                       # results/decision-verdict.md
 
 - **Keys:** `GEMINI_API_KEY`, comma-separated and rotated on refusal, and `TYPESAFE_API_KEY`. Both come from the environment or the repo-root `.env` and are never printed.
 - **Call caps:** every HTTP attempt, retries included, counts toward `--limit-calls`. A run refuses before its first call when the plan is over the cap, and stops the sitting on the cap or on a host that refuses every attempt. `--resume` adds only the missing answers, and `meta.json` records the attempts and how complete the run is.
-- **Trailing drops:** 20 prod translations with their last sentence (at least 4 words) removed. Only `{conv, pos}` is committed, in `decision-trailing-drops.ids.jsonl`, because the text is private. The rows are rebuilt from the ids, and the rebuild is byte-identical.
+- **Trailing drops:** 20 prod translations with their last sentence (at least 4 words) removed. Only `{conv, pos, kind}` is committed, in `decision-trailing-drops.ids.jsonl`, because the text is private. The rows are rebuilt from the ids, and the rebuild is byte-identical.
 - **Repeats:** they shuffle the option order through a Latin square.
   - Gemini Decision 1 was fully deterministic and order-invariant (spread 0.0000), so it ran once.
   - Jev's answers vary even in the same order (spread 0.16), so it ran 3 times.
@@ -170,7 +170,7 @@ node decision-score.mjs                       # results/decision-verdict.md
 | Latency p50 / p95, dev desk                          | 418 / 723 ms         |                | 209 / 265 ms       |             |
 
 - **The D1 pass is narrow.**
-  - The skip edge clears 15 points by about two turns, against an in-sample threshold. Its conversation-bootstrap interval includes zero.
+  - The skip edge clears 15 points by about two turns, against an in-sample threshold. Recall is 19 of 20, a Wilson interval of 0.76–0.99.
   - At the leave-one-out operating point, the gate skips 6.2 points more than the direction rule and catches one more positive.
   - Without context it fails.
 - **Inside vi→en,** where 18 of the 20 positives are, Gemini skips 38.2% and adds one serious turn: 1 of 76 becomes 2. The bars were not rescaled for this subset, so it is reported, not judged.

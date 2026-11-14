@@ -484,10 +484,13 @@ G3 holds. The open decision is the user's: rent a GPU for medium.
 
 ### Gemini Decision 1 as an audio LID arm and a final-turn arbiter (`conv-r5-decision`, not adopted)
 
-On 2026-11-14 the decision-model benchmark (`benchmarks/translation-judge/README.md`,
+On 2026-11-14/15 the decision-model benchmark (`benchmarks/translation-judge/README.md`,
 "Decision models") added two arms. `conv-r5-decision` is `conv-r4-v5` without the 160
 noise rows, 7,946 turns (`scripts/make_decision_run.py`); every clip sent is public
 audio (FLEURS, EdAcc, ASCEND, VietMed, ViMedCSS and their laptop re-recordings).
+The contract scoped D3 to the 6,046 en/vi turns under a 6,500-call cap; the plan
+widened it to a 3-way vi/en/zh choice on all 7,946 turns under 8,300, so `score.py`
+could score the arm unchanged without inventing a zh probability.
 
 - **`gemini_decision`** (`arms/gemini_decision/arm.py`): one 3-way vi/en/zh choice per
   whole turn, stored under `en+vi+zh`, no prefixes. 7,947 HTTP attempts for 7,946 turns
@@ -508,7 +511,9 @@ audio (FLEURS, EdAcc, ASCEND, VietMed, ViMedCSS and their laptop re-recordings).
 
 Gemini Decision 1 hears short Vietnamese far better than Whisper base (0.960 vs 0.745
 two-way) but is worse on English (0.862 short; 6.5% of real long en turns go to vi or
-zh) and takes about 1.1 s. As a final-turn arbiter at prod's 0.6 threshold it is
+zh) and takes about 1.1 s. The 0.960 rests mostly on public audio Gemini may have been
+trained on: 141 of the 149 short vi turns are `vietmed-cut`. The `rerecorded` row is
+the cleanest and too small to carry a claim (vi 3/3, en 8/9). As a final-turn arbiter at prod's 0.6 threshold it is
 consulted on 101 of 7,946 turns (57 en/vi, 44 zh), too few to matter: short vi 0.772,
 `err_after_fallback` 0.064. The two bars it misses are the two it existed to fix. Not
 adopted. The 1179 ms is the worst case, Gemini plus Whisper on all 3,259 short-enough

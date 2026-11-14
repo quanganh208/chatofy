@@ -2858,7 +2858,7 @@ The owner found the sidebar, the page headers, the notices and `/preferences` ha
 
 Could a model that answers typed questions with probabilities, instead of writing text, decide when a paid call is unnecessary? TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 were measured offline against bars fixed before the runs. Details and commands are in `benchmarks/translation-judge/README.md` ("Decision models") and `benchmarks/lid/README.md` (`conv-r5-decision`).
 
-- **D1, skip the polish when the draft is faithful.** On the 162 judged turns, Gemini with earlier turns as context passes the pre-set pooled bars narrowly: 1 of 20 serious-mt drafts missed, 59.3% of polishes skipped, 1.9% serious after gating, and the skip-edge bar over "polish vi→en only" cleared by about two turns (+16.0 against 15), with a conversation-bootstrap interval that includes zero. One miss is the LOCO floor.
+- **D1, skip the polish when the draft is faithful.** On the 162 judged turns, Gemini with earlier turns as context passes the pre-set pooled bars narrowly: 1 of 20 serious-mt drafts missed, 59.3% of polishes skipped, 1.9% serious after gating, and the skip-edge bar over "polish vi→en only" cleared by about two turns (+16.0 against 15). Recall is 19 of 20 (Wilson 0.76–0.99). One miss is the LOCO floor.
   - Inside vi→en, where 18 of the 20 positives are, it skips 38% and serious goes from 1 to 2 of 76.
   - Without context Gemini fails. Jev fails on misses (2) and flips (5.6–7.4%; Gemini is deterministic). The AUC difference between them is not significant (−0.032, interval −0.104 to 0.016).
   - The gate also fires on 13 of 16 turns whose serious error is one of hearing, not mt.
