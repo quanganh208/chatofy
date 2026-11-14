@@ -117,6 +117,8 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // keeps auth's DI surface narrow instead of making it global.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [AUTH_ADAPTER, AuthService, SessionTerminator],
+  // AuthMailer: the team invite mail reuses the configured-origin link
+  // builder. Never build mail links from request headers.
+  exports: [AUTH_ADAPTER, AuthService, SessionTerminator, AuthMailer],
 })
 export class AuthModule {}

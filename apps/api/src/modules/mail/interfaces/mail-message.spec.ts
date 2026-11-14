@@ -64,6 +64,18 @@ const TEXT_BEFORE_HTML: Record<string, { subject: string; text: string }> = {
     subject: '重置你的 Chatofy 密码',
     text: '请使用此链接设置新密码：\n\nhttps://app.example.com/x?token=abc\n\n此链接将在 30 分钟后失效，且只能使用一次。如果这不是你本人的操作，请忽略本邮件。',
   },
+  'team-invite/en': {
+    subject: "You're invited to a team on Chatofy",
+    text: 'Someone invited this email address to join their team on Chatofy. Sign in with this address to see the invitation:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 7 days and works once. If you were not expecting it, you can ignore this email.',
+  },
+  'team-invite/vi': {
+    subject: 'Bạn được mời vào một nhóm trên Chatofy',
+    text: 'Có người đã mời địa chỉ email này tham gia nhóm của họ trên Chatofy. Đăng nhập bằng địa chỉ này để xem lời mời:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết này hết hạn sau 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời này, cứ bỏ qua email này.',
+  },
+  'team-invite/zh': {
+    subject: '你受邀加入 Chatofy 上的一个团队',
+    text: '有人邀请此邮箱地址加入其在 Chatofy 上的团队。请用此地址登录查看邀请：\n\nhttps://app.example.com/x?token=abc\n\n此链接 7 天后失效，且只能使用一次。如果你并未期待此邀请，请忽略本邮件。',
+  },
 };
 
 describe('buildMailMessage', () => {
