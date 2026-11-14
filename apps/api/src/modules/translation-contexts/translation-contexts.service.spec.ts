@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import {
   CONTEXT_LIMITS,
+  TEAM_LIMITS,
   type SaveTranslationContextRequest,
   type TranslationContext,
 } from '@chatofy/types';
 import { TranslationContextsService } from './translation-contexts.service';
-import { personalScope } from '../../common/library-scope/library-scope';
+import {
+  mintTeamScope,
+  personalScope,
+  type LibraryScope,
+} from '../../common/library-scope/library-scope';
+import type { RemoveResult } from '../../common/library-scope/library-write-results';
 import type { TranslationContextStore } from './interfaces/translation-context-store.interface';
+import type { TeamAccessService } from '../teams/team-access.service';
 
 /**
  * The half of the ceiling this service still decides, apart from HTTP.
@@ -45,21 +56,36 @@ const context = (id: string): TranslationContext => ({
   updatedAt: '2026-09-17T00:00:00.000Z',
 });
 
+/** A team scope as a member, minted here only because this is a unit spec. */
+const TEAM = mintTeamScope('owner-1', 'team-1', 'member');
+
+type Refused = 'limit' | 'glossary-missing' | 'forbidden' | 'id-in-use';
+
 /** A store that writes whatever it is given, unless `refuse` names a refusal. */
-function makeService(options: { refuse?: 'limit' | 'glossary-missing' } = {}) {
-  const list = vi.fn().mockResolvedValue([]);
+function makeService(
+  options: {
+    refuse?: Refused;
+    memberships?: Awaited<ReturnType<TeamAccessService['memberships']>>;
+  } = {},
+) {
+  const list = vi.fn(
+    async (_scope: LibraryScope) => [] as TranslationContext[],
+  );
   const save = vi.fn(async (_owner: string, id: string) =>
     options.refuse === undefined
       ? { kind: 'saved' as const, value: context(id) }
       : { kind: options.refuse },
   );
-  const remove = vi.fn().mockResolvedValue(true);
+  const remove = vi.fn(async (): Promise<RemoveResult> => 'removed');
   const store = { list, save, remove } as unknown as TranslationContextStore;
+  const memberships = vi.fn(async () => options.memberships ?? []);
+  const access = { memberships } as unknown as TeamAccessService;
   return {
-    service: new TranslationContextsService(store),
+    service: new TranslationContextsService(store, access),
     list,
     save,
     remove,
+    memberships,
   };
 }
 
@@ -124,10 +150,77 @@ describe('TranslationContextsService', () => {
     // The route is 204 either way, so an id that was never there and one
     // belonging to someone else are indistinguishable to the caller.
     const { service, remove } = makeService();
-    remove.mockResolvedValue(false);
+    remove.mockResolvedValue('absent');
 
     await expect(
       service.remove(personalScope('owner-1'), 'ctx-absent'),
     ).resolves.toBeUndefined();
+  });
+
+  it('holds a team save to the team ceiling', async () => {
+    const { service, save } = makeService();
+
+    await service.save(TEAM, 'ctx-new', body);
+
+    expect(save).toHaveBeenCalledWith(
+      TEAM,
+      'ctx-new',
+      body,
+      TEAM_LIMITS.MAX_CONTEXTS_PER_TEAM,
+    );
+  });
+
+  it('turns a non-author member write into a 403', async () => {
+    const { service } = makeService({ refuse: 'forbidden' });
+
+    await expect(service.save(TEAM, 'ctx-1', body)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('turns a team create under an id used elsewhere into a 409', async () => {
+    const { service } = makeService({ refuse: 'id-in-use' });
+
+    const refusal = service.save(TEAM, 'ctx-1', body);
+
+    await expect(refusal).rejects.toBeInstanceOf(ConflictException);
+    await expect(refusal).rejects.toThrow('already used');
+  });
+
+  it('turns a non-author member delete into a 403', async () => {
+    const { service, remove } = makeService();
+    remove.mockResolvedValue('forbidden');
+
+    await expect(service.remove(TEAM, 'ctx-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('lists personal and every team in membership order, in one pass', async () => {
+    const teamA = mintTeamScope('owner-1', 'team-a', 'member');
+    const teamB = mintTeamScope('owner-1', 'team-b', 'admin');
+    const summary = (id: string, name: string) =>
+      ({ id, name }) as Awaited<
+        ReturnType<TeamAccessService['memberships']>
+      >[number]['team'];
+    const { service, list, memberships } = makeService({
+      memberships: [
+        { scope: teamA, team: summary('team-a', 'Alpha') },
+        { scope: teamB, team: summary('team-b', 'Beta') },
+      ],
+    });
+    list.mockImplementation(async (scope: LibraryScope) => [
+      context(scope.kind === 'team' ? `in-${scope.teamId}` : 'mine'),
+    ]);
+
+    await expect(service.listAvailable('owner-1')).resolves.toEqual({
+      personal: [context('mine')],
+      teams: [
+        { teamId: 'team-a', name: 'Alpha', contexts: [context('in-team-a')] },
+        { teamId: 'team-b', name: 'Beta', contexts: [context('in-team-b')] },
+      ],
+    });
+    expect(memberships).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(3);
   });
 });

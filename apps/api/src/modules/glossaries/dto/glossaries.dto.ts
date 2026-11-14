@@ -8,6 +8,7 @@ import {
   patchGlossaryRequestSchema,
   saveGlossaryItemRequestSchema,
   saveGlossaryRequestSchema,
+  teamIdSchema,
 } from '@chatofy/types';
 
 export const glossaryIdParamSchema = z.object({ glossaryId: z.uuid() });
@@ -40,4 +41,17 @@ export class GlossaryItemResponseDto extends createZodDto(
 ) {}
 export class GlossaryItemListResponseDto extends createZodDto(
   glossaryItemListResponseSchema,
+) {}
+
+/** `teams/:teamId/glossaries/:glossaryId` — the team id is a cuid, the glossary a client uuid. */
+export class TeamGlossaryIdParamDto extends createZodDto(
+  z.object({ teamId: teamIdSchema, glossaryId: z.uuid() }),
+) {}
+/** `teams/:teamId/glossaries/:glossaryId/items/:itemId`. */
+export class TeamItemIdParamDto extends createZodDto(
+  z.object({ teamId: teamIdSchema, glossaryId: z.uuid(), itemId: z.uuid() }),
+) {}
+/** `teams/:teamId/glossaries`. */
+export class TeamParamDto extends createZodDto(
+  z.object({ teamId: teamIdSchema }),
 ) {}

@@ -8,6 +8,7 @@ import {
 } from '@chatofy/types';
 import { TranslationContextsController } from './translation-contexts.controller';
 import { TranslationContextsService } from './translation-contexts.service';
+import type { TeamAccessService } from '../teams/team-access.service';
 import { translationContextIdParamSchema } from './dto/translation-contexts.dto';
 import type { TranslationContextStore } from './interfaces/translation-context-store.interface';
 
@@ -91,7 +92,9 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
       return { kind: 'saved', value: rest };
     },
     async remove(scope, contextId) {
-      return rows.delete(`${scope.userId}::${contextId}`);
+      return rows.delete(`${scope.userId}::${contextId}`)
+        ? 'removed'
+        : 'absent';
     },
   };
 
@@ -99,7 +102,11 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
 }
 
 const makeController = (store: TranslationContextStore) =>
-  new TranslationContextsController(new TranslationContextsService(store));
+  new TranslationContextsController(
+    new TranslationContextsService(store, {
+      memberships: async () => [],
+    } as unknown as TeamAccessService),
+  );
 
 /** `MAX_CONTEXTS_PER_OWNER` rows already held by `MINE`. */
 const fullLibrary = () =>

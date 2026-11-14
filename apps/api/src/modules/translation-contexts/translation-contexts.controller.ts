@@ -12,10 +12,14 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request } from 'express';
-import type { TranslationContextListResponse } from '@chatofy/types';
+import type {
+  AvailableTranslationContexts,
+  TranslationContextListResponse,
+} from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
 import {
+  AvailableTranslationContextsResponseDto,
   SaveTranslationContextRequestDto,
   TranslationContextIdParamDto,
   TranslationContextListResponseDto,
@@ -59,6 +63,22 @@ export class TranslationContextsController {
     return {
       contexts: await this.contexts.list(personalScope(req.auth!.userId)),
     };
+  }
+
+  // Declared before every `:contextId` route, so `available` is never read
+  // as a context id.
+  @Get('available')
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Every AI Context the caller may use, grouped by scope',
+    description:
+      "The caller's personal contexts, then one group per team they belong to, in the order they joined.",
+  })
+  @ApiEnvelopeResponse(AvailableTranslationContextsResponseDto)
+  @ApiErrorResponses(401, 429)
+  available(@Req() req: Request): Promise<AvailableTranslationContexts> {
+    return this.contexts.listAvailable(req.auth!.userId);
   }
 
   @Put(':contextId')

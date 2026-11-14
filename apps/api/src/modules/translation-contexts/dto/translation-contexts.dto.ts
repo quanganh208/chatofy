@@ -1,7 +1,9 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import {
+  availableTranslationContextsResponseSchema,
   saveTranslationContextRequestSchema,
+  teamIdSchema,
   translationContextListResponseSchema,
   translationContextSchema,
 } from '@chatofy/types';
@@ -35,4 +37,17 @@ export class TranslationContextResponseDto extends createZodDto(
 ) {}
 export class TranslationContextListResponseDto extends createZodDto(
   translationContextListResponseSchema,
+) {}
+
+/** `teams/:teamId/translation-contexts`. */
+export class TeamContextsParamDto extends createZodDto(
+  z.object({ teamId: teamIdSchema }),
+) {}
+/** `teams/:teamId/translation-contexts/:contextId`. */
+export class TeamContextIdParamDto extends createZodDto(
+  z.object({ teamId: teamIdSchema, contextId: z.uuid() }),
+) {}
+/** `GET /translation-contexts/available`: personal plus one group per team. */
+export class AvailableTranslationContextsResponseDto extends createZodDto(
+  availableTranslationContextsResponseSchema,
 ) {}

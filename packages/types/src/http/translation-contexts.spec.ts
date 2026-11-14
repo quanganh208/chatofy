@@ -3,6 +3,7 @@ import { MAX_GLOSSARY_TERM_WORDS, glossaryEntrySchema } from '../events/ws-event
 import {
   CONTEXT_LIMITS,
   readTranslationContextList,
+  readableAvailableTranslationContextsSchema,
   readableTranslationContextListSchema,
   saveTranslationContextRequestSchema,
 } from './translation-contexts.js';
@@ -164,5 +165,38 @@ describe('readTranslationContextList', () => {
       contexts: [context(A, [{ vi: 'x', en: 'y', ja: 'z' }])],
     });
     expect(parsed.contexts[0]!.glossary).toEqual([{ vi: 'x', en: 'y' }]);
+  });
+});
+
+describe('readableAvailableTranslationContextsSchema', () => {
+  const context = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    name: 'n',
+    topic: null,
+    hotwords: [],
+    glossary: [],
+    style: null,
+    glossaryId: null,
+    linkedGlossaryId: null,
+    linkedGlossaryName: null,
+    updatedAt: '2026-11-14T00:00:00.000Z',
+    ...over,
+  });
+
+  it('keeps the readable team contexts when one is not, and keeps canEdit', () => {
+    const good = '7c1f2a8e-4b9d-4c3e-8f1a-2d6b5e9c0a14';
+    const parsed = readableAvailableTranslationContextsSchema.parse({
+      personal: [],
+      teams: [
+        {
+          teamId: 'ckteam000000000000000000',
+          name: 'T',
+          contexts: [context(good, { canEdit: false }), context('not-a-uuid')],
+        },
+      ],
+    });
+
+    expect(parsed.teams[0]?.contexts.map((c) => c.id)).toEqual([good]);
+    expect(parsed.teams[0]?.contexts[0]?.canEdit).toBe(false);
   });
 });

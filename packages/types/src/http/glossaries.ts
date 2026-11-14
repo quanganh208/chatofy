@@ -51,6 +51,8 @@ export const glossarySchema = z.object({
   itemCount: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Present only on team rows; personal rows are always the caller's own. */
+  canEdit: z.boolean().optional(),
 });
 export type Glossary = z.infer<typeof glossarySchema>;
 

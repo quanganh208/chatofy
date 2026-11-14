@@ -8,17 +8,28 @@ import type {
 import type { LibraryScope } from '../../../common/library-scope/library-scope';
 import type {
   Refusal,
+  RemoveResult,
   Saved,
 } from '../../../common/library-scope/library-write-results';
 
 /** DI injection token for the glossary store. */
 export const GLOSSARY_STORE = Symbol('GLOSSARY_STORE');
 
-/** What {@link GlossaryStore.saveGlossary} did: wrote it, or refused a CREATE past the ceiling. */
-export type GlossarySaveResult = Saved<Glossary> | Refusal<'limit'>;
+/**
+ * What {@link GlossaryStore.saveGlossary} did: wrote it; refused a CREATE past
+ * the ceiling (`limit`); refused a team member editing a row they did not
+ * author (`forbidden`); or refused a TEAM create whose client id is already
+ * used by any glossary in any scope (`id-in-use`).
+ */
+export type GlossarySaveResult =
+  | Saved<Glossary>
+  | Refusal<'limit'>
+  | Refusal<'forbidden'>
+  | Refusal<'id-in-use'>;
 
-/** What {@link GlossaryStore.patchGlossary} did: patched it, or found no such glossary in scope. */
-export type GlossaryPatchResult = Saved<Glossary> | Refusal<'absent'>;
+/** What {@link GlossaryStore.patchGlossary} did: patched it, found no such glossary in scope, or refused a non-author member. */
+export type GlossaryPatchResult =
+  Saved<Glossary> | Refusal<'absent'> | Refusal<'forbidden'>;
 
 /**
  * What {@link GlossaryStore.addItem} did: added (or, for a retried clientId,
@@ -26,7 +37,10 @@ export type GlossaryPatchResult = Saved<Glossary> | Refusal<'absent'>;
  * glossary in scope.
  */
 export type ItemAddResult =
-  Saved<GlossaryItem> | Refusal<'limit'> | Refusal<'absent'>;
+  | Saved<GlossaryItem>
+  | Refusal<'limit'>
+  | Refusal<'absent'>
+  | Refusal<'forbidden'>;
 
 /**
  * Backend-agnostic seam for named glossary collections.
@@ -66,10 +80,13 @@ export interface GlossaryStore {
   /**
    * Delete one glossary and all its items via cascade.
    *
-   * Returns whether a row was actually removed so the controller can answer 204
-   * either way without a second read.
+   * Personal routes answer 204 for both `removed` and `absent`; `forbidden` is
+   * a team member deleting a glossary they did not author.
    */
-  removeGlossary(scope: LibraryScope, glossaryId: string): Promise<boolean>;
+  removeGlossary(
+    scope: LibraryScope,
+    glossaryId: string,
+  ): Promise<RemoveResult>;
 
   /** All items for one glossary, creation-order ascending; empty when it is not in the scope. */
   listItems(scope: LibraryScope, glossaryId: string): Promise<GlossaryItem[]>;
@@ -90,11 +107,12 @@ export interface GlossaryStore {
   /**
    * Delete one term pair.
    *
-   * Returns whether a row was removed — the route answers 204 either way.
+   * The route answers 204 for both `removed` and `absent`; `forbidden` is a
+   * team member editing a glossary they did not author.
    */
   removeItem(
     scope: LibraryScope,
     glossaryId: string,
     itemId: string,
-  ): Promise<boolean>;
+  ): Promise<RemoveResult>;
 }

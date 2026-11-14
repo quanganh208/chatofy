@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
 } from '@nestjs/common';
 import {
   CONTEXT_LIMITS,
+  TEAM_LIMITS,
+  type AvailableTranslationContexts,
   type SaveTranslationContextRequest,
   type TranslationContext,
 } from '@chatofy/types';
@@ -14,7 +17,11 @@ import {
   type TranslationContextStore,
 } from './interfaces/translation-context-store.interface';
 import { assertNever } from '../../common/library-scope/library-write-results';
-import type { LibraryScope } from '../../common/library-scope/library-scope';
+import {
+  personalScope,
+  type LibraryScope,
+} from '../../common/library-scope/library-scope';
+import { TeamAccessService } from '../teams/team-access.service';
 
 /**
  * The AI Context library, and the per-owner ceiling.
@@ -36,10 +43,34 @@ export class TranslationContextsService {
   constructor(
     @Inject(TRANSLATION_CONTEXT_STORE)
     private readonly store: TranslationContextStore,
+    private readonly access: TeamAccessService,
   ) {}
 
   list(scope: LibraryScope): Promise<TranslationContext[]> {
     return this.store.list(scope);
+  }
+
+  /**
+   * Every context the caller may use, grouped by the scope it lives in.
+   *
+   * Memberships are read once; teams come in `joinedAt` order because
+   * `memberships()` returns them that way. The per-scope lists run in one
+   * `Promise.all`: at most 1 + 5 reads, bounded by the 5-team cap.
+   */
+  async listAvailable(userId: string): Promise<AvailableTranslationContexts> {
+    const memberships = await this.access.memberships(userId);
+    const [personal, ...teamLists] = await Promise.all([
+      this.store.list(personalScope(userId)),
+      ...memberships.map((m) => this.store.list(m.scope)),
+    ]);
+    return {
+      personal: personal,
+      teams: memberships.map((m, i) => ({
+        teamId: m.team.id,
+        name: m.team.name,
+        contexts: teamLists[i]!,
+      })),
+    };
   }
 
   /**
@@ -65,22 +96,27 @@ export class TranslationContextsService {
     contextId: string,
     body: SaveTranslationContextRequest,
   ): Promise<TranslationContext> {
-    const saved = await this.store.save(
-      scope,
-      contextId,
-      body,
-      CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
-    );
+    const max =
+      scope.kind === 'team'
+        ? TEAM_LIMITS.MAX_CONTEXTS_PER_TEAM
+        : CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER;
+    const saved = await this.store.save(scope, contextId, body, max);
     switch (saved.kind) {
       case 'saved':
         return saved.value;
       case 'limit':
         throw new ConflictException(
-          `You can save at most ${CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER} AI Contexts. ` +
+          `You can save at most ${max} AI Contexts. ` +
             'Delete one before creating another.',
         );
       case 'glossary-missing':
         throw new BadRequestException('The linked glossary does not exist.');
+      case 'forbidden':
+        throw notTheAuthor();
+      case 'id-in-use':
+        throw new ConflictException(
+          'This id is already used by another AI Context. Save it under a new id.',
+        );
       default:
         return assertNever(saved);
     }
@@ -89,11 +125,27 @@ export class TranslationContextsService {
   /**
    * Delete one context.
    *
-   * The store's answer is deliberately discarded: the route is 204 whether a row
-   * went or not, so an id that was never there and one belonging to someone else
-   * are indistinguishable to the caller.
+   * `removed` and `absent` both answer 204, so an id that was never there and
+   * one belonging to someone else are indistinguishable to the caller. Only a
+   * team member deleting a context they did not author is refused.
    */
   async remove(scope: LibraryScope, contextId: string): Promise<void> {
-    await this.store.remove(scope, contextId);
+    const removed = await this.store.remove(scope, contextId);
+    switch (removed) {
+      case 'removed':
+      case 'absent':
+        return;
+      case 'forbidden':
+        throw notTheAuthor();
+      default:
+        return assertNever(removed);
+    }
   }
+}
+
+/** A member writing a team row they did not author; the same text as glossaries. */
+function notTheAuthor(): ForbiddenException {
+  return new ForbiddenException(
+    'Only the author or a team admin can change this.',
+  );
 }
