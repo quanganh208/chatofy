@@ -23,19 +23,45 @@ export function savePendingInvite(token: string): void {
   }
 }
 
-/** The stored token, or null when absent, malformed or older than 7 days. */
-export function readPendingInvite(): string | null {
+function readEntry(): { token: string; savedAt: number; parked: boolean } | null {
   try {
     const raw = localStorage.getItem(PENDING_INVITE_KEY);
     if (!raw) return null;
     const entry: unknown = JSON.parse(raw);
     if (!entry || typeof entry !== 'object') return null;
-    const { token, savedAt } = entry as Record<string, unknown>;
+    const { token, savedAt, parked } = entry as Record<string, unknown>;
     if (typeof token !== 'string' || !INVITE_TOKEN_PATTERN.test(token)) return null;
     if (typeof savedAt !== 'number' || Date.now() - savedAt > MAX_AGE_MS) return null;
-    return token;
+    return { token, savedAt, parked: parked === true };
   } catch {
     return null;
+  }
+}
+
+/** The stored token, or null when absent, malformed or older than 7 days. */
+export function readPendingInvite(): string | null {
+  return readEntry()?.token ?? null;
+}
+
+/**
+ * Whether a fresh sign-in should be sent to `/invite`: an invite is stored and is
+ * not parked. A parked invite (the team is full, or the invitee is at the team cap)
+ * stays readable on `/invite`, but no longer pulls every later sign-in on this
+ * device back to a page that can only say no.
+ */
+export function hasInviteAwaitingSignIn(): boolean {
+  const entry = readEntry();
+  return entry !== null && !entry.parked;
+}
+
+/** Keep the invite for `/invite`, but stop it steering later sign-ins there. */
+export function parkPendingInvite(): void {
+  const entry = readEntry();
+  if (!entry) return;
+  try {
+    localStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ ...entry, parked: true }));
+  } catch {
+    // Storage refused: the entry stays as it was.
   }
 }
 

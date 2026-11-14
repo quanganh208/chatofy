@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { MessageKey } from '@chatofy/i18n';
-import type { InvitePreviewStatus } from '@chatofy/types';
+import { TEAM_LIMITS, type InvitePreviewStatus } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
@@ -44,7 +44,7 @@ export function InviteOutcome({ outcome }: { outcome: Outcome }) {
   return (
     <div className="flex flex-col items-start gap-4">
       <p role="status" data-invite-outcome={outcome} className="text-prose">
-        {t(OUTCOME_COPY[outcome])}
+        {t(OUTCOME_COPY[outcome], { max: TEAM_LIMITS.MAX_TEAMS_PER_USER })}
       </p>
       {toGlossary && (
         <Button asChild variant="outline">

@@ -23,6 +23,7 @@ import { CreditLine } from './credit-line';
 import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
 import { navGroups, navItemFor, SETTINGS_ENTRY, type NavItem } from './nav-items';
 import { SessionMenu } from './session-menu';
+import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 
 /**
  * The product navigation: two captioned groups, and a footer holding Settings and
@@ -74,6 +75,7 @@ export function AppSidebar({ resize }: { resize: SidebarResize }) {
           size={20}
           className="group-data-[collapsible=icon]:[&>span:last-child]:hidden px-2 py-2"
         />
+        <WorkspaceSwitcher variant="sidebar" />
       </SidebarHeader>
 
       <SidebarContent>

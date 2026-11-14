@@ -1,5 +1,5 @@
 /**
- * The ids of the five Settings tabs and the `?settings=` URL contract, with no imports.
+ * The ids of the six Settings tabs and the `?settings=` URL contract, with no imports.
  *
  * Dependency-free on purpose: `next.config.ts` builds the legacy-route redirects from
  * these, and the config runs in plain Node, where an icon library or a dictionary
@@ -14,6 +14,7 @@ export const SETTINGS_TAB_IDS = [
   'translation',
   'ai-context',
   'account',
+  'team',
   'billing',
 ] as const;
 

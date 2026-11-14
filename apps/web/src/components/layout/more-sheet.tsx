@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, LogOut, MoreHorizontal } from 'lucide-react';
 import {
@@ -21,7 +21,8 @@ import { openSettingsDialog } from '@/components/settings/use-settings-dialog';
 import { SETTINGS_ENTRY } from './nav-items';
 import { IdentityAvatar, useSessionIdentity } from './session-identity';
 import { PlanBadge, usePlan } from './plan-badge';
-import { TAB_CLASS } from './tab-bar-styles';
+import { SHEET_ROW_CLASS as ROW, TAB_CLASS } from './tab-bar-styles';
+import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 
 /**
  * The fourth tab: what the sidebar holds that the tab bar has no room for.
@@ -43,8 +44,6 @@ import { TAB_CLASS } from './tab-bar-styles';
  * Billing — over the current page. The dialog opens once the sheet has closed and
  * handed focus back to the More tab, so closing Settings returns focus there.
  */
-const ROW =
-  'flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-body text-foreground outline-none hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:text-muted-foreground';
 
 export function MoreSheet({ active }: { active: boolean }) {
   const t = useTranslate();
@@ -53,9 +52,10 @@ export function MoreSheet({ active }: { active: boolean }) {
   const trigger = useRef<HTMLButtonElement>(null);
   // What a row asked to open: the list (`null`) or a tab. `undefined` is nothing.
   const pending = useRef<SettingsTabId | null | undefined>(undefined);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         ref={trigger}
         className={TAB_CLASS}
@@ -88,6 +88,15 @@ export function MoreSheet({ active }: { active: boolean }) {
           </SheetDescription>
         </SheetHeader>
         <nav aria-label={t('web.chrome.tabMore')} className="flex flex-col gap-1 px-2">
+          {identity.status === 'authenticated' && (
+            <WorkspaceSwitcher
+              variant="sheet-row"
+              onManageTeams={() => {
+                pending.current = 'team';
+                setOpen(false);
+              }}
+            />
+          )}
           <SheetClose asChild>
             <Link href="/glossary" className={ROW}>
               <BookOpen aria-hidden />

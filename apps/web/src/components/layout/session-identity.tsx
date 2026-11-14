@@ -54,7 +54,7 @@ export function IdentityAvatar({ identity }: { identity: SessionIdentity }) {
  * precomposed character is one code point while a decomposed one is two — `slice(0, 2)`
  * would cut a diacritic off its vowel and render a lone combining mark.
  */
-function initials(name?: string, email?: string): string {
+export function initials(name?: string, email?: string): string {
   const source = (name ?? email ?? '').trim();
   const parts = source.split(/\s+/).filter(Boolean);
   const first = parts[0];

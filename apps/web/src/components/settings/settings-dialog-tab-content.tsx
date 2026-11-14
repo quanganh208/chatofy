@@ -12,6 +12,7 @@ import { ConversationDefaultsSection } from './conversation-defaults-section';
 import { CreditsSection } from './credits-section';
 import { PreferencesSyncNote, PreferencesSyncSection } from './preferences-sync-section';
 import type { SettingsTabId } from './settings-tab-ids';
+import { TeamTabContent } from './team/team-tab-content';
 
 /**
  * What each tab of the Settings dialog renders — the existing sections, composed.
@@ -35,6 +36,8 @@ export function SettingsTabContent({ tab }: { tab: SettingsTabId }) {
       return <AiContextSection />;
     case 'account':
       return <AccountTabContent />;
+    case 'team':
+      return <TeamTabContent />;
     case 'billing':
       return <CreditsSection />;
   }

@@ -13,6 +13,7 @@ import { AppTopbar } from './app-topbar';
 import { ChromeSlotsProvider, useChromeSlots } from './chrome-slots';
 import { MobileTabBar } from './mobile-tab-bar';
 import { MEASURE } from './measures';
+import { WorkspaceProvider } from '@/components/workspace/workspace-provider';
 
 /**
  * The signed-in product frame: sidebar, topbar, and the measured content column.
@@ -140,23 +141,25 @@ export function AppChrome({
   // the translate banner); see `CreditBalanceProvider`.
   return (
     <CreditBalanceProvider>
-      <ChromeSlotsProvider>
-        <SidebarProvider
-          open={open}
-          onOpenChange={setOpen}
-          style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
-        >
-          <AppSidebar resize={sidebarWidth} />
-          <ChromeContent pathname={pathname}>{children}</ChromeContent>
-        </SidebarProvider>
-        {/* All of Settings, over whatever page is open; its state is `?settings=`.
+      <WorkspaceProvider>
+        <ChromeSlotsProvider>
+          <SidebarProvider
+            open={open}
+            onOpenChange={setOpen}
+            style={{ '--sidebar-width': `${sidebarWidth.width}px` } as React.CSSProperties}
+          >
+            <AppSidebar resize={sidebarWidth} />
+            <ChromeContent pathname={pathname}>{children}</ChromeContent>
+          </SidebarProvider>
+          {/* All of Settings, over whatever page is open; its state is `?settings=`.
             Suspense because it reads the query string, which a prerender cannot; every route
             here is dynamic today, so this is a guard, not a requirement — see the same note
             on `CreditBalanceProvider`. */}
-        <React.Suspense fallback={null}>
-          <SettingsDialog />
-        </React.Suspense>
-      </ChromeSlotsProvider>
+          <React.Suspense fallback={null}>
+            <SettingsDialog />
+          </React.Suspense>
+        </ChromeSlotsProvider>
+      </WorkspaceProvider>
     </CreditBalanceProvider>
   );
 }

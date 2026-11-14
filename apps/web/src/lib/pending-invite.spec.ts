@@ -32,6 +32,15 @@ describe('the pending invite', () => {
     expect(readPendingInvite()).toBeNull();
   });
 
+  it('stays readable once parked, but no longer awaits a sign-in', async () => {
+    const { hasInviteAwaitingSignIn, parkPendingInvite } = await import('./pending-invite');
+    savePendingInvite(TOKEN);
+    expect(hasInviteAwaitingSignIn()).toBe(true);
+    parkPendingInvite();
+    expect(readPendingInvite()).toBe(TOKEN);
+    expect(hasInviteAwaitingSignIn()).toBe(false);
+  });
+
   it('is gone once cleared', () => {
     savePendingInvite(TOKEN);
     clearPendingInvite();

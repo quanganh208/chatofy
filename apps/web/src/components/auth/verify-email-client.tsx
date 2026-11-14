@@ -8,7 +8,7 @@ import { authErrorMessage } from './auth-error-message';
 import { Button } from '@chatofy/ui/react';
 import { verifyEmail } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
-import { readPendingInvite } from '@/lib/pending-invite';
+import { hasInviteAwaitingSignIn } from '@/lib/pending-invite';
 
 /**
  * Redeems a mailed verification link — on an explicit click, never on mount.
@@ -83,7 +83,9 @@ export function VerifyEmailClient() {
               // A new invitee registered from `/invite`: after this first sign-in, the
               // invitation they came for, not an empty app.
               router.push(
-                readPendingInvite() ? '/login?verified=1&next=%2Finvite' : '/login?verified=1',
+                hasInviteAwaitingSignIn()
+                  ? '/login?verified=1&next=%2Finvite'
+                  : '/login?verified=1',
               );
             })
             .catch((err: unknown) => {

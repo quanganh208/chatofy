@@ -1,4 +1,12 @@
-import { CreditCard, Languages, Palette, Sparkles, UserRound, type LucideIcon } from 'lucide-react';
+import {
+  CreditCard,
+  Languages,
+  Palette,
+  Sparkles,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 import type { SettingsTabId } from './settings-tab-ids';
 
@@ -55,6 +63,13 @@ export const SETTINGS_TAB_GROUPS: readonly SettingsTabGroup[] = [
         labelKey: 'web.settings.account',
         descriptionKey: 'web.settings.accountDescription',
         icon: UserRound,
+      },
+      // In Account because team membership belongs to the account, not to a device.
+      {
+        id: 'team',
+        labelKey: 'web.settings.team',
+        descriptionKey: 'web.settings.teamDescription',
+        icon: Users,
       },
       {
         id: 'billing',

@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NetworkError } from '@chatofy/api-client';
-import type { InvitePreviewStatus } from '@chatofy/types';
+import type { InvitePreviewStatus, TeamSummary } from '@chatofy/types';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConferenceReturn } from '@/hooks/use-conference';
 import type { UseConferenceEnd } from '@/hooks/use-conference-end';
@@ -166,7 +166,7 @@ vi.mock('@/components/history/use-container-wide', () => ({
 const signOut = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // Signed out unless a row signs in: the `/invite` rows are the ones that need an
 // account, and `beforeEach` puts this back so no other row sees one.
-type MockSession = { data: { user: { id: string } } | null; status: string };
+type MockSession = { data: { user: { id: string; name?: string } } | null; status: string };
 const SIGNED_OUT: MockSession = { data: null, status: 'unauthenticated' };
 const session = vi.hoisted(() => {
   const value: MockSession = { data: null, status: 'unauthenticated' };
@@ -227,6 +227,10 @@ const { default: ConferenceEndedPage } =
   await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { InviteAcceptClient } = await import('@/components/team/invite-accept-client');
+const { WorkspaceSwitcher } = await import('@/components/workspace/workspace-switcher');
+const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
+const { MoreSheet } = await import('@/components/layout/more-sheet');
+const { SidebarProvider } = await import('@chatofy/ui/react');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
 const { activePreferences } = await import('@/lib/preferences/active-preferences');
@@ -716,7 +720,7 @@ interface ScreenState {
  * well-formed 43 characters unless the row is about a malformed one.
  */
 const INVITE_TOKEN = 'i'.repeat(43);
-const INVITE_TEAM = {
+const INVITE_TEAM: TeamSummary = {
   id: 'c' + 'b'.repeat(24),
   name: 'Cardiology unit',
   role: 'member',
@@ -747,6 +751,181 @@ const outcomeRow = (name: string, status: InvitePreviewStatus, shown: string): S
   render: () => <InviteAcceptClient />,
   shows: `[data-invite-outcome="${shown}"]`,
 });
+
+/**
+ * The workspace switcher and Settings › Team, one row per state in `plan.md`
+ * § Screen states. Settings renders outside any `WorkspaceProvider` here, so a row
+ * that needs a team wraps the page in `WorkspaceTestHost`.
+ */
+function inTeam(role: 'owner' | 'admin' | 'member', node: React.ReactElement) {
+  return (
+    <WorkspaceTestHost value={{ workspace: { kind: 'team', team: { ...INVITE_TEAM, role } } }}>
+      {node}
+    </WorkspaceTestHost>
+  );
+}
+
+const TEAM_MEMBER = (id: string, role: string, isSelf: boolean) => ({
+  id: 'c' + id.repeat(24),
+  name: `Name ${id}`,
+  email: isSelf || role !== 'member' ? `${id}@example.com` : null,
+  avatarUrl: null,
+  role,
+  joinedAt: '2026-11-14T00:00:00.000Z',
+  isSelf,
+});
+
+/** Settings › Team in `role`: two members (the viewer and one more) and one pending invite. */
+function teamPane(role: 'owner' | 'admin' | 'member') {
+  return () => {
+    settingsOn('team')();
+    listTeamMembers.mockResolvedValue({
+      members:
+        role === 'owner'
+          ? [TEAM_MEMBER('o', 'owner', true), TEAM_MEMBER('m', 'member', false)]
+          : [TEAM_MEMBER('o', 'owner', false), TEAM_MEMBER('m', role, true)],
+    });
+    listTeamInvites.mockResolvedValue({
+      invites: [
+        {
+          id: 'c' + 'i'.repeat(24),
+          email: 'new@example.com',
+          role: 'member',
+          status: 'pending',
+          expiresAt: '2026-11-21T00:00:00.000Z',
+          createdAt: '2026-11-14T00:00:00.000Z',
+        },
+      ],
+    });
+  };
+}
+
+const TEAM_SCREENS: ScreenState[] = [
+  {
+    name: 'sidebar › workspace switcher open',
+    filled: 0,
+    surfaces: 1,
+    setup: () => {},
+    // An empty `/history` under the trigger, as in `settingsOverAPage`: the menu
+    // portals to the body, so without a page the container would hold only a label.
+    render: () => (
+      <SidebarProvider>
+        <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>
+          {historyRoute()}
+          <WorkspaceSwitcher variant="sidebar" />
+        </WorkspaceTestHost>
+      </SidebarProvider>
+    ),
+    steps: ['[data-workspace-switcher]'],
+    shows: '[role="menu"]',
+  },
+  {
+    name: 'more sheet › workspace menu open',
+    filled: 0,
+    surfaces: 2,
+    setup: () => {
+      session.value = { data: { user: { id: 'u1', name: 'Quang Anh' } }, status: 'authenticated' };
+    },
+    render: () => (
+      <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>
+        {historyRoute()}
+        <MoreSheet active={false} />
+      </WorkspaceTestHost>
+    ),
+    steps: ['button[aria-haspopup="dialog"]', '[data-workspace-switcher]'],
+    shows: '[role="menu"]',
+  },
+  {
+    name: 'settings dialog › team — personal, no teams',
+    filled: 0,
+    surfaces: 1,
+    setup: settingsOn('team'),
+    render: settingsOverAPage,
+    shows: '[data-settings-pane="team"] [data-team-create]',
+  },
+  {
+    name: 'settings dialog › team — personal, teams listed',
+    filled: 0,
+    surfaces: 1,
+    setup: settingsOn('team'),
+    render: () => (
+      <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>{settingsOverAPage()}</WorkspaceTestHost>
+    ),
+    shows: '[data-settings-pane="team"] [data-team-row]',
+  },
+  {
+    name: 'settings dialog › team — creating a team',
+    filled: 1,
+    surfaces: 1,
+    setup: settingsOn('team'),
+    render: settingsOverAPage,
+    steps: ['[data-team-create]'],
+    shows: '[data-settings-pane="team"] input[name="team-name"]',
+  },
+  {
+    name: 'settings dialog › team — failed to load',
+    filled: 0,
+    surfaces: 1,
+    setup: settingsOn('team'),
+    render: () => (
+      <WorkspaceTestHost value={{ workspace: { kind: 'resolving' }, teamsStatus: 'failed' }}>
+        {settingsOverAPage()}
+      </WorkspaceTestHost>
+    ),
+    shows: '[data-settings-pane="team"] [role="alert"]',
+  },
+  {
+    name: 'settings dialog › team — as owner',
+    filled: 1,
+    surfaces: 1,
+    setup: teamPane('owner'),
+    render: () => inTeam('owner', settingsOverAPage()),
+    shows: '[data-settings-pane="team"] [data-invite-row]',
+  },
+  {
+    name: 'settings dialog › team — as admin',
+    filled: 1,
+    surfaces: 1,
+    setup: teamPane('admin'),
+    render: () => inTeam('admin', settingsOverAPage()),
+    shows: '[data-settings-pane="team"] [data-invite-row]',
+  },
+  {
+    name: 'settings dialog › team — as member',
+    filled: 0,
+    surfaces: 1,
+    setup: teamPane('member'),
+    render: () => inTeam('member', settingsOverAPage()),
+    shows: '[data-settings-pane="team"] [data-member-row]',
+  },
+  {
+    name: 'settings dialog › team — confirming a member removal',
+    filled: 1,
+    surfaces: 2,
+    setup: teamPane('owner'),
+    render: () => inTeam('owner', settingsOverAPage()),
+    steps: ['[data-member-remove]'],
+    shows: '[role="alertdialog"]',
+  },
+  {
+    name: 'settings dialog › team — confirming team delete',
+    filled: 1,
+    surfaces: 2,
+    setup: teamPane('owner'),
+    render: () => inTeam('owner', settingsOverAPage()),
+    steps: ['[data-team-confirm="delete"]'],
+    shows: '[role="alertdialog"] [data-delete-confirm-name]',
+  },
+  {
+    name: 'settings dialog › team — confirming leave',
+    filled: 0,
+    surfaces: 2,
+    setup: teamPane('member'),
+    render: () => inTeam('member', settingsOverAPage()),
+    steps: ['[data-team-confirm="leave"]'],
+    shows: '[role="alertdialog"]',
+  },
+];
 
 const INVITE_SCREENS: ScreenState[] = [
   {
@@ -2350,6 +2529,7 @@ const SCREENS: ScreenState[] = [
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel] .text-destructive',
   },
+  ...TEAM_SCREENS,
   ...INVITE_SCREENS,
 ];
 
