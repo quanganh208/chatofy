@@ -58,7 +58,9 @@ export type TeamResponse = z.infer<typeof teamResponseSchema>;
  * One member as another member sees them.
  *
  * `id` is the TeamMember row id. `email` is null unless the viewer is an owner
- * or admin, or the row is the viewer's own. No user id is ever exposed.
+ * or admin, or the row is the viewer's own. `avatarUrl` is null on every row
+ * but the viewer's own, because an avatar key embeds the user id. No user id is
+ * ever exposed.
  */
 export const teamMemberSchema = z.object({
   id: z.cuid(),
