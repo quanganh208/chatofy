@@ -163,6 +163,16 @@ describe('Team libraries (db-e2e)', () => {
       .send(glossaryBody)
       .expect(200);
     expect(glossaryOf(created)).toMatchObject({ id: G, canEdit: true });
+    // On the raw body: the zod helpers strip unknown keys, so they cannot
+    // see an author id the API should never send.
+    expect(rawData(created).glossary).not.toHaveProperty('ownerId');
+    // The author edits their own row.
+    await call(M, 'put', `/teams/${T}/glossaries/${G}`)
+      .send({ ...glossaryBody, name: 'Cardiology (author)' })
+      .expect(200);
+    await call(M, 'patch', `/teams/${T}/glossaries/${G}`)
+      .send({ isActive: true })
+      .expect(200);
     const added = await call(M, 'post', `/teams/${T}/glossaries/${G}/items`)
       .send(itemBody())
       .expect(201);
@@ -171,6 +181,9 @@ describe('Team libraries (db-e2e)', () => {
 
     const seenByN = await call(N, 'get', `/teams/${T}/glossaries`).expect(200);
     expect(glossaryIn(seenByN, G)).toMatchObject({ canEdit: false });
+    for (const listed of rawData(seenByN).glossaries as object[]) {
+      expect(listed).not.toHaveProperty('ownerId');
+    }
 
     await call(N, 'put', `/teams/${T}/glossaries/${G}`)
       .send(glossaryBody)
@@ -192,6 +205,12 @@ describe('Team libraries (db-e2e)', () => {
     await call(A, 'put', `/teams/${T}/glossaries/${G}`)
       .send({ ...glossaryBody, name: 'Cardiology (admin)' })
       .expect(200);
+    await call(A, 'patch', `/teams/${T}/glossaries/${G}`)
+      .send({ isActive: true })
+      .expect(200);
+    await call(A, 'post', `/teams/${T}/glossaries/${G}/items`)
+      .send(itemBody())
+      .expect(201);
     await call(
       A,
       'delete',
@@ -201,10 +220,23 @@ describe('Team libraries (db-e2e)', () => {
       await prisma.glossary.count({ where: { teamId: T, clientId: G } }),
     ).toBe(1);
 
+    // An admin deletes a member's glossary; a separate one, so G stays for
+    // the cases below.
+    const GD = randomUUID();
+    await call(M, 'put', `/teams/${T}/glossaries/${GD}`)
+      .send(glossaryBody)
+      .expect(200);
+    await call(A, 'delete', `/teams/${T}/glossaries/${GD}`).expect(204);
+    expect(await prisma.glossary.count({ where: { clientId: GD } })).toBe(0);
+
     const ctx = await call(M, 'put', `/teams/${T}/translation-contexts/${C}`)
       .send(contextBody())
       .expect(200);
     expect(contextOf(ctx)).toMatchObject({ id: C, canEdit: true });
+    expect(rawData(ctx).context).not.toHaveProperty('ownerId');
+    await call(M, 'put', `/teams/${T}/translation-contexts/${C}`)
+      .send(contextBody({ name: 'Cardiology consult (author)' }))
+      .expect(200);
     await call(N, 'put', `/teams/${T}/translation-contexts/${C}`)
       .send(contextBody({ name: 'Taken over' }))
       .expect(403);
@@ -416,6 +448,11 @@ describe('Team libraries (db-e2e)', () => {
     });
   }
 });
+
+/** The envelope's `data` exactly as sent, before any schema strips keys. */
+function rawData(res: Response): Record<string, unknown> {
+  return (res.body as { data: Record<string, unknown> }).data;
+}
 
 function glossaryOf(res: Response) {
   return successBody(res, z.object({ glossary: glossarySchema })).data.glossary;
