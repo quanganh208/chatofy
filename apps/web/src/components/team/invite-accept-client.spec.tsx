@@ -133,6 +133,45 @@ describe('InviteAcceptClient', () => {
     expect(previewTeamInvite).not.toHaveBeenCalled();
   });
 
+  it('shows "not valid" for a malformed link even when an older invite is stored', async () => {
+    const { savePendingInvite } = await import('@/lib/pending-invite');
+    savePendingInvite('O'.repeat(43));
+    search = new URLSearchParams('token=short');
+    await render();
+
+    expect(text()).toContain(en['web.invite.invalid']);
+    expect(previewTeamInvite).not.toHaveBeenCalled();
+  });
+
+  it('offers sign-in, not a retry, when the session can no longer renew', async () => {
+    session.value = {
+      data: { user: { id: 'u1' }, error: 'RefreshFailed' },
+      status: 'authenticated',
+    };
+    await render();
+
+    expect(container.querySelector('a[href="/login?next=%2Finvite"]')).not.toBeNull();
+    expect(previewTeamInvite).not.toHaveBeenCalled();
+  });
+
+  it('offers sign-in when preview answers 401', async () => {
+    previewTeamInvite.mockRejectedValue(
+      new ApiClientError({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401),
+    );
+    await render();
+
+    expect(container.querySelector('a[href="/login?next=%2Finvite"]')).not.toBeNull();
+    expect(buttonLabels()).not.toContain(en['web.team.retry']);
+  });
+
+  it('shows the join again on a reload after joining', async () => {
+    search = new URLSearchParams('joined=1');
+    await render();
+
+    expect(text()).toContain(en['web.invite.joined']);
+    expect(previewTeamInvite).not.toHaveBeenCalled();
+  });
+
   it('shows the team name as plain text and joins on one button', async () => {
     previewTeamInvite.mockResolvedValue(PENDING);
     acceptTeamInvite.mockResolvedValue(TEAM);
@@ -145,6 +184,7 @@ describe('InviteAcceptClient', () => {
 
     expect(acceptTeamInvite).toHaveBeenCalledWith(TOKEN);
     expect(text()).toContain(en['web.invite.joined']);
+    expect(window.location.pathname + window.location.search).toBe('/invite?joined=1');
     expect(readPendingInvite()).toBeNull();
     expect(JSON.parse(localStorage.getItem('chatofy.workspace')!)).toEqual({
       userId: 'u1',

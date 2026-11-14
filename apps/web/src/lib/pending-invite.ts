@@ -46,3 +46,21 @@ export function clearPendingInvite(): void {
     // Nothing that could be read back.
   }
 }
+
+/**
+ * Take the token out of the URL before anything else runs, so it sits in the
+ * address bar and history for no longer than this read. Runs in the state
+ * initializer rather than an effect: the first client render already knows the
+ * token, and repeating it is harmless (the URL is stripped, the save is the same).
+ */
+export function takeInviteFromUrl(fromUrl: string | null): string | null | undefined {
+  if (typeof window === 'undefined') return undefined;
+  if (fromUrl !== null) {
+    window.history.replaceState(null, '', '/invite');
+    // A malformed link is that link's answer: it must not fall back to an older
+    // invite this device still holds.
+    if (!INVITE_TOKEN_PATTERN.test(fromUrl)) return null;
+    savePendingInvite(fromUrl);
+  }
+  return readPendingInvite();
+}

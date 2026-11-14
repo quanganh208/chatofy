@@ -14,12 +14,8 @@ import {
   previewTeamInvite,
 } from '@/clients/teams-api-client';
 import { useTranslate } from '@/i18n/provider';
-import {
-  INVITE_TOKEN_PATTERN,
-  clearPendingInvite,
-  readPendingInvite,
-  savePendingInvite,
-} from '@/lib/pending-invite';
+import { clearPendingInvite, takeInviteFromUrl } from '@/lib/pending-invite';
+import { isLiveSession } from '@/lib/session-guard';
 import { writeStoredWorkspace } from '@/lib/workspace-store';
 import { FINAL_OUTCOMES, InviteOutcome, type Outcome } from './invite-outcome';
 
@@ -27,22 +23,9 @@ type View =
   | { kind: 'loading' }
   | { kind: 'pending'; preview: InvitePreviewResponse }
   | { kind: 'outcome'; outcome: Outcome }
-  | { kind: 'load-failed' };
-
-/**
- * Take the token out of the URL before anything else runs, so it sits in the
- * address bar and history for no longer than this read. Runs in the state
- * initializer rather than an effect: the first client render already knows the
- * token, and repeating it is harmless (the URL is stripped, the save is the same).
- */
-function takeToken(fromUrl: string | null): string | null | undefined {
-  if (typeof window === 'undefined') return undefined;
-  if (fromUrl !== null) {
-    window.history.replaceState(null, '', '/invite');
-    if (INVITE_TOKEN_PATTERN.test(fromUrl)) savePendingInvite(fromUrl);
-  }
-  return readPendingInvite();
-}
+  | { kind: 'load-failed' }
+  // Preview answered 401: the session is gone, and only signing in again helps.
+  | { kind: 'needs-sign-in' };
 
 const isStatus = (err: unknown, status: number) =>
   err instanceof ApiClientError && err.status === status;
@@ -61,14 +44,18 @@ export function InviteAcceptClient() {
   const userId = data?.user?.id;
   const nameLabelId = useId();
 
-  const [token] = useState(() => takeToken(params.get('token')));
+  const [token] = useState(() => takeInviteFromUrl(params.get('token')));
+  // Set on the URL after a join, so a reload shows the join, not a spent link.
+  const [joinedOnLoad] = useState(() => params.get('joined') === '1');
+  // A session that can no longer renew is signed out for this page's purposes.
+  const signedIn = status === 'authenticated' && isLiveSession(data);
   const [view, setView] = useState<View>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [joining, setJoining] = useState(false);
   const [joinFailed, setJoinFailed] = useState(false);
 
   useEffect(() => {
-    if (!token || status !== 'authenticated') return;
+    if (!token || !signedIn) return;
     let cancelled = false;
     previewTeamInvite(token).then(
       (preview) => {
@@ -82,16 +69,23 @@ export function InviteAcceptClient() {
       (err: unknown) => {
         if (cancelled) return;
         const gone = isStatus(err, 404) || isStatus(err, 400);
-        setView(gone ? { kind: 'outcome', outcome: 'invalid' } : { kind: 'load-failed' });
+        if (isStatus(err, 401)) setView({ kind: 'needs-sign-in' });
+        else setView(gone ? { kind: 'outcome', outcome: 'invalid' } : { kind: 'load-failed' });
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [token, status, attempt]);
+  }, [token, signedIn, attempt]);
 
   const outcome: Outcome | null =
-    token === null ? 'invalid' : view.kind === 'outcome' ? view.outcome : null;
+    token === null
+      ? joinedOnLoad
+        ? 'joined'
+        : 'invalid'
+      : view.kind === 'outcome'
+        ? view.outcome
+        : null;
 
   useEffect(() => {
     if (outcome && FINAL_OUTCOMES.has(outcome)) clearPendingInvite();
@@ -99,10 +93,10 @@ export function InviteAcceptClient() {
 
   if (status === 'loading' || token === undefined) return null;
 
-  if (token === null) return <InviteOutcome outcome="invalid" />;
+  if (token === null) return <InviteOutcome outcome={joinedOnLoad ? 'joined' : 'invalid'} />;
   if (outcome) return <InviteOutcome outcome={outcome} />;
 
-  if (status !== 'authenticated') {
+  if (!signedIn || view.kind === 'needs-sign-in') {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-prose">{t('web.invite.signInPrompt')}</p>
@@ -146,6 +140,7 @@ export function InviteAcceptClient() {
     acceptTeamInvite(token).then(
       ({ team }) => {
         if (userId) writeStoredWorkspace(userId, team.id);
+        window.history.replaceState(null, '', '/invite?joined=1');
         setView({ kind: 'outcome', outcome: 'joined' });
       },
       (err: unknown) => {
