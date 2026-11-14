@@ -40,6 +40,16 @@ describe('motion craft in shared components', () => {
     },
   );
 
+  // A bare `motion-reduce:animate-none` loses to `data-[state=open]:animate-accordion-down`:
+  // the state variant is an attribute selector and outranks the media query's class, so
+  // the panel kept `animation-name: accordion-down` under reduced motion (measured on `/`).
+  // The guard has to carry the same state variant to win.
+  it('Accordion content stops animating under reduced motion in both states', () => {
+    const src = read('accordion.tsx');
+    expect(src).toContain('motion-reduce:data-[state=open]:animate-none');
+    expect(src).toContain('motion-reduce:data-[state=closed]:animate-none');
+  });
+
   it('Accordion trigger names the properties it transitions', () => {
     expect(read('accordion.tsx')).not.toMatch(/\btransition-all\b/);
   });
