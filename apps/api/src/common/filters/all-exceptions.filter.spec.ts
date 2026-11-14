@@ -152,6 +152,33 @@ describe('AllExceptionsFilter', () => {
     },
   );
 
+  it('carries a coded exception details array, and adds none when it has none', () => {
+    const details = [{ path: 'status', message: 'expired' }];
+    const res = mockResponse();
+    filter.catch(
+      new CodedHttpException(
+        'INVITE_NOT_PENDING',
+        409,
+        'This invite has expired.',
+        details,
+      ),
+      httpHost(res),
+    );
+    expect(res.statusCode).toBe(409);
+    const body = res.body as { error: { code: string; details?: unknown } };
+    expect(body.error.code).toBe('INVITE_NOT_PENDING');
+    expect(body.error.details).toEqual(details);
+
+    const plain = mockResponse();
+    filter.catch(
+      new CodedHttpException('CHECKOUT_NOT_OPEN', 403, 'Not open'),
+      httpHost(plain),
+    );
+    expect((plain.body as { error: object }).error).not.toHaveProperty(
+      'details',
+    );
+  });
+
   it('still masks an ordinary 503 — a dependency being down is not the same fact', () => {
     const res = mockResponse();
     filter.catch(

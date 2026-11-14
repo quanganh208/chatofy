@@ -125,6 +125,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode = exception.getStatus();
       error.code = exception.code;
       error.message = messageFromHttpException(exception);
+      if (exception.details) error.details = exception.details;
     } else if (exception instanceof ZodValidationException) {
       statusCode = exception.getStatus();
       error.code = 'VALIDATION_FAILED';

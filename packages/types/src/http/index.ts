@@ -203,6 +203,33 @@ export type {
   ChangeMemberRoleRequest,
 } from './teams.js';
 
+// Team invite contracts.
+export {
+  inviteRoleSchema,
+  createTeamInviteRequestSchema,
+  teamInviteSchema,
+  teamInviteResponseSchema,
+  teamInviteListResponseSchema,
+  teamInviteTokenSchema,
+  inviteTokenRequestSchema,
+  invitePreviewStatusSchema,
+  inviteRefusalStatusSchema,
+  invitePreviewResponseSchema,
+  acceptInviteResponseSchema,
+} from './team-invites.js';
+export type {
+  InviteRole,
+  CreateTeamInviteRequest,
+  TeamInvite,
+  TeamInviteResponse,
+  TeamInviteListResponse,
+  InviteTokenRequest,
+  InvitePreviewStatus,
+  InviteRefusalStatus,
+  InvitePreviewResponse,
+  AcceptInviteResponse,
+} from './team-invites.js';
+
 // AI credits, plans and checkout contracts.
 export {
   CREDIT_SECONDS_PER_CREDIT,

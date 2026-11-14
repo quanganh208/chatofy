@@ -23,6 +23,13 @@ export enum MailPurpose {
   AccountExistsNotice = 'account-exists-notice',
   NoAccountNotice = 'no-account-notice',
   PasswordReset = 'password-reset',
+  /**
+   * An authenticated user names an arbitrary recipient, so the mail is
+   * AttackerTriggerable. The copy is static and never carries a team name or
+   * user text: a team named like a security notice would be phishing from our
+   * own domain.
+   */
+  TeamInvite = 'team-invite',
 }
 
 /**
@@ -259,6 +266,35 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       action: '设置新密码',
       outro:
         '此链接将在 30 分钟后失效，且只能使用一次。如果这不是你本人的操作，请忽略本邮件。',
+    },
+  },
+  [MailPurpose.TeamInvite]: {
+    en: {
+      subject: "You're invited to a team on Chatofy",
+      heading: "You're invited to a team",
+      intro:
+        'Someone invited this email address to join their team on Chatofy. Sign in with this address to see the invitation:',
+      action: 'View invitation',
+      outro:
+        'This link expires in 7 days and works once. If you were not expecting it, you can ignore this email.',
+    },
+    vi: {
+      subject: 'Bạn được mời vào một nhóm trên Chatofy',
+      heading: 'Bạn được mời vào một nhóm',
+      intro:
+        'Có người đã mời địa chỉ email này tham gia nhóm của họ trên Chatofy. Đăng nhập bằng địa chỉ này để xem lời mời:',
+      action: 'Xem lời mời',
+      outro:
+        'Liên kết này hết hạn sau 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời này, cứ bỏ qua email này.',
+    },
+    zh: {
+      subject: '你受邀加入 Chatofy 上的一个团队',
+      heading: '你受邀加入一个团队',
+      intro:
+        '有人邀请此邮箱地址加入其在 Chatofy 上的团队。请用此地址登录查看邀请：',
+      action: '查看邀请',
+      outro:
+        '此链接 7 天后失效，且只能使用一次。如果你并未期待此邀请，请忽略本邮件。',
     },
   },
 };

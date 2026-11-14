@@ -1,10 +1,10 @@
 import { HttpException } from '@nestjs/common';
-import type { ErrorCode } from '@chatofy/types';
+import type { ApiError, ErrorCode } from '@chatofy/types';
 
 /** The codes that name a state of their own rather than a generic status. */
 export type CodedHttpErrorCode = Extract<
   ErrorCode,
-  'CREDITS_EXHAUSTED' | 'CHECKOUT_NOT_OPEN'
+  'CREDITS_EXHAUSTED' | 'CHECKOUT_NOT_OPEN' | 'INVITE_NOT_PENDING'
 >;
 
 /**
@@ -20,12 +20,16 @@ export type CodedHttpErrorCode = Extract<
  *
  * The message is client-facing, like every 4xx message: never put internal or
  * database text in it.
+ *
+ * `details`, when given, reaches the error body as written, so a client can
+ * read a machine state (an invite's status) without matching message text.
  */
 export class CodedHttpException extends HttpException {
   constructor(
     readonly code: CodedHttpErrorCode,
     status: number,
     message: string,
+    readonly details?: ApiError['details'],
   ) {
     super(message, status);
   }

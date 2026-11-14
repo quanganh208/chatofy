@@ -29,6 +29,11 @@ export const errorCodeSchema = z.enum([
    * treating it as a permissions fault.
    */
   'CHECKOUT_NOT_OPEN',
+  /**
+   * Sent with 409: the invite cannot be accepted; `details[0]` is
+   * `{ path: 'status', message: <invite status> }`.
+   */
+  'INVITE_NOT_PENDING',
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
