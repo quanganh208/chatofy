@@ -131,6 +131,10 @@ export function landingMarkdown(
  * `/llms.txt` in the llmstxt.org shape: name, one-line summary, links to the markdown
  * twins (the landing page and `/pricing`), then the landing's sections by anchor, each
  * with the line the page itself opens it with. Low-cost hygiene, not a ranking lever.
+ *
+ * The `## Pages` and `## Sections` headings stay English in every locale on purpose:
+ * they are the file's structure, read by tools that parse llmstxt.org files, not copy.
+ * The entries under them are in the reader's locale.
  */
 export function llmsTxt(t: Translate, origin: string): string {
   const url = (path: string) => new URL(path, origin).toString();
@@ -152,6 +156,11 @@ export function llmsTxt(t: Translate, origin: string): string {
     `- [${t('web.landing.howTitle')}](${url('/#how-it-works')}): ${t('web.landing.howBody')}`,
     `- [${t('web.landing.useCasesTitle')}](${url('/#use-cases')}): ${t('web.landing.useCasesBody')}`,
     `- [${t('web.landing.localTitle')}](${url('/#privacy')}): ${t('web.landing.localBody')}`,
+    `- [${t('web.landing.surfacesTitle')}](${url('/#where-it-runs')}): ${(
+      ['Browser', 'Extension', 'Phone'] as const
+    )
+      .map((s) => `${t(`web.landing.surface${s}Title`)} (${t(`web.landing.surfaceStatus${s}`)})`)
+      .join('; ')}`,
     `- [${t('web.landing.pricingTitle')}](${url('/#pricing')}): ${t('web.landing.pricingBody')}`,
     `- [${t('web.landing.faqTitle')}](${url('/#faq')}): ${landingFaq(t)
       .map((entry) => entry.question)

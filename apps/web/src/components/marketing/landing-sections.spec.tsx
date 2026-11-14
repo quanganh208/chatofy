@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,6 +24,10 @@ vi.mock('@/i18n/server', async () => {
   };
 });
 vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
+vi.mock('server-only', () => ({}));
+// The streamed pricing band asks the API through this; the spec answers for it.
+const plansFetch = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+vi.mock('@/lib/fetch-public-plans', () => ({ fetchPublicPlans: () => plansFetch() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('next-auth/react', () => ({ useSession: () => ({ status: 'unauthenticated' }) }));
 
@@ -36,7 +41,7 @@ const { HowItWorks } = await import('./how-it-works');
 const { UseCases } = await import('./use-cases');
 const { RecordingPrivacy } = await import('./recording-privacy');
 const { Surfaces } = await import('./surfaces');
-const { PricingTeaser } = await import('./pricing-teaser');
+const { PricingTeaser, PricingTeaserBody } = await import('./pricing-teaser');
 const { Faq } = await import('./faq');
 const { FooterCta } = await import('./footer-cta');
 const { LANDING_FAQ } = await import('@/lib/landing-faq');
@@ -74,7 +79,7 @@ describe('the landing page', () => {
       UseCases(),
       RecordingPrivacy(),
       Surfaces(),
-      PricingTeaser({ plans: SEEDED_PLANS }),
+      PricingTeaserBody({ plans: SEEDED_PLANS }),
       Faq(),
       FooterCta(),
       MarketingFooter(),
@@ -104,7 +109,7 @@ describe('the landing page', () => {
 
 describe('PricingTeaser', () => {
   it('states the Free allowance from the plan rows, and how to see the rest', async () => {
-    await mount([await PricingTeaser({ plans: SEEDED_PLANS })]);
+    await mount([await PricingTeaserBody({ plans: SEEDED_PLANS })]);
     const free = SEEDED_PLANS.find((plan) => plan.kind === 'free')!;
     expect(container.textContent).toContain(`${free.credits} credits every month`);
     expect(container.textContent).toContain(en['web.pricing.notOpen']);
@@ -113,13 +118,35 @@ describe('PricingTeaser', () => {
   });
 
   it('names no count when the plans could not be loaded', async () => {
-    await mount([await PricingTeaser({ plans: null })]);
+    await mount([await PricingTeaserBody({ plans: null })]);
     expect(container.textContent).not.toMatch(/\d/);
     expect(container.textContent).toContain(en['web.pricing.notOpen']);
   });
 });
 
+describe('PricingTeaser (streamed)', () => {
+  it('asks for the plans itself and renders the band they make', async () => {
+    plansFetch.mockResolvedValueOnce(SEEDED_PLANS);
+    await mount([await PricingTeaser()]);
+    expect(plansFetch).toHaveBeenCalled();
+    expect(container.textContent).toContain('120 credits every month');
+  });
+
+  it('renders the band without a number when the plans are unavailable', async () => {
+    plansFetch.mockResolvedValueOnce(null);
+    await mount([await PricingTeaser()]);
+    expect(container.textContent).not.toMatch(/\d/);
+  });
+});
+
 describe('Faq', () => {
+  it('puts every answer in the server HTML, so markup and page agree', async () => {
+    const html = renderToStaticMarkup(<LocaleProvider>{await Faq()}</LocaleProvider>);
+    for (const topic of LANDING_FAQ) {
+      expect(html).toContain(escapeHtml(en[`web.landing.faq${topic}Answer`]));
+    }
+  });
+
   it('asks every question and opens an answer through the shared accordion', async () => {
     await mount([await Faq()]);
     const triggers = [...container.querySelectorAll('[data-slot="accordion-trigger"]')];
@@ -127,13 +154,28 @@ describe('Faq', () => {
       LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Question`]),
     );
 
-    const answer = en['web.landing.faqHeadphonesAnswer'];
-    expect(container.textContent).not.toContain(answer);
+    // Closed, the answer is in the DOM but its panel is closed, and the wrapper the
+    // text sits in carries the class that hides it while the panel is closed.
+    const panel = () => container.querySelectorAll('[data-slot="accordion-content"]')[2]!;
+    expect(panel().textContent).toBe(en['web.landing.faqHeadphonesAnswer']);
+    expect(panel().getAttribute('data-state')).toBe('closed');
+    expect(panel().firstElementChild?.classList).toContain('in-data-[state=closed]:hidden');
+
     await act(async () => {
       (triggers[2] as HTMLButtonElement).click();
       await Promise.resolve();
     });
     expect(triggers[2]?.getAttribute('aria-expanded')).toBe('true');
-    expect(container.textContent).toContain(answer);
+    expect(panel().getAttribute('data-state')).toBe('open');
   });
 });
+
+/** As `renderToStaticMarkup` escapes text: apostrophes and ampersands. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#x27;')
+    .replace(/"/g, '&quot;');
+}

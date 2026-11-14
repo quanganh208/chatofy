@@ -102,7 +102,15 @@ describe('the landing markdown without plans', () => {
 describe('llms.txt sections', () => {
   it('points at every landing section an agent might want by anchor', () => {
     const text = llmsTxt(createTranslator(en), ORIGIN);
-    for (const id of ['modes', 'how-it-works', 'use-cases', 'privacy', 'pricing', 'faq']) {
+    for (const id of [
+      'modes',
+      'how-it-works',
+      'use-cases',
+      'privacy',
+      'where-it-runs',
+      'pricing',
+      'faq',
+    ]) {
       expect(text).toContain(`](${ORIGIN}/#${id})`);
     }
   });

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import type { MessageKey } from '@chatofy/i18n';
+import { LANGUAGE_CODES, type LanguageTable } from '@chatofy/types';
 import { dawn } from '@chatofy/ui';
 import { Button } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
@@ -10,6 +12,17 @@ import { HeroTwoWayCard } from './mockups/hero-two-way-card';
  * locale and are not dictionary strings; the list is the README's ("Browser extension").
  */
 const CALL_APPS = ['Google Meet', 'Zoom', 'Facebook'] as const;
+
+/**
+ * Each registry language's name in its own script. A `LanguageTable`, so a language
+ * added to the registry is a type error here until it has one — the strip then lists it
+ * without an edit, as the footer does.
+ */
+const OWN_NAME: LanguageTable<MessageKey> = {
+  vi: 'common.language.vietnamese',
+  en: 'common.language.english',
+  zh: 'common.language.chinese',
+};
 
 /**
  * The first screen: one claim, two actions, a look at the thing itself, and — under all
@@ -34,11 +47,7 @@ const CALL_APPS = ['Google Meet', 'Zoom', 'Facebook'] as const;
 export async function Hero() {
   const t = await getT();
 
-  const languages = [
-    t('common.language.vietnamese'),
-    t('common.language.english'),
-    t('common.language.chinese'),
-  ];
+  const languages = LANGUAGE_CODES.map((code) => t(OWN_NAME[code]));
   const platforms = [t('web.landing.heroPlatformBrowser'), ...CALL_APPS];
 
   return (

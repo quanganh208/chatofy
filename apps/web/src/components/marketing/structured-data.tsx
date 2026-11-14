@@ -1,3 +1,4 @@
+import { htmlLang } from '@chatofy/i18n';
 import { LANGUAGE_CODES, type Plan } from '@chatofy/types';
 import { serverEnv } from '@/config/server-env';
 import { getLocale, getT } from '@/i18n/server';
@@ -31,7 +32,8 @@ export async function StructuredData({
   faq = false,
 }: { plans?: Plan[] | null; faq?: boolean } = {}) {
   const t = await getT();
-  const offers = plans?.length ? pricingOffers(t, await getLocale(), plans) : null;
+  const locale = await getLocale();
+  const offers = plans?.length ? pricingOffers(t, locale, plans) : null;
   const url = new URL('/', serverEnv.WEB_BASE_URL).toString();
 
   const graph = {
@@ -60,6 +62,8 @@ export async function StructuredData({
             {
               '@type': 'FAQPage',
               '@id': `${url}#faq`,
+              url: `${url}#faq`,
+              inLanguage: htmlLang(locale),
               isPartOf: { '@id': `${url}#website` },
               mainEntity: landingFaq(t).map((entry) => ({
                 '@type': 'Question',

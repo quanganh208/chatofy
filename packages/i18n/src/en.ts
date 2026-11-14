@@ -1094,7 +1094,7 @@ export const en = {
   //
   // Every FAQ answer is traceable: languages and Auto-detect to `howTwoBody`; the
   // wait to `howOneBody`; headphones to `web.preferences.audio.echoCancellationHint`
-  // (echo cancellation defaults on in `mic-processing.ts`); recordings to the
+  // (echo cancellation defaults on in `mic-processing.ts`; "not usually" because it rests on the browser's echo cancellation); recordings to the
   // `localKept*` lines; cost to `web.pricing.notOpen`; Zoom's desktop app to the
   // README's extension section; accounts to `meetingsLinkBody` and `proxy.ts`.
   'web.landing.navModes': 'Features',
@@ -1118,7 +1118,7 @@ export const en = {
     'Play a finished conversation back, read it again, download the transcript or subtitles, and generate minutes.',
   'web.landing.modeGlossaryTitle': 'Your names and terms',
   'web.landing.modeGlossaryBody':
-    'A glossary keeps your names and terms translated the way you want.',
+    'Add your names and terms to a glossary, and translated conversations use them.',
   'web.landing.mockMeetingSubtitle': "Let's start with the launch plan.",
   'web.landing.mockMeetingMessage': "I'll send the slides after the call.",
   'web.landing.mockHistoryOne': 'Checking in at the hotel',
@@ -1128,7 +1128,7 @@ export const en = {
   'web.landing.useCasesBody': 'Wherever two languages meet.',
   'web.landing.useTravelTitle': 'Travelling',
   'web.landing.useTravelBody':
-    'Ask for directions, check in, order at a counter — speak your language and hear the answer in it.',
+    'Ask for directions, check in, order at a counter — between Vietnamese and English for now, each side speaking their own language.',
   'web.landing.useFamilyTitle': 'Family abroad',
   'web.landing.useFamilyBody':
     'Talk with relatives who speak another language, inside the Meet, Zoom or Facebook call you already use.',
@@ -1142,8 +1142,12 @@ export const en = {
   'web.landing.surfaceStatusExtension': 'Not in the Chrome Web Store yet',
   'web.landing.surfaceStatusPhone': 'In development',
   'web.landing.pricingTitle': 'Start with free credits',
+  // `pricingBody` and `faqCostAnswer` promise a free monthly allowance and a flat cost
+  // for minutes in words, with no number. The allowance is a `Plan` row: if Free is ever
+  // switched off (0 credits, `plan-catalog.ts`), both lines change with it in every
+  // locale. The flat cost is `credit-pricing.ts` (see credits-and-billing.md).
   'web.landing.pricingBody':
-    'Translation is paid for in credits, spent by the minute while you translate. Every account gets a free allowance each month.',
+    'Translation is paid for in credits, spent by the minute while you translate, plus a small flat cost each time you generate minutes. Every account gets a free allowance each month.',
   'web.landing.pricingLink': 'See plans and top-ups',
   'web.landing.faqTitle': 'Questions, answered',
   'web.landing.faqLanguagesQuestion': 'Which languages does Chatofy translate?',
@@ -1154,13 +1158,13 @@ export const en = {
     'About a second after you pause. Your turn ends when you stop talking, so there is no button to hold.',
   'web.landing.faqHeadphonesQuestion': 'Do I need headphones?',
   'web.landing.faqHeadphonesAnswer':
-    'No. Echo cancellation is on by default, so the microphone keeps listening while a translation plays through your speakers. With headphones you can turn it off in the audio settings; the microphone then pauses while a translation plays.',
+    'Not usually. Echo cancellation is on by default, so the microphone keeps listening while a translation plays through your speakers. With headphones you can turn it off in the audio settings; the microphone then pauses while a translation plays.',
   'web.landing.faqRecordingsQuestion': 'What happens to my recordings?',
   'web.landing.faqRecordingsAnswer':
     'The translation service receives text only, never your audio. A finished conversation is saved to your history with its recording, and deleting the conversation deletes the recording. Meetings keep text, never audio.',
   'web.landing.faqCostQuestion': 'What does it cost?',
   'web.landing.faqCostAnswer':
-    'Every account gets free credits each month, spent by the minute while you translate. Paid plans and top-ups are listed on the pricing page, but checkout is not open to the public.',
+    'Every account gets free credits each month, spent by the minute while you translate, plus a small flat cost each time you generate minutes. Paid plans and top-ups are listed on the pricing page, but checkout is not open to the public.',
   'web.landing.faqExtensionQuestion': 'Does it work in Google Meet, Zoom or Facebook calls?',
   'web.landing.faqExtensionAnswer':
     'Yes, through the Chrome extension, which translates both ways inside the call. Zoom works in its web client, not the desktop app. The extension is not in the Chrome Web Store yet.',

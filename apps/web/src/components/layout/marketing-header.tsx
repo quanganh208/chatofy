@@ -35,9 +35,12 @@ import { isLiveSession } from '@/lib/session-guard';
  *
  * Five anchors — what it does, how, for whom, what it costs, questions — and each one has
  * an `id` to land on, owned by the section in `components/marketing/`, so an anchor and its
- * target are written in the same change. Privacy and where it runs are one scroll from
- * them and listed in the footer, which is where a reader looking for them goes. That was the whole reason they waited: an anchor to a missing `id` fails the
- * way a dead nav item does, silently and only for the person who clicked it.
+ * target are written in the same change. That was the whole reason the anchors waited for
+ * their sections: an anchor to a missing `id` fails the way a dead nav item does, silently
+ * and only for the person who clicked it.
+ *
+ * Privacy and where it runs are not in this list: each is one scroll from an anchor that
+ * is, and both are in the footer, which is where a reader looking for them goes.
  *
  * The mobile sheet arrives with them for the same reason. A sheet holding two buttons
  * that already fit on a phone reveals nothing; a sheet holding five links that do not

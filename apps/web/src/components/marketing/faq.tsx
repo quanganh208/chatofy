@@ -14,6 +14,15 @@ import { landingFaq } from '@/lib/landing-faq';
  * the `aria-expanded` wiring and the reduced-motion guard on its open and close.
  * `type="single" collapsible`, one answer open at a time, so the list stays scannable.
  *
+ * **Every answer is in the server HTML, open or not.** Radix renders a closed panel's
+ * children only when `forceMount` is set (`isOpen = context.open || present`), so it is
+ * set here, and the closed state is hidden with `display: none` on the panel's inner
+ * wrapper, keyed on the panel's own `data-state`. A crawler, a no-script reader and the
+ * JSON-LD `FAQPage` therefore all see the same answers; a closed answer stays out of the
+ * accessibility tree until it is opened. `hidden="until-found"` would also let
+ * find-in-page open it, but Radix sets `hidden` itself and offers no way to ask for that
+ * value, so it is not used.
+ *
  * Two columns from `lg`: the heading holds the left as a sticky label while the list
  * scrolls past it. No control in this section is filled.
  */
@@ -35,7 +44,10 @@ export async function Faq() {
               <AccordionTrigger className="text-body py-5 hover:no-underline">
                 {entry.question}
               </AccordionTrigger>
-              <AccordionContent className="text-prose max-w-prose pb-5">
+              <AccordionContent
+                forceMount
+                className="text-prose max-w-prose pb-5 in-data-[state=closed]:hidden"
+              >
                 {entry.answer}
               </AccordionContent>
             </AccordionItem>

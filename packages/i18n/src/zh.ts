@@ -835,7 +835,7 @@ export const zh: Messages = {
   'web.landing.modeHistoryTitle': '每次对话都会保留',
   'web.landing.modeHistoryBody': '回放已结束的对话、再读一遍、下载文字记录或字幕，并生成纪要。',
   'web.landing.modeGlossaryTitle': '你的名称和术语',
-  'web.landing.modeGlossaryBody': '术语表让你的名称和术语按你想要的方式翻译。',
+  'web.landing.modeGlossaryBody': '把你的名称和术语加入术语表，翻译对话时就会用到它们。',
   'web.landing.mockMeetingSubtitle': '我们先从发布计划开始吧。',
   'web.landing.mockMeetingMessage': '会后我会把幻灯片发给大家。',
   'web.landing.mockHistoryOne': '酒店入住',
@@ -844,7 +844,7 @@ export const zh: Messages = {
   'web.landing.useCasesTitle': '为真实场景而做',
   'web.landing.useCasesBody': '只要两种语言相遇，就用得上。',
   'web.landing.useTravelTitle': '旅行',
-  'web.landing.useTravelBody': '问路、入住、点餐：说你自己的语言，也用你的语言听到回答。',
+  'web.landing.useTravelBody': '问路、入住、点餐：目前支持越南语和英语之间，双方各说自己的语言。',
   'web.landing.useFamilyTitle': '海外的家人',
   'web.landing.useFamilyBody':
     '和说另一种语言的亲人聊天，就在你常用的 Meet、Zoom 或 Facebook 通话里。',
@@ -857,7 +857,8 @@ export const zh: Messages = {
   'web.landing.surfaceStatusExtension': '尚未上架 Chrome 应用商店',
   'web.landing.surfaceStatusPhone': '开发中',
   'web.landing.pricingTitle': '从免费点数开始',
-  'web.landing.pricingBody': '翻译按点数计费，翻译时按分钟扣除。每个账户每月都有免费额度。',
+  'web.landing.pricingBody':
+    '翻译按点数计费，翻译时按分钟扣除；每次生成纪要另收少量固定点数。每个账户每月都有免费额度。',
   'web.landing.pricingLink': '查看套餐和充值',
   'web.landing.faqTitle': '常见问题',
   'web.landing.faqLanguagesQuestion': 'Chatofy 能翻译哪些语言？',
@@ -868,13 +869,13 @@ export const zh: Messages = {
     '你停顿后大约一秒。你一停止说话，这一轮就结束，所以不用按住任何按钮。',
   'web.landing.faqHeadphonesQuestion': '需要戴耳机吗？',
   'web.landing.faqHeadphonesAnswer':
-    '不需要。回声消除默认开启，所以译文从扬声器播放时，麦克风仍会继续听。戴耳机时，你可以在音频设置里关闭它；关闭后，译文播放期间麦克风会暂停。',
+    '通常不需要。回声消除默认开启，所以译文从扬声器播放时，麦克风仍会继续听。戴耳机时，你可以在音频设置里关闭它；关闭后，译文播放期间麦克风会暂停。',
   'web.landing.faqRecordingsQuestion': '我的录音会怎样处理？',
   'web.landing.faqRecordingsAnswer':
     '翻译服务只接收文字，绝不接收你的音频。已结束的对话会连同录音保存到你的历史记录，删除对话时录音也会一并删除。会议只保存文字，从不保存音频。',
   'web.landing.faqCostQuestion': '要花钱吗？',
   'web.landing.faqCostAnswer':
-    '每个账户每月都有免费点数，翻译时按分钟扣除。付费套餐和充值列在价格页面上，但暂不向公众开放购买。',
+    '每个账户每月都有免费点数，翻译时按分钟扣除；每次生成纪要另收少量固定点数。付费套餐和充值列在价格页面上，但暂不向公众开放购买。',
   'web.landing.faqExtensionQuestion': '能在 Google Meet、Zoom 或 Facebook 通话中使用吗？',
   'web.landing.faqExtensionAnswer':
     '可以，通过 Chrome 扩展，它会在通话中双向翻译。Zoom 请使用网页版，不支持桌面应用。扩展尚未上架 Chrome 应用商店。',

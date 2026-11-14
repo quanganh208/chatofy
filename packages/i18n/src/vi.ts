@@ -857,7 +857,7 @@ export const vi: Messages = {
     'Nghe lại một cuộc hội thoại đã kết thúc, đọc lại, tải bản ghi chữ hoặc phụ đề, và tạo biên bản.',
   'web.landing.modeGlossaryTitle': 'Tên riêng và thuật ngữ của bạn',
   'web.landing.modeGlossaryBody':
-    'Bảng thuật ngữ giữ cho tên riêng và thuật ngữ của bạn được dịch đúng như bạn muốn.',
+    'Thêm tên riêng và thuật ngữ của bạn vào bảng thuật ngữ, và các cuộc hội thoại được dịch sẽ dùng chúng.',
   'web.landing.mockMeetingSubtitle': 'Mình bắt đầu với kế hoạch ra mắt nhé.',
   'web.landing.mockMeetingMessage': 'Sau buổi họp mình sẽ gửi slide.',
   'web.landing.mockHistoryOne': 'Nhận phòng khách sạn',
@@ -867,7 +867,7 @@ export const vi: Messages = {
   'web.landing.useCasesBody': 'Ở bất cứ đâu hai ngôn ngữ gặp nhau.',
   'web.landing.useTravelTitle': 'Đi du lịch',
   'web.landing.useTravelBody':
-    'Hỏi đường, nhận phòng, gọi món — nói bằng ngôn ngữ của bạn và nghe câu trả lời cũng bằng ngôn ngữ đó.',
+    'Hỏi đường, nhận phòng, gọi món — hiện dùng giữa tiếng Việt và tiếng Anh, mỗi bên nói ngôn ngữ của mình.',
   'web.landing.useFamilyTitle': 'Gia đình ở nước ngoài',
   'web.landing.useFamilyBody':
     'Trò chuyện với người thân nói một ngôn ngữ khác, ngay trong cuộc gọi Meet, Zoom hoặc Facebook bạn vẫn dùng.',
@@ -882,7 +882,7 @@ export const vi: Messages = {
   'web.landing.surfaceStatusPhone': 'Đang phát triển',
   'web.landing.pricingTitle': 'Bắt đầu với credit miễn phí',
   'web.landing.pricingBody':
-    'Việc dịch được trả bằng credit, trừ theo phút khi bạn dịch. Mỗi tài khoản được một lượng credit miễn phí mỗi tháng.',
+    'Việc dịch được trả bằng credit, trừ theo phút khi bạn dịch, cộng một khoản cố định nhỏ mỗi lần bạn tạo biên bản. Mỗi tài khoản được một lượng credit miễn phí mỗi tháng.',
   'web.landing.pricingLink': 'Xem các gói và gói nạp thêm',
   'web.landing.faqTitle': 'Câu hỏi thường gặp',
   'web.landing.faqLanguagesQuestion': 'Chatofy dịch những ngôn ngữ nào?',
@@ -893,13 +893,13 @@ export const vi: Messages = {
     'Khoảng một giây sau khi bạn dừng lại. Lượt nói kết thúc khi bạn ngừng nói, nên không cần giữ nút nào.',
   'web.landing.faqHeadphonesQuestion': 'Tôi có cần tai nghe không?',
   'web.landing.faqHeadphonesAnswer':
-    'Không. Khử vọng được bật sẵn, nên micro vẫn nghe trong lúc bản dịch phát qua loa. Nếu dùng tai nghe, bạn có thể tắt nó trong cài đặt âm thanh; khi đó micro tạm dừng trong lúc bản dịch phát.',
+    'Thường thì không. Khử vọng được bật sẵn, nên micro vẫn nghe trong lúc bản dịch phát qua loa. Nếu dùng tai nghe, bạn có thể tắt nó trong cài đặt âm thanh; khi đó micro tạm dừng trong lúc bản dịch phát.',
   'web.landing.faqRecordingsQuestion': 'Bản ghi âm của tôi được xử lý thế nào?',
   'web.landing.faqRecordingsAnswer':
     'Dịch vụ dịch chỉ nhận văn bản, không bao giờ nhận âm thanh của bạn. Cuộc hội thoại đã kết thúc được lưu vào lịch sử cùng bản ghi âm, và xoá cuộc hội thoại sẽ xoá luôn bản ghi âm. Cuộc họp chỉ lưu văn bản, không lưu âm thanh.',
   'web.landing.faqCostQuestion': 'Dùng Chatofy có tốn tiền không?',
   'web.landing.faqCostAnswer':
-    'Mỗi tài khoản được credit miễn phí hằng tháng, trừ theo phút khi bạn dịch. Các gói trả phí và gói nạp thêm có trên trang bảng giá, nhưng chưa mở thanh toán cho mọi người.',
+    'Mỗi tài khoản được credit miễn phí hằng tháng, trừ theo phút khi bạn dịch, cộng một khoản cố định nhỏ mỗi lần bạn tạo biên bản. Các gói trả phí và gói nạp thêm có trên trang bảng giá, nhưng chưa mở thanh toán cho mọi người.',
   'web.landing.faqExtensionQuestion':
     'Có dùng được trong cuộc gọi Google Meet, Zoom hoặc Facebook không?',
   'web.landing.faqExtensionAnswer':

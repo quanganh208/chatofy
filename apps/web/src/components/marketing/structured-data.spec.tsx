@@ -28,6 +28,8 @@ type Node = {
   '@type': string;
   offers?: { price: string; priceCurrency: string }[];
   mainEntity?: { name: string; acceptedAnswer: { text: string } }[];
+  url?: string;
+  inLanguage?: string | string[];
 };
 
 async function graphOf(element: Promise<React.ReactElement>): Promise<Node[]> {
@@ -65,6 +67,8 @@ describe('StructuredData', () => {
     expect(faq?.mainEntity?.map((q) => q.name)).toEqual(
       LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Question`]),
     );
+    expect(faq?.url).toBe('https://chatofy.example/#faq');
+    expect(faq?.inLanguage).toBe('en');
     expect(faq?.mainEntity?.map((q) => q.acceptedAnswer.text)).toEqual(
       LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Answer`]),
     );
