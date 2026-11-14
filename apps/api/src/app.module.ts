@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CreditsModule } from './modules/credits/credits.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { GlossariesModule } from './modules/glossaries/glossaries.module';
+import { TeamsModule } from './modules/teams/teams.module';
 import { TranslationContextsModule } from './modules/translation-contexts/translation-contexts.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
@@ -32,6 +33,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ConversationsModule,
     TranslationContextsModule,
     GlossariesModule,
+    TeamsModule,
     StorageModule,
     TranslateModule,
     ConferenceModule,
