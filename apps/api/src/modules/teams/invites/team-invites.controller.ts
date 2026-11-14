@@ -45,7 +45,7 @@ export class TeamInvitesController {
   @ApiOperation({
     summary: 'Invite an email address to the team',
     description:
-      'Admins invite members; only the owner invites admins (403). Mails a single-use link valid for 7 days. 409 when the person is already a member, an invite to the address is pending, the address was invited in the last 10 minutes, or the team has no seats left. 429 past 20 invites per inviter per 24 hours.',
+      'Admins invite members; only the owner invites admins (403). Mails a single-use link valid for 7 days. 409 when the person is already a member, an invite to the address is pending, the address was invited recently in any team, or the team has no seats left. 429 past 20 invites per inviter per 24 hours.',
   })
   @ApiEnvelopeResponse(TeamInviteResponseDto)
   @ApiErrorResponses(400, 401, 403, 404, 409, 429)

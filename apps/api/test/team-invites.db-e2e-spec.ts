@@ -31,6 +31,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import {
   MAIL_SENDER,
+  MailBudgetClass,
   MailPurpose,
   type MailDispatch,
   type MailSender,
@@ -120,6 +121,9 @@ describe('Team invites (db-e2e)', () => {
       .expect(201);
     const invite = successBody(res, teamInviteResponseSchema).data.invite;
     expect(invite).toMatchObject({ email: B.email, status: 'pending' });
+    // The raw body: the zod helper would strip a key the API must never send.
+    expect(res.body.data.invite).not.toHaveProperty('token');
+    expect(res.body.data.invite).not.toHaveProperty('tokenHash');
 
     await vi.waitFor(() =>
       expect(
@@ -129,6 +133,11 @@ describe('Team invites (db-e2e)', () => {
       ).toBe(true),
     );
     const mail = sentMail.find((m) => m.to === B.email)!;
+    // An authenticated caller names an arbitrary recipient.
+    expect(mail.budgetClass).toBe(MailBudgetClass.AttackerTriggerable);
+    expect(JSON.stringify(res.body)).not.toContain(
+      new URL(mail.link).searchParams.get('token')!,
+    );
     const url = new URL(mail.link);
     expect(url.pathname).toBe('/invite');
     bToken = url.searchParams.get('token')!;
@@ -205,6 +214,82 @@ describe('Team invites (db-e2e)', () => {
     );
   });
 
+  it('the owner invites an admin, who joins as admin', async () => {
+    const C = await who('co-admin');
+    await call(O, 'post', `/teams/${T}/invites`)
+      .send({ email: C.email, role: 'admin' })
+      .expect(201);
+    await vi.waitFor(() =>
+      expect(sentMail.some((m) => m.to === C.email)).toBe(true),
+    );
+    const token = new URL(
+      sentMail.find((m) => m.to === C.email)!.link,
+    ).searchParams.get('token')!;
+    expect(previewOf(await preview(C, token).expect(200)).role).toBe('admin');
+    const joined = await accept(C, token).expect(200);
+    expect(successBody(joined, acceptInviteResponseSchema).data.team.role).toBe(
+      'admin',
+    );
+  });
+
+  it('two accepts at once join once; the second reads the invite as used', async () => {
+    const Q = await who('racer');
+    const invite = await seedInvite(T, Q.email);
+    const [first, second] = await Promise.all([
+      accept(Q, invite.token),
+      accept(Q, invite.token),
+    ]);
+    // The loser waits on the locks, re-reads the invite, and finds it spent:
+    // a spent invite reads as spent before membership is checked.
+    const [won, lost] =
+      first.status === 200 ? [first, second] : [second, first];
+    expect([won.status, lost.status]).toEqual([200, 409]);
+    expect(errorBody(lost).error.code).toBe('INVITE_NOT_PENDING');
+    expect(errorBody(lost).error.details).toEqual([
+      { path: 'status', message: 'accepted' },
+    ]);
+    expect(
+      await prisma.teamMember.count({ where: { teamId: T, userId: Q.userId } }),
+    ).toBe(1);
+    expect(await acceptedAt(invite.token)).not.toBeNull();
+  });
+
+  it('only admins list or withdraw invites', async () => {
+    const open = await seedInvite(T, emailFor('listed'));
+    await call(M, 'get', `/teams/${T}/invites`).expect(403);
+    await call(M, 'delete', `/teams/${T}/invites/${open.row.id}`).expect(403);
+    await call(X, 'get', `/teams/${T}/invites`).expect(404);
+    await call(X, 'delete', `/teams/${T}/invites/${open.row.id}`).expect(404);
+    const listed = await call(A, 'get', `/teams/${T}/invites`).expect(200);
+    expect(JSON.stringify(listed.body)).not.toContain(open.token);
+    expect(JSON.stringify(listed.body)).toContain(open.row.id);
+    await call(A, 'delete', `/teams/${T}/invites/${open.row.id}`).expect(204);
+    expect(
+      (
+        await prisma.teamInvite.findUniqueOrThrow({
+          where: { id: open.row.id },
+        })
+      ).revokedAt,
+    ).not.toBeNull();
+  });
+
+  it('a member demoted from admin can no longer invite', async () => {
+    const R = await who('demoted');
+    await prisma.teamMember.create({
+      data: { teamId: T, userId: R.userId, role: 'admin' },
+    });
+    await call(R, 'post', `/teams/${T}/invites`)
+      .send({ email: emailFor('before-demotion'), role: 'member' })
+      .expect(201);
+    await prisma.teamMember.update({
+      where: { teamId_userId: { teamId: T, userId: R.userId } },
+      data: { role: 'member' },
+    });
+    await call(R, 'post', `/teams/${T}/invites`)
+      .send({ email: emailFor('after-demotion'), role: 'member' })
+      .expect(403);
+  });
+
   it('invite permissions', async () => {
     await call(M, 'post', `/teams/${T}/invites`)
       .send({ email: emailFor('by-member'), role: 'member' })
@@ -230,7 +315,7 @@ describe('Team invites (db-e2e)', () => {
 
     it('refuses a second live invite to one address', async () => {
       const address = emailFor('pending');
-      await seedInvite(T, address, { createdAt: ago(11 * MINUTE) });
+      await seedInvite(T, address, { createdAt: ago(12 * MINUTE) });
       const res = await call(O, 'post', `/teams/${T}/invites`)
         .send({ email: address, role: 'member' })
         .expect(409);
@@ -250,7 +335,7 @@ describe('Team invites (db-e2e)', () => {
       const seeded = await Promise.all(
         Array.from({ length: 20 - members - live }, (_, i) =>
           seedInvite(T, emailFor(`seat-${i}`), {
-            createdAt: ago(11 * MINUTE),
+            createdAt: ago(12 * MINUTE),
           }),
         ),
       );
@@ -276,7 +361,7 @@ describe('Team invites (db-e2e)', () => {
         await seedInvite(TD, emailFor(`daily-${i}`), {
           invitedById: D.userId,
           expiresAt: ago(MINUTE),
-          createdAt: ago(11 * MINUTE),
+          createdAt: ago(12 * MINUTE),
         });
       }
       await call(D, 'post', `/teams/${TD}/invites`)
@@ -294,9 +379,7 @@ describe('Team invites (db-e2e)', () => {
     const second = await call(O, 'post', `/teams/${T3}/invites`)
       .send({ email: E, role: 'member' })
       .expect(409);
-    expect(errorBody(second).error.message).toContain(
-      'sent in the last 10 minutes',
-    );
+    expect(errorBody(second).error.message).toContain('sent recently');
     await vi.waitFor(() =>
       expect(sentMail.filter((m) => m.to === E)).toHaveLength(1),
     );
@@ -306,9 +389,7 @@ describe('Team invites (db-e2e)', () => {
     const reinvite = await call(O, 'post', `/teams/${T}/invites`)
       .send({ email: E, role: 'member' })
       .expect(409);
-    expect(errorBody(reinvite).error.message).toContain(
-      'sent in the last 10 minutes',
-    );
+    expect(errorBody(reinvite).error.message).toContain('sent recently');
   });
 
   it('the membership cap refuses accept without spending', async () => {

@@ -30,8 +30,12 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
  * The mail guard drops a second mail of one purpose to one address inside
  * this window, keyed on the address alone. Refusing the invite here is what
  * keeps the API from answering 201 for a mail that will never be sent.
+ *
+ * One minute longer than the guard's 10: the guard counts from the send,
+ * which lands a moment after this row's `createdAt`, so a window of exactly
+ * 10 minutes here would let a re-invite at the boundary through.
  */
-const MAIL_COOLDOWN_MS = 10 * MINUTE_MS;
+const MAIL_COOLDOWN_MS = 11 * MINUTE_MS;
 
 interface InviteRow {
   id: string;
@@ -131,7 +135,7 @@ export class TeamInvitesService {
         });
         if (recent !== null) {
           throw new ConflictException(
-            'An invite to this address was sent in the last 10 minutes. Try again later.',
+            'An invite to this address was sent recently. Try again in a few minutes.',
           );
         }
 
