@@ -1,13 +1,16 @@
 import { PlainFrame } from '@/components/layout/plain-frame';
 
 /**
- * Sign in, register, and the three token-carrying routes.
+ * Sign in, register, and the four token-carrying routes (verify, forgot and reset
+ * password, team invite).
  *
  * `PlainFrame` and not the product chrome, which is the requirement rather than a
  * styling choice: **no navigation and no sign-out control on any of these routes.**
  * Until now that held only because `SessionMenu` returned `null` when signed out — a
  * behaviour of a component two files away, not a property of these pages. The frame has
- * no session anything, so it is now structural.
+ * no session anything, so it is now structural. The one sign-out on these routes is
+ * a step inside `/invite`'s own content, shown only to someone signed in as the wrong
+ * account for that invite; the frame still carries none.
  *
  * The return links stay in the pages. Each of these routes wants a different one — back
  * to sign in from the reset flow, "already have an account" from register, none at all

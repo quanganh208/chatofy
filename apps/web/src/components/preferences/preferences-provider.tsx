@@ -16,6 +16,7 @@ import { cachedUserId, forgetAccountPreferences } from '@/lib/preferences/prefer
 import { createAccountHolder, type AccountHolder } from '@/lib/preferences/preferences-holders';
 import { isLiveSession } from '@/lib/session-guard';
 import { applyChoice } from '@/lib/theme';
+import { forgetStoredWorkspace } from '@/lib/workspace-store';
 
 /**
  * One tab switch fires both `focus` and `visibilitychange`; a second read inside
@@ -94,6 +95,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     account.current?.dispose(true);
     account.current = null;
     forgetAccountPreferences();
+    forgetStoredWorkspace();
     resetActivePreferences(uiLocale);
   }, [status, userId, uiLocale, accountLocale]);
 
