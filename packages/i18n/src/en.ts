@@ -1072,21 +1072,122 @@ export const en = {
   'web.landing.surfaceExtensionTitle': 'Extension for Meet, Zoom and Facebook',
   'web.landing.surfaceExtensionBody': 'Two-way translation inside the call you are already in.',
   'web.landing.surfacePhoneTitle': 'On your phone',
-  'web.landing.surfacePhoneBody':
-    'In development. Supports joining meetings; not yet released in the app stores.',
+  'web.landing.surfacePhoneBody': 'Supports joining meetings; not yet released in the app stores.',
 
   'web.landing.ctaTitle': 'Try one conversation',
   'web.landing.ctaBody': 'Needs a microphone and an account. No card.',
   'web.landing.navMenu': 'Menu',
   // Short forms for the header nav, which has to fit one line beside the brand at
   // 1024px. The section headings stay as written; these only point at them.
-  'web.landing.navMeetings': 'Meetings',
   'web.landing.navHow': 'How it works',
   'web.landing.navLocal': 'Privacy',
   'web.landing.navSurfaces': 'Where it runs',
   // The part of `heroTitle` set in italic. Must appear verbatim inside it; the hero
   // falls back to an upright headline when it does not.
   'web.landing.heroTitleEmphasis': 'Be understood',
+
+  // ---- the redesigned landing: modes, use cases, pricing teaser, FAQ, footer ----
+  //
+  // `mock*` strings are the bento's illustrations, not claims. The cross-language
+  // ones (a source line and its translation) are the same in every locale, like the
+  // hero's demo; the ones shown "in your language" are translated per locale.
+  //
+  // Every FAQ answer is traceable: languages and Auto-detect to `howTwoBody`; the
+  // wait to `howOneBody`; headphones to `web.preferences.audio.echoCancellationHint`
+  // (echo cancellation defaults on in `mic-processing.ts`); recordings to the
+  // `localKept*` lines; cost to `web.pricing.notOpen`; Zoom's desktop app to the
+  // README's extension section; accounts to `meetingsLinkBody` and `proxy.ts`.
+  'web.landing.navModes': 'Features',
+  'web.landing.navUseCases': 'Use cases',
+  'web.landing.navPricing': 'Pricing',
+  'web.landing.navFaq': 'FAQ',
+  'web.landing.heroLanguagesLabel': 'Languages',
+  'web.landing.heroPlatformsLabel': 'Works in',
+  'web.landing.heroPlatformBrowser': 'Your browser',
+  'web.landing.modesTitle': 'Everything a conversation needs',
+  'web.landing.modesBody':
+    'Talk face to face, follow someone speaking, or run a whole meeting — and keep what was said.',
+  'web.landing.modeOneWayTitle': 'Follow someone speaking',
+  'web.landing.modeOneWayBody':
+    'For a talk, a class or a guide. Choose the language being spoken, or leave Vietnamese and English to Auto-detect, and hear it in yours.',
+  'web.landing.modeTwoWayTitle': 'Talk face to face',
+  'web.landing.modeTwoWayBody':
+    'Two people, one screen. Each of you speaks your own language and hears the other translated into it. Between Vietnamese and English for now.',
+  'web.landing.modeHistoryTitle': 'Every conversation, kept',
+  'web.landing.modeHistoryBody':
+    'Play a finished conversation back, read it again, download the transcript or subtitles, and generate minutes.',
+  'web.landing.modeGlossaryTitle': 'Your names and terms',
+  'web.landing.modeGlossaryBody':
+    'A glossary keeps your names and terms translated the way you want.',
+  'web.landing.mockMeetingSubtitle': "Let's start with the launch plan.",
+  'web.landing.mockMeetingMessage': "I'll send the slides after the call.",
+  'web.landing.mockHistoryOne': 'Checking in at the hotel',
+  'web.landing.mockHistoryTwo': 'Call with a supplier',
+  'web.landing.mockHistoryThree': 'Lecture on the old quarter',
+  'web.landing.useCasesTitle': 'Made for real situations',
+  'web.landing.useCasesBody': 'Wherever two languages meet.',
+  'web.landing.useTravelTitle': 'Travelling',
+  'web.landing.useTravelBody':
+    'Ask for directions, check in, order at a counter — speak your language and hear the answer in it.',
+  'web.landing.useFamilyTitle': 'Family abroad',
+  'web.landing.useFamilyBody':
+    'Talk with relatives who speak another language, inside the Meet, Zoom or Facebook call you already use.',
+  'web.landing.usePartnersTitle': 'Partners and customers',
+  'web.landing.usePartnersBody':
+    'Share one meeting link; everyone follows in their own language, and you can generate minutes when you finish.',
+  'web.landing.useStudyTitle': 'Classes and lectures',
+  'web.landing.useStudyBody':
+    'Follow a lecture given in another language, then read it again from your history.',
+  'web.landing.surfaceStatusBrowser': 'Available now',
+  'web.landing.surfaceStatusExtension': 'Not in the Chrome Web Store yet',
+  'web.landing.surfaceStatusPhone': 'In development',
+  'web.landing.pricingTitle': 'Start with free credits',
+  'web.landing.pricingBody':
+    'Translation is paid for in credits, spent by the minute while you translate. Every account gets a free allowance each month.',
+  'web.landing.pricingLink': 'See plans and top-ups',
+  'web.landing.faqTitle': 'Questions, answered',
+  'web.landing.faqLanguagesQuestion': 'Which languages does Chatofy translate?',
+  'web.landing.faqLanguagesAnswer':
+    'Vietnamese, English and Chinese. Auto-detect tells Vietnamese and English apart as you speak; for Chinese, choose the language before you start. Talking face to face works between Vietnamese and English for now.',
+  'web.landing.faqWaitQuestion': 'How long until I hear the translation?',
+  'web.landing.faqWaitAnswer':
+    'About a second after you pause. Your turn ends when you stop talking, so there is no button to hold.',
+  'web.landing.faqHeadphonesQuestion': 'Do I need headphones?',
+  'web.landing.faqHeadphonesAnswer':
+    'No. Echo cancellation is on by default, so the microphone keeps listening while a translation plays through your speakers. With headphones you can turn it off in the audio settings; the microphone then pauses while a translation plays.',
+  'web.landing.faqRecordingsQuestion': 'What happens to my recordings?',
+  'web.landing.faqRecordingsAnswer':
+    'The translation service receives text only, never your audio. A finished conversation is saved to your history with its recording, and deleting the conversation deletes the recording. Meetings keep text, never audio.',
+  'web.landing.faqCostQuestion': 'What does it cost?',
+  'web.landing.faqCostAnswer':
+    'Every account gets free credits each month, spent by the minute while you translate. Paid plans and top-ups are listed on the pricing page, but checkout is not open to the public.',
+  'web.landing.faqExtensionQuestion': 'Does it work in Google Meet, Zoom or Facebook calls?',
+  'web.landing.faqExtensionAnswer':
+    'Yes, through the Chrome extension, which translates both ways inside the call. Zoom works in its web client, not the desktop app. The extension is not in the Chrome Web Store yet.',
+  'web.landing.faqAccountQuestion': 'Can someone join a meeting without an account?',
+  'web.landing.faqAccountAnswer':
+    'Not yet. Anyone with an account joins from the meeting link, with nothing to install.',
+  'web.landing.faqPhoneQuestion': 'Is there a phone app?',
+  'web.landing.faqPhoneAnswer':
+    'It is in development. It can join meetings, but it is not in the app stores yet.',
+  'web.landing.footerProduct': 'Product',
+  'web.landing.footerOnThisPage': 'On this page',
+  'web.landing.footerResources': 'Resources',
+  'web.landing.footerLanguages': 'Languages',
+  'web.landing.footerMarkdownHome': 'This page as Markdown',
+  'web.landing.footerMarkdownPricing': 'Pricing as Markdown',
+  'web.landing.mockOneWaySource': 'Today we will walk through the old quarter and its history.',
+  'web.landing.mockOneWayTarget': '今天我们将走访老城区，了解它的历史。',
+  'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
+  'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
+  'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
+  'web.landing.mockTwoWayTargetTwo': 'Vâng, làm ơn — ra sân bay.',
+  'web.landing.mockTermOneSource': 'Phố cổ',
+  'web.landing.mockTermOneTarget': 'Old Quarter',
+  'web.landing.mockTermTwoSource': 'Bánh mì',
+  'web.landing.mockTermTwoTarget': 'Banh mi',
+  'web.landing.mockTermThreeSource': 'Hội An',
+  'web.landing.mockTermThreeTarget': 'Hoi An',
 
   // ---- web.pricing: the public /pricing page ----
   'web.pricing.title': 'Pricing',

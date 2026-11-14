@@ -1,4 +1,7 @@
-import type { Translate } from '@chatofy/i18n';
+import type { Locale, Translate } from '@chatofy/i18n';
+import type { Plan } from '@chatofy/types';
+import { landingFaq } from './landing-faq';
+import { pricingContent } from './pricing-content';
 
 /**
  * The landing page as markdown, for agents and answer engines that read `/index.md`.
@@ -12,24 +15,46 @@ import type { Translate } from '@chatofy/i18n';
  * Absolute URLs throughout: an agent handed this file has no page to resolve a
  * relative link against.
  */
-export function landingMarkdown(t: Translate, origin: string): string {
+export function landingMarkdown(
+  t: Translate,
+  origin: string,
+  locale: Locale,
+  plans: Plan[] | null,
+): string {
   const url = (path: string) => new URL(path, origin).toString();
+  const item = (title: string, body: string) => `- **${title}** — ${body}`;
+
+  const meetings = (['Link', 'Hear', 'Chat', 'Minutes'] as const).map((m) =>
+    item(t(`web.landing.meetings${m}Title`), t(`web.landing.meetings${m}Body`)),
+  );
+
+  const modes = (['OneWay', 'TwoWay', 'History', 'Glossary'] as const).map((m) =>
+    item(t(`web.landing.mode${m}Title`), t(`web.landing.mode${m}Body`)),
+  );
 
   const steps = (['One', 'Two', 'Three'] as const).map(
     (n, i) => `${i + 1}. **${t(`web.landing.how${n}Title`)}** — ${t(`web.landing.how${n}Body`)}`,
   );
 
-  const meetings = (['Link', 'Hear', 'Chat', 'Minutes'] as const).map(
-    (m) => `- **${t(`web.landing.meetings${m}Title`)}** — ${t(`web.landing.meetings${m}Body`)}`,
+  const useCases = (['Travel', 'Family', 'Partners', 'Study'] as const).map((u) =>
+    item(t(`web.landing.use${u}Title`), t(`web.landing.use${u}Body`)),
   );
 
   const kept = (['History', 'Link', 'Pause', 'Delete', 'Meeting'] as const).map(
     (k) => `- ${t(`web.landing.localKept${k}`)}`,
   );
 
-  const surfaces = (['Browser', 'Extension', 'Phone'] as const).map(
-    (s) => `- **${t(`web.landing.surface${s}Title`)}** — ${t(`web.landing.surface${s}Body`)}`,
+  const surfaces = (['Browser', 'Extension', 'Phone'] as const).map((s) =>
+    item(
+      `${t(`web.landing.surface${s}Title`)} (${t(`web.landing.surfaceStatus${s}`)})`,
+      t(`web.landing.surface${s}Body`),
+    ),
   );
+
+  // The Free allowance, from the same plan rows the page reads; absent when they are.
+  const free = pricingContent(t, locale, plans).bands.find((band) => band.id === 'free');
+
+  const faq = landingFaq(t).flatMap((entry) => [`### ${entry.question}`, '', entry.answer, '']);
 
   return [
     `# ${t('web.meta.home')}`,
@@ -45,7 +70,11 @@ export function landingMarkdown(t: Translate, origin: string): string {
     `[${t('web.translate.startTranslating')}](${url('/translate/one-way')})`,
     `[${t('web.landing.meetingsStart')}](${url('/conference')})`,
     '',
-    `## ${t('web.landing.meetingsTitle')}`,
+    `## ${t('web.landing.modesTitle')}`,
+    '',
+    t('web.landing.modesBody'),
+    '',
+    `### ${t('web.landing.meetingsTitle')}`,
     '',
     t('web.landing.meetingsBody'),
     '',
@@ -53,11 +82,19 @@ export function landingMarkdown(t: Translate, origin: string): string {
     '',
     t('web.landing.meetingsScope'),
     '',
+    ...modes,
+    '',
     `## ${t('web.landing.howTitle')}`,
     '',
     t('web.landing.howBody'),
     '',
     ...steps,
+    '',
+    `## ${t('web.landing.useCasesTitle')}`,
+    '',
+    t('web.landing.useCasesBody'),
+    '',
+    ...useCases,
     '',
     `## ${t('web.landing.localTitle')}`,
     '',
@@ -69,6 +106,18 @@ export function landingMarkdown(t: Translate, origin: string): string {
     '',
     ...surfaces,
     '',
+    `## ${t('web.landing.pricingTitle')}`,
+    '',
+    t('web.landing.pricingBody'),
+    '',
+    ...(free?.summary ? [`**${free.title}** — ${free.summary}`, ''] : []),
+    t('web.pricing.notOpen'),
+    '',
+    `[${t('web.landing.pricingLink')}](${url('/pricing.md')})`,
+    '',
+    `## ${t('web.landing.faqTitle')}`,
+    '',
+    ...faq,
     `## ${t('web.landing.ctaTitle')}`,
     '',
     t('web.landing.ctaBody'),
@@ -79,8 +128,9 @@ export function landingMarkdown(t: Translate, origin: string): string {
 }
 
 /**
- * `/llms.txt` in the llmstxt.org shape: name, one-line summary, then links to the
- * markdown twins: the landing page and `/pricing`. Low-cost hygiene, not a ranking lever.
+ * `/llms.txt` in the llmstxt.org shape: name, one-line summary, links to the markdown
+ * twins (the landing page and `/pricing`), then the landing's sections by anchor, each
+ * with the line the page itself opens it with. Low-cost hygiene, not a ranking lever.
  */
 export function llmsTxt(t: Translate, origin: string): string {
   const url = (path: string) => new URL(path, origin).toString();
@@ -95,6 +145,17 @@ export function llmsTxt(t: Translate, origin: string): string {
     '',
     `- [${t('web.meta.home')}](${url('/index.md')}): ${t('web.landing.heroBody')}`,
     `- [${t('web.meta.pricing')}](${url('/pricing.md')}): ${t('web.meta.pricingDescription')}`,
+    '',
+    '## Sections',
+    '',
+    `- [${t('web.landing.modesTitle')}](${url('/#modes')}): ${t('web.landing.modesBody')}`,
+    `- [${t('web.landing.howTitle')}](${url('/#how-it-works')}): ${t('web.landing.howBody')}`,
+    `- [${t('web.landing.useCasesTitle')}](${url('/#use-cases')}): ${t('web.landing.useCasesBody')}`,
+    `- [${t('web.landing.localTitle')}](${url('/#privacy')}): ${t('web.landing.localBody')}`,
+    `- [${t('web.landing.pricingTitle')}](${url('/#pricing')}): ${t('web.landing.pricingBody')}`,
+    `- [${t('web.landing.faqTitle')}](${url('/#faq')}): ${landingFaq(t)
+      .map((entry) => entry.question)
+      .join(' ')}`,
     '',
   ].join('\n');
 }

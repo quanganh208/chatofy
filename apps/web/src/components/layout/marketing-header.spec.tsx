@@ -85,7 +85,7 @@ describe('the marketing header', () => {
     expect(hrefs).not.toContain('/register');
   });
 
-  it('links four sections, and only sections that exist', async () => {
+  it('links five sections, and only sections that exist', async () => {
     session.mockResolvedValue(null);
     const hrefs = await render();
 
@@ -93,10 +93,11 @@ describe('the marketing header', () => {
     // missing id fails silently and only for the person who clicked it.
     // Absolute, so they still land on `/` when the header is drawn on `/pricing`.
     expect(hrefs.filter((href) => href?.includes('#'))).toEqual([
-      '/#meetings',
+      '/#modes',
       '/#how-it-works',
-      '/#privacy',
-      '/#where-it-runs',
+      '/#use-cases',
+      '/#pricing',
+      '/#faq',
     ]);
   });
 });

@@ -21,8 +21,14 @@ vi.mock('@/i18n/server', async () => {
 });
 
 const { StructuredData } = await import('./structured-data');
+const { en } = await import('@chatofy/i18n');
+const { LANDING_FAQ } = await import('@/lib/landing-faq');
 
-type Node = { '@type': string; offers?: { price: string; priceCurrency: string }[] };
+type Node = {
+  '@type': string;
+  offers?: { price: string; priceCurrency: string }[];
+  mainEntity?: { name: string; acceptedAnswer: { text: string } }[];
+};
 
 async function graphOf(element: Promise<React.ReactElement>): Promise<Node[]> {
   const html = renderToStaticMarkup(await element);
@@ -34,7 +40,8 @@ const app = (graph: Node[]) => graph.find((node) => node['@type'] === 'SoftwareA
 
 describe('StructuredData', () => {
   it('carries no offers on the landing page', async () => {
-    const graph = await graphOf(StructuredData());
+    // As `/` renders it: with the FAQ, without plans.
+    const graph = await graphOf(StructuredData({ faq: true }));
     expect(graph.some((node) => 'offers' in node)).toBe(false);
   });
 
@@ -49,5 +56,22 @@ describe('StructuredData', () => {
     expect(offers).toContainEqual(
       expect.objectContaining({ price: '249000', priceCurrency: 'VND' }),
     );
+  });
+
+  it('answers on the landing page exactly the questions the FAQ section renders', async () => {
+    const faq = (await graphOf(StructuredData({ faq: true }))).find(
+      (node) => node['@type'] === 'FAQPage',
+    );
+    expect(faq?.mainEntity?.map((q) => q.name)).toEqual(
+      LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Question`]),
+    );
+    expect(faq?.mainEntity?.map((q) => q.acceptedAnswer.text)).toEqual(
+      LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Answer`]),
+    );
+  });
+
+  it('carries no FAQ where the page shows none', async () => {
+    const graph = await graphOf(StructuredData({ plans: SEEDED_PLANS }));
+    expect(graph.some((node) => node['@type'] === 'FAQPage')).toBe(false);
   });
 });

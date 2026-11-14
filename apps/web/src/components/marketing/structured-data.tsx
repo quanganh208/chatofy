@@ -1,6 +1,7 @@
 import { LANGUAGE_CODES, type Plan } from '@chatofy/types';
 import { serverEnv } from '@/config/server-env';
 import { getLocale, getT } from '@/i18n/server';
+import { landingFaq } from '@/lib/landing-faq';
 import { pricingOffers } from '@/lib/pricing-content';
 
 /**
@@ -9,8 +10,13 @@ import { pricingOffers } from '@/lib/pricing-content';
  * Every value is something the page already says — the same dictionary strings as
  * the title and hero — because markup that disagrees with visible content is worse
  * than none. Deliberately absent: `aggregateRating` (there are no ratings, and
- * inventing them is the dark pattern the copy avoids) and FAQ/HowTo markup (no longer
- * shown in search).
+ * inventing them is the dark pattern the copy avoids) and HowTo markup.
+ *
+ * `FAQPage` appears only when `faq` is set, and only `/` sets it: that is the page that
+ * renders the questions. It is built from `landingFaq`, the same list the FAQ section
+ * renders, so the markup cannot answer a question the page does not. Search engines no
+ * longer show it as a rich result for most sites; it is here for the answer engines
+ * that read the markup, and it costs nothing because it cannot drift.
  *
  * `offers` appear only when `plans` is passed, and only `/pricing` passes it: that is
  * the one page that shows a price, so it is the one page whose markup may carry one.
@@ -20,7 +26,10 @@ import { pricingOffers } from '@/lib/pricing-content';
  *
  * `inLanguage` reads the language registry, so adding a language updates it.
  */
-export async function StructuredData({ plans }: { plans?: Plan[] | null } = {}) {
+export async function StructuredData({
+  plans,
+  faq = false,
+}: { plans?: Plan[] | null; faq?: boolean } = {}) {
   const t = await getT();
   const offers = plans?.length ? pricingOffers(t, await getLocale(), plans) : null;
   const url = new URL('/', serverEnv.WEB_BASE_URL).toString();
@@ -46,6 +55,20 @@ export async function StructuredData({ plans }: { plans?: Plan[] | null } = {}) 
         isPartOf: { '@id': `${url}#website` },
         ...(offers ? { offers } : {}),
       },
+      ...(faq
+        ? [
+            {
+              '@type': 'FAQPage',
+              '@id': `${url}#faq`,
+              isPartOf: { '@id': `${url}#website` },
+              mainEntity: landingFaq(t).map((entry) => ({
+                '@type': 'Question',
+                name: entry.question,
+                acceptedAnswer: { '@type': 'Answer', text: entry.answer },
+              })),
+            },
+          ]
+        : []),
     ],
   };
 

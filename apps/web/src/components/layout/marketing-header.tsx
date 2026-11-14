@@ -33,13 +33,14 @@ import { isLiveSession } from '@/lib/session-guard';
  *
  * ## The section nav, arriving with its sections
  *
- * Four anchors, and each one has an `id` to land on — `Section` in
- * `components/marketing/` owns them, so an anchor and its target are written in the same
- * change. That was the whole reason they waited: an anchor to a missing `id` fails the
+ * Five anchors — what it does, how, for whom, what it costs, questions — and each one has
+ * an `id` to land on, owned by the section in `components/marketing/`, so an anchor and its
+ * target are written in the same change. Privacy and where it runs are one scroll from
+ * them and listed in the footer, which is where a reader looking for them goes. That was the whole reason they waited: an anchor to a missing `id` fails the
  * way a dead nav item does, silently and only for the person who clicked it.
  *
  * The mobile sheet arrives with them for the same reason. A sheet holding two buttons
- * that already fit on a phone reveals nothing; a sheet holding four links that do not
+ * that already fit on a phone reveals nothing; a sheet holding five links that do not
  * fit is doing a job.
  *
  * The anchors are absolute (`/#how-it-works`), not bare fragments: the header is also
@@ -55,10 +56,11 @@ export async function MarketingHeader() {
   const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [
-    { href: '/#meetings', label: t('web.landing.navMeetings') },
+    { href: '/#modes', label: t('web.landing.navModes') },
     { href: '/#how-it-works', label: t('web.landing.navHow') },
-    { href: '/#privacy', label: t('web.landing.navLocal') },
-    { href: '/#where-it-runs', label: t('web.landing.navSurfaces') },
+    { href: '/#use-cases', label: t('web.landing.navUseCases') },
+    { href: '/#pricing', label: t('web.landing.navPricing') },
+    { href: '/#faq', label: t('web.landing.navFaq') },
   ];
 
   return (
@@ -66,8 +68,8 @@ export async function MarketingHeader() {
       <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-4', MEASURE.marketing)}>
         <Brand size={32} />
 
-        {/* Hidden below `lg`, where the sheet carries the same four: at `md` the four
-            anchors and the auth pair measured 23px wider than a 768px viewport. Not
+        {/* Hidden below `lg`, where the sheet carries the same five: at `md` the anchors
+            and the auth pair do not fit beside the brand in a 768px viewport. Not
             duplicated markup with a media query each — one list, rendered twice. */}
         <nav
           aria-label={t('web.landing.navMenu')}

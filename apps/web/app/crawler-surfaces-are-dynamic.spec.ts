@@ -23,6 +23,8 @@ import * as robots from './robots';
 import * as sitemap from './sitemap';
 import * as pricingPage from './(marketing)/pricing/page';
 import * as pricingMarkdown from './pricing.md/route';
+import * as landingPage from './(marketing)/page';
+import * as landingMarkdown from './index.md/route';
 
 describe.each([
   ['robots.txt', robots],
@@ -30,6 +32,9 @@ describe.each([
   // A prerendered copy would publish the build machine's prices, or none.
   ['/pricing', pricingPage],
   ['/pricing.md', pricingMarkdown],
+  // The landing states the Free allowance from the same rows.
+  ['/', landingPage],
+  ['/index.md', landingMarkdown],
 ] as const)('%s', (_, surface) => {
   it('is rendered per request, so it never carries the build-time origin', () => {
     expect(surface.dynamic).toBe('force-dynamic');
