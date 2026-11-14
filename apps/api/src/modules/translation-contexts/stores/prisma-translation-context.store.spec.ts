@@ -94,14 +94,24 @@ function fakePrisma(
     existingGlossary?: { terms: unknown }[];
     /** What the linked-glossary lookup finds. Defaults to the caller's glossary. */
     linkedGlossaryRow?: { id: string } | null;
+    /** Who authored the held row. Defaults to `owner-1`, the caller. */
+    heldOwnerId?: string;
+    /** Whether the unscoped, any-scope id lookup finds a row. Defaults to no. */
+    takenElsewhere?: boolean;
   } = {},
 ) {
   const calls: string[] = [];
-  const findFirst = vi.fn(async () => {
+  // A `where` without a scope key is the any-scope id check a team create
+  // runs; every other lookup is the scoped read of the held row.
+  const findFirst = vi.fn(async (args: { where: Record<string, unknown> }) => {
+    if (!('teamId' in args.where)) {
+      calls.push('findFirst.anyScope');
+      return options.takenElsewhere ? { id: 'cuid-elsewhere' } : null;
+    }
     calls.push('findFirst');
     return options.exists === false
       ? null
-      : { id: 'cuid-1', ownerId: 'owner-1' };
+      : { id: 'cuid-1', ownerId: options.heldOwnerId ?? 'owner-1' };
   });
   const count = vi.fn(async () => {
     calls.push('count');
@@ -150,7 +160,10 @@ function fakePrisma(
     calls.push('glossary.findMany');
     return options.existingGlossary ?? [];
   });
-  const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
+  const contextDeleteMany = vi.fn(async () => {
+    calls.push('deleteMany');
+    return { count: 1 };
+  });
   const glossaryFindFirst = vi.fn(async () => {
     calls.push('glossary.findFirst');
     return options.linkedGlossaryRow === undefined
@@ -160,13 +173,20 @@ function fakePrisma(
 
   const tx = {
     $executeRaw: executeRaw,
-    translationContext: { findFirst, count, create, update, findUniqueOrThrow },
+    translationContext: {
+      findFirst,
+      count,
+      create,
+      update,
+      findUniqueOrThrow,
+      deleteMany: contextDeleteMany,
+    },
     glossaryTerm: { deleteMany, createMany, findMany: glossaryFindMany },
     glossary: { findFirst: glossaryFindFirst },
   };
 
   const prisma = {
-    translationContext: { findMany, deleteMany: contextDeleteMany },
+    translationContext: { findMany },
     $transaction:
       options.transaction ??
       vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
@@ -187,6 +207,7 @@ function fakePrisma(
     glossaryFindMany,
     contextDeleteMany,
     glossaryFindFirst,
+    findUniqueOrThrow,
     transaction: (prisma as unknown as { $transaction: Mock }).$transaction,
   };
 }
@@ -300,10 +321,117 @@ describe('PrismaTranslationContextStore', () => {
   });
 
   it('addresses the row through the personal scope on delete', async () => {
-    const { store, contextDeleteMany } = fakePrisma();
-    await store.remove(ME, 'ctx-1');
+    const { store, findFirst, contextDeleteMany, transaction } = fakePrisma();
+    await expect(store.remove(ME, 'ctx-1')).resolves.toBe('removed');
+    // Found through the scope, then deleted by its own id in the same
+    // transaction, so the row checked is the row deleted.
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { ownerId: 'owner-1', teamId: null, clientId: 'ctx-1' },
+      }),
+    );
     expect(contextDeleteMany).toHaveBeenCalledWith({
-      where: { ownerId: 'owner-1', teamId: null, clientId: 'ctx-1' },
+      where: { id: 'cuid-1' },
+    });
+  });
+
+  it('reports an id outside the scope as absent, deleting nothing', async () => {
+    const { store, contextDeleteMany } = fakePrisma({ exists: false });
+    await expect(store.remove(ME, 'ctx-1')).resolves.toBe('absent');
+    expect(contextDeleteMany).not.toHaveBeenCalled();
+  });
+
+  describe('the author rule in a team', () => {
+    const member = mintTeamScope('member-1', 't', 'member');
+    const admin = mintTeamScope('admin-1', 't', 'admin');
+
+    it("refuses a member replacing another member's context, touching nothing", async () => {
+      const { store, update, deleteMany, glossaryFindMany } = fakePrisma({
+        heldOwnerId: 'someone-else',
+      });
+
+      await expect(store.save(member, 'ctx-1', body, MAX)).resolves.toEqual({
+        kind: 'forbidden',
+      });
+      expect(update).not.toHaveBeenCalled();
+      expect(deleteMany).not.toHaveBeenCalled();
+      expect(glossaryFindMany).not.toHaveBeenCalled();
+    });
+
+    it("lets an admin replace another member's context", async () => {
+      const { store, update } = fakePrisma({ heldOwnerId: 'someone-else' });
+
+      const saved = await store.save(admin, 'ctx-1', body, MAX);
+
+      expect(saved.kind).toBe('saved');
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks a team row with whether the caller may edit it', async () => {
+      const { store, findUniqueOrThrow } = fakePrisma({
+        heldOwnerId: 'member-1',
+      });
+      findUniqueOrThrow.mockResolvedValueOnce(row({ ownerId: 'member-1' }));
+
+      const saved = await store.save(member, 'ctx-1', body, MAX);
+
+      expect(saved).toMatchObject({ kind: 'saved', value: { canEdit: true } });
+    });
+
+    it("marks another member's team row as not editable, and leaks no author", async () => {
+      const { store, findMany } = fakePrisma();
+      findMany.mockResolvedValueOnce([row({ ownerId: 'someone-else' })]);
+
+      const [listed] = await store.list(member);
+
+      expect(listed?.canEdit).toBe(false);
+      expect(listed).not.toHaveProperty('ownerId');
+    });
+
+    it('gives a personal row no canEdit key at all', async () => {
+      const { store, findMany } = fakePrisma();
+      findMany.mockResolvedValueOnce([row({ ownerId: 'owner-1' })]);
+
+      const [listed] = await store.list(ME);
+
+      expect(listed).not.toHaveProperty('canEdit');
+      expect(listed).not.toHaveProperty('ownerId');
+    });
+
+    it('refuses a team create under an id used in any scope, creating nothing', async () => {
+      const { store, create, count, calls } = fakePrisma({
+        exists: false,
+        takenElsewhere: true,
+      });
+
+      await expect(store.save(member, 'ctx-1', body, MAX)).resolves.toEqual({
+        kind: 'id-in-use',
+      });
+      expect(create).not.toHaveBeenCalled();
+      expect(count).not.toHaveBeenCalled();
+      expect(calls).toContain('findFirst.anyScope');
+    });
+
+    it('runs no any-scope id check on a personal create', async () => {
+      const { store, calls, create } = fakePrisma({
+        exists: false,
+        takenElsewhere: true,
+      });
+
+      await store.save(ME, 'ctx-1', body, MAX);
+
+      expect(calls).not.toContain('findFirst.anyScope');
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses a member deleting another member's context", async () => {
+      const { store, contextDeleteMany } = fakePrisma({
+        heldOwnerId: 'someone-else',
+      });
+
+      await expect(store.remove(member, 'ctx-1')).resolves.toBe('forbidden');
+      expect(contextDeleteMany).not.toHaveBeenCalled();
     });
   });
 

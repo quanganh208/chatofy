@@ -70,6 +70,8 @@ export const translationContextSchema = saveTranslationContextRequestSchema.exte
   linkedGlossaryId: z.string().uuid().nullable(),
   /** Display name of the linked Glossary, for the picker UI. */
   linkedGlossaryName: z.string().nullable(),
+  /** Present only on team rows; personal rows are always the caller's own. */
+  canEdit: z.boolean().optional(),
 });
 export type TranslationContext = z.infer<typeof translationContextSchema>;
 
@@ -123,3 +125,42 @@ export function readTranslationContextList(raw: unknown): {
 export const readableTranslationContextListSchema = z
   .object({ contexts: z.array(z.unknown()) })
   .transform(({ contexts }) => readTranslationContextList(contexts));
+
+/**
+ * Every AI Context the caller may use in a session, grouped by scope: their
+ * personal library, then each team they belong to, oldest membership first.
+ */
+export const availableTranslationContextsResponseSchema = z.object({
+  personal: z.array(translationContextSchema),
+  teams: z.array(
+    z.object({
+      teamId: z.cuid(),
+      name: z.string(),
+      contexts: z.array(translationContextSchema),
+    }),
+  ),
+});
+export type AvailableTranslationContexts = z.infer<
+  typeof availableTranslationContextsResponseSchema
+>;
+
+/** The same, read entry by entry like `readableTranslationContextListSchema`. */
+export const readableAvailableTranslationContextsSchema = z
+  .object({
+    personal: z.array(z.unknown()),
+    teams: z.array(
+      z.object({
+        teamId: z.string(),
+        name: z.string(),
+        contexts: z.array(z.unknown()),
+      }),
+    ),
+  })
+  .transform(({ personal, teams }) => ({
+    personal: readTranslationContextList(personal).contexts,
+    teams: teams.map((team) => ({
+      teamId: team.teamId,
+      name: team.name,
+      contexts: readTranslationContextList(team.contexts).contexts,
+    })),
+  }));

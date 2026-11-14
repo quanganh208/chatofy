@@ -120,11 +120,14 @@ export {
   translationContextListResponseSchema,
   readTranslationContextList,
   readableTranslationContextListSchema,
+  availableTranslationContextsResponseSchema,
+  readableAvailableTranslationContextsSchema,
 } from './translation-contexts.js';
 export type {
   SaveTranslationContextRequest,
   TranslationContext,
   TranslationContextListResponse,
+  AvailableTranslationContexts,
 } from './translation-contexts.js';
 
 // Conference contracts.

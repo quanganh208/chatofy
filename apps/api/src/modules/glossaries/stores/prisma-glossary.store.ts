@@ -11,10 +11,12 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { LOCK_CLASS } from '../../../common/library-scope/advisory-lock-classes';
 import {
+  canEditRow,
   scopeLockKey,
   scopeWhere,
   type LibraryScope,
 } from '../../../common/library-scope/library-scope';
+import type { RemoveResult } from '../../../common/library-scope/library-write-results';
 import type {
   GlossaryPatchResult,
   GlossarySaveResult,
@@ -35,6 +37,11 @@ import type {
  * count and the create it guards cannot interleave with another save in the
  * same scope (the reasoning is the context store's; see its `save`).
  * `addItem` stays unlocked, as it always was.
+ *
+ * **The author rule is checked inside each write's own transaction,** on the
+ * row it is about to change: a team member may change only what they
+ * authored, admins and the owner anything ({@link canEditRow}). Team rows are
+ * returned with `canEdit`; the author's id never leaves this file.
  */
 @Injectable()
 export class PrismaGlossaryStore implements GlossaryStore {
@@ -46,7 +53,7 @@ export class PrismaGlossaryStore implements GlossaryStore {
       orderBy: { createdAt: 'desc' },
       select: GLOSSARY_SELECT,
     });
-    return rows.map(toGlossary);
+    return rows.map((row) => toGlossary(row, scope));
   }
 
   async saveGlossary(
@@ -67,6 +74,11 @@ export class PrismaGlossaryStore implements GlossaryStore {
       };
 
       if (held === null) {
+        // A TEAM create refuses an id used anywhere in the model, so a member
+        // cannot plant a glossary under an id another scope already reads.
+        if (scope.kind === 'team' && (await idInUse(tx, glossaryId))) {
+          return { kind: 'id-in-use' } as const;
+        }
         const owned = await tx.glossary.count({ where: scopeWhere(scope) });
         if (owned >= maxPerOwner) return { kind: 'limit' } as const;
         const created = await tx.glossary.create({
@@ -78,15 +90,18 @@ export class PrismaGlossaryStore implements GlossaryStore {
           },
           select: GLOSSARY_SELECT,
         });
-        return { kind: 'saved', value: toGlossary(created) } as const;
+        return { kind: 'saved', value: toGlossary(created, scope) } as const;
       }
 
+      if (!canEditRow(scope, held.ownerId)) {
+        return { kind: 'forbidden' } as const;
+      }
       const updated = await tx.glossary.update({
         where: { id: held.id },
         data: fields,
         select: GLOSSARY_SELECT,
       });
-      return { kind: 'saved', value: toGlossary(updated) } as const;
+      return { kind: 'saved', value: toGlossary(updated, scope) } as const;
     });
   }
 
@@ -98,24 +113,34 @@ export class PrismaGlossaryStore implements GlossaryStore {
     return this.prisma.$transaction(async (tx) => {
       const held = await findHeld(tx, scope, glossaryId);
       if (held === null) return { kind: 'absent' } as const;
+      if (!canEditRow(scope, held.ownerId)) {
+        return { kind: 'forbidden' } as const;
+      }
 
       const row = await tx.glossary.update({
         where: { id: held.id },
         data: { isActive: body.isActive },
         select: GLOSSARY_SELECT,
       });
-      return { kind: 'saved', value: toGlossary(row) } as const;
+      return { kind: 'saved', value: toGlossary(row, scope) } as const;
     });
   }
 
   async removeGlossary(
     scope: LibraryScope,
     glossaryId: string,
-  ): Promise<boolean> {
-    const { count } = await this.prisma.glossary.deleteMany({
-      where: { ...scopeWhere(scope), clientId: glossaryId },
+  ): Promise<RemoveResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const held = await findHeld(tx, scope, glossaryId);
+      if (held === null) return 'absent';
+      if (!canEditRow(scope, held.ownerId)) return 'forbidden';
+      // `deleteMany` by id: a concurrent delete that won the race leaves
+      // nothing to delete, which reads as absent rather than throwing.
+      const { count } = await tx.glossary.deleteMany({
+        where: { id: held.id },
+      });
+      return count > 0 ? 'removed' : 'absent';
     });
-    return count > 0;
   }
 
   async listItems(
@@ -143,6 +168,9 @@ export class PrismaGlossaryStore implements GlossaryStore {
     return this.prisma.$transaction(async (tx) => {
       const glossary = await findHeld(tx, scope, glossaryId);
       if (glossary === null) return { kind: 'absent' } as const;
+      if (!canEditRow(scope, glossary.ownerId)) {
+        return { kind: 'forbidden' } as const;
+      }
 
       // Idempotency: if the clientId already exists, return the existing row.
       const existing = await tx.glossaryItem.findUnique({
@@ -182,16 +210,19 @@ export class PrismaGlossaryStore implements GlossaryStore {
     scope: LibraryScope,
     glossaryId: string,
     itemId: string,
-  ): Promise<boolean> {
-    const glossary = await findHeld(this.prisma, scope, glossaryId);
-    if (glossary === null) return false;
+  ): Promise<RemoveResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const glossary = await findHeld(tx, scope, glossaryId);
+      if (glossary === null) return 'absent';
+      if (!canEditRow(scope, glossary.ownerId)) return 'forbidden';
 
-    // `itemId` is the client-minted id the API hands out, not the row's own
-    // primary key; `(glossaryId, clientId)` is unique, so this hits one row.
-    const { count } = await this.prisma.glossaryItem.deleteMany({
-      where: { clientId: itemId, glossaryId: glossary.id },
+      // `itemId` is the client-minted id the API hands out, not the row's own
+      // primary key; `(glossaryId, clientId)` is unique, so this hits one row.
+      const { count } = await tx.glossaryItem.deleteMany({
+        where: { clientId: itemId, glossaryId: glossary.id },
+      });
+      return count > 0 ? 'removed' : 'absent';
     });
-    return count > 0;
   }
 }
 
@@ -201,6 +232,18 @@ async function lockScope(
   scope: LibraryScope,
 ): Promise<void> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_CLASS.GLOSSARIES}::int, hashtext(${scopeLockKey(scope)}))`;
+}
+
+/** Whether any glossary in ANY scope already uses this client id. */
+async function idInUse(
+  tx: Prisma.TransactionClient,
+  clientId: string,
+): Promise<boolean> {
+  const row = await tx.glossary.findFirst({
+    where: { clientId },
+    select: { id: true },
+  });
+  return row !== null;
 }
 
 /** The scope's glossary under this client id, or null — never a row of another scope. */
@@ -217,6 +260,7 @@ function findHeld(
 
 interface GlossaryRow {
   clientId: string;
+  ownerId: string;
   name: string;
   description: string | null;
   sourceLang: string;
@@ -237,6 +281,7 @@ interface ItemRow {
 
 const GLOSSARY_SELECT = {
   clientId: true,
+  ownerId: true,
   name: true,
   description: true,
   sourceLang: true,
@@ -255,7 +300,8 @@ const ITEM_SELECT = {
   createdAt: true,
 } as const;
 
-function toGlossary(row: GlossaryRow): Glossary {
+/** `ownerId` is read only to compute `canEdit`; it is never returned. */
+function toGlossary(row: GlossaryRow, scope: LibraryScope): Glossary {
   return {
     id: row.clientId,
     name: row.name,
@@ -265,6 +311,9 @@ function toGlossary(row: GlossaryRow): Glossary {
     itemCount: row._count.items,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    ...(scope.kind === 'team'
+      ? { canEdit: canEditRow(scope, row.ownerId) }
+      : {}),
   };
 }
 

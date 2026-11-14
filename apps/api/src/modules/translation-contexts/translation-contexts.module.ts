@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { TeamsModule } from '../teams/teams.module';
 import { TRANSLATION_CONTEXT_STORE } from './interfaces/translation-context-store.interface';
 import { PrismaTranslationContextStore } from './stores/prisma-translation-context.store';
 import { TranslationContextsController } from './translation-contexts.controller';
+import { TeamTranslationContextsController } from './team-translation-contexts.controller';
 import { TranslationContextsService } from './translation-contexts.service';
 
 /**
@@ -21,8 +23,11 @@ import { TranslationContextsService } from './translation-contexts.service';
  * once per conversation — so the translate path never looks a context id up.
  */
 @Module({
-  imports: [AuthModule],
-  controllers: [TranslationContextsController],
+  imports: [AuthModule, TeamsModule],
+  controllers: [
+    TranslationContextsController,
+    TeamTranslationContextsController,
+  ],
   providers: [
     TranslationContextsService,
     {

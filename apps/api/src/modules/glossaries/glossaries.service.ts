@@ -1,11 +1,13 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   GLOSSARY_LIMITS,
+  TEAM_LIMITS,
   type Glossary,
   type GlossaryItem,
   type PatchGlossaryRequest,
@@ -17,7 +19,33 @@ import {
   type GlossaryStore,
 } from './interfaces/glossary-store.interface';
 import type { LibraryScope } from '../../common/library-scope/library-scope';
-import { assertNever } from '../../common/library-scope/library-write-results';
+import {
+  assertNever,
+  type RemoveResult,
+} from '../../common/library-scope/library-write-results';
+
+/** A member writing a team row they did not author. */
+function notTheAuthor(): ForbiddenException {
+  return new ForbiddenException(
+    'Only the author or a team admin can change this.',
+  );
+}
+
+/**
+ * `removed` and `absent` both answer 204, as personal deletes always have;
+ * only a non-author member is refused.
+ */
+function settleRemove(result: RemoveResult): void {
+  switch (result) {
+    case 'removed':
+    case 'absent':
+      return;
+    case 'forbidden':
+      throw notTheAuthor();
+    default:
+      return assertNever(result);
+  }
+}
 
 @Injectable()
 export class GlossariesService {
@@ -35,19 +63,21 @@ export class GlossariesService {
     glossaryId: string,
     body: SaveGlossaryRequest,
   ): Promise<Glossary> {
-    const saved = await this.store.saveGlossary(
-      scope,
-      glossaryId,
-      body,
-      GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER,
-    );
+    const max = maxGlossaries(scope);
+    const saved = await this.store.saveGlossary(scope, glossaryId, body, max);
     switch (saved.kind) {
       case 'saved':
         return saved.value;
       case 'limit':
         throw new ConflictException(
-          `You can save at most ${GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER} glossaries. ` +
+          `You can save at most ${max} glossaries. ` +
             'Delete one before creating another.',
+        );
+      case 'forbidden':
+        throw notTheAuthor();
+      case 'id-in-use':
+        throw new ConflictException(
+          'This id is already used by another glossary. Save it under a new id.',
         );
       default:
         return assertNever(saved);
@@ -65,13 +95,15 @@ export class GlossariesService {
         return patched.value;
       case 'absent':
         throw new NotFoundException('Glossary not found.');
+      case 'forbidden':
+        throw notTheAuthor();
       default:
         return assertNever(patched);
     }
   }
 
   async removeGlossary(scope: LibraryScope, glossaryId: string): Promise<void> {
-    await this.store.removeGlossary(scope, glossaryId);
+    settleRemove(await this.store.removeGlossary(scope, glossaryId));
   }
 
   listItems(scope: LibraryScope, glossaryId: string): Promise<GlossaryItem[]> {
@@ -99,6 +131,8 @@ export class GlossariesService {
         throw new ConflictException(
           `This glossary is full (max ${GLOSSARY_LIMITS.MAX_ITEMS_PER_GLOSSARY} terms) or does not exist.`,
         );
+      case 'forbidden':
+        throw notTheAuthor();
       default:
         return assertNever(item);
     }
@@ -109,6 +143,13 @@ export class GlossariesService {
     glossaryId: string,
     itemId: string,
   ): Promise<void> {
-    await this.store.removeItem(scope, glossaryId, itemId);
+    settleRemove(await this.store.removeItem(scope, glossaryId, itemId));
   }
+}
+
+/** A team holds its own ceiling; a person keeps the personal one. */
+function maxGlossaries(scope: LibraryScope): number {
+  return scope.kind === 'team'
+    ? TEAM_LIMITS.MAX_GLOSSARIES_PER_TEAM
+    : GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER;
 }

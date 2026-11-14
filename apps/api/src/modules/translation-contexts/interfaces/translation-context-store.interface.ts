@@ -8,17 +8,25 @@ import type {
 } from '@chatofy/types';
 import type {
   Refusal,
+  RemoveResult,
   Saved,
 } from '../../../common/library-scope/library-write-results';
 import type { LibraryScope } from '../../../common/library-scope/library-scope';
 
 /**
  * What {@link TranslationContextStore.save} did: wrote the context, or refused
- * it because the create would pass the ceiling (`limit`) or because the linked
- * glossary is not one the caller holds (`glossary-missing`).
+ * it because the create would pass the ceiling (`limit`), because the linked
+ * glossary is not one the caller holds (`glossary-missing`), because a team
+ * member is replacing a context they did not author (`forbidden`), or because
+ * a TEAM create names a client id some context in any scope already uses
+ * (`id-in-use`).
  */
 export type ContextSaveResult =
-  Saved<TranslationContext> | Refusal<'limit'> | Refusal<'glossary-missing'>;
+  | Saved<TranslationContext>
+  | Refusal<'limit'>
+  | Refusal<'glossary-missing'>
+  | Refusal<'forbidden'>
+  | Refusal<'id-in-use'>;
 
 /** DI injection token for the translation-context store. */
 export const TRANSLATION_CONTEXT_STORE = Symbol('TRANSLATION_CONTEXT_STORE');
@@ -81,9 +89,9 @@ export interface TranslationContextStore {
   /**
    * Delete the caller's context under this client id.
    *
-   * Returns whether a row was actually removed, so the controller can answer 204
-   * either way without a second read — and without the answer differing between
-   * "never existed" and "belongs to someone else".
+   * `removed` and `absent` both answer 204, so "never existed" and "belongs to
+   * another scope" stay indistinguishable; `forbidden` is a team member
+   * deleting a context they did not author.
    */
-  remove(scope: LibraryScope, contextId: string): Promise<boolean>;
+  remove(scope: LibraryScope, contextId: string): Promise<RemoveResult>;
 }
