@@ -909,8 +909,9 @@ punctuation.
 
 A mechanical half exists: `apps/web/src/components/marketing/landing-copy.spec.ts` runs
 the ban list — pipeline vocabulary, component and engine names, measurement instruments,
-language codes — against the landing dictionary. It checks English only today; pointing
-it at every locale is a one-line change and worth making.
+language codes — against the landing dictionary of every locale in `LOCALES`. Engine names, component acronyms,
+architecture words and language codes are shared; the pipeline vocabulary is listed per
+locale in a `Record<Locale, …>`, so a locale added without a list fails `tsc`.
 
 **Mail copy is not in this dictionary**, and that is deliberate:
 `apps/api/src/modules/mail/interfaces/mail-sender.interface.ts` owns all four templates
