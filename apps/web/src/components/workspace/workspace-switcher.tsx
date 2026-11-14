@@ -27,7 +27,17 @@ import { useWorkspace } from './workspace-provider';
  * sidebar does not exist. Nothing here is filled: a switcher is a readout of where
  * you are, not the screen's action.
  */
-export function WorkspaceSwitcher({ variant }: { variant: 'sidebar' | 'sheet-row' }) {
+export function WorkspaceSwitcher({
+  variant,
+  onManageTeams = () => openSettingsDialog('team'),
+}: {
+  variant: 'sidebar' | 'sheet-row';
+  /**
+   * Where "Manage teams" goes. The More sheet passes its own: it closes first and
+   * opens Settings once it is gone, so the dialog is never stacked on the sheet.
+   */
+  onManageTeams?: () => void;
+}) {
   const t = useTranslate();
   const { workspace, teams, teamsStatus, select, reloadTeams } = useWorkspace();
 
@@ -63,9 +73,7 @@ export function WorkspaceSwitcher({ variant }: { variant: 'sidebar' | 'sheet-row
         </>
       )}
       <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={() => openSettingsDialog('team')}>
-        {t('web.workspace.manageTeams')}
-      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={onManageTeams}>{t('web.workspace.manageTeams')}</DropdownMenuItem>
     </DropdownMenuContent>
   );
 

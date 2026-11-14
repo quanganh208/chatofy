@@ -5,6 +5,7 @@ import { TEAM_LIMITS, type TeamMemberEntry, type TeamSummary } from '@chatofy/ty
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { deleteTeam, removeTeamMember, renameTeam } from '@/clients/teams-api-client';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
+import { isTeamGone } from '@/hooks/use-team-list';
 import { useTranslate } from '@/i18n/provider';
 import { SettingsSection } from '../settings-section';
 import { TeamConfirmDialog } from './team-confirm-dialog';
@@ -28,6 +29,15 @@ export function TeamManageSection({
     select('personal');
     await reloadTeams();
   };
+  /** A 404 means the team is already gone for this caller: go where the outcome is. */
+  const orGone = async (write: () => Promise<unknown>) => {
+    try {
+      await write();
+    } catch (err) {
+      if (!isTeamGone(err)) throw err;
+    }
+    await backToPersonal();
+  };
 
   if (team.role !== 'owner') {
     const self = members.find((member) => member.isSelf);
@@ -43,8 +53,7 @@ export function TeamManageSection({
             ready={self !== undefined}
             onConfirm={async () => {
               if (!self) return;
-              await removeTeamMember(teamId, self.id);
-              await backToPersonal();
+              await orGone(() => removeTeamMember(teamId, self.id));
             }}
           />
         </div>
@@ -54,15 +63,23 @@ export function TeamManageSection({
 
   return (
     <SettingsSection>
-      <RenameRow team={team} onSaved={reloadTeams} />
+      <RenameRow team={team} onSaved={reloadTeams} onGone={backToPersonal} />
       <div className="py-3.5">
-        <DeleteTeam team={team} onDeleted={backToPersonal} />
+        <DeleteTeam team={team} remove={orGone} />
       </div>
     </SettingsSection>
   );
 }
 
-function RenameRow({ team, onSaved }: { team: TeamSummary; onSaved: () => Promise<void> }) {
+function RenameRow({
+  team,
+  onSaved,
+  onGone,
+}: {
+  team: TeamSummary;
+  onSaved: () => Promise<void>;
+  onGone: () => Promise<void>;
+}) {
   const t = useTranslate();
   const id = useId();
   const [name, setName] = useState(team.name);
@@ -80,7 +97,7 @@ function RenameRow({ team, onSaved }: { team: TeamSummary; onSaved: () => Promis
         setFailed(false);
         renameTeam(team.id, { name: trimmed })
           .then(onSaved)
-          .catch(() => setFailed(true))
+          .catch((err: unknown) => (isTeamGone(err) ? onGone() : setFailed(true)))
           .finally(() => setBusy(false));
       }}
     >
@@ -111,7 +128,13 @@ function RenameRow({ team, onSaved }: { team: TeamSummary; onSaved: () => Promis
 }
 
 /** Deleting asks for the team's exact name first: it removes the library for everyone. */
-function DeleteTeam({ team, onDeleted }: { team: TeamSummary; onDeleted: () => Promise<void> }) {
+function DeleteTeam({
+  team,
+  remove,
+}: {
+  team: TeamSummary;
+  remove: (write: () => Promise<unknown>) => Promise<void>;
+}) {
   const t = useTranslate();
   const id = useId();
   const [typed, setTyped] = useState('');
@@ -125,8 +148,7 @@ function DeleteTeam({ team, onDeleted }: { team: TeamSummary; onDeleted: () => P
       action={t('web.team.delete')}
       ready={typed === team.name}
       onConfirm={async () => {
-        await deleteTeam(team.id);
-        await onDeleted();
+        await remove(() => deleteTeam(team.id));
       }}
     >
       <div className="flex flex-col gap-2">

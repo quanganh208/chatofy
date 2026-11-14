@@ -4,7 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@chatofy/i18n';
 import { ApiClientError } from '@chatofy/api-client';
-import type { TeamMemberEntry, TeamRole, TeamSummary } from '@chatofy/types';
+import type { TeamMemberEntry, TeamRole } from '@chatofy/types';
+import { member, team } from './team.fixture';
 
 /**
  * Settings › Team by role: what each role may do is what each role sees, refusals
@@ -13,6 +14,8 @@ import type { TeamMemberEntry, TeamRole, TeamSummary } from '@chatofy/types';
 const listTeamMembers = vi.fn<() => Promise<{ members: TeamMemberEntry[] }>>();
 const listTeamInvites = vi.fn<() => Promise<{ invites: unknown[] }>>();
 const createTeamInvite = vi.fn<() => Promise<unknown>>();
+const removeTeamMember = vi.fn<() => Promise<unknown>>();
+const select = vi.fn();
 
 vi.mock('@/clients/teams-api-client', () => ({
   listTeamMembers: () => listTeamMembers(),
@@ -22,7 +25,7 @@ vi.mock('@/clients/teams-api-client', () => ({
   renameTeam: vi.fn(),
   deleteTeam: vi.fn(),
   changeTeamMemberRole: vi.fn(),
-  removeTeamMember: vi.fn(),
+  removeTeamMember: () => removeTeamMember(),
   revokeTeamInvite: vi.fn(),
 }));
 
@@ -30,28 +33,6 @@ const { TeamTabContent } = await import('./team-tab-content');
 const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
 const { LocaleProvider } = await import('@/i18n/provider');
 type HostValue = Parameters<typeof WorkspaceTestHost>[0]['value'];
-
-const team = (role: TeamRole): TeamSummary => ({
-  id: 'c' + 'a'.repeat(24),
-  name: 'Cardiology unit',
-  role,
-  memberCount: 3,
-  createdAt: '2026-11-14T00:00:00.000Z',
-});
-const member = (
-  id: string,
-  role: TeamRole,
-  isSelf: boolean,
-  email: string | null,
-): TeamMemberEntry => ({
-  id: 'c' + id.repeat(24),
-  name: `Name ${id}`,
-  email,
-  avatarUrl: null,
-  role,
-  joinedAt: '2026-11-14T00:00:00.000Z',
-  isSelf,
-});
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -68,7 +49,7 @@ async function render(value: HostValue) {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <WorkspaceTestHost value={{ reloadTeams, ...value }}>
+        <WorkspaceTestHost value={{ reloadTeams, select, ...value }}>
           <TeamTabContent />
         </WorkspaceTestHost>
       </LocaleProvider>,
@@ -93,6 +74,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   reloadTeams.mockClear();
+  select.mockClear();
   listTeamMembers.mockResolvedValue({
     members: [
       member('o', 'owner', false, 'owner@example.com'),
@@ -184,6 +166,26 @@ describe('Settings › Team', () => {
     });
     await settle();
     expect(text()).toContain(en['web.team.inviteRefused']);
+  });
+
+  it('goes back to personal when leaving finds the team already gone', async () => {
+    listTeamMembers.mockResolvedValue({
+      members: [member('o', 'owner', false, null), member('m', 'member', true, 'me@example.com')],
+    });
+    removeTeamMember.mockRejectedValue(
+      new ApiClientError({ code: 'NOT_FOUND', message: 'Not found.' }, 404),
+    );
+    await inTeam('member');
+    act(() => button(en['web.team.leave'])!.click());
+    await settle();
+    const confirm = [...document.querySelectorAll('[role="alertdialog"] button')].find(
+      (b) => b.textContent === en['web.team.leave'],
+    ) as HTMLButtonElement;
+    act(() => confirm.click());
+    await settle();
+    expect(select).toHaveBeenCalledWith('personal');
+    expect(reloadTeams).toHaveBeenCalled();
+    expect(text()).not.toContain(en['web.team.actionFailed']);
   });
 
   it('reloads the teams when the team answers 404', async () => {

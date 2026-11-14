@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, LogOut, MoreHorizontal } from 'lucide-react';
 import {
@@ -52,9 +52,10 @@ export function MoreSheet({ active }: { active: boolean }) {
   const trigger = useRef<HTMLButtonElement>(null);
   // What a row asked to open: the list (`null`) or a tab. `undefined` is nothing.
   const pending = useRef<SettingsTabId | null | undefined>(undefined);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         ref={trigger}
         className={TAB_CLASS}
@@ -87,7 +88,15 @@ export function MoreSheet({ active }: { active: boolean }) {
           </SheetDescription>
         </SheetHeader>
         <nav aria-label={t('web.chrome.tabMore')} className="flex flex-col gap-1 px-2">
-          {identity.status === 'authenticated' && <WorkspaceSwitcher variant="sheet-row" />}
+          {identity.status === 'authenticated' && (
+            <WorkspaceSwitcher
+              variant="sheet-row"
+              onManageTeams={() => {
+                pending.current = 'team';
+                setOpen(false);
+              }}
+            />
+          )}
           <SheetClose asChild>
             <Link href="/glossary" className={ROW}>
               <BookOpen aria-hidden />

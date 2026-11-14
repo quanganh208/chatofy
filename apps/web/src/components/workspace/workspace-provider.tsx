@@ -57,6 +57,8 @@ interface LoadedTeams {
   userId: string;
   teams: TeamSummary[];
   status: TeamsStatus;
+  /** A list has loaded for this user and nothing has failed since. */
+  settled: boolean;
 }
 
 const personalSnapshot = () => 'personal';
@@ -82,7 +84,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const mine = ++generation.current;
     return listTeams().then(
       ({ teams }) => {
-        if (mine === generation.current) setLoaded({ userId: forUser, teams, status: 'ready' });
+        if (mine === generation.current)
+          setLoaded({ userId: forUser, teams, status: 'ready', settled: true });
       },
       () => {
         if (mine !== generation.current) return;
@@ -91,6 +94,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           userId: forUser,
           teams: prev?.userId === forUser ? prev.teams : [],
           status: 'failed',
+          settled: false,
         }));
       },
     );
@@ -109,7 +113,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setLoaded((prev) =>
       prev?.userId === userId
         ? { ...prev, status: 'loading' }
-        : { userId, teams: [], status: 'loading' },
+        : { userId, teams: [], status: 'loading', settled: false },
     );
     await fetchTeams(userId);
   }, [userId, fetchTeams]);
@@ -123,6 +127,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const mine = loaded?.userId === userId ? loaded : null;
   const teams = useMemo(() => mine?.teams ?? [], [mine]);
   const teamsStatus: TeamsStatus = mine?.status ?? 'loading';
+  const settled = mine?.settled ?? false;
 
   const select = useCallback(
     (id: string) => {
@@ -135,10 +140,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (status === 'loading') return { kind: 'resolving' };
     if (status === 'unauthenticated' || !userId) return { kind: 'personal' };
     if (stored === 'personal') return { kind: 'personal' };
-    if (teamsStatus !== 'ready') return { kind: 'resolving' };
+    // A reload keeps answering from the last good list, so a rename or a create does
+    // not unmount whatever the team's screens have open. A first load, or a failure,
+    // has no list to answer from.
+    const usable = teamsStatus === 'ready' || (teamsStatus === 'loading' && settled);
+    if (!usable) return { kind: 'resolving' };
     const team = teams.find((t) => t.id === stored);
-    return team ? { kind: 'team', team } : { kind: 'personal' };
-  }, [status, userId, stored, teamsStatus, teams]);
+    if (team) return { kind: 'team', team };
+    return teamsStatus === 'ready' ? { kind: 'personal' } : { kind: 'resolving' };
+  }, [status, userId, stored, teamsStatus, settled, teams]);
 
   // The stored team is gone (left, removed or deleted) per a list that DID load.
   const storedIsGone =

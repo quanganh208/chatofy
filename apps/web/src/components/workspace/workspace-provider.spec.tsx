@@ -115,6 +115,19 @@ describe('WorkspaceProvider', () => {
     expect(seen?.teamsStatus).toBe('loading');
   });
 
+  it('keeps answering from the last good list while it reloads', async () => {
+    writeStoredWorkspace('u1', TEAM.id);
+    listTeams.mockResolvedValue({ teams: [TEAM] });
+    await render();
+    listTeams.mockReturnValue(new Promise(() => {}));
+    act(() => {
+      void seen?.reloadTeams();
+    });
+    await settle();
+    expect(seen?.teamsStatus).toBe('loading');
+    expect(seen?.workspace).toEqual({ kind: 'team', team: TEAM });
+  });
+
   it('keeps the stored team through a failed load, and resolves it on a good reload', async () => {
     writeStoredWorkspace('u1', TEAM.id);
     listTeams.mockRejectedValueOnce(new Error('offline'));

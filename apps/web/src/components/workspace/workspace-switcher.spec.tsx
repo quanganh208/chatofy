@@ -90,6 +90,23 @@ describe('WorkspaceSwitcher', () => {
     expect(reloadTeams).toHaveBeenCalled();
   });
 
+  it('hands Manage teams to the host when one is given', async () => {
+    const onManageTeams = vi.fn();
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <LocaleProvider>
+          <WorkspaceTestHost value={{ select, reloadTeams, teams: [TEAM] }}>
+            <WorkspaceSwitcher variant="sheet-row" onManageTeams={onManageTeams} />
+          </WorkspaceTestHost>
+        </LocaleProvider>,
+      );
+    });
+    await open();
+    act(() => item(en['web.workspace.manageTeams'])!.click());
+    expect(onManageTeams).toHaveBeenCalled();
+  });
+
   it('renders the same menu as a More sheet row', async () => {
     render('sheet-row', { workspace: { kind: 'personal' } });
     await open();
