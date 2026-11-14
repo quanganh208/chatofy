@@ -47,7 +47,7 @@ const SHARED_BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
     // but a hard-coded code in the dictionary is exactly what a grep catches.
     // Boundaries are Unicode letters, not [A-Za-z]: the "vi" inside Vietnamese "việc" is
     // followed by an accented letter and is a word, not a code.
-    pattern: /(^|[^\p{L}])(vi|en|vi-VN|en-US)([^\p{L}]|$)/u,
+    pattern: /(^|[^\p{L}])(vi|en|zh|vi-VN|en-US|zh-CN)([^\p{L}]|$)/u,
     why: 'a language code reached the screen. Use the language name',
   },
 ];
