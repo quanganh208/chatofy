@@ -75,7 +75,8 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
       // holds, and only for a create — a replace adds no row, so refusing it
       // would make a full library uneditable. A double that refused every write
       // at the ceiling would pass the 409 case below and fail the user.
-      if (!rows.has(key) && own(ownerId).length >= maxPerOwner) return null;
+      if (!rows.has(key) && own(ownerId).length >= maxPerOwner)
+        return { kind: 'limit' };
       const row = {
         ownerId,
         id: contextId,
@@ -86,7 +87,7 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
       };
       rows.set(key, row);
       const { ownerId: _o, ...rest } = row;
-      return rest;
+      return { kind: 'saved', value: rest };
     },
     async remove(ownerId, contextId) {
       return rows.delete(`${ownerId}::${contextId}`);

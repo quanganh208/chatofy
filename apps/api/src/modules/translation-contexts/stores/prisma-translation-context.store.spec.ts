@@ -27,6 +27,9 @@ import { PrismaTranslationContextStore } from './prisma-translation-context.stor
 /** The ceiling these cases hold the store to. Not the product's number. */
 const MAX = 4;
 
+/** The linked glossary's client id, as the request and the response carry it. */
+const GLOSSARY_CLIENT_ID = '5b0c1f9e-3d2a-4c7b-9e1f-0a6d2c8b4e71';
+
 /** A row shaped as the store's own select asks for it. */
 const row = (over: Record<string, unknown> = {}) => ({
   clientId: 'ctx-1',
@@ -82,6 +85,8 @@ function fakePrisma(
      * exactly the two rows `body` sends and nothing appended after them.
      */
     existingGlossary?: { terms: unknown }[];
+    /** What the linked-glossary lookup finds. Defaults to the caller's glossary. */
+    linkedGlossaryRow?: { id: string } | null;
   } = {},
 ) {
   const calls: string[] = [];
@@ -118,7 +123,13 @@ function fakePrisma(
     row({
       ...(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
       ...(options.listedLinkedGlossary
-        ? { glossaryId: 'g-1', linkedGlossary: options.listedLinkedGlossary }
+        ? {
+            glossaryId: 'cuid-g-1',
+            linkedGlossary: {
+              clientId: GLOSSARY_CLIENT_ID,
+              ...options.listedLinkedGlossary,
+            },
+          }
         : {}),
     }),
   ]);
@@ -127,11 +138,18 @@ function fakePrisma(
     return options.existingGlossary ?? [];
   });
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
+  const glossaryFindUnique = vi.fn(async () => {
+    calls.push('glossary.findUnique');
+    return options.linkedGlossaryRow === undefined
+      ? { id: 'cuid-g-1' }
+      : options.linkedGlossaryRow;
+  });
 
   const tx = {
     $executeRaw: executeRaw,
     translationContext: { findUnique, count, upsert, findUniqueOrThrow },
     glossaryTerm: { deleteMany, createMany, findMany: glossaryFindMany },
+    glossary: { findUnique: glossaryFindUnique },
   };
 
   const prisma = {
@@ -154,6 +172,7 @@ function fakePrisma(
     findMany,
     glossaryFindMany,
     contextDeleteMany,
+    glossaryFindUnique,
     transaction: (prisma as unknown as { $transaction: Mock }).$transaction,
   };
 }
@@ -193,6 +212,16 @@ describe('PrismaTranslationContextStore', () => {
       });
       const [context] = await store.list('owner-1');
       expect(context?.glossary).toEqual([{ vi: 'ban', en: 'board' }]);
+    });
+
+    it("returns the linked glossary's client id, never the stored cuid", async () => {
+      // The contract types both fields as the client-minted uuid, and the
+      // client drops a context whose fields fail that parse — so echoing the
+      // FK column would hide every linked context from the list.
+      const { store } = fakePrisma({ listedLinkedGlossary: linked(true) });
+      const [context] = await store.list('owner-1');
+      expect(context?.linkedGlossaryId).toBe(GLOSSARY_CLIENT_ID);
+      expect(context?.glossaryId).toBe(GLOSSARY_CLIENT_ID);
     });
 
     it('falls back to the inline terms when the linked glossary is inactive', async () => {
@@ -520,12 +549,12 @@ describe('PrismaTranslationContextStore', () => {
         held: MAX,
       });
 
-      // `null` and not a throw: what a breached ceiling means to a caller is the
-      // service's to say, and a store that threw `ConflictException` would put
-      // the status code in the persistence layer.
-      await expect(store.save('owner-1', 'ctx-new', body, MAX)).resolves.toBe(
-        null,
-      );
+      // A result and not a throw: what a breached ceiling means to a caller is
+      // the service's to say, and a store that threw `ConflictException` would
+      // put the status code in the persistence layer.
+      await expect(
+        store.save('owner-1', 'ctx-new', body, MAX),
+      ).resolves.toEqual({ kind: 'limit' });
       expect(upsert).not.toHaveBeenCalled();
       expect(createMany).not.toHaveBeenCalled();
     });
@@ -563,9 +592,74 @@ describe('PrismaTranslationContextStore', () => {
 
       const saved = await store.save('owner-1', 'ctx-1', body, MAX);
 
-      expect(saved).not.toBe(null);
+      expect(saved.kind).toBe('saved');
       expect(count).not.toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('linking a glossary', () => {
+    const linking: SaveTranslationContextRequest = {
+      ...body,
+      glossaryId: GLOSSARY_CLIENT_ID,
+    };
+
+    it("stores the glossary's server id, looked up under the caller", async () => {
+      const { store, upsert, glossaryFindUnique } = fakePrisma();
+
+      const saved = await store.save('owner-1', 'ctx-1', linking, MAX);
+
+      expect(saved.kind).toBe('saved');
+      expect(glossaryFindUnique).toHaveBeenCalledWith({
+        where: {
+          ownerId_clientId: {
+            ownerId: 'owner-1',
+            clientId: GLOSSARY_CLIENT_ID,
+          },
+        },
+        select: { id: true },
+      });
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
+          update: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
+        }),
+      );
+    });
+
+    it('refuses a glossary the caller does not hold, writing nothing', async () => {
+      const { store, upsert, createMany } = fakePrisma({
+        linkedGlossaryRow: null,
+      });
+
+      await expect(
+        store.save('owner-1', 'ctx-1', linking, MAX),
+      ).resolves.toEqual({ kind: 'glossary-missing' });
+      expect(upsert).not.toHaveBeenCalled();
+      expect(createMany).not.toHaveBeenCalled();
+    });
+
+    it('looks the glossary up after taking the lock', async () => {
+      const { store, calls } = fakePrisma();
+
+      await store.save('owner-1', 'ctx-1', linking, MAX);
+
+      expect(calls.indexOf('glossary.findUnique')).toBeGreaterThan(
+        calls.indexOf('advisoryLock'),
+      );
+    });
+
+    it('does not look anything up when no glossary is linked', async () => {
+      const { store, upsert, glossaryFindUnique } = fakePrisma();
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(glossaryFindUnique).not.toHaveBeenCalled();
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ glossaryId: null }),
+        }),
+      );
     });
   });
 

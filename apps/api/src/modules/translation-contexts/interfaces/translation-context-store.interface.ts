@@ -6,6 +6,18 @@ import type {
   SaveTranslationContextRequest,
   TranslationContext,
 } from '@chatofy/types';
+import type {
+  Refusal,
+  Saved,
+} from '../../../common/library-scope/library-write-results';
+
+/**
+ * What {@link TranslationContextStore.save} did: wrote the context, or refused
+ * it because the create would pass the ceiling (`limit`) or because the linked
+ * glossary is not one the caller holds (`glossary-missing`).
+ */
+export type ContextSaveResult =
+  Saved<TranslationContext> | Refusal<'limit'> | Refusal<'glossary-missing'>;
 
 /** DI injection token for the translation-context store. */
 export const TRANSLATION_CONTEXT_STORE = Symbol('TRANSLATION_CONTEXT_STORE');
@@ -47,21 +59,22 @@ export interface TranslationContextStore {
    * a rule about rows the store is TOLD to hold, not a product decision the
    * persistence layer makes for itself.
    *
-   * ## Why a refusal is `null` rather than a throw
+   * ## Why a refusal is a result kind rather than a throw
    *
-   * What a breached ceiling means to a caller — a status code, a sentence the
-   * user reads — belongs to the service. A store that threw `ConflictException`
+   * What a refusal means to a caller — a status code, a sentence the user
+   * reads — belongs to the service. A store that threw `ConflictException`
    * would put HTTP in the persistence layer, and a store that threw anything
-   * else would need the service to unwrap it. `null` says only "the row was not
-   * written because the ceiling refused it", which is the whole of what this
-   * layer knows.
+   * else would need the service to unwrap it. `limit` says only "the row was
+   * not written because the ceiling refused it", and `glossary-missing` says
+   * "the linked glossary id names no glossary this owner holds"; that is the
+   * whole of what this layer knows. Nothing is written for either.
    */
   save(
     ownerId: string,
     contextId: string,
     body: SaveTranslationContextRequest,
     maxPerOwner: number,
-  ): Promise<TranslationContext | null>;
+  ): Promise<ContextSaveResult>;
 
   /**
    * Delete the caller's context under this client id.

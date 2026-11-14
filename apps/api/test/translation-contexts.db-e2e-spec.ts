@@ -86,6 +86,9 @@ describe('AI Context library (db-e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.glossary.deleteMany({
+      where: { ownerId: { in: owners.map((owner) => owner.userId) } },
+    });
     await prisma.translationContext.deleteMany({
       where: { ownerId: { in: owners.map((owner) => owner.userId) } },
     });
@@ -406,6 +409,84 @@ describe('AI Context library (db-e2e)', () => {
       // ceiling: the next create reads a full library and answers 409 too.
       await put(randomUUID(), who).expect(409);
     });
+  });
+
+  describe('linking a glossary', () => {
+    // The request names the glossary by its client id; the FK holds the
+    // glossary's server cuid. Writing the client id straight into the FK failed
+    // every link with a foreign-key violation, and echoing the cuid back would
+    // fail the client's uuid parse and drop the context from the list — so both
+    // halves are asserted against the real schema here.
+
+    it("stores the link and lists it under the glossary's client id", async () => {
+      const glossaryId = await glossaryFor(alice);
+      await request(app.getHttpServer())
+        .post(`/glossaries/${glossaryId}/items`)
+        .set('authorization', alice.bearer)
+        .send({
+          clientId: randomUUID(),
+          original: 'nhịp tim',
+          translation: 'heart rate',
+          targetLang: 'en',
+          notes: null,
+        })
+        .expect(201);
+      const contextId = randomUUID();
+
+      await put(contextId, alice, body({ glossaryId })).expect(200);
+
+      const listed = contextIn(await list(alice).expect(200), contextId);
+      expect(listed.linkedGlossaryId).toBe(glossaryId);
+      expect(listed.glossaryId).toBe(glossaryId);
+      expect(listed.glossary?.length ?? 0).toBeGreaterThanOrEqual(1);
+      const stored = await prisma.translationContext.findFirstOrThrow({
+        where: { clientId: contextId },
+        select: { glossaryId: true },
+      });
+      const glossary = await prisma.glossary.findFirstOrThrow({
+        where: { clientId: glossaryId },
+        select: { id: true },
+      });
+      expect(stored.glossaryId).toBe(glossary.id);
+    });
+
+    it("refuses another user's glossary", async () => {
+      const foreign = await glossaryFor(bob);
+      const contextId = randomUUID();
+
+      await put(contextId, alice, body({ glossaryId: foreign })).expect(400);
+
+      expect(
+        await prisma.translationContext.count({
+          where: { clientId: contextId },
+        }),
+      ).toBe(0);
+    });
+
+    it('deleting the glossary unlinks the context', async () => {
+      const glossaryId = await glossaryFor(alice);
+      const contextId = randomUUID();
+      await put(contextId, alice, body({ glossaryId })).expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/glossaries/${glossaryId}`)
+        .set('authorization', alice.bearer)
+        .expect(204);
+
+      const listed = contextIn(await list(alice).expect(200), contextId);
+      expect(listed.linkedGlossaryId).toBeNull();
+    });
+
+    /** Creates a glossary for `who` and returns its client id. */
+    async function glossaryFor(who: Identity): Promise<string> {
+      const id = randomUUID();
+      await request(app.getHttpServer())
+        .put(`/glossaries/${id}`)
+        .set('authorization', who.bearer)
+        .send({ name: 'Cardiology', description: null, sourceLang: 'vi' })
+        .expect(200);
+      return id;
+    }
   });
 
   /** PUT one context, unsent, so a caller can await it or race it. */

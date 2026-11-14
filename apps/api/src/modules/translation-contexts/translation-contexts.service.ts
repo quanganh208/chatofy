@@ -1,4 +1,9 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import {
   CONTEXT_LIMITS,
   type SaveTranslationContextRequest,
@@ -8,6 +13,7 @@ import {
   TRANSLATION_CONTEXT_STORE,
   type TranslationContextStore,
 } from './interfaces/translation-context-store.interface';
+import { assertNever } from '../../common/library-scope/library-write-results';
 
 /**
  * The AI Context library, and the per-owner ceiling.
@@ -36,12 +42,13 @@ export class TranslationContextsService {
   }
 
   /**
-   * Create or replace one context, turning a refused CREATE into a 409.
+   * Create or replace one context, turning a refused CREATE into a 409 and a
+   * glossary link the caller does not hold into a 400.
    *
    * The store is handed the ceiling rather than knowing it: the number is the
    * contract's, and a persistence layer that read `CONTEXT_LIMITS` itself would
-   * be making the product's decision on its behalf. What comes back is `null`
-   * when the ceiling refused the write, and that is the only thing the store
+   * be making the product's decision on its behalf. What comes back is a result
+   * kind naming why a write was refused, and that is the only thing the store
    * says about it — the status code and the sentence the user reads are built
    * here, where the HTTP contract lives.
    *
@@ -63,13 +70,19 @@ export class TranslationContextsService {
       body,
       CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
     );
-    if (saved === null) {
-      throw new ConflictException(
-        `You can save at most ${CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER} AI Contexts. ` +
-          'Delete one before creating another.',
-      );
+    switch (saved.kind) {
+      case 'saved':
+        return saved.value;
+      case 'limit':
+        throw new ConflictException(
+          `You can save at most ${CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER} AI Contexts. ` +
+            'Delete one before creating another.',
+        );
+      case 'glossary-missing':
+        throw new BadRequestException('The linked glossary does not exist.');
+      default:
+        return assertNever(saved);
     }
-    return saved;
   }
 
   /**
