@@ -18,6 +18,13 @@ describe('defaultUserPreferences', () => {
     expect(defaultUserPreferences('en').pairs.webTwoWay).toEqual({ source: 'vi', target: 'en' });
   });
 
+  it('gives a Chinese account English into Chinese on every surface', () => {
+    const zh = defaultUserPreferences('zh');
+    expect(zh.pairs.webOneWay).toEqual({ source: 'en', target: 'zh' });
+    expect(zh.pairs.extension).toEqual({ source: 'en', target: 'zh' });
+    expect(userPreferencesSchema.safeParse(zh).success).toBe(true);
+  });
+
   it('keeps the registry default for an unknown locale and follows the system theme', () => {
     const prefs = defaultUserPreferences('fr');
     expect(prefs.pairs.mobile).toEqual({ source: 'vi', target: 'en' });

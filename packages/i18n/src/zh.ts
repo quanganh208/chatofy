@@ -204,7 +204,7 @@ export const zh: Messages = {
   'common.minutes.due': '截止',
   'common.minutes.nothingSaid': '这场会议没有人说话，所以没有可总结的内容。',
 
-  'common.transcript': '对话记录',
+  'common.transcript': '文字记录',
 
   // ---- web.chrome: the shell every route renders inside ----
   'web.chrome.skipToContent': '跳到主要内容',
@@ -244,7 +244,7 @@ export const zh: Messages = {
   'web.chrome.accountMenu': '账户',
   'web.chrome.planAccountMenu': '账户，{plan}套餐',
   'web.chrome.planOpenBilling': '套餐：{plan}，打开账单',
-  'web.chrome.signedInAs': '当前登录账号',
+  'web.chrome.signedInAs': '当前登录账户',
   'web.chrome.getStarted': '开始使用',
   'web.chrome.openApp': '打开 Chatofy',
 
@@ -500,7 +500,7 @@ export const zh: Messages = {
   'web.translate.minutesNeedsSave': '纪要根据已保存的对话生成。',
   // ---- web.translate.minutes: LLM meeting minutes over a finished conversation ----
   'web.translate.minutesGenerating': '正在总结对话…',
-  'web.translate.minutesEmpty': '还没有纪要。生成纪要即可获得总结、要点、决定和待办事项。',
+  'web.translate.minutesEmpty': '还没有纪要。生成纪要即可获得摘要、要点、决定和待办事项。',
   'web.translate.minutesNeedsTurns': '先进行一段对话吧，现在还没有可总结的内容。',
   'web.translate.minutesCopy': '复制',
   'web.translate.minutesCopiedToast': '纪要已复制',
@@ -563,7 +563,7 @@ export const zh: Messages = {
   'web.history.turnCount': '{count} 行',
   'web.history.turnCountOne': '1 行',
   'web.history.duration': '{minutes} 分钟',
-  'web.history.autoDetect': '自动识别',
+  'web.history.autoDetect': '自动检测',
   'web.history.minutesReady': '会议纪要',
   'web.history.kindOneWay': '单向',
   'web.history.kindTwoWay': '双向',
@@ -692,11 +692,11 @@ export const zh: Messages = {
   'web.billing.freePrice': '每月 {price}',
   'web.billing.priceCard': '每月 {price}，银行卡支付',
   'web.billing.pricePass': '30 天 {price}，VietQR 支付',
-  'web.billing.featureCreditsMonthly': '每月 {credits} 点数',
+  'web.billing.featureCreditsMonthly': '每月 {credits} 点',
   'web.billing.featureNoCarryOver': '未用完的点数不会累积到下月',
-  'web.billing.featureCreditsCycle': '每个周期 {credits} 点数',
+  'web.billing.featureCreditsCycle': '每个周期 {credits} 点',
   'web.billing.featureCycleReset': '下个周期开始时重置',
-  'web.billing.featurePayOptions': '银行卡按月自动续费；VietQR 套餐有效期 30 天',
+  'web.billing.featurePayOptions': '银行卡按月自动续费；VietQR 通行证有效期 30 天',
   'web.billing.featureTopups': '随时可以充值，充值点数永不过期',
   'web.billing.upgradeCard': '用银行卡升级',
   'web.billing.upgradeQr': '用 VietQR 升级',
@@ -771,7 +771,7 @@ export const zh: Messages = {
   'web.landing.howBody': '授权麦克风之前，值得了解的三件事。',
   'web.landing.howOneTitle': '按下开始，然后直接说',
   'web.landing.howOneBody': '无需按住按钮。你一停顿，这一轮就结束，大约一秒后播放译文。',
-  'web.landing.howTwoTitle': '自动识别语言',
+  'web.landing.howTwoTitle': '自动检测语言',
   'web.landing.howTwoBody':
     'Chatofy 能在你说话时分辨越南语和英语。如果说中文，请在开始前选好语言。',
   'web.landing.howThreeTitle': '听译文，不用读',
@@ -780,7 +780,7 @@ export const zh: Messages = {
   'web.landing.meetingsTitle': '多语言会议，实时翻译',
   'web.landing.meetingsBody': '分享一个链接，每位参与者都能用自己的语言跟上会议。',
   'web.landing.meetingsLinkTitle': '通过链接加入',
-  'web.landing.meetingsLinkBody': '有账号的人打开链接即可加入，无需安装任何东西。',
+  'web.landing.meetingsLinkBody': '有账户的人打开链接即可加入，无需安装任何东西。',
   'web.landing.meetingsHearTitle': '用你的语言显示字幕并朗读',
   'web.landing.meetingsHearBody': '每位发言者的话都会翻译成你选择的语言，显示字幕并朗读出来。',
   'web.landing.meetingsChatTitle': '消息自动翻译',
@@ -809,13 +809,15 @@ export const zh: Messages = {
   'web.landing.surfacePhoneBody': '开发中。已支持加入会议，尚未在应用商店上架。',
 
   'web.landing.ctaTitle': '试一次对话',
-  'web.landing.ctaBody': '需要麦克风和一个账号，无需银行卡。',
+  'web.landing.ctaBody': '需要麦克风和一个账户，无需银行卡。',
   'web.landing.navMenu': '菜单',
   'web.landing.navMeetings': '会议',
   'web.landing.navHow': '使用方式',
   'web.landing.navLocal': '隐私',
   'web.landing.navSurfaces': '使用场景',
-  'web.landing.heroTitleEmphasis': '让对方用他们的语言听懂',
+  // Empty on purpose: CJK faces ship no italic, so the browser would slant the glyphs.
+  // The headline renders upright when there is no phrase to emphasise.
+  'web.landing.heroTitleEmphasis': '',
 
   // ---- web.pricing: the public /pricing page ----
   'web.pricing.title': '价格',
@@ -839,7 +841,7 @@ export const zh: Messages = {
   'web.conference.joining': '正在加入…',
   // ---- web.conference: in-call control bar ----
   'web.conference.muted': '已静音',
-  'web.conference.showRoster': '显示参与者',
+  'web.conference.showRoster': '显示参会者',
   // ---- web.conference: edge-case states ----
   'web.conference.permissionDeniedHint':
     '打开浏览器设置，允许访问摄像头和麦克风，然后重新加载此页面。',
@@ -912,7 +914,7 @@ export const zh: Messages = {
   'mobile.conference.minutesGenerating': '正在总结会议…',
   'mobile.conference.minutesEmpty': '还没有纪要。参加过会议的任何人都可以生成。',
   'mobile.tabs.conference': '会议',
-  'mobile.auth.noAccountPrompt': '还没有账号？',
+  'mobile.auth.noAccountPrompt': '还没有账户？',
   'mobile.auth.linkExpired': '此链接已过期或已被使用，请重新获取一个。',
   'mobile.auth.fillAllFields': '请填写所有字段。',
   'mobile.auth.nameTooLong': '名字太长了。',

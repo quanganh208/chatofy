@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Languages } from 'lucide-react';
-import { LOCALES, type Locale } from '@chatofy/i18n';
+import { htmlLang, LOCALES, type Locale } from '@chatofy/i18n';
 import {
   Button,
   DropdownMenu,
@@ -101,7 +101,7 @@ export function LocaleSwitcher({
             aria-label={`${t('common.language.label')}: ${t(LABEL_KEY[active])}`}
           >
             <Languages aria-hidden />
-            {t(LABEL_KEY[active])}
+            <span lang={htmlLang(active)}>{t(LABEL_KEY[active])}</span>
           </Button>
         ) : (
           <Button
@@ -144,7 +144,9 @@ export function LocaleSwitcher({
           }}
         >
           {LOCALES.map((locale) => (
-            <DropdownMenuRadioItem key={locale} value={locale}>
+            // Each name is in its own language, so it carries that language's tag:
+            // a screen reader on an English page otherwise reads 中文 with an English voice.
+            <DropdownMenuRadioItem key={locale} value={locale} lang={htmlLang(locale)}>
               {t(LABEL_KEY[locale])}
             </DropdownMenuRadioItem>
           ))}

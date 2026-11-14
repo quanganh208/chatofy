@@ -59,6 +59,8 @@ describe('LocaleSwitcher', () => {
     const options = Array.from(document.querySelectorAll('[role="menuitemradio"]'));
     expect(options.map((option) => option.textContent)).toEqual(['English', 'Tiếng Việt', '中文']);
     expect(options.every((option) => option.hasAttribute('aria-checked'))).toBe(true);
+    // Each name is tagged with its own language, so a screen reader voices it correctly.
+    expect(options.map((option) => option.getAttribute('lang'))).toEqual(['en', 'vi', 'zh-CN']);
     const checked = options.filter((option) => option.getAttribute('aria-checked') === 'true');
     expect(checked.map((option) => option.textContent)).toEqual(['Tiếng Việt']);
 

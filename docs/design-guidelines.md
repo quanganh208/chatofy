@@ -904,7 +904,7 @@ it at every locale is a one-line change and worth making.
 
 **Mail copy is not in this dictionary**, and that is deliberate:
 `apps/api/src/modules/mail/interfaces/mail-sender.interface.ts` owns all four templates
-in both languages, keyed purpose-first so `tsc` names a purpose added in one language
+in every locale, keyed purpose-first so `tsc` names a purpose added in one locale
 only. Nothing there is ever rendered in a browser, and putting it in the web app's
 dictionary would put mail copy on a surface that does not send mail.
 

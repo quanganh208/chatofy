@@ -34,6 +34,14 @@ describe('notify', () => {
     expect(toast.success.mock.calls[1]?.[1]).toMatchObject({ action: { label: 'Hoàn tác' } });
   });
 
+  it('reads a region-tagged page language, which is what a Chinese page declares', () => {
+    document.documentElement.lang = 'zh-CN';
+    notify.success('已保存', { undo: vi.fn() });
+    const label = (toast.success.mock.calls[0]?.[1] as { action?: { label?: string } }).action
+      ?.label;
+    expect(label).toBe('撤销');
+  });
+
   it('keeps an error on screen until it is dismissed, with a Retry', () => {
     const retry = vi.fn();
     notify.error('Could not save', { retry });
