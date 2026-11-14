@@ -13,7 +13,10 @@ import {
   pause,
   retryDelayMs,
 } from '../../../prisma/serialization-retry';
-import type { TranslationContextStore } from '../interfaces/translation-context-store.interface';
+import type {
+  ContextSaveResult,
+  TranslationContextStore,
+} from '../interfaces/translation-context-store.interface';
 
 /** How many times a transient conflict is re-attempted before it surfaces. */
 const MAX_SAVE_ATTEMPTS = 5;
@@ -68,8 +71,8 @@ interface ContextRow {
   style: string | null;
   updatedAt: Date;
   glossary: { terms: unknown }[];
-  glossaryId: string | null;
   linkedGlossary: {
+    clientId: string;
     name: string;
     sourceLang: string;
     isActive: boolean;
@@ -198,13 +201,12 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
     contextId: string,
     body: SaveTranslationContextRequest,
     maxPerOwner: number,
-  ): Promise<TranslationContext | null> {
+  ): Promise<ContextSaveResult> {
     const parent = {
       name: body.name,
       topic: body.topic,
       hotwords: body.hotwords,
       style: body.style,
-      glossaryId: body.glossaryId,
     };
 
     for (let attempt = 1; ; attempt += 1) {
@@ -217,19 +219,36 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
             // two of its statements.
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(${OWNER_LOCK_CLASS}::int, hashtext(${ownerId}))`;
 
+            // The request names the linked glossary by its CLIENT id, while the
+            // FK column holds the glossary's server cuid, so the id is resolved
+            // here rather than written through. The lookup is scoped to the
+            // caller: a glossary id copied from another account finds nothing
+            // and is refused, so a foreign glossary can never be linked.
+            let linkedGlossaryId: string | null = null;
+            if (body.glossaryId !== null) {
+              const linked = await tx.glossary.findUnique({
+                where: {
+                  ownerId_clientId: { ownerId, clientId: body.glossaryId },
+                },
+                select: { id: true },
+              });
+              if (linked === null) return { kind: 'glossary-missing' } as const;
+              linkedGlossaryId = linked.id;
+            }
+
             const held = await tx.translationContext.findUnique({
               where: { ownerId_clientId: { ownerId, clientId: contextId } },
               select: { id: true },
             });
 
-            // Only a create can breach the ceiling, and `null` rather than a
+            // Only a create can breach the ceiling, and a result rather than a
             // throw because the caller owns what a refusal means. Nothing has
             // been written at this point, so the transaction commits empty.
             if (held === null) {
               const owned = await tx.translationContext.count({
                 where: { ownerId },
               });
-              if (owned >= maxPerOwner) return null;
+              if (owned >= maxPerOwner) return { kind: 'limit' } as const;
             }
 
             // Rows the CURRENT schema cannot read, read BEFORE the replace below
@@ -275,8 +294,13 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
 
             const row = await tx.translationContext.upsert({
               where: { ownerId_clientId: { ownerId, clientId: contextId } },
-              create: { ownerId, clientId: contextId, ...parent },
-              update: parent,
+              create: {
+                ownerId,
+                clientId: contextId,
+                ...parent,
+                glossaryId: linkedGlossaryId,
+              },
+              update: { ...parent, glossaryId: linkedGlossaryId },
               select: { id: true },
             });
 
@@ -310,7 +334,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
               where: { id: row.id },
               select: CONTEXT_SELECT,
             });
-            return toContext(saved);
+            return { kind: 'saved', value: toContext(saved) } as const;
           },
           {
             // READ COMMITTED, and the lock above is what pays for it. What this
@@ -373,9 +397,9 @@ const CONTEXT_SELECT = {
     orderBy: { position: 'asc' },
     select: { terms: true },
   },
-  glossaryId: true,
   linkedGlossary: {
     select: {
+      clientId: true,
       name: true,
       sourceLang: true,
       isActive: true,
@@ -409,8 +433,11 @@ function toContext(row: ContextRow): TranslationContext {
     // there and the contract admits three values.
     style: asStyle(row.style),
     glossary,
-    glossaryId: row.glossaryId,
-    linkedGlossaryId: row.glossaryId,
+    // The client id, never the stored cuid: the contract types both as the
+    // glossary's client-minted uuid, and a cuid here fails the client's parse
+    // and drops the whole context from the list.
+    glossaryId: row.linkedGlossary?.clientId ?? null,
+    linkedGlossaryId: row.linkedGlossary?.clientId ?? null,
     linkedGlossaryName: row.linkedGlossary?.name ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };

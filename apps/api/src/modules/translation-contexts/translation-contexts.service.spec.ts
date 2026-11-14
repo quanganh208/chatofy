@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   CONTEXT_LIMITS,
   type SaveTranslationContextRequest,
@@ -44,11 +44,13 @@ const context = (id: string): TranslationContext => ({
   updatedAt: '2026-09-17T00:00:00.000Z',
 });
 
-/** A store that writes whatever it is given, unless `refuse` is set. */
-function makeService(options: { refuse?: boolean } = {}) {
+/** A store that writes whatever it is given, unless `refuse` names a refusal. */
+function makeService(options: { refuse?: 'limit' | 'glossary-missing' } = {}) {
   const list = vi.fn().mockResolvedValue([]);
   const save = vi.fn(async (_owner: string, id: string) =>
-    options.refuse === true ? null : context(id),
+    options.refuse === undefined
+      ? { kind: 'saved' as const, value: context(id) }
+      : { kind: options.refuse },
   );
   const remove = vi.fn().mockResolvedValue(true);
   const store = { list, save, remove } as unknown as TranslationContextStore;
@@ -87,7 +89,7 @@ describe('TranslationContextsService', () => {
   });
 
   it('turns a refused write into a 409 naming the ceiling', async () => {
-    const { service } = makeService({ refuse: true });
+    const { service } = makeService({ refuse: 'limit' });
 
     const refusal = service.save('owner-1', 'ctx-new', body);
 
@@ -97,6 +99,14 @@ describe('TranslationContextsService', () => {
     await expect(refusal).rejects.toThrow(
       String(CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER),
     );
+  });
+
+  it('turns a link to a glossary the caller does not hold into a 400', async () => {
+    const { service } = makeService({ refuse: 'glossary-missing' });
+
+    await expect(
+      service.save('owner-1', 'ctx-new', body),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('returns the written context untouched when the store wrote one', async () => {
