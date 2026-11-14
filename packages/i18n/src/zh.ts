@@ -277,7 +277,7 @@ export const zh: Messages = {
   'web.auth.serverUnreachable': '无法连接服务器。',
   'web.auth.tookTooLong': '等待时间太长了，请重试。',
   'web.auth.unexpectedResponse': '服务器返回了意外的响应。',
-  'web.auth.accountRequired': '翻译需要账户，每次会话和对话记录都归属于一个账户。',
+  'web.auth.accountRequired': '翻译需要账户，每次会话和文字记录都归属于一个账户。',
   'web.auth.orContinueWithEmail': '或使用邮箱继续',
   'web.auth.continueWithGoogle': '使用 Google 继续',
   'web.auth.credentialsRejected': '邮箱和密码与任何账户都不匹配。',
@@ -778,7 +778,7 @@ export const zh: Messages = {
   'web.landing.howThreeBody': '译文会朗读出来，文字也留在屏幕上供你参考。',
 
   'web.landing.meetingsTitle': '多语言会议，实时翻译',
-  'web.landing.meetingsBody': '分享一个链接，每位参与者都能用自己的语言跟上会议。',
+  'web.landing.meetingsBody': '分享一个链接，每位参会者都能用自己的语言跟上会议。',
   'web.landing.meetingsLinkTitle': '通过链接加入',
   'web.landing.meetingsLinkBody': '有账户的人打开链接即可加入，无需安装任何东西。',
   'web.landing.meetingsHearTitle': '用你的语言显示字幕并朗读',
@@ -798,7 +798,7 @@ export const zh: Messages = {
   'web.landing.localKeptPause': '暂停对话也会暂停录音：暂停期间说的话既不会录下，也不会翻译。',
   'web.landing.localKeptDelete': '删除对话时，它的录音也会一并删除。',
   'web.landing.localKeptMeeting':
-    '会议中的发言和消息只以文字保存，不保存音频。所有参与者都能查看，目前还无法删除。',
+    '会议中的发言和消息只以文字保存，不保存音频。所有参会者都能查看，目前还无法删除。',
 
   'web.landing.surfacesTitle': 'Chatofy 可以在哪里用',
   'web.landing.surfaceBrowserTitle': '在浏览器中',
