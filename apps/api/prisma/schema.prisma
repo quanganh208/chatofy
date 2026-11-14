@@ -81,7 +81,7 @@ model User {
   // browser is present to ask. The switcher writes both, so they do not drift.
   //
   // `String` with a default rather than an enum: the api validates against
-  // `LOCALES` at the boundary, and an enum migration for two values that may grow
+  // `LOCALES` at the boundary, and an enum migration for a list that grows (en, vi, zh so far)
   // is more ceremony than it earns. The default is what makes this additive —
   // every existing row is valid without a backfill query.
   locale            String    @default("en")

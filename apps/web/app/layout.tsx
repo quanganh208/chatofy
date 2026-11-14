@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Be_Vietnam_Pro, Lexend, Newsreader } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
+import { htmlLang } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 import { getLocale, getT } from '@/i18n/server';
 import { serverEnv } from '@/config/server-env';
@@ -120,7 +121,7 @@ export default async function RootLayout({
     // `lang` DOES come from the server, for the reason above — and it has to be
     // right: it is what a screen reader picks a voice from.
     <html
-      lang={locale}
+      lang={htmlLang(locale)}
       className={`${sans.variable} ${display.variable} ${legible.variable}`}
       suppressHydrationWarning
     >

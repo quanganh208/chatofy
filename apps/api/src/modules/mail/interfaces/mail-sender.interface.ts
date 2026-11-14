@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale } from '@chatofy/i18n';
+import { DEFAULT_LOCALE, htmlLang, type Locale } from '@chatofy/i18n';
 import { brandedMailLogoUrl, renderBrandedMail } from '../branded-mail-layout';
 
 /**
@@ -132,18 +132,19 @@ interface MailCopy {
 
 /**
  * Fixed subject/body per purpose, per language. Body is this constant plus the link —
- * nothing else, in either language.
+ * nothing else, in any language.
  *
  * Keyed purpose-first and locale-second so a new purpose cannot be added in one
- * language only: the type demands both, and `tsc` names the missing one. That is the
- * same parity-by-compiler `@chatofy/i18n` uses between `en` and `vi`, applied to the
+ * language only: the type demands every locale, and `tsc` names the missing one. That
+ * is the same parity-by-compiler `@chatofy/i18n` uses across its dictionaries, applied to the
  * copy that does not belong in a UI dictionary — nothing here is ever rendered in a
  * browser, and putting it in the web app's dictionary would put mail copy on a surface
  * that does not send mail.
  *
  * The Vietnamese addresses the reader as "bạn", the register decided for the product
  * and recorded in `docs/design-guidelines.md` § Copy register. It is written against
- * that rule rather than translated word-for-word from the English.
+ * that rule rather than translated word-for-word from the English. The Chinese
+ * addresses the reader as "你", with full-width punctuation, written the same way.
  */
 const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
   [MailPurpose.VerifyEmail]: {
@@ -165,6 +166,13 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       outro:
         'Liên kết này hết hạn sau 24 giờ. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
     },
+    zh: {
+      subject: '验证你的邮箱地址',
+      heading: '验证你的邮箱地址',
+      intro: '欢迎使用 Chatofy！请确认此邮箱地址，完成账户注册：',
+      action: '验证邮箱',
+      outro: '此链接将在 24 小时后失效。如果这不是你本人的操作，请忽略本邮件。',
+    },
   },
   [MailPurpose.AccountExistsNotice]: {
     en: {
@@ -184,6 +192,14 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
         'quên mật khẩu thì đặt lại tại đây:',
       action: 'Đặt lại mật khẩu',
       outro: 'Nếu bạn không chờ email này, cứ bỏ qua nó.',
+    },
+    zh: {
+      subject: '你已经有 Chatofy 账户了',
+      heading: '你已经有账户了',
+      intro:
+        '此邮箱地址已经注册过账户。请直接登录；如果忘记了密码，可以在这里重置：',
+      action: '重置密码',
+      outro: '如果你并未预料到这封邮件，忽略即可。',
     },
   },
   [MailPurpose.NoAccountNotice]: {
@@ -209,6 +225,15 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       outro:
         'Nếu không phải bạn, cứ bỏ qua email này. Không có gì thay đổi cả.',
     },
+    zh: {
+      subject: '此邮箱地址没有 Chatofy 账户',
+      heading: '没有账户使用此邮箱地址',
+      intro:
+        '有人请求为此邮箱地址重置 Chatofy 密码，但没有任何账户使用它。如果是你本人，' +
+        '你可能是用其他邮箱地址注册的——你也可以在这里创建账户：',
+      action: '创建账户',
+      outro: '如果不是你本人的操作，请忽略本邮件。你的账户信息不会有任何变化。',
+    },
   },
   [MailPurpose.PasswordReset]: {
     en: {
@@ -226,6 +251,14 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       action: 'Chọn mật khẩu mới',
       outro:
         'Liên kết hết hạn sau 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+    },
+    zh: {
+      subject: '重置你的 Chatofy 密码',
+      heading: '重置你的密码',
+      intro: '请使用此链接设置新密码：',
+      action: '设置新密码',
+      outro:
+        '此链接将在 30 分钟后失效，且只能使用一次。如果这不是你本人的操作，请忽略本邮件。',
     },
   },
 };
@@ -253,6 +286,13 @@ const MAIL_CHROME: Record<Locale, MailChrome> = {
     footer: [
       'Chatofy — dịch giọng nói theo thời gian thực.',
       'Bạn nhận được email này vì có người đã dùng địa chỉ này trên Chatofy.',
+    ],
+  },
+  zh: {
+    fallback: '按钮无法点击？请将此链接粘贴到浏览器中打开：',
+    footer: [
+      'Chatofy——实时语音翻译。',
+      '你收到这封邮件，是因为有人在 Chatofy 上使用了此邮箱地址。',
     ],
   },
 };
@@ -288,12 +328,13 @@ export function buildMailMessage(
   return {
     ...buildMailContent(purpose, link, locale),
     html: renderBrandedMail({
-      lang: locale,
+      lang: htmlLang(locale),
       title: copy.subject,
       heading: copy.heading,
       // In the text part a colon introduces the link on the next line; here a
-      // button follows the paragraph instead, so the sentence ends.
-      intro: copy.intro.replace(/:$/, '.'),
+      // button follows the paragraph instead, so the sentence ends. Chinese ends on
+      // the full-width pair, `：` to `。`.
+      intro: copy.intro.replace(/:$/, '.').replace(/：$/, '。'),
       action: copy.action,
       link,
       fallback: chrome.fallback,

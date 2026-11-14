@@ -4,6 +4,7 @@ import {
   createTranslator,
   en,
   vi,
+  zh,
   type Locale,
   type Messages,
   type Translate,
@@ -61,7 +62,7 @@ export async function getLocale(): Promise<Locale> {
  * `Messages`, not `typeof en`. The English literal's type is its exact strings, so
  * `Record<Locale, typeof en>` would demand that Vietnamese say "Light" too.
  */
-const DICTIONARIES: Record<Locale, Messages> = { en, vi };
+const DICTIONARIES: Record<Locale, Messages> = { en, vi, zh };
 
 /**
  * A reader bound to this request's locale.

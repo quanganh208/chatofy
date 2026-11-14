@@ -724,6 +724,25 @@ const FONT_FAMILY = 'Be Vietnam Pro';
 /** What a failed `@font-face` must land on. Both surfaces carry it. */
 const FALLBACK_TAIL = ['ui-sans-serif', 'system-ui', 'sans-serif'];
 
+/**
+ * Web's interface ships in Simplified Chinese, the popup's does not, so only web
+ * names the system CJK faces — after `system-ui`, so Latin still falls back to the
+ * system face, and before the generic, so a platform's CJK face is named rather than
+ * left to the browser's guess.
+ */
+const CJK_SANS = [
+  "'PingFang SC'",
+  "'Hiragino Sans GB'",
+  "'Microsoft YaHei'",
+  "'Noto Sans SC'",
+  "'Noto Sans CJK SC'",
+];
+
+const EXPECTED_TAIL: Record<SurfaceScope, string[]> = {
+  web: [...FALLBACK_TAIL.slice(0, -1), ...CJK_SANS, ...FALLBACK_TAIL.slice(-1)],
+  popup: FALLBACK_TAIL,
+};
+
 /** Body, control label, heading, and nothing heavier. */
 const FONT_WEIGHTS = ['400', '500', '600', '700'];
 
@@ -739,12 +758,12 @@ function fontStack(source: string, label: string): string[] {
 }
 
 describe('both surfaces resolve one typeface', () => {
-  it.each(SURFACES)('$label keeps a fallback tail behind the family', ({ label, path }) => {
+  it.each(SURFACES)('$label keeps a fallback tail behind the family', ({ label, path, scope }) => {
     const [family, ...tail] = fontStack(sourceOf(path), label);
     expect(family, `${label} declares no family segment`).toBeTruthy();
     // The failure this closes: a font file dropped from the package, or a subset
     // rebuilt wrong, leaving the surface with no family to fall back to at all.
-    expect(tail, `${label} lost its fallback tail`).toEqual(FALLBACK_TAIL);
+    expect(tail, `${label} lost its fallback tail`).toEqual(EXPECTED_TAIL[scope]);
   });
 
   it('web reaches the family through next/font', () => {

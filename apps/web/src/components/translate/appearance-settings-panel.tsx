@@ -41,7 +41,7 @@ const FONT_LABEL: Record<ReadingFont, MessageKey> = {
 /** Each face's label drawn IN that face, so the choice previews itself. */
 const FONT_PREVIEW: Record<ReadingFont, string> = {
   sans: 'var(--font-sans)',
-  serif: 'var(--font-newsreader), serif',
+  serif: "var(--font-newsreader), 'Songti SC', 'Noto Serif SC', 'Noto Serif CJK SC', serif",
   mono: 'ui-monospace, monospace',
   legible: 'var(--font-legible), var(--font-sans)',
 };

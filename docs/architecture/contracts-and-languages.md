@@ -618,7 +618,7 @@ the ceiling for a language that actually works end to end.
    (spoken numbers, dates, scale words) built the way
    `vietnamese-inverse-normalize.ts`/`english-inverse-normalize.ts` are; the
    spike filled an empty/identity table only to reach a green build.
-4. **`packages/i18n/src/en.ts` and `vi.ts`** — `common.languageName.<code>` and
+4. **`packages/i18n/src/en.ts`, `vi.ts` and `zh.ts`** — `common.languageName.<code>` and
    `web.languageShort.<code>`. These are enforced by the `Messages` type
    (`packages/i18n/src/en.ts`), not by a runtime parity test: a component that
    reads `t('common.languageName.ja')` fails to TYPECHECK the moment `ja` is a

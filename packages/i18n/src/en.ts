@@ -56,6 +56,7 @@ export const en = {
     'Recommended: off with headphones; may be on with external speakers.',
   'common.language.vietnamese': 'Tiếng Việt',
   'common.language.english': 'English',
+  'common.language.chinese': '中文',
   'common.language.label': 'Language',
 
   // ---- common.languageName: a registry language's name in THIS locale ----

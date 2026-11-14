@@ -86,6 +86,32 @@ describe('mail language', () => {
     });
   });
 
+  /**
+   * `@chatofy/types` cannot import `LOCALES`, so its enums restate the list. A locale
+   * added to one and not the other would be coerced to English on register and
+   * refused on the settings route — mail in the wrong language, silently.
+   */
+  describe('a supported request locale', () => {
+    it.each(LOCALES)(
+      '%s survives register, forgot-password and settings',
+      (locale) => {
+        const register = registerRequestSchema.safeParse({
+          email: 'a@b.com',
+          password: 'a-long-enough-password',
+          name: 'A',
+          locale,
+        });
+        const forgot = forgotPasswordRequestSchema.safeParse({
+          email: 'a@b.com',
+          locale,
+        });
+        expect(register.success && register.data.locale).toBe(locale);
+        expect(forgot.success && forgot.data.locale).toBe(locale);
+        expect(updateMeRequestSchema.safeParse({ locale }).success).toBe(true);
+      },
+    );
+  });
+
   describe('templates', () => {
     it.each(Object.values(MailPurpose))(
       '%s has real copy in every locale',

@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import type { Locale } from '@chatofy/i18n';
 
 /**
  * In a settings row the switcher has to say what it is set to; in the chrome the
@@ -15,7 +16,7 @@ vi.mock('next-auth/react', () => ({ useSession: () => ({ status: 'unauthenticate
 const { LocaleSwitcher } = await import('./locale-switcher');
 const { LocaleProvider } = await import('@/i18n/provider');
 
-function html(locale: 'en' | 'vi', showValue?: boolean) {
+function html(locale: Locale, showValue?: boolean) {
   return renderToStaticMarkup(
     <LocaleProvider locale={locale}>
       <LocaleSwitcher showValue={showValue} />
@@ -27,6 +28,7 @@ describe('LocaleSwitcher', () => {
   it('shows the active language, in its own words, when asked to', () => {
     expect(html('vi', true)).toContain('Tiếng Việt');
     expect(html('en', true)).toContain('English');
+    expect(html('zh', true)).toContain('中文');
   });
 
   it('keeps the visible name inside the accessible one', () => {
@@ -55,10 +57,8 @@ describe('LocaleSwitcher', () => {
     });
 
     const options = Array.from(document.querySelectorAll('[role="menuitemradio"]'));
-    expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual([
-      expect.any(String),
-      expect.any(String),
-    ]);
+    expect(options.map((option) => option.textContent)).toEqual(['English', 'Tiếng Việt', '中文']);
+    expect(options.every((option) => option.hasAttribute('aria-checked'))).toBe(true);
     const checked = options.filter((option) => option.getAttribute('aria-checked') === 'true');
     expect(checked.map((option) => option.textContent)).toEqual(['Tiếng Việt']);
 

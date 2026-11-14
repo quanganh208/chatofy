@@ -12,6 +12,7 @@
  * Until a provider activates one, a visitor holder answers — a theme-only, local
  * state — so a component rendered on its own (a spec, a story) still works.
  */
+import { localeFromHtmlLang } from '@chatofy/i18n';
 import type { UserPreferences } from '@chatofy/types';
 import {
   createVisitorHolder,
@@ -70,6 +71,11 @@ export function currentPreferences(): UserPreferences {
   return activePreferencesSnapshot().preferences;
 }
 
+/** The page's locale, read back through `htmlLang`'s tag (`zh-CN` is the `zh` locale). */
 function defaultLocale(): string {
-  return typeof document === 'undefined' ? 'en' : document.documentElement.lang || 'en';
+  return (
+    (typeof document === 'undefined'
+      ? undefined
+      : localeFromHtmlLang(document.documentElement.lang)) ?? 'en'
+  );
 }

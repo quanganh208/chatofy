@@ -1,4 +1,4 @@
-import { createTranslator, en, vi, type Messages } from '@chatofy/i18n';
+import { createTranslator, en, vi, zh, type Messages } from '@chatofy/i18n';
 import { describe, expect, it } from 'vitest';
 import { landingMarkdown, llmsTxt } from './landing-markdown';
 
@@ -32,6 +32,7 @@ const ORIGIN = 'https://chatofy.example';
 describe.each([
   ['en', en],
   ['vi', vi],
+  ['zh', zh],
 ] as const)('the landing markdown (%s)', (_, messages) => {
   const markdown = landingMarkdown(createTranslator(messages), ORIGIN);
 

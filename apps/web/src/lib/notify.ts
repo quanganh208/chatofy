@@ -1,4 +1,4 @@
-import { asLocale, createTranslator, en, vi, type MessageKey } from '@chatofy/i18n';
+import { createTranslator, en, localeFromHtmlLang, vi, zh, type MessageKey } from '@chatofy/i18n';
 import { toast } from '@chatofy/ui/react';
 
 /**
@@ -27,11 +27,13 @@ export interface NotifyOptions {
   description?: string;
 }
 
-const DICTIONARIES = { en, vi } as const;
+const DICTIONARIES = { en, vi, zh } as const;
 
 function label(key: MessageKey): string {
   const locale =
-    (typeof document !== 'undefined' ? asLocale(document.documentElement.lang) : undefined) ?? 'en';
+    (typeof document !== 'undefined'
+      ? localeFromHtmlLang(document.documentElement.lang)
+      : undefined) ?? 'en';
   return createTranslator(DICTIONARIES[locale])(key);
 }
 

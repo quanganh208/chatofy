@@ -53,6 +53,7 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 const LABEL_KEY = {
   vi: 'common.language.vietnamese',
   en: 'common.language.english',
+  zh: 'common.language.chinese',
 } as const satisfies Record<Locale, string>;
 
 /**

@@ -1,4 +1,4 @@
-import { createTranslator, en, vi, type Messages } from '@chatofy/i18n';
+import { createTranslator, en, vi, zh, type Messages } from '@chatofy/i18n';
 import { describe, expect, it } from 'vitest';
 import { pricingContent } from './pricing-content';
 import { pricingMarkdown } from './pricing-markdown';
@@ -26,6 +26,7 @@ const fixedText = (template: string) =>
 describe.each([
   ['en', en],
   ['vi', vi],
+  ['zh', zh],
 ] as const)('the pricing markdown (%s)', (locale, messages) => {
   const t = createTranslator(messages);
   const meta = {

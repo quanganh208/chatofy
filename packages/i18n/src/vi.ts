@@ -68,6 +68,7 @@ export const vi: Messages = {
 
   'common.language.vietnamese': 'Tiếng Việt',
   'common.language.english': 'English',
+  'common.language.chinese': '中文',
   'common.language.label': 'Ngôn ngữ',
 
   // ---- common.languageName ----

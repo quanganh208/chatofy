@@ -6,6 +6,7 @@ import {
   DEFAULT_LOCALE,
   en,
   vi,
+  zh,
   type Locale,
   type Messages,
   type Translate,
@@ -33,7 +34,7 @@ import {
  * `Messages`, not `typeof en`. The English literal's type is its exact strings, so
  * `Record<Locale, typeof en>` would demand that Vietnamese say "Light" too.
  */
-const DICTIONARIES: Record<Locale, Messages> = { en, vi };
+const DICTIONARIES: Record<Locale, Messages> = { en, vi, zh };
 
 interface LocaleContextValue {
   locale: Locale;
