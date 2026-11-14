@@ -13,6 +13,7 @@
 // translation. `perturb` breaks only the candidates the judge then found free
 // of serious errors: a serious error on the broken copy can be credited to the
 // break and not to something the translation already got wrong.
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { consensus, loadJudgements } from './consensus.mjs';
@@ -191,6 +192,73 @@ export function perturbRows(bases, perKind = PER_KIND) {
   return out;
 }
 
+/**
+ * The translation without its last sentence, or null when it has fewer than
+ * two sentences or what remains is under three words. This is the omission
+ * DeepSeek was measured making (a trailing imperative dropped 8 of 8 times),
+ * which the clause rule above never produces.
+ */
+export function dropLastSentence(text) {
+  const sentences = (text ?? '')
+    .trim()
+    .split(/(?<=[.!?…])\s+/u)
+    .filter(Boolean);
+  if (sentences.length < 2) return null;
+  // A dropped filler ("Yeah.", "Tốt.") is an omission a reader may not miss.
+  if (words(sentences.at(-1)).length < MIN_DROPPED_WORDS) return null;
+  const kept = sentences.slice(0, -1).join(' ');
+  return words(kept).length < 3 ? null : kept;
+}
+
+export const TRAILING_COUNT = 20;
+/** Shortest dropped sentence that counts as content rather than a filler. */
+export const MIN_DROPPED_WORDS = 4;
+
+function trailingRow(row) {
+  const broken = dropLastSentence(row.translation);
+  if (!broken) return null;
+  const base = turnId(row);
+  return {
+    ...row,
+    id: `${base}~trailing`,
+    base,
+    kind: 'trailing',
+    original: row.translation,
+    translation: broken,
+  };
+}
+
+/**
+ * Up to `count` trailing-sentence drops: calibration candidates first, then
+ * prod turns whose draft the judge found free of serious errors. Ids are
+ * unique, so a turn present in both files is used once.
+ */
+export function trailingRows(primary, extra, cleanIds, count = TRAILING_COUNT) {
+  const out = [];
+  const used = new Set();
+  const pool = [...primary, ...extra.filter((row) => cleanIds.has(turnId(row)))];
+  for (const row of pool) {
+    if (out.length >= count) break;
+    if (used.has(turnId(row))) continue;
+    const broken = trailingRow(row);
+    if (!broken) continue;
+    used.add(turnId(row));
+    out.push(broken);
+  }
+  return out;
+}
+
+/** The same rows rebuilt from committed `{conv, pos}` ids, in their order. */
+export function trailingFromIds(ids, primary, extra) {
+  const byId = new Map([...extra, ...primary].map((row) => [turnId(row), row]));
+  return ids.map((id) => {
+    const row = byId.get(turnId(id));
+    const broken = row && trailingRow(row);
+    if (!broken) throw new Error(`${turnId(id)}: missing or no longer droppable`);
+    return broken;
+  });
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isMain) {
@@ -217,8 +285,27 @@ if (isMain) {
     console.error(
       `${bases.length} of ${rows.length} candidates judged clean; broken: ${JSON.stringify(counts)}`,
     );
+  } else if (command === 'trailing') {
+    // Text stays in data/ (private); only {conv, pos, kind} is committed.
+    const primary = readJsonl(flag('--in'));
+    const extra = flag('--extra') ? readJsonl(flag('--extra')) : [];
+    let rows;
+    if (flag('--from-ids')) {
+      rows = trailingFromIds(readJsonl(flag('--from-ids')), primary, extra);
+    } else {
+      const labels = readJsonl(flag('--labels'));
+      const clean = new Set(labels.filter((row) => !row.draftSeriousAny).map(turnId));
+      rows = trailingRows(primary, extra, clean);
+      if (flag('--ids-out'))
+        writeFileSync(
+          flag('--ids-out'),
+          toJsonl(rows.map((row) => ({ conv: row.conv, pos: row.pos, kind: 'trailing' }))),
+        );
+    }
+    writeFileSync(flag('--out'), toJsonl(rows));
+    console.error(`${rows.length} trailing-sentence drops`);
   } else {
-    console.error('usage: perturb.mjs candidates|perturb …');
+    console.error('usage: perturb.mjs candidates|perturb|trailing …');
     process.exit(2);
   }
 }

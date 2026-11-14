@@ -2853,3 +2853,15 @@ The owner found the sidebar, the page headers, the notices and `/preferences` ha
 - **Two bugs that predate the redesign.**
   - The accent gate's rename row waited a fixed 20 ms for the menu's close animation, which was too short on a loaded CI runner. It now waits for the deferred screen.
   - Glossary terms never load or delete, because the API issues cuid ids while both schemas demand a uuid. Filed as issue #339, outside this change.
+
+## Decision models (Jev, Gemini Decision 1): a narrow polish-gate pass, no LID role (14–15/11/2026)
+
+Could a model that answers typed questions with probabilities, instead of writing text, decide when a paid call is unnecessary? TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 were measured offline against bars fixed before the runs. Details and commands are in `benchmarks/translation-judge/README.md` ("Decision models") and `benchmarks/lid/README.md` (`conv-r5-decision`).
+
+- **D1, skip the polish when the draft is faithful.** On the 162 judged turns, Gemini with earlier turns as context passes the pre-set pooled bars narrowly: 1 of 20 serious-mt drafts missed, 59.3% of polishes skipped, 1.9% serious after gating, and the skip-edge bar over "polish vi→en only" cleared by about two turns (+16.0 against 15), with a conversation-bootstrap interval that includes zero. One miss is the LOCO floor.
+  - Inside vi→en, where 18 of the 20 positives are, it skips 38% and serious goes from 1 to 2 of 76.
+  - Without context Gemini fails. Jev fails on misses (2) and flips (5.6–7.4%; Gemini is deterministic). The AUC difference between them is not significant (−0.032, interval −0.104 to 0.016).
+  - The gate also fires on 13 of 16 turns whose serious error is one of hearing, not mt.
+- **D2, catch a dropped clause or last sentence.** Both pass: 10/10 omissions, 20/20 trailing drops, 4/40 (Gemini) and 1/40 (Jev) clean translations flagged.
+- **D3, audio LID.** Inline replacement was NO-GO before measurement (about 1.1 s against the 150 ms gate). Gemini alone hears short Vietnamese far better than Whisper base (0.960 vs 0.745 two-way) but is worse on English (0.862 short; 6.5% of real long en turns go to vi or zh). As a final-turn arbiter at prod's 0.6 threshold it is consulted on 101 of 7,946 turns (57 en/vi): short vi 0.772 and `err_after_fallback` 0.064 both fail, so the arbiter fails the two bars it existed to fix. At 0.9 both short bars are crossed, report-only, on a threshold chosen on the scored set. Whisper's short vi errors are mostly confident ones (34 of 38 at 0.6 or above), so its confidence is a poor router for Gemini.
+- **What it permits.** A shadow run of the D1 gate only; the polish is not skipped. No decision model replaces or arbitrates LID. Latency was measured from the dev desk (Gemini 418/723 ms p50/p95 on text, about 1.1 s on audio), not the prod host. Spend: Gemini 714 text and 7,947 audio calls on the free tier, Jev 1,542 calls for about $0.04.

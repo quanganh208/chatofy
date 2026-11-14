@@ -336,3 +336,39 @@ test('a paired comparison keeps the baseline judgement for turns the arm left al
   assert.ok(ci.mt[0] <= 0 && ci.mt[1] >= 0);
   assert.equal(percentile([300, 100, 200], 0.95), 300);
 });
+
+test('dropLastSentence removes only the final sentence, and refuses one-sentence text', async () => {
+  const { dropLastSentence, trailingFromIds, trailingRows } = await import('./perturb.mjs');
+  assert.equal(
+    dropLastSentence('Today we learn two concepts. Listen carefully and answer.'),
+    'Today we learn two concepts.',
+  );
+  assert.equal(dropLastSentence('One sentence only.'), null);
+  assert.equal(
+    dropLastSentence('We are going home now. Yeah.'),
+    null,
+    'a dropped filler is not content',
+  );
+  assert.equal(dropLastSentence('Ok. Then we go home now.'), null, 'remainder under three words');
+  const row = (conv, translation) => ({ conv, pos: 0, translation });
+  const primary = [row('a', 'First part here now. Second part is here too.')];
+  const extra = [
+    row('a', 'duplicate id is used once. Yes it is used once.'),
+    row('b', 'Clean prod turn here. It ends right here now.'),
+  ];
+  const rows = trailingRows(primary, extra, new Set(['a#0', 'b#0']));
+  assert.deepEqual(
+    rows.map((r) => r.base),
+    ['a#0', 'b#0'],
+  );
+  assert.equal(rows[0].kind, 'trailing');
+  const rebuilt = trailingFromIds(
+    [
+      { conv: 'a', pos: 0 },
+      { conv: 'b', pos: 0 },
+    ],
+    primary,
+    extra,
+  );
+  assert.deepEqual(rebuilt, rows);
+});
