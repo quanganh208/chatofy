@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getT } from '@/i18n/server';
 import { Faq } from '@/components/marketing/faq';
@@ -5,13 +6,12 @@ import { FooterCta } from '@/components/marketing/footer-cta';
 import { Hero } from '@/components/marketing/hero';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { Modes } from '@/components/marketing/modes';
-import { PricingTeaser } from '@/components/marketing/pricing-teaser';
+import { PricingTeaser, PricingTeaserBody } from '@/components/marketing/pricing-teaser';
 import { RecordingPrivacy } from '@/components/marketing/recording-privacy';
 import { SOCIAL_CARD } from '@/components/marketing/social-card';
 import { StructuredData } from '@/components/marketing/structured-data';
 import { Surfaces } from '@/components/marketing/surfaces';
 import { UseCases } from '@/components/marketing/use-cases';
-import { fetchPublicPlans } from '@/lib/fetch-public-plans';
 
 /**
  * Rendered per request, never prerendered. The Free allowance is a `Plan` row read from
@@ -87,19 +87,20 @@ export async function generateMetadata(): Promise<Metadata> {
  * `accent-budget.spec.tsx` holds every band to at most one. Tiles sit on the page ground
  * as hairlines; the hero card is the one elevated surface.
  *
- * **Motion is an entrance and nothing else.** The lotus opens once, the hero copy rises
- * once, and tiles below the fold rise into place the first time they scroll into view
- * (`Reveal`). Nothing loops beside text, and under reduced motion nothing on `/` moves:
+ * **Motion is an entrance, plus one background drift.** The lotus opens once, the hero
+ * copy rises once, and tiles below the fold rise into place the first time they scroll
+ * into view (`Reveal`). The only loop is the hero's `aria-hidden` dawn glow drifting
+ * behind the lotus, never under a line of text; under reduced motion nothing on `/` moves:
  * `Reveal` leaves its blocks at rest and every animation is paired with
  * `motion-reduce:animate-none`.
  *
- * `/` is server-rendered on demand because the header resolves the session server-side,
- * and the plans are read per request like `/pricing`'s (cached a minute in
- * `fetchPublicPlans`, bounded by its timeout). It is never redirected: this address is
- * shareable and it opens the thesis demo.
+ * `/` is server-rendered on demand because the header resolves the session server-side.
+ * The plans are read per request like `/pricing`'s, but only the pricing band waits for
+ * them: it streams inside a `Suspense` whose fallback is the same band without the
+ * number, so a slow API never holds the first byte. It is never redirected: this address
+ * is shareable and it opens the thesis demo.
  */
-export default async function HomePage() {
-  const plans = await fetchPublicPlans();
+export default function HomePage() {
   return (
     <>
       <StructuredData faq />
@@ -109,7 +110,11 @@ export default async function HomePage() {
       <UseCases />
       <RecordingPrivacy />
       <Surfaces />
-      <PricingTeaser plans={plans} />
+      {/* The plans come from the API; only this band waits for them, and until they
+          arrive it renders without the number. See `PricingTeaser`. */}
+      <Suspense fallback={<PricingTeaserBody plans={null} />}>
+        <PricingTeaser />
+      </Suspense>
       <Faq />
       <FooterCta />
     </>

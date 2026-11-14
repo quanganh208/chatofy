@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Plan } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { getLocale, getT } from '@/i18n/server';
+import { fetchPublicPlans } from '@/lib/fetch-public-plans';
 import { pricingContent } from '@/lib/pricing-content';
 import { Section } from './section';
 
@@ -19,8 +20,22 @@ import { Section } from './section';
  * the explanation, because a price read before that sentence reads as an offer. There is
  * no buy button for the same reason; the one control is an outline link to `/pricing`,
  * and the accent budget holds this section at zero.
+ *
+ * ## Streamed, so the API never holds the page
+ *
+ * `PricingTeaser` fetches the plans itself and `/` renders it inside a `Suspense` whose
+ * fallback is `PricingTeaserBody` with no plans — the same band without the number. The
+ * hero and every other band stream at once; if the API hangs, only this band waits, and
+ * `fetchPublicPlans` remembers a failure briefly so the next visitor does not wait too.
  */
-export async function PricingTeaser({ plans }: { plans: Plan[] | null }) {
+export async function PricingTeaser() {
+  // Called, not rendered as an element: the body is async too, and resolving it here
+  // keeps this one server component rather than two nested ones.
+  return PricingTeaserBody({ plans: await fetchPublicPlans() });
+}
+
+/** The band itself, for a plan list or for none. */
+export async function PricingTeaserBody({ plans }: { plans: Plan[] | null }) {
   const [t, locale] = await Promise.all([getT(), getLocale()]);
   const free = pricingContent(t, locale, plans).bands.find((band) => band.id === 'free');
 
