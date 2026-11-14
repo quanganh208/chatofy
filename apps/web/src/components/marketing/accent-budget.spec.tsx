@@ -40,6 +40,10 @@ vi.mock('@/i18n/server', async () => {
 // session would quietly count a DIFFERENT page and still pass.
 vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
 
+// The pricing band's fetcher is server-only by design; this spec counts the band it
+// renders, handed the plans directly.
+vi.mock('server-only', () => ({}));
+
 // The header's language switcher and theme toggle are client components that reach
 // for the router and the session; neither decides anything this spec counts.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -49,7 +53,11 @@ const { MarketingHeader } = await import('@/components/layout/marketing-header')
 const { LocaleProvider } = await import('@/i18n/provider');
 const { Hero } = await import('./hero');
 const { HowItWorks } = await import('./how-it-works');
-const { Meetings } = await import('./meetings');
+const { Modes } = await import('./modes');
+const { UseCases } = await import('./use-cases');
+const { PricingTeaserBody } = await import('./pricing-teaser');
+const { Faq } = await import('./faq');
+const { MarketingFooter } = await import('@/components/layout/marketing-footer');
 const { RecordingPrivacy } = await import('./recording-privacy');
 const { Surfaces } = await import('./surfaces');
 const { FooterCta } = await import('./footer-cta');
@@ -62,11 +70,23 @@ const SECTIONS = [
   // second filled control on the screen people see first.
   { name: 'MarketingHeader', render: MarketingHeader, filled: 0 },
   { name: 'Hero', render: Hero, filled: 1 },
-  { name: 'Meetings', render: Meetings, filled: 0 },
+  // The bento's one action is the outline "Create a meeting"; its mockups are pictures
+  // and hold no controls at all.
+  { name: 'Modes', render: Modes, filled: 0 },
   { name: 'HowItWorks', render: HowItWorks, filled: 0 },
+  { name: 'UseCases', render: UseCases, filled: 0 },
   { name: 'RecordingPrivacy', render: RecordingPrivacy, filled: 0 },
   { name: 'Surfaces', render: Surfaces, filled: 0 },
+  // No buy button, with an allowance or without: checkout is not open to the public.
+  {
+    name: 'PricingTeaser',
+    render: () => PricingTeaserBody({ plans: SEEDED_PLANS }),
+    filled: 0,
+  },
+  { name: 'PricingTeaser (no plans)', render: () => PricingTeaserBody({ plans: null }), filled: 0 },
+  { name: 'Faq', render: Faq, filled: 0 },
   { name: 'FooterCta', render: FooterCta, filled: 1 },
+  { name: 'MarketingFooter', render: MarketingFooter, filled: 0 },
   // `/pricing`. The hero's "Start free" is the page's one ask; the plan bands have no
   // buy button — checkout is not open to the public — with prices or without.
   { name: 'PricingHero', render: PricingHero, filled: 1 },

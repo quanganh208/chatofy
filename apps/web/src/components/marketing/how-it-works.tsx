@@ -3,6 +3,10 @@ import { Reveal } from '@/components/motion/reveal';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
 
+/** The connector between two steps: the dawn trio, decoration only, never under text. */
+const DAWN_LINE = (direction: 'to right' | 'to bottom') =>
+  `linear-gradient(${direction}, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`;
+
 /**
  * Three facts, each of them about what the reader does or waits for.
  *
@@ -13,13 +17,15 @@ import { Section } from './section';
  * stop talking" is a consequence the reader can act on and "voice activity detection"
  * is not.
  *
- * The one number on this page is here: about a second between the end of a sentence and
- * the start of playback. It is the measured ~0.9 s in `docs/development-journey.md`,
- * rounded in the direction that cannot flatter it.
+ * The one measured number on this page is here: about a second between the end of a
+ * sentence and the start of playback. It is the measured ~0.9 s in
+ * `docs/development-journey.md`, rounded in the direction that cannot flatter it.
  *
- * Three columns divided by hairlines, not three cards. Three identical white cards in a
- * row read as three products; a sequence on the page ground reads as one explanation,
- * and it leaves the hero card as the one elevated thing on this stretch of the page.
+ * Drawn as a timeline: an ordinal on a ring, joined to the next by a thin dawn line —
+ * across from `md`, down the left edge below it. The line runs only between the rings,
+ * in the row that holds them, so no dawn value is ever behind a word. A sequence on the
+ * page ground rather than three cards: it reads as one explanation, and it leaves the
+ * hero card as the one elevated thing on this stretch of the page.
  */
 export async function HowItWorks() {
   const t = await getT();
@@ -36,29 +42,44 @@ export async function HowItWorks() {
       title={t('web.landing.howTitle')}
       description={t('web.landing.howBody')}
     >
-      <ol className="grid gap-4 md:grid-cols-3">
-        {steps.map((step, index) => (
-          <Reveal as="li" key={step.title} delay={index * 90}>
-            <div className="border-hairline duration-base ease-standard hover:border-foreground/25 flex h-full flex-col gap-3 rounded-xl border p-6 transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-              <span
-                aria-hidden
-                className="h-1 w-12 rounded-full"
-                style={{
-                  backgroundImage: `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
-                }}
-              />
+      <ol className="grid gap-0 md:grid-cols-3 md:gap-8">
+        {steps.map((step, index) => {
+          const last = index === steps.length - 1;
+          return (
+            <Reveal
+              as="li"
+              key={step.title}
+              delay={index * 90}
+              className="relative grid grid-cols-[3rem_minmax(0,1fr)] gap-x-5 pb-10 last:pb-0 md:grid-cols-1 md:gap-y-6 md:pb-0"
+            >
               {/* Ordinal, not a count of anything — the sequence is the content. */}
               <span
                 aria-hidden
-                className="font-display text-muted-foreground text-display font-light leading-none"
+                className="border-hairline bg-background font-display text-heading text-muted-foreground relative z-10 flex size-12 items-center justify-center rounded-full border font-light"
               >
                 {String(index + 1).padStart(2, '0')}
               </span>
-              <h3 className="text-body mt-2 font-medium tracking-tight">{step.title}</h3>
-              <p className="text-prose text-hint">{step.body}</p>
-            </div>
-          </Reveal>
-        ))}
+              {last ? null : (
+                <>
+                  <span
+                    aria-hidden
+                    className="absolute top-14 bottom-2 left-6 w-px md:hidden"
+                    style={{ backgroundImage: DAWN_LINE('to bottom') }}
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute top-6 right-[-2rem] left-14 hidden h-px md:block"
+                    style={{ backgroundImage: DAWN_LINE('to right') }}
+                  />
+                </>
+              )}
+              <div className="flex flex-col gap-2 pt-2.5 md:pt-0">
+                <h3 className="text-heading font-display tracking-tight">{step.title}</h3>
+                <p className="text-prose text-body max-w-[38ch]">{step.body}</p>
+              </div>
+            </Reveal>
+          );
+        })}
       </ol>
     </Section>
   );

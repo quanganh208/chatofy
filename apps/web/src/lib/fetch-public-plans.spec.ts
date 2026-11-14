@@ -5,7 +5,7 @@ import type { Plan } from '@chatofy/types';
 // build, not this function's behaviour.
 vi.mock('server-only', () => ({}));
 
-const { PLANS_CACHE_MS, clearPublicPlansCache, fetchPublicPlans } =
+const { PLANS_CACHE_MS, PLANS_FAILURE_CACHE_MS, clearPublicPlansCache, fetchPublicPlans } =
   await import('./fetch-public-plans');
 
 const API = 'https://api.chatofy.example';
@@ -86,13 +86,45 @@ describe('fetchPublicPlans', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it('does not remember a failure: the next render asks again', async () => {
+  it('remembers a failure briefly, so an outage costs one wait per window', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const refused = answering({ success: false }, 429);
     await expect(fetchPublicPlans(refused, API)).resolves.toBeNull();
+
     const fetchImpl = answering(envelope({ plans: [PRO] }));
+    vi.advanceTimersByTime(PLANS_FAILURE_CACHE_MS - 1);
+    await expect(fetchPublicPlans(fetchImpl, API)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
     await expect(fetchPublicPlans(fetchImpl, API)).resolves.toEqual([PRO]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a success stored while a slower request was failing', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let failSlowly!: () => void;
+    const hanging = vi.fn<typeof fetch>(
+      () => new Promise((_, reject) => (failSlowly = () => reject(new Error('timeout')))),
+    );
+    const slow = fetchPublicPlans(hanging, API);
+
+    vi.advanceTimersByTime(1_000);
+    await expect(fetchPublicPlans(answering(envelope({ plans: [PRO] })), API)).resolves.toEqual([
+      PRO,
+    ]);
+
+    failSlowly();
+    await expect(slow).resolves.toEqual([PRO]);
+    const unused = answering(envelope({ plans: [] }));
+    await expect(fetchPublicPlans(unused, API)).resolves.toEqual([PRO]);
+    expect(unused).not.toHaveBeenCalled();
+  });
+
+  it('remembers a failure for less time than a success', () => {
+    expect(PLANS_FAILURE_CACHE_MS).toBeLessThan(PLANS_CACHE_MS);
   });
 
   it('gives up after the timeout instead of holding the page open', async () => {

@@ -1,25 +1,38 @@
 import Link from 'next/link';
+import type { MessageKey } from '@chatofy/i18n';
+import { LANGUAGE_CODES, type LanguageTable } from '@chatofy/types';
 import { dawn } from '@chatofy/ui';
-import { Button, Card, CardContent } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
 import { LotusIllustration } from './lotus-illustration';
+import { HeroTwoWayCard } from './mockups/hero-two-way-card';
 
 /**
- * The first screen: one claim, two actions, and a look at the thing itself.
+ * The call apps the extension runs in. Product names, so they read the same in every
+ * locale and are not dictionary strings; the list is the README's ("Browser extension").
+ */
+const CALL_APPS = ['Google Meet', 'Zoom', 'Facebook'] as const;
+
+/**
+ * Each registry language's name in its own script. A `LanguageTable`, so a language
+ * added to the registry is a type error here until it has one — the strip then lists it
+ * without an edit, as the footer does.
+ */
+const OWN_NAME: LanguageTable<MessageKey> = {
+  vi: 'common.language.vietnamese',
+  en: 'common.language.english',
+  zh: 'common.language.chinese',
+};
+
+/**
+ * The first screen: one claim, two actions, a look at the thing itself, and — under all
+ * three — the two facts a visitor checks before reading anything else: which languages,
+ * and where it works.
  *
- * **The visual is a real card, not a screenshot.** A screenshot goes stale the day
- * anything moves, renders at one theme in a page that has two, and cannot be read by
- * anyone using a screen reader. This is the product's own hierarchy drawn with the
- * product's own tokens: the translation at `text-translation` over the source at
- * `text-body`, exactly as `conversation-transcript.tsx` draws it. Getting that
- * relationship backwards here would teach the wrong thing before the reader arrives.
- * Each turn is labelled with the language it was spoken in, through the same
- * `web.translate.turnLanguage` string the translator shows, because telling the two
- * languages apart on its own is half of what the page promises.
- *
- * Above it, the lotus: the brand mark grown into five dawn petals, which open once
- * and then stay still. It sits above the card and never under its text — the card is
- * opaque and the petals end where it begins.
+ * **The visual is a real card, not a screenshot** — see `HeroTwoWayCard`. Above it, the
+ * lotus: the brand mark grown into five dawn petals, which open once and then stay still.
+ * It sits above the card and never under its text — the card is opaque and the petals end
+ * where it begins.
  *
  * Two controls, because the page gives translation and meetings equal weight, but only
  * one of them filled: the accent budget allows one filled control per section, and the
@@ -27,67 +40,76 @@ import { LotusIllustration } from './lotus-illustration';
  * thing a first-time visitor can try alone; `/conference` is the outline beside it. Both
  * are pills, as marketing buttons are; app buttons keep the product radius.
  *
- * The status pill does NOT pulse. It pulses in the product because something is
- * genuinely happening; here it is a still life, and a dot animating forever beside
- * static text is the continuous motion the guidelines rule out.
+ * The strip names each language in its own script (`common.language.*`), the way a
+ * language menu does: a reader scanning for "Tiếng Việt" or "中文" finds it whatever the
+ * interface language is. Its items are readouts, not links — nothing in it is a control.
  */
 export async function Hero() {
   const t = await getT();
 
+  const languages = LANGUAGE_CODES.map((code) => t(OWN_NAME[code]));
+  const platforms = [t('web.landing.heroPlatformBrowser'), ...CALL_APPS];
+
   return (
-    <section className="grid items-center gap-12 py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 lg:py-24">
-      <div className="animate-rise-in flex flex-col gap-6 motion-reduce:animate-none">
-        <h1 className="text-display font-display max-w-[16ch] font-light tracking-tight text-balance">
-          <Headline
-            title={t('web.landing.heroTitle')}
-            emphasis={t('web.landing.heroTitleEmphasis')}
+    <section className="flex flex-col gap-12 pt-10 pb-12 lg:gap-16 lg:pt-20">
+      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16">
+        <div className="animate-rise-in flex flex-col gap-6 motion-reduce:animate-none">
+          <h1 className="text-display font-display max-w-[16ch] font-light tracking-tight text-balance">
+            <Headline
+              title={t('web.landing.heroTitle')}
+              emphasis={t('web.landing.heroTitleEmphasis')}
+            />
+          </h1>
+          <p className="text-prose text-body max-w-prose">{t('web.landing.heroBody')}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild size="lg" className="rounded-full">
+              <Link href="/translate/one-way">{t('web.translate.startTranslating')}</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="rounded-full">
+              <Link href="/conference">{t('web.landing.meetingsStart')}</Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="relative flex flex-col">
+          {/* A dawn glow behind the lotus and the top of the card, never under a line of
+              text: the card below is opaque and starts where the glow fades. */}
+          <div
+            aria-hidden
+            className="animate-glow-drift pointer-events-none absolute inset-x-6 -top-6 h-64 rounded-[3rem] opacity-60 blur-3xl motion-reduce:animate-none dark:opacity-30"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
+            }}
           />
-        </h1>
-        <p className="text-prose text-body max-w-prose">{t('web.landing.heroBody')}</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button asChild size="lg" className="rounded-full">
-            <Link href="/translate/one-way">{t('web.translate.startTranslating')}</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="rounded-full">
-            <Link href="/conference">{t('web.landing.meetingsStart')}</Link>
-          </Button>
+          <LotusIllustration className="relative mx-auto -mb-3 max-w-[18rem] sm:max-w-sm" />
+          <HeroTwoWayCard t={t} />
         </div>
       </div>
 
-      <div className="relative flex flex-col">
-        {/* A dawn glow behind the lotus and the top of the card, never under a line of text:
-            the card below is opaque and starts where the glow fades. */}
-        <div
-          aria-hidden
-          className="animate-glow-drift pointer-events-none absolute inset-x-6 -top-6 h-64 rounded-[3rem] opacity-60 blur-3xl motion-reduce:animate-none dark:opacity-30"
-          style={{
-            backgroundImage: `linear-gradient(135deg, ${dawn.peach}, ${dawn.lavender}, ${dawn.mint})`,
-          }}
-        />
-        <LotusIllustration className="relative mx-auto -mb-3 max-w-sm" />
-        <Card className="relative">
-          <CardContent className="flex flex-col gap-5">
-            <div className="flex items-center gap-3">
-              <span className="text-hint flex items-center gap-2 font-semibold">
-                <span aria-hidden className="bg-live size-2 shrink-0 rounded-full" />
-                {t('web.landing.demoListening')}
-              </span>
-            </div>
-            <Turn
-              language={t('web.translate.turnLanguage', { language: t('common.languageName.vi') })}
-              source={t('web.landing.demoSourceOne')}
-              target={t('web.landing.demoTargetOne')}
-            />
-            <div className="border-hairline border-t" />
-            <Turn
-              language={t('web.translate.turnLanguage', { language: t('common.languageName.en') })}
-              source={t('web.landing.demoSourceTwo')}
-              target={t('web.landing.demoTargetTwo')}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <dl className="border-hairline flex flex-col gap-4 border-t pt-6 lg:flex-row lg:items-center lg:gap-12">
+        <StripGroup label={t('web.landing.heroLanguagesLabel')} items={languages} />
+        <StripGroup label={t('web.landing.heroPlatformsLabel')} items={platforms} />
+      </dl>
     </section>
+  );
+}
+
+/** One labelled row of the strip: a term, then its values as quiet pills. */
+function StripGroup({ label, items }: { label: string; items: readonly string[] }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <dt className="text-hint text-muted-foreground shrink-0 font-medium">{label}</dt>
+      <dd className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <span
+            key={item}
+            className="border-hairline text-hint text-foreground rounded-full border px-3 py-1 font-medium whitespace-nowrap"
+          >
+            {item}
+          </span>
+        ))}
+      </dd>
+    </div>
   );
 }
 
@@ -105,15 +127,5 @@ function Headline({ title, emphasis }: { title: string; emphasis: string }) {
       <em className="italic">{emphasis}</em>
       {title.slice(at + emphasis.length)}
     </>
-  );
-}
-
-function Turn({ language, source, target }: { language: string; source: string; target: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-hint text-muted-foreground">{language}</p>
-      <p className="text-muted-foreground text-body">{source}</p>
-      <p className="text-translation font-medium">{target}</p>
-    </div>
   );
 }

@@ -828,16 +828,106 @@ export const vi: Messages = {
   'web.landing.surfaceExtensionTitle': 'Tiện ích cho Meet, Zoom và Facebook',
   'web.landing.surfaceExtensionBody': 'Dịch hai chiều ngay trong cuộc gọi bạn đang dùng.',
   'web.landing.surfacePhoneTitle': 'Trên điện thoại',
-  'web.landing.surfacePhoneBody':
-    'Đang phát triển. Đã hỗ trợ tham gia cuộc họp; chưa phát hành trên kho ứng dụng.',
+  'web.landing.surfacePhoneBody': 'Đã hỗ trợ tham gia cuộc họp; chưa phát hành trên kho ứng dụng.',
   'web.landing.ctaTitle': 'Thử một cuộc hội thoại',
   'web.landing.ctaBody': 'Cần một micro và một tài khoản. Không cần thẻ.',
   'web.landing.navMenu': 'Danh mục',
-  'web.landing.navMeetings': 'Cuộc họp',
   'web.landing.navHow': 'Cách hoạt động',
   'web.landing.navLocal': 'Riêng tư',
   'web.landing.navSurfaces': 'Nơi dùng',
   'web.landing.heroTitleEmphasis': 'Được hiểu',
+  'web.landing.navModes': 'Tính năng',
+  'web.landing.navUseCases': 'Tình huống',
+  'web.landing.navPricing': 'Bảng giá',
+  'web.landing.navFaq': 'Hỏi đáp',
+  'web.landing.heroLanguagesLabel': 'Ngôn ngữ',
+  'web.landing.heroPlatformsLabel': 'Dùng trên',
+  'web.landing.heroPlatformBrowser': 'Trình duyệt',
+  'web.landing.modesTitle': 'Mọi thứ một cuộc trò chuyện cần',
+  'web.landing.modesBody':
+    'Trò chuyện trực tiếp, nghe một người nói, hoặc tổ chức cả một cuộc họp — và giữ lại những gì đã nói.',
+  'web.landing.modeOneWayTitle': 'Nghe một người nói',
+  'web.landing.modeOneWayBody':
+    'Cho một buổi nói chuyện, một lớp học hay một hướng dẫn viên. Chọn ngôn ngữ đang được nói, hoặc để Tự nhận diện lo tiếng Việt và tiếng Anh, rồi nghe bằng ngôn ngữ của bạn.',
+  'web.landing.modeTwoWayTitle': 'Trò chuyện trực tiếp',
+  'web.landing.modeTwoWayBody':
+    'Hai người, một màn hình. Mỗi người nói ngôn ngữ của mình và nghe lời người kia được dịch sang ngôn ngữ đó. Hiện dùng cho tiếng Việt và tiếng Anh.',
+  'web.landing.modeHistoryTitle': 'Mọi cuộc hội thoại đều được giữ lại',
+  'web.landing.modeHistoryBody':
+    'Nghe lại một cuộc hội thoại đã kết thúc, đọc lại, tải bản ghi chữ hoặc phụ đề, và tạo biên bản.',
+  'web.landing.modeGlossaryTitle': 'Tên riêng và thuật ngữ của bạn',
+  'web.landing.modeGlossaryBody':
+    'Thêm tên riêng và thuật ngữ của bạn vào bảng thuật ngữ, và các cuộc hội thoại được dịch sẽ dùng chúng.',
+  'web.landing.mockMeetingSubtitle': 'Mình bắt đầu với kế hoạch ra mắt nhé.',
+  'web.landing.mockMeetingMessage': 'Sau buổi họp mình sẽ gửi slide.',
+  'web.landing.mockHistoryOne': 'Nhận phòng khách sạn',
+  'web.landing.mockHistoryTwo': 'Gọi cho nhà cung cấp',
+  'web.landing.mockHistoryThree': 'Bài giảng về phố cổ',
+  'web.landing.useCasesTitle': 'Dành cho những tình huống thật',
+  'web.landing.useCasesBody': 'Ở bất cứ đâu hai ngôn ngữ gặp nhau.',
+  'web.landing.useTravelTitle': 'Đi du lịch',
+  'web.landing.useTravelBody':
+    'Hỏi đường, nhận phòng, gọi món — hiện dùng giữa tiếng Việt và tiếng Anh, mỗi bên nói ngôn ngữ của mình.',
+  'web.landing.useFamilyTitle': 'Gia đình ở nước ngoài',
+  'web.landing.useFamilyBody':
+    'Trò chuyện với người thân nói một ngôn ngữ khác, ngay trong cuộc gọi Meet, Zoom hoặc Facebook bạn vẫn dùng.',
+  'web.landing.usePartnersTitle': 'Đối tác và khách hàng',
+  'web.landing.usePartnersBody':
+    'Chia sẻ một đường liên kết họp; mỗi người theo dõi bằng ngôn ngữ của mình, và bạn có thể tạo biên bản khi kết thúc.',
+  'web.landing.useStudyTitle': 'Lớp học và bài giảng',
+  'web.landing.useStudyBody':
+    'Theo dõi một bài giảng bằng ngôn ngữ khác, rồi đọc lại trong lịch sử của bạn.',
+  'web.landing.surfaceStatusBrowser': 'Dùng được ngay',
+  'web.landing.surfaceStatusExtension': 'Chưa có trên Chrome Web Store',
+  'web.landing.surfaceStatusPhone': 'Đang phát triển',
+  'web.landing.pricingTitle': 'Bắt đầu với credit miễn phí',
+  'web.landing.pricingBody':
+    'Việc dịch được trả bằng credit, trừ theo phút khi bạn dịch, cộng một khoản cố định nhỏ mỗi lần bạn tạo biên bản. Mỗi tài khoản được một lượng credit miễn phí mỗi tháng.',
+  'web.landing.pricingLink': 'Xem các gói và gói nạp thêm',
+  'web.landing.faqTitle': 'Câu hỏi thường gặp',
+  'web.landing.faqLanguagesQuestion': 'Chatofy dịch những ngôn ngữ nào?',
+  'web.landing.faqLanguagesAnswer':
+    'Tiếng Việt, tiếng Anh và tiếng Trung. Tự nhận diện phân biệt tiếng Việt và tiếng Anh trong lúc bạn nói; với tiếng Trung, bạn chọn ngôn ngữ trước khi bắt đầu. Trò chuyện trực tiếp hiện dùng cho tiếng Việt và tiếng Anh.',
+  'web.landing.faqWaitQuestion': 'Bao lâu thì tôi nghe được bản dịch?',
+  'web.landing.faqWaitAnswer':
+    'Khoảng một giây sau khi bạn dừng lại. Lượt nói kết thúc khi bạn ngừng nói, nên không cần giữ nút nào.',
+  'web.landing.faqHeadphonesQuestion': 'Tôi có cần tai nghe không?',
+  'web.landing.faqHeadphonesAnswer':
+    'Thường thì không. Khử vọng được bật sẵn, nên micro vẫn nghe trong lúc bản dịch phát qua loa. Nếu dùng tai nghe, bạn có thể tắt nó trong cài đặt âm thanh; khi đó micro tạm dừng trong lúc bản dịch phát.',
+  'web.landing.faqRecordingsQuestion': 'Bản ghi âm của tôi được xử lý thế nào?',
+  'web.landing.faqRecordingsAnswer':
+    'Dịch vụ dịch chỉ nhận văn bản, không bao giờ nhận âm thanh của bạn. Cuộc hội thoại đã kết thúc được lưu vào lịch sử cùng bản ghi âm, và xoá cuộc hội thoại sẽ xoá luôn bản ghi âm. Cuộc họp chỉ lưu văn bản, không lưu âm thanh.',
+  'web.landing.faqCostQuestion': 'Dùng Chatofy có tốn tiền không?',
+  'web.landing.faqCostAnswer':
+    'Mỗi tài khoản được credit miễn phí hằng tháng, trừ theo phút khi bạn dịch, cộng một khoản cố định nhỏ mỗi lần bạn tạo biên bản. Các gói trả phí và gói nạp thêm có trên trang bảng giá, nhưng chưa mở thanh toán cho mọi người.',
+  'web.landing.faqExtensionQuestion':
+    'Có dùng được trong cuộc gọi Google Meet, Zoom hoặc Facebook không?',
+  'web.landing.faqExtensionAnswer':
+    'Có, qua tiện ích Chrome, dịch hai chiều ngay trong cuộc gọi. Với Zoom, hãy dùng bản web, không phải ứng dụng máy tính. Tiện ích chưa có trên Chrome Web Store.',
+  'web.landing.faqAccountQuestion': 'Người không có tài khoản có tham gia cuộc họp được không?',
+  'web.landing.faqAccountAnswer':
+    'Chưa được. Ai có tài khoản đều tham gia được từ đường liên kết cuộc họp, không cần cài đặt.',
+  'web.landing.faqPhoneQuestion': 'Có ứng dụng điện thoại không?',
+  'web.landing.faqPhoneAnswer':
+    'Đang phát triển. Ứng dụng đã tham gia được cuộc họp, nhưng chưa có trên kho ứng dụng.',
+  'web.landing.footerProduct': 'Sản phẩm',
+  'web.landing.footerOnThisPage': 'Trên trang này',
+  'web.landing.footerResources': 'Tài nguyên',
+  'web.landing.footerLanguages': 'Ngôn ngữ',
+  'web.landing.footerMarkdownHome': 'Trang này dạng Markdown',
+  'web.landing.footerMarkdownPricing': 'Bảng giá dạng Markdown',
+  'web.landing.mockOneWaySource': 'Today we will walk through the old quarter and its history.',
+  'web.landing.mockOneWayTarget': '今天我们将走访老城区，了解它的历史。',
+  'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
+  'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
+  'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
+  'web.landing.mockTwoWayTargetTwo': 'Vâng, làm ơn — ra sân bay.',
+  'web.landing.mockTermOneSource': 'Phố cổ',
+  'web.landing.mockTermOneTarget': 'Old Quarter',
+  'web.landing.mockTermTwoSource': 'Bánh mì',
+  'web.landing.mockTermTwoTarget': 'Banh mi',
+  'web.landing.mockTermThreeSource': 'Hội An',
+  'web.landing.mockTermThreeTarget': 'Hoi An',
 
   // ---- web.pricing ----
   'web.pricing.title': 'Bảng giá',

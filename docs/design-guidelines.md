@@ -30,6 +30,16 @@ states that mean something. Both budgets are gated per screen-state by
 `surface-count.ts`; its `KNOWN_VIOLATIONS` table is empty and fails a stale row), and
 the landing per section by `apps/web/src/components/marketing/accent-budget.spec.tsx`.
 
+**The landing** (`apps/web/app/(marketing)/page.tsx`, whose docblock lists the bands) holds
+to the same two budgets: the hero's and the closing ask's are its only filled controls, a
+scroll apart, and the hero's two-way card is its one elevated surface. Everything else —
+the modes bento, the use cases, where it runs, the pricing band — is hairline tiles on the
+page ground. Its product pictures are still mockups drawn from the product's tokens
+(`components/marketing/mockups/`), `aria-hidden` and holding no control, so they render in
+both themes and never go stale against a screenshot. The privacy band is dark in both
+themes: a `reading-scheme-dark` island reading raw tokens (`var(--card)`, `var(--prose)`),
+because a token resolves where it is declared and an inline `color-scheme` cannot flip it.
+
 **Surfaces are separated by depth, not by rules.** White cards on a near-white ground,
 divided by hairlines, read as a line drawing rather than as a product; the owner chose
 depth after seeing both. What that direction was protecting is kept: the translation is
@@ -108,7 +118,8 @@ Two consequences follow from an accent that is the colour of text:
 | `mint`     | `#A7E5D3` |
 
 `dawn` in `tokens.ts`. **Decorative only**: the lotus mark's centre petal, the landing
-illustration, the surfaces tiles' band, and the same illustration above the first step in
+illustration, the surfaces tiles' band, the how-it-works timeline's connectors (between
+the rings, never under a step's text), and the same illustration above the first step in
 the translate screen's empty source pane (above the sentence, never behind it; hidden below
 `sm`, where the stacked panes are too short to hold it). They measure 1.44, 1.69 and 1.30:1 on stone, so
 a dawn value is **never behind text, never on a control, and never carries a state**.
@@ -197,8 +208,7 @@ through the token key names:
 | `--text-title`       | `xl`      | 28   |
 | `--text-display`     | `display` | 44   |
 
-`--text-display` is the marketing pages' — the landing hero and how-it-works ordinals, and the
-`/pricing` h1. No app screen sets it: an app screen's h1 is the topbar's last crumb (see
+`--text-display` is the marketing pages' — the landing hero and the `/pricing` h1. No app screen sets it: an app screen's h1 is the topbar's last crumb (see
 [The app frame](#the-app-frame)). It is **web-only**: the popup
 has no landing, so `apps/web/src/design/token-parity.spec.ts` lists it in `SURFACE_ONLY`
 rather than demanding the extension declare a size it never sets. It exists because a
@@ -899,8 +909,9 @@ punctuation.
 
 A mechanical half exists: `apps/web/src/components/marketing/landing-copy.spec.ts` runs
 the ban list — pipeline vocabulary, component and engine names, measurement instruments,
-language codes — against the landing dictionary. It checks English only today; pointing
-it at every locale is a one-line change and worth making.
+language codes — against the landing dictionary of every locale in `LOCALES`. Engine names, component acronyms,
+architecture words and language codes are shared; the pipeline vocabulary is listed per
+locale in a `Record<Locale, …>`, so a locale added without a list fails `tsc`.
 
 **Mail copy is not in this dictionary**, and that is deliberate:
 `apps/api/src/modules/mail/interfaces/mail-sender.interface.ts` owns all four templates

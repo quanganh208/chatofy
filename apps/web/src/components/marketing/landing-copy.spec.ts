@@ -1,4 +1,4 @@
-import { en } from '@chatofy/i18n';
+import { en, LOCALES, vi, zh, type Locale, type Messages } from '@chatofy/i18n';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -19,13 +19,13 @@ import { describe, expect, it } from 'vitest';
  * what a copy edit touches, and an edit is how the violation arrives.
  */
 
-const BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
+/**
+ * Bans that hold in every locale: proper nouns, component acronyms, architecture words
+ * and language codes read the same in a Vietnamese or Chinese sentence as in an English one.
+ */
+const SHARED_BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
   {
-    pattern: /recognis|recogniz|synthesis|synthesi[sz]e/i,
-    why: 'names the pipeline. Say what happens to the reader — what is kept, and what the translator sees',
-  },
-  {
-    pattern: /speech.to.text|text.to.speech|\bSTT\b|\bTTS\b/i,
+    pattern: /\bSTT\b|\bTTS\b/i,
     why: 'component names, not words the product says',
   },
   {
@@ -45,23 +45,62 @@ const BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
     // The half that is greppable. A runtime guarantee needs more than a grep — the
     // detected language arrives as a code and is named through `nativeLanguageName` —
     // but a hard-coded code in the dictionary is exactly what a grep catches.
-    pattern: /(^|[^A-Za-z])(vi|en|vi-VN|en-US)([^A-Za-z]|$)/,
+    // Boundaries are Unicode letters, not [A-Za-z]: the "vi" inside Vietnamese "việc" is
+    // followed by an accented letter and is a word, not a code.
+    pattern: /(^|[^\p{L}])(vi|en|zh|vi-VN|en-US|zh-CN)([^\p{L}]|$)/u,
     why: 'a language code reached the screen. Use the language name',
   },
 ];
 
-const LANDING = Object.entries(en).filter(([key]) => key.startsWith('web.landing.'));
+const PIPELINE_WHY =
+  'names the pipeline. Say what happens to the reader — what is kept, and what the translator sees';
 
-describe('the landing copy', () => {
+/**
+ * Pipeline vocabulary is language-specific, so each locale lists its own. Typed as a
+ * `Record<Locale, …>` so a locale added to `LOCALES` without a ban list fails `tsc`.
+ */
+const LOCALE_BANNED: Record<Locale, ReadonlyArray<{ pattern: RegExp; why: string }>> = {
+  en: [
+    {
+      pattern: /recognis|recogniz|synthesis|synthesi[sz]e|speech.to.text|text.to.speech/i,
+      why: PIPELINE_WHY,
+    },
+  ],
+  vi: [
+    {
+      pattern:
+        /nhận dạng|nhận diện giọng|giọng nói thành văn bản|văn bản thành giọng nói|tổng hợp giọng|chuyển giọng|đường ống|phiên âm/i,
+      why: PIPELINE_WHY,
+    },
+  ],
+  zh: [
+    {
+      pattern: /语音识别|识别|转写|转录|语音合成|合成|流水线|管道|文本转语音|语音转文本|文字转语音/,
+      why: PIPELINE_WHY,
+    },
+  ],
+};
+
+const DICTIONARIES: Record<Locale, Messages> = { en, vi, zh };
+
+const landingOf = (locale: Locale) =>
+  Object.entries(DICTIONARIES[locale]).filter(([key]) => key.startsWith('web.landing.'));
+
+describe.each(LOCALES)('the %s landing copy', (locale) => {
+  const landing = landingOf(locale);
+
   it('has strings to check', () => {
     // A floor, so a renamed namespace fails loudly instead of checking an empty list.
-    expect(LANDING.length).toBeGreaterThan(20);
+    expect(landing.length).toBeGreaterThan(20);
   });
 
-  it.each(BANNED)('says nothing matching $pattern — $why', ({ pattern }) => {
-    const offenders = LANDING.filter(([, value]) => pattern.test(value)).map(
-      ([key, value]) => `${key}: ${value}`,
-    );
-    expect(offenders).toEqual([]);
-  });
+  it.each([...SHARED_BANNED, ...LOCALE_BANNED[locale]])(
+    'says nothing matching $pattern — $why',
+    ({ pattern }) => {
+      const offenders = landing
+        .filter(([, value]) => pattern.test(value))
+        .map(([key, value]) => `${key}: ${value}`);
+      expect(offenders).toEqual([]);
+    },
+  );
 });
