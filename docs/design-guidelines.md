@@ -869,10 +869,10 @@ reload-recovery instruction, which is two steps because reloading discards the
 trap. Shorten either at your peril; a reviewer who cannot restate the consequence
 after reading the new copy has found the line that must not change.
 
-### Under two languages
+### Under three languages
 
-Every user-facing string on web now lives in `packages/i18n`, in both `en.ts` and
-`vi.ts`, and four rules follow from that.
+Every user-facing string on web now lives in `packages/i18n`, in `en.ts`, `vi.ts` and
+`zh.ts` (Simplified Chinese, declared `lang="zh-CN"`), and four rules follow from that.
 
 **The register governs each locale independently.** Review a Vietnamese string against
 the rule above, never against fidelity to the English. English is the reference for
@@ -894,7 +894,8 @@ Not the language's own name: "简体中文" is unreadable to most of the readers
 **The register of address is neutral "bạn"**, everywhere. Not "quý
 khách", which is the register of a bank and wrong for a tool used daily, and not
 pronoun-avoidance, which is harder to keep consistent than it looks and drifts into
-passive constructions.
+passive constructions. Chinese takes the same line: "你", not "您", with full-width
+punctuation.
 
 A mechanical half exists: `apps/web/src/components/marketing/landing-copy.spec.ts` runs
 the ban list — pipeline vocabulary, component and engine names, measurement instruments,
@@ -903,7 +904,7 @@ it at every locale is a one-line change and worth making.
 
 **Mail copy is not in this dictionary**, and that is deliberate:
 `apps/api/src/modules/mail/interfaces/mail-sender.interface.ts` owns all four templates
-in both languages, keyed purpose-first so `tsc` names a purpose added in one language
+in every locale, keyed purpose-first so `tsc` names a purpose added in one locale
 only. Nothing there is ever rendered in a browser, and putting it in the web app's
 dictionary would put mail copy on a surface that does not send mail.
 
@@ -952,7 +953,8 @@ opened — a wrong address is worse than a missing one, because it looks checked
 whichever language the request resolved to; there is no Vietnamese-only state and no
 English-only one. What WOULD be a defect is a state whose copy exists in one locale and
 not the other, and for dictionary strings that cannot happen: `packages/i18n/src/vi.ts`
-is typed `Messages`, so a key present in `en` and missing in `vi` fails `tsc` by name.
+and `zh.ts` are typed `Messages`, so a key present in `en` and missing in either fails
+`tsc` by name.
 That guarantee is exactly as strong as the number of strings living outside the
 dictionary, which is the argument for keeping that number at zero.
 

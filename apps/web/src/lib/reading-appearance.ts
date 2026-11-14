@@ -139,7 +139,9 @@ export const DEFAULT_READING_APPEARANCE: ReadingAppearance = Object.freeze({
 });
 
 const FONT_STACK: Record<Exclude<ReadingFont, 'sans'>, string> = {
-  serif: 'var(--font-newsreader), Georgia, serif',
+  // The same CJK serif tail as `--font-display` in globals.css: Newsreader has no Chinese.
+  serif:
+    "var(--font-newsreader), Georgia, 'Songti SC', 'Noto Serif SC', 'Noto Serif CJK SC', SimSun, serif",
   mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   legible: 'var(--font-legible), var(--font-sans)',
 };

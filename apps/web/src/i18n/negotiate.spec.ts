@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { negotiateLocale } from './negotiate';
 
 /**
- * A header anyone can send, parsed into one of two answers.
+ * A header anyone can send, parsed into one of three answers.
  *
  * Only consulted on a first visit — after that the cookie is authoritative, including
  * when it disagrees with the browser. An explicit choice must not be negotiated away.
@@ -19,6 +19,10 @@ describe('negotiateLocale', () => {
     ['VI', 'vi', 'case is not part of a tag'],
     ['en-US,en;q=0.9', 'en', 'English asked for, English given'],
     ['xh,vi;q=0.9,en;q=0.8', 'vi', 'the highest-ranked tag this product HAS'],
+    ['zh-CN,zh;q=0.9', 'zh', 'Simplified Chinese, the locale this product ships'],
+    ['zh-TW,zh;q=0.9', 'zh', 'Traditional Chinese reads the one Chinese dictionary there is'],
+    ['zh-Hant-HK', 'zh', 'a script subtag is dropped with the region'],
+    ['ja,zh-Hans;q=0.8,en;q=0.5', 'zh', 'Chinese ranked above English wins'],
     ['en;q=0.4,vi;q=0.9', 'vi', 'ranking beats order'],
     ['vi;q=0, en;q=0.5', 'en', 'q=0 means "not this one"'],
     ['fr,de', 'en', 'nothing supported falls back'],

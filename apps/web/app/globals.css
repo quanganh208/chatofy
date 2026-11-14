@@ -51,11 +51,22 @@
 /* Design tokens (shadcn-compatible) exposed to Tailwind utilities. */
 @theme inline {
   /* Overrides Tailwind's own `--font-sans` rather than racing it — see layout.tsx. */
-  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  /* The CJK families are system faces, never downloaded: Be Vietnam Pro has no
+     Chinese glyphs, and they sit after `system-ui` so Latin text still lands on the
+     system face if the webfont fails. Each platform has one: PingFang / Hiragino on
+     Apple, YaHei on Windows, Noto CJK on Linux and Android. The known cost: on a
+     Japanese-language OS, `system-ui` is a Japanese face with Han glyphs, so Chinese
+     text takes Japanese glyph shapes there. Putting the SC faces first would fix that
+     but hand every Latin fallback to PingFang or YaHei; Latin fidelity wins. */
+  --font-sans:
+    var(--font-be-vietnam), ui-sans-serif, system-ui, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif;
   /* Headings and the wordmark only — `font-display` at the call site, alongside
      the role size. Georgia is the fallback because it shares the serif's
      proportions closely enough that a late load does not reflow a title. */
-  --font-display: var(--font-newsreader), Georgia, serif;
+  --font-display:
+    var(--font-newsreader), Georgia, 'Songti SC', 'Noto Serif SC', 'Noto Serif CJK SC', SimSun,
+    serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

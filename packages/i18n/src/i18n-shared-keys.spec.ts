@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { en, type MessageKey } from './en.js';
 import { vi } from './vi.js';
+import { zh } from './zh.js';
 
 /**
  * `web.X` / `mobile.X` pairs that are worded for their platform on purpose. Each
@@ -35,9 +36,9 @@ describe('strings shared by web and mobile', () => {
 
   it('are not written out twice under different web and mobile keys', () => {
     const webByText = new Map<string, MessageKey>();
-    for (const k of surface('web.')) webByText.set(`${en[k]}\u0000${vi[k]}`, k);
+    for (const k of surface('web.')) webByText.set(`${en[k]}\u0000${vi[k]}\u0000${zh[k]}`, k);
     const copies = surface('mobile.')
-      .map((k) => [webByText.get(`${en[k]}\u0000${vi[k]}`), k] as const)
+      .map((k) => [webByText.get(`${en[k]}\u0000${vi[k]}\u0000${zh[k]}`), k] as const)
       .filter(([web]) => web !== undefined);
     expect(copies).toEqual([]);
   });

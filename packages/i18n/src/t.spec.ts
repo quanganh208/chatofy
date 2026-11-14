@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { asLocale, createTranslator, DEFAULT_LOCALE, en, LOCALES } from './index.js';
+import {
+  asLocale,
+  createTranslator,
+  DEFAULT_LOCALE,
+  en,
+  htmlLang,
+  LOCALES,
+  localeFromHtmlLang,
+} from './index.js';
 
 describe('createTranslator', () => {
   const t = createTranslator(en);
@@ -45,7 +53,7 @@ describe('asLocale', () => {
    * would make a stored `en` indistinguishable from a first visit, and the
    * Accept-Language step would then run for someone who had already chosen.
    */
-  it.each([null, undefined, '', 'xx', 'EN', 'en-GB', 'vi-VN'])(
+  it.each([null, undefined, '', 'xx', 'EN', 'en-GB', 'vi-VN', 'zh-CN', 'zh-TW'])(
     'refuses %s rather than defaulting',
     (value) => {
       expect(asLocale(value)).toBeUndefined();
@@ -54,5 +62,21 @@ describe('asLocale', () => {
 
   it('ships a default that is itself a locale', () => {
     expect(asLocale(DEFAULT_LOCALE)).toBe(DEFAULT_LOCALE);
+  });
+});
+
+describe('htmlLang', () => {
+  it('tags Chinese with its region so the browser picks Simplified glyphs', () => {
+    expect(htmlLang('zh')).toBe('zh-CN');
+    expect(htmlLang('en')).toBe('en');
+    expect(htmlLang('vi')).toBe('vi');
+  });
+
+  it.each(LOCALES)('reads its own tag for %s back', (locale) => {
+    expect(localeFromHtmlLang(htmlLang(locale))).toBe(locale);
+  });
+
+  it.each([null, undefined, '', 'fr', 'ja-JP'])('refuses %s', (value) => {
+    expect(localeFromHtmlLang(value)).toBeUndefined();
   });
 });

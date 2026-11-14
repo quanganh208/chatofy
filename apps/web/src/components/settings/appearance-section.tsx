@@ -1,6 +1,6 @@
 'use client';
 
-import { createTranslator, en, vi, type Locale } from '@chatofy/i18n';
+import { createTranslator, en, vi, zh, type Locale } from '@chatofy/i18n';
 import { updateMe } from '@/clients/api-client';
 import type { ThemeChange } from '@/components/layout/theme-toggle-connected';
 import { LocaleSwitcher, type LocaleChange } from '@/components/layout/locale-switcher';
@@ -9,7 +9,7 @@ import { notify } from '@/lib/notify';
 import { SettingsSection, SettingsSectionRow } from './settings-section';
 import { ThemeChoiceTiles } from './theme-choice-tiles';
 
-const DICTIONARIES = { en, vi } as const;
+const DICTIONARIES = { en, vi, zh } as const;
 
 /**
  * Settings › General: the colour theme, as three pictures of the app, and the

@@ -13,18 +13,19 @@
  * adopts, that provider moves behind a `/react` subpath here, mirroring
  * `@chatofy/ui/react`.
  *
- * Both locales ship from here, `vi.ts` typed `Messages` so the compiler names every
- * key it forgets. Neither is loaded lazily: the whole dictionary is a few kilobytes of
+ * All three locales ship from here, `vi.ts` and `zh.ts` typed `Messages` so the
+ * compiler names every key either forgets. None is loaded lazily: the whole dictionary is a few kilobytes of
  * strings, and splitting it would buy nothing while adding a way for a subtree to
  * render before its words arrive.
  */
 export { en, type MessageKey, type Messages } from './en.js';
 export { vi } from './vi.js';
+export { zh } from './zh.js';
 export { createTranslator, type Translate, type Vars } from './t.js';
 export { meetingDuration, meetingLanguages, meetingParticipants } from './meeting-summary.js';
 
 /** The locales this product ships. The switcher and the cookie both read from this. */
-export const LOCALES = ['en', 'vi'] as const;
+export const LOCALES = ['en', 'vi', 'zh'] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
@@ -40,4 +41,25 @@ export const DEFAULT_LOCALE: Locale = 'en';
  */
 export function asLocale(value: string | null | undefined): Locale | undefined {
   return LOCALES.find((locale) => locale === value);
+}
+
+/**
+ * The BCP-47 tag a document in this locale declares in `lang`.
+ *
+ * `zh` alone names no script, and a browser picks CJK glyph shapes by script and
+ * region: without `-CN` a Simplified Chinese page may render with Japanese or
+ * Traditional glyph variants. `en` and `vi` have nothing to disambiguate.
+ */
+const HTML_LANG: Record<Locale, string> = { en: 'en', vi: 'vi', zh: 'zh-CN' };
+
+export function htmlLang(locale: Locale): string {
+  return HTML_LANG[locale];
+}
+
+/**
+ * The inverse of `htmlLang`: reads a document's `lang` back to a locale. Only the
+ * primary subtag counts, so `zh-CN` (what `htmlLang` writes) and a bare `zh` agree.
+ */
+export function localeFromHtmlLang(lang: string | null | undefined): Locale | undefined {
+  return asLocale(lang?.split('-')[0]);
 }

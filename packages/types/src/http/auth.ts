@@ -125,7 +125,7 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>;
  * only fills an absent value; `{ locale: 42 }` would still fail.
  */
 export const requestLocaleSchema = z
-  .enum(['en', 'vi'])
+  .enum(['en', 'vi', 'zh'])
   .catch('en')
   .optional()
   .transform((value) => value ?? 'en');
@@ -283,7 +283,7 @@ export const VERIFY_EMAIL_MESSAGES = {
  * caller something true and leaks nothing.
  */
 export const updateMeRequestSchema = z.object({
-  locale: z.enum(['en', 'vi']),
+  locale: z.enum(['en', 'vi', 'zh']),
 });
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
 
