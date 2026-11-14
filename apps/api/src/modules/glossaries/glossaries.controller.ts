@@ -32,6 +32,7 @@ import {
   SaveGlossaryRequestDto,
 } from './dto/glossaries.dto';
 import { GlossariesService } from './glossaries.service';
+import { personalScope } from '../../common/library-scope/library-scope';
 
 @ApiTags('glossaries')
 @Controller('glossaries')
@@ -47,7 +48,9 @@ export class GlossariesController {
   @ApiErrorResponses(401, 429)
   async list(@Req() req: Request): Promise<GlossaryListResponse> {
     return {
-      glossaries: await this.glossaries.listGlossaries(req.auth!.userId),
+      glossaries: await this.glossaries.listGlossaries(
+        personalScope(req.auth!.userId),
+      ),
     };
   }
 
@@ -69,7 +72,7 @@ export class GlossariesController {
   ) {
     return {
       glossary: await this.glossaries.saveGlossary(
-        req.auth!.userId,
+        personalScope(req.auth!.userId),
         params.glossaryId,
         body,
       ),
@@ -93,7 +96,7 @@ export class GlossariesController {
   ) {
     return {
       glossary: await this.glossaries.patchGlossary(
-        req.auth!.userId,
+        personalScope(req.auth!.userId),
         params.glossaryId,
         body,
       ),
@@ -110,7 +113,10 @@ export class GlossariesController {
     @Req() req: Request,
     @Param() params: GlossaryIdParamDto,
   ): Promise<void> {
-    await this.glossaries.removeGlossary(req.auth!.userId, params.glossaryId);
+    await this.glossaries.removeGlossary(
+      personalScope(req.auth!.userId),
+      params.glossaryId,
+    );
   }
 
   @Get(':glossaryId/items')
@@ -125,7 +131,7 @@ export class GlossariesController {
   ): Promise<GlossaryItemListResponse> {
     return {
       items: await this.glossaries.listItems(
-        req.auth!.userId,
+        personalScope(req.auth!.userId),
         params.glossaryId,
       ),
     };
@@ -148,7 +154,7 @@ export class GlossariesController {
   ) {
     return {
       item: await this.glossaries.addItem(
-        req.auth!.userId,
+        personalScope(req.auth!.userId),
         params.glossaryId,
         body,
       ),
@@ -166,7 +172,7 @@ export class GlossariesController {
     @Param() params: ItemIdParamDto,
   ): Promise<void> {
     await this.glossaries.removeItem(
-      req.auth!.userId,
+      personalScope(req.auth!.userId),
       params.glossaryId,
       params.itemId,
     );

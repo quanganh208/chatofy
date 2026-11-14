@@ -1,22 +1,48 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  Glossary,
   GlossaryItem,
   LanguageCode,
+  Glossary,
   PatchGlossaryRequest,
   SaveGlossaryItemRequest,
   SaveGlossaryRequest,
 } from '@chatofy/types';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import type { GlossaryStore } from '../interfaces/glossary-store.interface';
+import { LOCK_CLASS } from '../../../common/library-scope/advisory-lock-classes';
+import {
+  scopeLockKey,
+  scopeWhere,
+  type LibraryScope,
+} from '../../../common/library-scope/library-scope';
+import type {
+  GlossaryPatchResult,
+  GlossarySaveResult,
+  GlossaryStore,
+  ItemAddResult,
+} from '../interfaces/glossary-store.interface';
 
+/**
+ * Postgres-backed glossary library.
+ *
+ * **Every query is confined by {@link scopeWhere}.** A team glossary keeps its
+ * author in `ownerId`, so a filter on `ownerId` alone would reach the author's
+ * team rows from a personal route. Rows are found with `findFirst` over the
+ * scope and then written by their own `id`, never addressed through the
+ * `(ownerId, clientId)` unique, which cannot carry `teamId: null`.
+ *
+ * **A save takes the scope's advisory lock first,** so the per-scope ceiling
+ * count and the create it guards cannot interleave with another save in the
+ * same scope (the reasoning is the context store's; see its `save`).
+ * `addItem` stays unlocked, as it always was.
+ */
 @Injectable()
 export class PrismaGlossaryStore implements GlossaryStore {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listGlossaries(ownerId: string): Promise<Glossary[]> {
+  async listGlossaries(scope: LibraryScope): Promise<Glossary[]> {
     const rows = await this.prisma.glossary.findMany({
-      where: { ownerId },
+      where: scopeWhere(scope),
       orderBy: { createdAt: 'desc' },
       select: GLOSSARY_SELECT,
     });
@@ -24,80 +50,80 @@ export class PrismaGlossaryStore implements GlossaryStore {
   }
 
   async saveGlossary(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: SaveGlossaryRequest,
     maxPerOwner: number,
-  ): Promise<Glossary | null> {
+  ): Promise<GlossarySaveResult> {
     return this.prisma.$transaction(async (tx) => {
-      const held = await tx.glossary.findUnique({
-        where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-        select: { id: true },
-      });
+      // FIRST: the count below only holds if no other save in this scope can
+      // insert between it and the create.
+      await lockScope(tx, scope);
+      const held = await findHeld(tx, scope, glossaryId);
+      const fields = {
+        name: body.name,
+        description: body.description,
+        sourceLang: body.sourceLang,
+      };
 
       if (held === null) {
-        const owned = await tx.glossary.count({ where: { ownerId } });
-        if (owned >= maxPerOwner) return null;
+        const owned = await tx.glossary.count({ where: scopeWhere(scope) });
+        if (owned >= maxPerOwner) return { kind: 'limit' } as const;
+        const created = await tx.glossary.create({
+          data: {
+            ownerId: scope.userId,
+            teamId: scope.kind === 'team' ? scope.teamId : null,
+            clientId: glossaryId,
+            ...fields,
+          },
+          select: GLOSSARY_SELECT,
+        });
+        return { kind: 'saved', value: toGlossary(created) } as const;
       }
 
-      const row = await tx.glossary.upsert({
-        where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-        create: {
-          ownerId,
-          clientId: glossaryId,
-          name: body.name,
-          description: body.description,
-          sourceLang: body.sourceLang,
-        },
-        update: {
-          name: body.name,
-          description: body.description,
-          sourceLang: body.sourceLang,
-        },
+      const updated = await tx.glossary.update({
+        where: { id: held.id },
+        data: fields,
         select: GLOSSARY_SELECT,
       });
-      return toGlossary(row);
+      return { kind: 'saved', value: toGlossary(updated) } as const;
     });
   }
 
   async patchGlossary(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: PatchGlossaryRequest,
-  ): Promise<Glossary | null> {
+  ): Promise<GlossaryPatchResult> {
     return this.prisma.$transaction(async (tx) => {
-      const held = await tx.glossary.findUnique({
-        where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-        select: { id: true },
-      });
-      if (held === null) return null;
+      const held = await findHeld(tx, scope, glossaryId);
+      if (held === null) return { kind: 'absent' } as const;
 
       const row = await tx.glossary.update({
         where: { id: held.id },
         data: { isActive: body.isActive },
         select: GLOSSARY_SELECT,
       });
-      return toGlossary(row);
+      return { kind: 'saved', value: toGlossary(row) } as const;
     });
   }
 
-  async removeGlossary(ownerId: string, glossaryId: string): Promise<boolean> {
+  async removeGlossary(
+    scope: LibraryScope,
+    glossaryId: string,
+  ): Promise<boolean> {
     const { count } = await this.prisma.glossary.deleteMany({
-      where: { ownerId, clientId: glossaryId },
+      where: { ...scopeWhere(scope), clientId: glossaryId },
     });
     return count > 0;
   }
 
   async listItems(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
   ): Promise<GlossaryItem[]> {
-    // Ownership is enforced through the glossary relation — if the glossary does
-    // not belong to this owner it simply returns an empty list.
-    const glossary = await this.prisma.glossary.findUnique({
-      where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-      select: { id: true },
-    });
+    // A glossary outside the scope simply yields an empty list.
+    const glossary = await findHeld(this.prisma, scope, glossaryId);
     if (glossary === null) return [];
 
     const rows = await this.prisma.glossaryItem.findMany({
@@ -109,17 +135,14 @@ export class PrismaGlossaryStore implements GlossaryStore {
   }
 
   async addItem(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: SaveGlossaryItemRequest,
     maxPerGlossary: number,
-  ): Promise<GlossaryItem | null> {
+  ): Promise<ItemAddResult> {
     return this.prisma.$transaction(async (tx) => {
-      const glossary = await tx.glossary.findUnique({
-        where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-        select: { id: true },
-      });
-      if (glossary === null) return null;
+      const glossary = await findHeld(tx, scope, glossaryId);
+      if (glossary === null) return { kind: 'absent' } as const;
 
       // Idempotency: if the clientId already exists, return the existing row.
       const existing = await tx.glossaryItem.findUnique({
@@ -131,12 +154,14 @@ export class PrismaGlossaryStore implements GlossaryStore {
         },
         select: ITEM_SELECT,
       });
-      if (existing !== null) return toItem(existing, glossaryId);
+      if (existing !== null) {
+        return { kind: 'saved', value: toItem(existing, glossaryId) } as const;
+      }
 
       const itemCount = await tx.glossaryItem.count({
         where: { glossaryId: glossary.id },
       });
-      if (itemCount >= maxPerGlossary) return null;
+      if (itemCount >= maxPerGlossary) return { kind: 'limit' } as const;
 
       const row = await tx.glossaryItem.create({
         data: {
@@ -149,19 +174,16 @@ export class PrismaGlossaryStore implements GlossaryStore {
         },
         select: ITEM_SELECT,
       });
-      return toItem(row, glossaryId);
+      return { kind: 'saved', value: toItem(row, glossaryId) } as const;
     });
   }
 
   async removeItem(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     itemId: string,
   ): Promise<boolean> {
-    const glossary = await this.prisma.glossary.findUnique({
-      where: { ownerId_clientId: { ownerId, clientId: glossaryId } },
-      select: { id: true },
-    });
+    const glossary = await findHeld(this.prisma, scope, glossaryId);
     if (glossary === null) return false;
 
     // `itemId` is the client-minted id the API hands out, not the row's own
@@ -171,6 +193,26 @@ export class PrismaGlossaryStore implements GlossaryStore {
     });
     return count > 0;
   }
+}
+
+/** Takes the scope's glossary lock, released by the transaction's COMMIT or ROLLBACK. */
+async function lockScope(
+  tx: Prisma.TransactionClient,
+  scope: LibraryScope,
+): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_CLASS.GLOSSARIES}::int, hashtext(${scopeLockKey(scope)}))`;
+}
+
+/** The scope's glossary under this client id, or null — never a row of another scope. */
+function findHeld(
+  client: Prisma.TransactionClient,
+  scope: LibraryScope,
+  clientId: string,
+): Promise<{ id: string; ownerId: string } | null> {
+  return client.glossary.findFirst({
+    where: { ...scopeWhere(scope), clientId },
+    select: { id: true, ownerId: true },
+  });
 }
 
 interface GlossaryRow {

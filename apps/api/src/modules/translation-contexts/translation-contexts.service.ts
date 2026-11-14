@@ -14,6 +14,7 @@ import {
   type TranslationContextStore,
 } from './interfaces/translation-context-store.interface';
 import { assertNever } from '../../common/library-scope/library-write-results';
+import type { LibraryScope } from '../../common/library-scope/library-scope';
 
 /**
  * The AI Context library, and the per-owner ceiling.
@@ -37,8 +38,8 @@ export class TranslationContextsService {
     private readonly store: TranslationContextStore,
   ) {}
 
-  list(ownerId: string): Promise<TranslationContext[]> {
-    return this.store.list(ownerId);
+  list(scope: LibraryScope): Promise<TranslationContext[]> {
+    return this.store.list(scope);
   }
 
   /**
@@ -60,12 +61,12 @@ export class TranslationContextsService {
    * make.
    */
   async save(
-    ownerId: string,
+    scope: LibraryScope,
     contextId: string,
     body: SaveTranslationContextRequest,
   ): Promise<TranslationContext> {
     const saved = await this.store.save(
-      ownerId,
+      scope,
       contextId,
       body,
       CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
@@ -92,7 +93,7 @@ export class TranslationContextsService {
    * went or not, so an id that was never there and one belonging to someone else
    * are indistinguishable to the caller.
    */
-  async remove(ownerId: string, contextId: string): Promise<void> {
-    await this.store.remove(ownerId, contextId);
+  async remove(scope: LibraryScope, contextId: string): Promise<void> {
+    await this.store.remove(scope, contextId);
   }
 }

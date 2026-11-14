@@ -10,6 +10,7 @@ import type {
   Refusal,
   Saved,
 } from '../../../common/library-scope/library-write-results';
+import type { LibraryScope } from '../../../common/library-scope/library-scope';
 
 /**
  * What {@link TranslationContextStore.save} did: wrote the context, or refused
@@ -23,11 +24,12 @@ export type ContextSaveResult =
 export const TRANSLATION_CONTEXT_STORE = Symbol('TRANSLATION_CONTEXT_STORE');
 
 /**
- * Every method is scoped by `ownerId` — the authenticated caller's user id, read
- * from the verified token, never from the request path or body. That is the
- * store-level half of the ownership guarantee: a `contextId` guessed or copied
- * from another user resolves to `null` here rather than to their dictionary, so
- * a foreign id and an absent one are indistinguishable to the caller.
+ * Every method is confined to one {@link LibraryScope}: the caller's personal
+ * library (built from the verified token, never from the request path or body)
+ * or a team's, which only membership can mint. That is the store-level half of
+ * the ownership guarantee: a `contextId` guessed or copied from another scope
+ * resolves to nothing here rather than to its dictionary, so a foreign id and
+ * an absent one are indistinguishable to the caller.
  *
  * `contextId` throughout is the CLIENT-minted id that appears in URLs, not the
  * row's server cuid. The two are different values and conflating them is how an
@@ -35,7 +37,7 @@ export const TRANSLATION_CONTEXT_STORE = Symbol('TRANSLATION_CONTEXT_STORE');
  */
 export interface TranslationContextStore {
   /** The caller's whole library, newest first. Unpaged — it is bounded at 20. */
-  list(ownerId: string): Promise<TranslationContext[]>;
+  list(scope: LibraryScope): Promise<TranslationContext[]>;
 
   /**
    * Create or fully replace the caller's context under this client id, refusing
@@ -70,7 +72,7 @@ export interface TranslationContextStore {
    * whole of what this layer knows. Nothing is written for either.
    */
   save(
-    ownerId: string,
+    scope: LibraryScope,
     contextId: string,
     body: SaveTranslationContextRequest,
     maxPerOwner: number,
@@ -83,5 +85,5 @@ export interface TranslationContextStore {
    * either way without a second read — and without the answer differing between
    * "never existed" and "belongs to someone else".
    */
-  remove(ownerId: string, contextId: string): Promise<boolean>;
+  remove(scope: LibraryScope, contextId: string): Promise<boolean>;
 }

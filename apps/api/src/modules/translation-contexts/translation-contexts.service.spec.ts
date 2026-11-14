@@ -6,6 +6,7 @@ import {
   type TranslationContext,
 } from '@chatofy/types';
 import { TranslationContextsService } from './translation-contexts.service';
+import { personalScope } from '../../common/library-scope/library-scope';
 import type { TranslationContextStore } from './interfaces/translation-context-store.interface';
 
 /**
@@ -66,10 +67,10 @@ describe('TranslationContextsService', () => {
   it('holds the store to the ceiling the contract states', async () => {
     const { service, save } = makeService();
 
-    await service.save('owner-1', 'ctx-new', body);
+    await service.save(personalScope('owner-1'), 'ctx-new', body);
 
     expect(save).toHaveBeenCalledWith(
-      'owner-1',
+      personalScope('owner-1'),
       'ctx-new',
       body,
       CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
@@ -82,7 +83,7 @@ describe('TranslationContextsService', () => {
     // fired together would both be told there is room.
     const { service, list, save } = makeService();
 
-    await service.save('owner-1', 'ctx-new', body);
+    await service.save(personalScope('owner-1'), 'ctx-new', body);
 
     expect(list).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalledTimes(1);
@@ -91,7 +92,7 @@ describe('TranslationContextsService', () => {
   it('turns a refused write into a 409 naming the ceiling', async () => {
     const { service } = makeService({ refuse: 'limit' });
 
-    const refusal = service.save('owner-1', 'ctx-new', body);
+    const refusal = service.save(personalScope('owner-1'), 'ctx-new', body);
 
     await expect(refusal).rejects.toBeInstanceOf(ConflictException);
     // The number reaches the user, so it has to come from the contract rather
@@ -105,7 +106,7 @@ describe('TranslationContextsService', () => {
     const { service } = makeService({ refuse: 'glossary-missing' });
 
     await expect(
-      service.save('owner-1', 'ctx-new', body),
+      service.save(personalScope('owner-1'), 'ctx-new', body),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -114,9 +115,9 @@ describe('TranslationContextsService', () => {
     // would refuse a replace the store already decided was legal.
     const { service } = makeService();
 
-    await expect(service.save('owner-1', 'ctx-3', body)).resolves.toEqual(
-      context('ctx-3'),
-    );
+    await expect(
+      service.save(personalScope('owner-1'), 'ctx-3', body),
+    ).resolves.toEqual(context('ctx-3'));
   });
 
   it('discards whether a delete removed anything', async () => {
@@ -126,7 +127,7 @@ describe('TranslationContextsService', () => {
     remove.mockResolvedValue(false);
 
     await expect(
-      service.remove('owner-1', 'ctx-absent'),
+      service.remove(personalScope('owner-1'), 'ctx-absent'),
     ).resolves.toBeUndefined();
   });
 });

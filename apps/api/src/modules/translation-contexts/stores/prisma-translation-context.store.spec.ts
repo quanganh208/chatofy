@@ -7,15 +7,22 @@ import {
 } from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaTranslationContextStore } from './prisma-translation-context.store';
+import {
+  mintTeamScope,
+  personalScope,
+} from '../../../common/library-scope/library-scope';
+
+/** The personal scope every case runs in unless it says otherwise. */
+const ME = personalScope('owner-1');
 
 /**
  * The ownership scoping, the replace, and where the ceiling is counted.
  *
  * These assert by INSPECTING THE ARGUMENTS rather than by round-tripping data:
- * a store that dropped the owner from a `where` would still pass a "returns the
- * row" test against a fake that answers unconditionally. The compound
- * `ownerId_clientId` key is what makes omitting the owner not compile, and these
- * are what prove it is actually the key being used.
+ * a store that dropped the scope from a `where` would still pass a "returns the
+ * row" test against a fake that answers unconditionally. A personal `where`
+ * must carry `teamId: null` as well as the owner, and these are what prove it
+ * does.
  *
  * The ceiling cases assert on the recorded call ORDER for the same reason: that
  * the count happens at all is not the point — a count before the transaction
@@ -90,16 +97,22 @@ function fakePrisma(
   } = {},
 ) {
   const calls: string[] = [];
-  const findUnique = vi.fn(async () => {
-    calls.push('findUnique');
-    return options.exists === false ? null : { id: 'cuid-1' };
+  const findFirst = vi.fn(async () => {
+    calls.push('findFirst');
+    return options.exists === false
+      ? null
+      : { id: 'cuid-1', ownerId: 'owner-1' };
   });
   const count = vi.fn(async () => {
     calls.push('count');
     return options.held ?? 0;
   });
-  const upsert = vi.fn(async () => {
-    calls.push('upsert');
+  const create = vi.fn(async () => {
+    calls.push('create');
+    return { id: 'cuid-1' };
+  });
+  const update = vi.fn(async () => {
+    calls.push('update');
     return { id: 'cuid-1' };
   });
   const deleteMany = vi.fn(async () => {
@@ -138,8 +151,8 @@ function fakePrisma(
     return options.existingGlossary ?? [];
   });
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
-  const glossaryFindUnique = vi.fn(async () => {
-    calls.push('glossary.findUnique');
+  const glossaryFindFirst = vi.fn(async () => {
+    calls.push('glossary.findFirst');
     return options.linkedGlossaryRow === undefined
       ? { id: 'cuid-g-1' }
       : options.linkedGlossaryRow;
@@ -147,9 +160,9 @@ function fakePrisma(
 
   const tx = {
     $executeRaw: executeRaw,
-    translationContext: { findUnique, count, upsert, findUniqueOrThrow },
+    translationContext: { findFirst, count, create, update, findUniqueOrThrow },
     glossaryTerm: { deleteMany, createMany, findMany: glossaryFindMany },
-    glossary: { findUnique: glossaryFindUnique },
+    glossary: { findFirst: glossaryFindFirst },
   };
 
   const prisma = {
@@ -162,9 +175,10 @@ function fakePrisma(
   return {
     store: new PrismaTranslationContextStore(prisma),
     calls,
-    findUnique,
+    findFirst,
     count,
-    upsert,
+    create,
+    update,
     executeRaw,
     locks,
     deleteMany,
@@ -172,26 +186,48 @@ function fakePrisma(
     findMany,
     glossaryFindMany,
     contextDeleteMany,
-    glossaryFindUnique,
+    glossaryFindFirst,
     transaction: (prisma as unknown as { $transaction: Mock }).$transaction,
   };
 }
 
 describe('PrismaTranslationContextStore', () => {
-  it('scopes the list query by ownerId', async () => {
+  it('scopes the list query to the personal scope', async () => {
     const { store, findMany } = fakePrisma();
-    await store.list('owner-1');
+    await store.list(ME);
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { ownerId: 'owner-1' } }),
+      expect.objectContaining({ where: { ownerId: 'owner-1', teamId: null } }),
     );
   });
 
-  it('addresses the row by ownerId_clientId on save', async () => {
-    const { store, upsert } = fakePrisma();
-    await store.save('owner-1', 'ctx-1', body, MAX);
-    expect(upsert).toHaveBeenCalledWith(
+  it('addresses the row through the personal scope on save', async () => {
+    const { store, findFirst, update } = fakePrisma();
+    await store.save(ME, 'ctx-1', body, MAX);
+    expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { ownerId_clientId: { ownerId: 'owner-1', clientId: 'ctx-1' } },
+        where: { ownerId: 'owner-1', teamId: null, clientId: 'ctx-1' },
+      }),
+    );
+    // Written by the row's own id, never through the `(ownerId, clientId)`
+    // unique, which cannot carry `teamId: null`.
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'cuid-1' } }),
+    );
+  });
+
+  it('runs a team save under the team lock and the team scope', async () => {
+    const { store, locks, findFirst, create } = fakePrisma({ exists: false });
+    const team = mintTeamScope('u', 't', 'admin');
+
+    await store.save(team, 'ctx-1', body, MAX);
+
+    expect(locks[0]?.values).toEqual([8154, 't']);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { teamId: 't', clientId: 'ctx-1' } }),
+    );
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ownerId: 'u', teamId: 't' }),
       }),
     );
   });
@@ -210,7 +246,7 @@ describe('PrismaTranslationContextStore', () => {
         listedGlossary: inline,
         listedLinkedGlossary: linked(true),
       });
-      const [context] = await store.list('owner-1');
+      const [context] = await store.list(ME);
       expect(context?.glossary).toEqual([{ vi: 'ban', en: 'board' }]);
     });
 
@@ -219,7 +255,7 @@ describe('PrismaTranslationContextStore', () => {
       // client drops a context whose fields fail that parse — so echoing the
       // FK column would hide every linked context from the list.
       const { store } = fakePrisma({ listedLinkedGlossary: linked(true) });
-      const [context] = await store.list('owner-1');
+      const [context] = await store.list(ME);
       expect(context?.linkedGlossaryId).toBe(GLOSSARY_CLIENT_ID);
       expect(context?.glossaryId).toBe(GLOSSARY_CLIENT_ID);
     });
@@ -229,7 +265,7 @@ describe('PrismaTranslationContextStore', () => {
         listedGlossary: inline,
         listedLinkedGlossary: linked(false),
       });
-      const [context] = await store.list('owner-1');
+      const [context] = await store.list(ME);
       expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
     });
 
@@ -237,7 +273,7 @@ describe('PrismaTranslationContextStore', () => {
       const { store } = fakePrisma({
         listedGlossary: [{ terms: { vi: 'hội đồng', en: 'committee' } }],
       });
-      const [context] = await store.list('owner-1');
+      const [context] = await store.list(ME);
       expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
     });
 
@@ -255,7 +291,7 @@ describe('PrismaTranslationContextStore', () => {
       const warn = vi
         .spyOn(Logger.prototype, 'warn')
         .mockImplementation(() => {});
-      const [context] = await store.list('owner-1');
+      const [context] = await store.list(ME);
       expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
       // The row is still stored; the save that decides its fate reports it.
       expect(warn).not.toHaveBeenCalled();
@@ -263,17 +299,17 @@ describe('PrismaTranslationContextStore', () => {
     });
   });
 
-  it('addresses the row by ownerId and clientId on delete', async () => {
+  it('addresses the row through the personal scope on delete', async () => {
     const { store, contextDeleteMany } = fakePrisma();
-    await store.remove('owner-1', 'ctx-1');
+    await store.remove(ME, 'ctx-1');
     expect(contextDeleteMany).toHaveBeenCalledWith({
-      where: { ownerId: 'owner-1', clientId: 'ctx-1' },
+      where: { ownerId: 'owner-1', teamId: null, clientId: 'ctx-1' },
     });
   });
 
   it('replaces the glossary rather than appending, inside one transaction', async () => {
     const { store, calls, transaction } = fakePrisma();
-    await store.save('owner-1', 'ctx-1', body, MAX);
+    await store.save(ME, 'ctx-1', body, MAX);
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(calls.indexOf('glossary.deleteMany')).toBeLessThan(
       calls.indexOf('glossary.createMany'),
@@ -282,7 +318,7 @@ describe('PrismaTranslationContextStore', () => {
 
   it('takes glossary positions from the array index', async () => {
     const { store, createMany } = fakePrisma();
-    await store.save('owner-1', 'ctx-1', body, MAX);
+    await store.save(ME, 'ctx-1', body, MAX);
     expect(createMany).toHaveBeenCalledWith({
       data: [
         {
@@ -310,7 +346,7 @@ describe('PrismaTranslationContextStore', () => {
         existingGlossary: [{ terms: unreadable }],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(createMany).toHaveBeenCalledWith({
         data: [
@@ -338,7 +374,7 @@ describe('PrismaTranslationContextStore', () => {
         held: 0,
       });
 
-      await store.save('owner-1', 'ctx-new', body, MAX);
+      await store.save(ME, 'ctx-new', body, MAX);
 
       expect(glossaryFindMany).not.toHaveBeenCalled();
     });
@@ -348,7 +384,7 @@ describe('PrismaTranslationContextStore', () => {
         existingGlossary: [{ terms: { vi: 'một bên' } }],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(calls.indexOf('glossary.findMany')).toBeGreaterThanOrEqual(0);
       expect(calls.indexOf('glossary.findMany')).toBeLessThan(
@@ -361,7 +397,7 @@ describe('PrismaTranslationContextStore', () => {
         existingGlossary: [{ terms: { vi: 'một bên' } }],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(glossaryFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: { position: 'asc' } }),
@@ -382,7 +418,7 @@ describe('PrismaTranslationContextStore', () => {
         ],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(createMany).toHaveBeenCalledWith({
         data: [
@@ -413,7 +449,7 @@ describe('PrismaTranslationContextStore', () => {
         ],
       });
 
-      await store.save('owner-1', 'ctx-1', nearlyFull, MAX);
+      await store.save(ME, 'ctx-1', nearlyFull, MAX);
 
       const [[{ data }]] = createMany.mock.calls as unknown as [
         [{ data: { position: number; terms: unknown }[] }],
@@ -441,7 +477,7 @@ describe('PrismaTranslationContextStore', () => {
         existingGlossary: [{ terms: { vi: 'một bên' } }],
       });
 
-      await store.save('owner-1', 'ctx-1', full, MAX);
+      await store.save(ME, 'ctx-1', full, MAX);
 
       const [[{ data }]] = createMany.mock.calls as unknown as [
         [{ data: unknown[] }],
@@ -461,7 +497,7 @@ describe('PrismaTranslationContextStore', () => {
         ],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]?.[0]).toMatch(
@@ -478,7 +514,7 @@ describe('PrismaTranslationContextStore', () => {
         existingGlossary: [{ terms: { vi: 'luận văn', en: 'thesis' } }],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
@@ -493,7 +529,7 @@ describe('PrismaTranslationContextStore', () => {
         ],
       });
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
       expect(createMany).toHaveBeenCalledWith({
         data: [
@@ -520,7 +556,7 @@ describe('PrismaTranslationContextStore', () => {
     // would still leave open the window it exists to close.
     const { store, calls, executeRaw } = fakePrisma();
 
-    await store.save('owner-1', 'ctx-1', body, MAX);
+    await store.save(ME, 'ctx-1', body, MAX);
 
     expect(executeRaw).toHaveBeenCalledTimes(1);
     expect(calls[0]).toBe('advisoryLock');
@@ -534,8 +570,9 @@ describe('PrismaTranslationContextStore', () => {
     // the hashing, so the key cannot drift from the owner id.
     const { store, locks } = fakePrisma();
 
-    await store.save('owner-1', 'ctx-1', body, MAX);
+    await store.save(ME, 'ctx-1', body, MAX);
 
+    expect(locks[0]?.values[0]).toBe(8154);
     expect(locks[0]?.sql).toContain('pg_advisory_xact_lock');
     expect(locks[0]?.sql).not.toContain('pg_advisory_lock(');
     expect(locks[0]?.sql).toContain('hashtext');
@@ -544,7 +581,7 @@ describe('PrismaTranslationContextStore', () => {
 
   describe('the per-owner ceiling', () => {
     it('refuses a create once the owner holds the maximum, writing nothing', async () => {
-      const { store, upsert, createMany } = fakePrisma({
+      const { store, create, update, createMany } = fakePrisma({
         exists: false,
         held: MAX,
       });
@@ -552,10 +589,11 @@ describe('PrismaTranslationContextStore', () => {
       // A result and not a throw: what a breached ceiling means to a caller is
       // the service's to say, and a store that threw `ConflictException` would
       // put the status code in the persistence layer.
-      await expect(
-        store.save('owner-1', 'ctx-new', body, MAX),
-      ).resolves.toEqual({ kind: 'limit' });
-      expect(upsert).not.toHaveBeenCalled();
+      await expect(store.save(ME, 'ctx-new', body, MAX)).resolves.toEqual({
+        kind: 'limit',
+      });
+      expect(create).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
       expect(createMany).not.toHaveBeenCalled();
     });
 
@@ -570,17 +608,19 @@ describe('PrismaTranslationContextStore', () => {
         held: MAX - 1,
       });
 
-      await store.save('owner-1', 'ctx-new', body, MAX);
+      await store.save(ME, 'ctx-new', body, MAX);
 
       expect(transaction).toHaveBeenCalledTimes(1);
       expect(calls.indexOf('count')).toBeGreaterThanOrEqual(0);
-      expect(calls.indexOf('count')).toBeLessThan(calls.indexOf('upsert'));
+      expect(calls.indexOf('count')).toBeLessThan(calls.indexOf('create'));
     });
 
-    it('scopes the count to the owner', async () => {
+    it('scopes the count to the personal scope', async () => {
       const { store, count } = fakePrisma({ exists: false, held: 0 });
-      await store.save('owner-1', 'ctx-new', body, MAX);
-      expect(count).toHaveBeenCalledWith({ where: { ownerId: 'owner-1' } });
+      await store.save(ME, 'ctx-new', body, MAX);
+      expect(count).toHaveBeenCalledWith({
+        where: { ownerId: 'owner-1', teamId: null },
+      });
     });
 
     it('allows a replace at the ceiling without counting at all', async () => {
@@ -588,13 +628,13 @@ describe('PrismaTranslationContextStore', () => {
       // every write would make a full library permanently uneditable. It still
       // takes the owner's lock, which is what a replace stopped avoiding when
       // the lock replaced the isolation level; what it avoids is the count.
-      const { store, count, upsert } = fakePrisma({ exists: true, held: MAX });
+      const { store, count, update } = fakePrisma({ exists: true, held: MAX });
 
-      const saved = await store.save('owner-1', 'ctx-1', body, MAX);
+      const saved = await store.save(ME, 'ctx-1', body, MAX);
 
       expect(saved.kind).toBe('saved');
       expect(count).not.toHaveBeenCalled();
-      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(update).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -604,60 +644,71 @@ describe('PrismaTranslationContextStore', () => {
       glossaryId: GLOSSARY_CLIENT_ID,
     };
 
-    it("stores the glossary's server id, looked up under the caller", async () => {
-      const { store, upsert, glossaryFindUnique } = fakePrisma();
+    it("stores the glossary's server id, looked up in the context's scope", async () => {
+      const { store, update, glossaryFindFirst } = fakePrisma();
 
-      const saved = await store.save('owner-1', 'ctx-1', linking, MAX);
+      const saved = await store.save(ME, 'ctx-1', linking, MAX);
 
       expect(saved.kind).toBe('saved');
-      expect(glossaryFindUnique).toHaveBeenCalledWith({
+      expect(glossaryFindFirst).toHaveBeenCalledWith({
         where: {
-          ownerId_clientId: {
-            ownerId: 'owner-1',
-            clientId: GLOSSARY_CLIENT_ID,
-          },
+          ownerId: 'owner-1',
+          teamId: null,
+          clientId: GLOSSARY_CLIENT_ID,
         },
         select: { id: true },
       });
-      expect(upsert).toHaveBeenCalledWith(
+      expect(update).toHaveBeenCalledWith(
         expect.objectContaining({
-          create: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
-          update: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
+          data: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
         }),
       );
     });
 
-    it('refuses a glossary the caller does not hold, writing nothing', async () => {
-      const { store, upsert, createMany } = fakePrisma({
+    it("stores the glossary's server id on a create too", async () => {
+      const { store, create } = fakePrisma({ exists: false });
+
+      await store.save(ME, 'ctx-new', linking, MAX);
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ glossaryId: 'cuid-g-1' }),
+        }),
+      );
+    });
+
+    it('refuses a glossary outside the scope, writing nothing', async () => {
+      const { store, create, update, createMany } = fakePrisma({
         linkedGlossaryRow: null,
       });
 
-      await expect(
-        store.save('owner-1', 'ctx-1', linking, MAX),
-      ).resolves.toEqual({ kind: 'glossary-missing' });
-      expect(upsert).not.toHaveBeenCalled();
+      await expect(store.save(ME, 'ctx-1', linking, MAX)).resolves.toEqual({
+        kind: 'glossary-missing',
+      });
+      expect(create).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
       expect(createMany).not.toHaveBeenCalled();
     });
 
     it('looks the glossary up after taking the lock', async () => {
       const { store, calls } = fakePrisma();
 
-      await store.save('owner-1', 'ctx-1', linking, MAX);
+      await store.save(ME, 'ctx-1', linking, MAX);
 
-      expect(calls.indexOf('glossary.findUnique')).toBeGreaterThan(
+      expect(calls.indexOf('glossary.findFirst')).toBeGreaterThan(
         calls.indexOf('advisoryLock'),
       );
     });
 
     it('does not look anything up when no glossary is linked', async () => {
-      const { store, upsert, glossaryFindUnique } = fakePrisma();
+      const { store, update, glossaryFindFirst } = fakePrisma();
 
-      await store.save('owner-1', 'ctx-1', body, MAX);
+      await store.save(ME, 'ctx-1', body, MAX);
 
-      expect(glossaryFindUnique).not.toHaveBeenCalled();
-      expect(upsert).toHaveBeenCalledWith(
+      expect(glossaryFindFirst).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledWith(
         expect.objectContaining({
-          update: expect.objectContaining({ glossaryId: null }),
+          data: expect.objectContaining({ glossaryId: null }),
         }),
       );
     });
@@ -673,9 +724,7 @@ describe('PrismaTranslationContextStore', () => {
       throw conflict;
     });
     const { store } = fakePrisma({ transaction });
-    await expect(store.save('owner-1', 'ctx-1', body, MAX)).rejects.toBe(
-      conflict,
-    );
+    await expect(store.save(ME, 'ctx-1', body, MAX)).rejects.toBe(conflict);
     // Bounded: five attempts, then the conflict reaches the caller rather than
     // being retried forever against a conflict a retry cannot resolve. Five
     // rather than three because a conflict was once seen exhausting three and
@@ -706,9 +755,7 @@ describe('PrismaTranslationContextStore', () => {
     });
     const { store } = fakePrisma({ transaction });
 
-    await expect(store.save('owner-1', 'ctx-1', body, MAX)).rejects.toBe(
-      wrapped,
-    );
+    await expect(store.save(ME, 'ctx-1', body, MAX)).rejects.toBe(wrapped);
     expect(transaction).toHaveBeenCalledTimes(5);
   });
 
@@ -724,9 +771,7 @@ describe('PrismaTranslationContextStore', () => {
     });
     const { store } = fakePrisma({ transaction });
 
-    await expect(store.save('owner-1', 'ctx-1', body, MAX)).rejects.toBe(
-      permanent,
-    );
+    await expect(store.save(ME, 'ctx-1', body, MAX)).rejects.toBe(permanent);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 });

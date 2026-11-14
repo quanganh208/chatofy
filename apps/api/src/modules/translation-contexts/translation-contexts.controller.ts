@@ -22,6 +22,7 @@ import {
   TranslationContextResponseDto,
 } from './dto/translation-contexts.dto';
 import { TranslationContextsService } from './translation-contexts.service';
+import { personalScope } from '../../common/library-scope/library-scope';
 
 /**
  * A signed-in user's AI Context library.
@@ -55,7 +56,9 @@ export class TranslationContextsController {
   @ApiEnvelopeResponse(TranslationContextListResponseDto)
   @ApiErrorResponses(401, 429)
   async list(@Req() req: Request): Promise<TranslationContextListResponse> {
-    return { contexts: await this.contexts.list(req.auth!.userId) };
+    return {
+      contexts: await this.contexts.list(personalScope(req.auth!.userId)),
+    };
   }
 
   @Put(':contextId')
@@ -76,7 +79,7 @@ export class TranslationContextsController {
   ) {
     return {
       context: await this.contexts.save(
-        req.auth!.userId,
+        personalScope(req.auth!.userId),
         params.contextId,
         body,
       ),
@@ -97,6 +100,9 @@ export class TranslationContextsController {
     @Req() req: Request,
     @Param() params: TranslationContextIdParamDto,
   ): Promise<void> {
-    await this.contexts.remove(req.auth!.userId, params.contextId);
+    await this.contexts.remove(
+      personalScope(req.auth!.userId),
+      params.contextId,
+    );
   }
 }

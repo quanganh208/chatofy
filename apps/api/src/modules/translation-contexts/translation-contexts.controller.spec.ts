@@ -66,10 +66,11 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
     [...rows.values()].filter((r) => r.ownerId === ownerId);
 
   const store: TranslationContextStore = {
-    async list(ownerId) {
-      return own(ownerId).map(({ ownerId: _o, ...rest }) => rest);
+    async list(scope) {
+      return own(scope.userId).map(({ ownerId: _o, ...rest }) => rest);
     },
-    async save(ownerId, contextId, saved, maxPerOwner) {
+    async save(scope, contextId, saved, maxPerOwner) {
+      const ownerId = scope.userId;
       const key = `${ownerId}::${contextId}`;
       // The ceiling as the real store applies it: counted against what the OWNER
       // holds, and only for a create — a replace adds no row, so refusing it
@@ -89,8 +90,8 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
       const { ownerId: _o, ...rest } = row;
       return { kind: 'saved', value: rest };
     },
-    async remove(ownerId, contextId) {
-      return rows.delete(`${ownerId}::${contextId}`);
+    async remove(scope, contextId) {
+      return rows.delete(`${scope.userId}::${contextId}`);
     },
   };
 
