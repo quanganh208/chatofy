@@ -33,8 +33,9 @@ interface MemberUser {
  * A team's member list, role changes and removals.
  *
  * Members are addressed by their `TeamMember` row id and no response ever
- * carries a user id. A plain member sees teammates' name, avatar and role but
- * not their email; owners and admins see every email.
+ * carries a user id, not even inside an avatar URL (avatar keys embed it), so
+ * only the viewer's own row has one. A plain member sees teammates' name and
+ * role but not their email; owners and admins see every email.
  */
 @Injectable()
 export class TeamMembersService {
@@ -99,19 +100,29 @@ export class TeamMembersService {
   /**
    * Remove a member, or leave when the target is the caller.
    *
-   * The caller's role is read by `TeamAccessService.resolve` on the shared
-   * client rather than `tx`. It is a read-only check taken after the team lock,
-   * and the millisecond gap before the delete is accepted: every role change
-   * and removal also takes the team lock, so none can land inside it.
+   * Membership is checked BEFORE the transaction, so a non-member is refused
+   * with 404 without ever queueing on the team lock or holding a pooled
+   * connection. Inside the transaction, after the lock, the caller's role is
+   * read again on `tx`: a role change or removal that landed in between is
+   * seen, and the transaction never needs a second connection while it holds
+   * the lock (which, under a burst of calls, would starve the pool).
    */
   async remove(
     callerId: string,
     teamId: string,
     memberId: string,
   ): Promise<void> {
+    await this.access.resolve(callerId, teamId);
     await this.prisma.$transaction(async (tx) => {
       await lockTeam(tx, teamId);
-      const caller = await this.access.resolve(callerId, teamId);
+      const callerRow = await tx.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId: callerId } },
+        select: { role: true },
+      });
+      const callerRole = teamRoleSchema.safeParse(callerRow?.role);
+      if (callerRow === null || !callerRole.success) {
+        throw new NotFoundException('Team not found.');
+      }
       const target = await tx.teamMember.findFirst({
         where: { id: memberId, teamId },
         select: { id: true, userId: true, role: true },
@@ -119,15 +130,15 @@ export class TeamMembersService {
       if (target === null) throw new NotFoundException('Member not found.');
 
       if (target.userId === callerId) {
-        if (caller.role === 'owner') {
+        if (callerRole.data === 'owner') {
           throw new ConflictException(
             'The owner cannot leave. Delete the team instead.',
           );
         }
       } else if (
-        caller.role === 'member' ||
+        callerRole.data === 'member' ||
         target.role === 'owner' ||
-        (target.role === 'admin' && caller.role !== 'owner')
+        (target.role === 'admin' && callerRole.data !== 'owner')
       ) {
         throw new ForbiddenException(
           'Your role in this team does not allow this.',
@@ -148,9 +159,12 @@ export class TeamMembersService {
       id: member.id,
       name: user.name ?? null,
       email: scope.role !== 'member' || isSelf ? user.email : null,
-      // Built exactly as `toUserContract` builds it: no key or no base, no URL.
+      // The viewer's own row only. An avatar key is `avatars/{userId}/...`, so a
+      // teammate's URL would expose their user id, which no member may see.
+      // Otherwise built exactly as `toUserContract` builds it: no key or no
+      // base, no URL.
       avatarUrl:
-        user.avatarKey && base
+        isSelf && user.avatarKey && base
           ? `${base.replace(/\/$/, '')}/${user.avatarKey}`
           : null,
       // A stored role this build cannot read is shown as the least privileged.

@@ -169,6 +169,26 @@ describe('Teams (db-e2e)', () => {
       .expect(403);
   });
 
+  it('a burst of removals by a non-member never queues on the team lock', async () => {
+    // More concurrent calls than the connection pool holds. A non-member is
+    // refused before the transaction, so none of them holds a connection while
+    // waiting on the team lock, and an unrelated query is not starved.
+    const burst = Array.from({ length: 30 }, () =>
+      call(outsider, 'delete', `/teams/${teamId}/members/${mId}`),
+    );
+    const started = Date.now();
+    const answers = await Promise.all(burst);
+    expect(answers.map((res) => res.status)).toEqual(
+      Array.from({ length: 30 }, () => 404),
+    );
+    expect(Date.now() - started).toBeLessThan(3_000);
+    expect(
+      await prisma.teamMember.count({
+        where: { teamId, userId: member.userId },
+      }),
+    ).toBe(1);
+  });
+
   it('only the owner changes roles; the owner cannot leave', async () => {
     const promoted = await call(
       owner,
