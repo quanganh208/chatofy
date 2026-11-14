@@ -31,6 +31,9 @@ export default function robots(): MetadataRoute.Robots {
         '/conference',
         '/history',
         '/glossary',
+        // Not proxy-gated: open to a signed-out invitee, and only ever reached
+        // through a mailed link carrying a token, so nothing here is worth crawling.
+        '/invite',
         // These three only redirect now, to the Settings dialog over `/translate/one-way`.
         // Kept so a crawler holding an old link does not follow it into a sign-in
         // redirect it can only collect.

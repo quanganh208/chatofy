@@ -1275,6 +1275,31 @@ export const en = {
   'web.conference.minutesFailedToast': 'Could not generate the minutes',
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
+  'web.meta.invite': 'Team invitation · Chatofy',
+  // The invite page. The team name is shown on its own line as plain text, never
+  // inside a sentence: whoever made the team chose it.
+  'web.invite.heading': 'Team invitation',
+  'web.invite.signInPrompt': 'Sign in with the email address this invitation was sent to.',
+  'web.invite.createAccount': 'Create account',
+  'web.invite.pendingAdmin': "You're invited to join a team as an admin.",
+  'web.invite.pendingMember': "You're invited to join a team as a member.",
+  'web.invite.teamNameLabel': 'Team name, as its creator wrote it',
+  'web.invite.invitedBy': 'Invited by {email}',
+  'web.invite.join': 'Join team',
+  'web.invite.joined': 'You joined the team.',
+  'web.invite.openGlossary': 'Open glossaries',
+  'web.invite.alreadyMember': "You're already in this team.",
+  'web.invite.used': 'This invite has already been used.',
+  'web.invite.revoked': 'This invite was withdrawn.',
+  'web.invite.expired': 'This invite has expired. Ask for a new one.',
+  'web.invite.wrongAccount':
+    'This invite was sent to a different email address. Sign in with that address to accept it.',
+  'web.invite.invalid': "This invite link isn't valid.",
+  'web.invite.loadFailed': "Couldn't load this invite. Try again.",
+  'web.invite.teamCap': "You're already in 5 teams. Leave one to join this team.",
+  'web.invite.teamFull': 'This team is full. Ask its owner to make room.',
+  'web.team.retry': 'Try again',
+  'web.team.actionFailed': 'Something went wrong. Try again.',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
   //

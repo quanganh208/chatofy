@@ -26,6 +26,7 @@ describe('the signed-out-redirect matcher', () => {
     '/verify-email',
     '/forgot-password',
     '/reset-password',
+    '/invite',
     '/login',
     '/pricing',
     '/pricing.md',
@@ -38,6 +39,7 @@ describe('the signed-out-redirect matcher', () => {
     '/verify-email/',
     '/forgot-password/',
     '/reset-password/',
+    '/invite/',
     '/login/',
     '/pricing/',
   ])('exempts %s (trailing slash) from the gate', (path) => {
@@ -52,6 +54,7 @@ describe('the signed-out-redirect matcher', () => {
     '/verify-emailx',
     '/forgot-passwordish',
     '/reset-passwords',
+    '/invitex',
     '/pricingx',
   ])('still gates %s', (path) => {
     expect(pattern.test(path)).toBe(true);

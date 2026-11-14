@@ -24,8 +24,11 @@ import { signOut } from 'next-auth/react';
  * not just imprecise.
  *
  * `/login` rather than `/` on the way out: the visitor was signed in a moment ago, so
- * the marketing page is not what they were looking for.
+ * the marketing page is not what they were looking for. `/invite` passes its own
+ * return, so an invitee signed in as the wrong account lands back on the invitation.
  */
-export function signOutOfChatofy(): Promise<unknown> {
-  return signOut({ redirectTo: '/login' });
+export function signOutOfChatofy(
+  redirectTo: '/login' | '/login?next=%2Finvite' = '/login',
+): Promise<unknown> {
+  return signOut({ redirectTo });
 }

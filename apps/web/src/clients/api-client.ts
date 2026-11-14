@@ -103,7 +103,7 @@ function isUnauthorized(err: unknown): err is ApiClientError {
  * RETRIED EXACTLY ONCE, bounded by having no loop at all: an endpoint that 401s
  * for a reason no token can fix must not be able to spin here.
  */
-async function authedFetch<T extends z.ZodType>(
+export async function authedFetch<T extends z.ZodType>(
   path: string,
   dataSchema: T,
   init?: ApiRequestOptions,

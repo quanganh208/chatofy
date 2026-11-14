@@ -32,6 +32,7 @@ beforeEach(() => {
   search = new URLSearchParams('token=tok_reg');
   verifyEmail.mockReset();
   push.mockReset();
+  localStorage.clear();
 });
 
 afterEach(() => {
@@ -93,6 +94,19 @@ describe('VerifyEmailClient', () => {
 
     expect(verifyEmail).toHaveBeenCalledWith({ token: 'tok_reg' });
     expect(push).toHaveBeenCalledWith('/login?verified=1');
+  });
+
+  it('continues to the invite after sign-in when an invite is pending', async () => {
+    const { savePendingInvite } = await import('@/lib/pending-invite');
+    savePendingInvite('A'.repeat(43));
+    render();
+    verifyEmail.mockResolvedValueOnce({
+      code: 'ACCOUNT_CREATED',
+      message: 'Your account is ready. Sign in to get started.',
+    });
+    await clickVerify();
+
+    expect(push).toHaveBeenCalledWith('/login?verified=1&next=%2Finvite');
   });
 
   it('renders "already exists" as a notice, not an error, on a re-followed link', async () => {

@@ -2,6 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NetworkError } from '@chatofy/api-client';
+import type { InvitePreviewStatus } from '@chatofy/types';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConferenceReturn } from '@/hooks/use-conference';
 import type { UseConferenceEnd } from '@/hooks/use-conference-end';
@@ -162,9 +164,40 @@ vi.mock('@/components/history/use-container-wide', () => ({
 
 // Hoisted so the sign-out-failed row can make it fail.
 const signOut = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// Signed out unless a row signs in: the `/invite` rows are the ones that need an
+// account, and `beforeEach` puts this back so no other row sees one.
+type MockSession = { data: { user: { id: string } } | null; status: string };
+const SIGNED_OUT: MockSession = { data: null, status: 'unauthenticated' };
+const session = vi.hoisted(() => {
+  const value: MockSession = { data: null, status: 'unauthenticated' };
+  return { value };
+});
 vi.mock('next-auth/react', () => ({
   signOut: () => signOut(),
-  useSession: () => ({ data: null, status: 'unauthenticated' }),
+  useSession: () => session.value,
+}));
+
+// The team routes. The invite page's two reads are hoisted so each `/invite` row
+// can answer with its own status; everything else is a stub no row presses.
+const listTeams = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listTeamMembers = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listTeamInvites = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const previewTeamInvite = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const acceptTeamInvite = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+vi.mock('@/clients/teams-api-client', () => ({
+  listTeams: () => listTeams(),
+  listTeamMembers: () => listTeamMembers(),
+  listTeamInvites: () => listTeamInvites(),
+  previewTeamInvite: () => previewTeamInvite(),
+  acceptTeamInvite: () => acceptTeamInvite(),
+  createTeam: vi.fn(),
+  renameTeam: vi.fn(),
+  deleteTeam: vi.fn(),
+  changeTeamMemberRole: vi.fn(),
+  removeTeamMember: vi.fn(),
+  createTeamInvite: vi.fn(),
+  revokeTeamInvite: vi.fn(),
+  inviteRefusalStatus: () => null,
 }));
 
 // `useConference` is mocked so the conference page can be mounted in happy-dom
@@ -193,6 +226,7 @@ const { default: ConferenceLobbyPage } = await import('../../app/(app)/conferenc
 const { default: ConferenceEndedPage } =
   await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { InviteAcceptClient } = await import('@/components/team/invite-accept-client');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
 const { activePreferences } = await import('@/lib/preferences/active-preferences');
@@ -676,6 +710,103 @@ interface ScreenState {
  * they render; a meeting's summary card, the settings and account panels, and an
  * open popover are what earn one.
  */
+/**
+ * The invite page, one row per state it can end in. Every row but the signed-out
+ * one is signed in, because preview answers only an account; the token is a
+ * well-formed 43 characters unless the row is about a malformed one.
+ */
+const INVITE_TOKEN = 'i'.repeat(43);
+const INVITE_TEAM = {
+  id: 'c' + 'b'.repeat(24),
+  name: 'Cardiology unit',
+  role: 'member',
+  memberCount: 3,
+  createdAt: '2026-11-14T00:00:00.000Z',
+};
+
+function invitee(status: InvitePreviewStatus | null, query = `token=${INVITE_TOKEN}`) {
+  return () => {
+    url.query = query;
+    session.value = { data: { user: { id: 'u1' } }, status: 'authenticated' };
+    if (status === null) return;
+    const pending = status === 'pending';
+    previewTeamInvite.mockResolvedValue({
+      status,
+      teamName: pending ? INVITE_TEAM.name : null,
+      role: pending ? 'member' : null,
+      inviterEmail: pending ? 'lead@example.com' : null,
+    });
+  };
+}
+
+const outcomeRow = (name: string, status: InvitePreviewStatus, shown: string): ScreenState => ({
+  name,
+  filled: 0,
+  surfaces: 0,
+  setup: invitee(status),
+  render: () => <InviteAcceptClient />,
+  shows: `[data-invite-outcome="${shown}"]`,
+});
+
+const INVITE_SCREENS: ScreenState[] = [
+  {
+    name: '/invite — signed out',
+    filled: 0,
+    surfaces: 0,
+    setup: () => {
+      url.query = `token=${INVITE_TOKEN}`;
+    },
+    render: () => <InviteAcceptClient />,
+    shows: 'a[href="/register?next=%2Finvite"]',
+  },
+  {
+    name: '/invite — pending',
+    filled: 1,
+    surfaces: 0,
+    setup: invitee('pending'),
+    render: () => <InviteAcceptClient />,
+    shows: '#invite-join',
+  },
+  {
+    name: '/invite — joined',
+    filled: 0,
+    surfaces: 0,
+    setup: () => {
+      invitee('pending')();
+      acceptTeamInvite.mockResolvedValue({ team: INVITE_TEAM });
+    },
+    render: () => <InviteAcceptClient />,
+    steps: ['#invite-join'],
+    shows: '[data-invite-outcome="joined"]',
+  },
+  outcomeRow('/invite — already a member', 'already-member', 'already-member'),
+  outcomeRow('/invite — already used', 'accepted', 'accepted'),
+  outcomeRow('/invite — withdrawn', 'revoked', 'revoked'),
+  outcomeRow('/invite — expired', 'expired', 'expired'),
+  outcomeRow('/invite — sent to another address', 'wrong-account', 'wrong-account'),
+  outcomeRow('/invite — team limit reached', 'team-cap', 'team-cap'),
+  outcomeRow('/invite — team is full', 'team-full', 'team-full'),
+  {
+    name: '/invite — link not valid',
+    filled: 0,
+    surfaces: 0,
+    setup: invitee(null, 'token=not-a-token'),
+    render: () => <InviteAcceptClient />,
+    shows: '[data-invite-outcome="invalid"]',
+  },
+  {
+    name: '/invite — failed to load',
+    filled: 0,
+    surfaces: 0,
+    setup: () => {
+      invitee(null)();
+      previewTeamInvite.mockRejectedValue(new NetworkError('offline', false));
+    },
+    render: () => <InviteAcceptClient />,
+    shows: '[role="alert"]',
+  },
+];
+
 /**
  * The arrangements, added when `/translate` grew six display settings.
  *
@@ -2219,6 +2350,7 @@ const SCREENS: ScreenState[] = [
     render: () => <ConferenceEndedPage />,
     shows: '[data-minutes-panel] .text-destructive',
   },
+  ...INVITE_SCREENS,
 ];
 
 /**
@@ -2279,6 +2411,9 @@ beforeEach(() => {
   createCheckout.mockRejectedValue(new Error('not checked out in this test'));
   listGlossaries.mockResolvedValue({ glossaries: [] });
   listGlossaryItems.mockResolvedValue({ items: [] });
+  session.value = SIGNED_OUT;
+  listTeams.mockResolvedValue({ teams: [] });
+  previewTeamInvite.mockRejectedValue(new Error('not previewed in this test'));
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.

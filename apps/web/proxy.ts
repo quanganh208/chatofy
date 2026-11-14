@@ -83,6 +83,9 @@ export const config = {
    * above copies the live token into a `?next=` on the login URL and into browser
    * history along the way.
    *
+   * `invite` is open for the same reason: the team-invite mail's link carries a live
+   * token, and the page moves it out of the URL itself on first render.
+   *
    * `/locale` is open because the landing page is. It is the language switch, and a
    * signed-out visitor reading the landing page in the wrong language is exactly who
    * needs it — gating it would answer "switch to Vietnamese" with a login form. It
@@ -106,6 +109,6 @@ export const config = {
     // Each new route gets the same `name$|name/` pair as `login`: a bare
     // `register` prefix would also exempt `/registersomething`, which is not
     // this route at all.
-    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|locale$|locale/|pricing$|pricing/|social-card$|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
+    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|invite$|invite/|locale$|locale/|pricing$|pricing/|social-card$|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
   ],
 };
