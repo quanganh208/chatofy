@@ -171,6 +171,10 @@ export type {
   GlossaryItemListResponse,
 } from './glossaries.js';
 
+// Teams: the shared role enum.
+export { teamRoleSchema } from './teams.js';
+export type { TeamRole } from './teams.js';
+
 // AI credits, plans and checkout contracts.
 export {
   CREDIT_SECONDS_PER_CREDIT,

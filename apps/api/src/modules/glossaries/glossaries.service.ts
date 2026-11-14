@@ -16,6 +16,8 @@ import {
   GLOSSARY_STORE,
   type GlossaryStore,
 } from './interfaces/glossary-store.interface';
+import type { LibraryScope } from '../../common/library-scope/library-scope';
+import { assertNever } from '../../common/library-scope/library-write-results';
 
 @Injectable()
 export class GlossariesService {
@@ -24,74 +26,89 @@ export class GlossariesService {
     private readonly store: GlossaryStore,
   ) {}
 
-  listGlossaries(ownerId: string): Promise<Glossary[]> {
-    return this.store.listGlossaries(ownerId);
+  listGlossaries(scope: LibraryScope): Promise<Glossary[]> {
+    return this.store.listGlossaries(scope);
   }
 
   async saveGlossary(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: SaveGlossaryRequest,
   ): Promise<Glossary> {
     const saved = await this.store.saveGlossary(
-      ownerId,
+      scope,
       glossaryId,
       body,
       GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER,
     );
-    if (saved === null) {
-      throw new ConflictException(
-        `You can save at most ${GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER} glossaries. ` +
-          'Delete one before creating another.',
-      );
+    switch (saved.kind) {
+      case 'saved':
+        return saved.value;
+      case 'limit':
+        throw new ConflictException(
+          `You can save at most ${GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER} glossaries. ` +
+            'Delete one before creating another.',
+        );
+      default:
+        return assertNever(saved);
     }
-    return saved;
   }
 
   async patchGlossary(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: PatchGlossaryRequest,
   ): Promise<Glossary> {
-    const patched = await this.store.patchGlossary(ownerId, glossaryId, body);
-    if (patched === null) {
-      throw new NotFoundException('Glossary not found.');
+    const patched = await this.store.patchGlossary(scope, glossaryId, body);
+    switch (patched.kind) {
+      case 'saved':
+        return patched.value;
+      case 'absent':
+        throw new NotFoundException('Glossary not found.');
+      default:
+        return assertNever(patched);
     }
-    return patched;
   }
 
-  async removeGlossary(ownerId: string, glossaryId: string): Promise<void> {
-    await this.store.removeGlossary(ownerId, glossaryId);
+  async removeGlossary(scope: LibraryScope, glossaryId: string): Promise<void> {
+    await this.store.removeGlossary(scope, glossaryId);
   }
 
-  listItems(ownerId: string, glossaryId: string): Promise<GlossaryItem[]> {
-    return this.store.listItems(ownerId, glossaryId);
+  listItems(scope: LibraryScope, glossaryId: string): Promise<GlossaryItem[]> {
+    return this.store.listItems(scope, glossaryId);
   }
 
   async addItem(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     body: SaveGlossaryItemRequest,
   ): Promise<GlossaryItem> {
     const item = await this.store.addItem(
-      ownerId,
+      scope,
       glossaryId,
       body,
       GLOSSARY_LIMITS.MAX_ITEMS_PER_GLOSSARY,
     );
-    if (item === null) {
-      throw new ConflictException(
-        `This glossary is full (max ${GLOSSARY_LIMITS.MAX_ITEMS_PER_GLOSSARY} terms) or does not exist.`,
-      );
+    switch (item.kind) {
+      case 'saved':
+        return item.value;
+      // One answer for both, as before: a full glossary and a missing one
+      // read the same to the caller.
+      case 'limit':
+      case 'absent':
+        throw new ConflictException(
+          `This glossary is full (max ${GLOSSARY_LIMITS.MAX_ITEMS_PER_GLOSSARY} terms) or does not exist.`,
+        );
+      default:
+        return assertNever(item);
     }
-    return item;
   }
 
   async removeItem(
-    ownerId: string,
+    scope: LibraryScope,
     glossaryId: string,
     itemId: string,
   ): Promise<void> {
-    await this.store.removeItem(ownerId, glossaryId, itemId);
+    await this.store.removeItem(scope, glossaryId, itemId);
   }
 }

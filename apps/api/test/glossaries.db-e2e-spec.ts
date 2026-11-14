@@ -55,7 +55,9 @@ describe('Glossary terms (db-e2e)', () => {
   });
 
   afterAll(async () => {
-    // Glossary cascades from its owner and GlossaryItem from its glossary.
+    // `Glossary.ownerId` is a plain column with no relation to `User`, so the
+    // glossaries are deleted by owner id; GlossaryItem cascades from them.
+    await prisma.glossary.deleteMany({ where: { ownerId: alice.userId } });
     await prisma.user.deleteMany({ where: { email: { contains: run } } });
     await app.close();
   });

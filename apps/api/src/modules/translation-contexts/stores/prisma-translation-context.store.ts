@@ -13,6 +13,12 @@ import {
   pause,
   retryDelayMs,
 } from '../../../prisma/serialization-retry';
+import { LOCK_CLASS } from '../../../common/library-scope/advisory-lock-classes';
+import {
+  scopeLockKey,
+  scopeWhere,
+  type LibraryScope,
+} from '../../../common/library-scope/library-scope';
 import type {
   ContextSaveResult,
   TranslationContextStore,
@@ -23,16 +29,6 @@ const MAX_SAVE_ATTEMPTS = 5;
 
 /** Module-scoped: one logger for the whole store, with no instance to hold. */
 const logger = new Logger('PrismaTranslationContextStore');
-
-/**
- * Namespaces the advisory locks this store takes.
- *
- * `pg_advisory_xact_lock` has ONE key space for the whole database, so the
- * two-int form is used rather than the one-bigint form: the first int names this
- * module and the second is the owner's hash, which means no other feature's lock
- * can collide with one taken here unless it also claims this class.
- */
-const OWNER_LOCK_CLASS = 8154;
 
 /**
  * The upper bound, in milliseconds, on the pause before a re-attempt.
@@ -84,17 +80,24 @@ interface ContextRow {
  * Postgres-backed AI Context library — the durable seam behind
  * TRANSLATION_CONTEXT_STORE.
  *
- * **Ownership is a filter on every query, never a path parameter.** The URL
- * carries the client-minted id; the row is addressed by the compound
- * `(ownerId, clientId)` unique, which is the only Prisma shape where omitting
- * the owner does not compile. There is no method here that takes only an id.
+ * **Scope is a filter on every query, never a path parameter.** The URL
+ * carries the client-minted id; the row is found with `findFirst` over
+ * {@link scopeWhere} and written by its own `id`. A team context keeps its
+ * author in `ownerId`, so a personal filter must also require `teamId: null`,
+ * which `scopeWhere` adds and the `(ownerId, clientId)` unique cannot. There is
+ * no method here that takes only an id.
+ *
+ * The advisory lock is `LOCK_CLASS.CONTEXTS`: `pg_advisory_xact_lock` has ONE
+ * key space for the whole database, so the two-int form is used — the first
+ * int names this resource and the second is the scope's hash, so no other
+ * feature's lock can collide with one taken here unless it claims this class.
  *
  * **A save is a full replacement.** Glossary entries are deleted and re-created
  * inside one transaction rather than merged, and their `position` comes from the
  * array index — so the order the operator authored is the order the prompt sees,
  * and the order that decides which pairs survive the provider's cap.
  *
- * **Every save takes a lock on its owner first, and the per-owner ceiling is
+ * **Every save takes a lock on its scope first, and the per-scope ceiling is
  * counted inside that same transaction.** The ceiling is not a rule this layer
  * owns — the number arrives as an argument — but it is the only layer that can
  * hold it, because "at most N rows per owner" is a COUNT and Postgres has no
@@ -106,9 +109,9 @@ interface ContextRow {
 export class PrismaTranslationContextStore implements TranslationContextStore {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(ownerId: string): Promise<TranslationContext[]> {
+  async list(scope: LibraryScope): Promise<TranslationContext[]> {
     const rows = await this.prisma.translationContext.findMany({
-      where: { ownerId },
+      where: scopeWhere(scope),
       orderBy: { updatedAt: 'desc' },
       select: CONTEXT_SELECT,
     });
@@ -128,7 +131,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
    * Read HERE, the count cannot go stale before the insert it guards, because
    * they are the same transaction.
    *
-   * ## Why the owner is locked, and not left to SERIALIZABLE
+   * ## Why the scope is locked, and not left to SERIALIZABLE
    *
    * Two overlapping transactions still have to be decided between, and this was
    * first written to let SERIALIZABLE do it — the count takes a predicate lock
@@ -155,11 +158,12 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
    * on a different connection than took it. This one is released by COMMIT or
    * ROLLBACK, on the connection that holds the transaction.
    *
-   * The key is `hashtext(ownerId)`, so Postgres does the hashing and it cannot
-   * drift from the id. `hashtext` is 32 bits, so two owners can collide; that
-   * costs two unrelated accounts serialising their saves, which is a
+   * The key is `hashtext(scopeLockKey(scope))` — the user id for a personal
+   * library, the team id for a team's — so Postgres does the hashing and it
+   * cannot drift from the id. `hashtext` is 32 bits, so two scopes can collide;
+   * that costs two unrelated libraries serialising their saves, which is a
    * performance question and not a correctness one, because every statement
-   * below is still filtered by `ownerId` and a collision grants no access.
+   * below is still filtered by `scopeWhere` and a collision grants no access.
    *
    * ## What the lock has to cover that the isolation level used to
    *
@@ -171,7 +175,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
    * deleted all three of the first save's pairs and inserted its own, and the
    * stored glossary was exactly one operator's. Measured, not assumed — and the
    * same interleave at READ COMMITTED with no lock at all also stored exactly
-   * one operator's, because the parent upsert takes a row lock before the
+   * one operator's, because the parent write takes a row lock before the
    * glossary delete can run, so that particular hazard was already narrower than
    * the old comment claimed.
    *
@@ -197,7 +201,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
    * nothing competing stayed at ~8ms on both.
    */
   async save(
-    ownerId: string,
+    scope: LibraryScope,
     contextId: string,
     body: SaveTranslationContextRequest,
     maxPerOwner: number,
@@ -215,30 +219,29 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
           async (tx) => {
             // FIRST, before any read this transaction acts on. Everything below
             // — the membership probe, the ceiling count, the glossary replace —
-            // is only sound because no other save for this owner can run between
+            // is only sound because no other save in this scope can run between
             // two of its statements.
-            await tx.$executeRaw`SELECT pg_advisory_xact_lock(${OWNER_LOCK_CLASS}::int, hashtext(${ownerId}))`;
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_CLASS.CONTEXTS}::int, hashtext(${scopeLockKey(scope)}))`;
 
             // The request names the linked glossary by its CLIENT id, while the
             // FK column holds the glossary's server cuid, so the id is resolved
-            // here rather than written through. The lookup is scoped to the
-            // caller: a glossary id copied from another account finds nothing
-            // and is refused, so a foreign glossary can never be linked.
+            // here rather than written through. The lookup is confined to the
+            // context's own scope: a personal context links only a personal
+            // glossary, a team context only one of the same team, and an id
+            // from anywhere else finds nothing and is refused.
             let linkedGlossaryId: string | null = null;
             if (body.glossaryId !== null) {
-              const linked = await tx.glossary.findUnique({
-                where: {
-                  ownerId_clientId: { ownerId, clientId: body.glossaryId },
-                },
+              const linked = await tx.glossary.findFirst({
+                where: { ...scopeWhere(scope), clientId: body.glossaryId },
                 select: { id: true },
               });
               if (linked === null) return { kind: 'glossary-missing' } as const;
               linkedGlossaryId = linked.id;
             }
 
-            const held = await tx.translationContext.findUnique({
-              where: { ownerId_clientId: { ownerId, clientId: contextId } },
-              select: { id: true },
+            const held = await tx.translationContext.findFirst({
+              where: { ...scopeWhere(scope), clientId: contextId },
+              select: { id: true, ownerId: true },
             });
 
             // Only a create can breach the ceiling, and a result rather than a
@@ -246,7 +249,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
             // been written at this point, so the transaction commits empty.
             if (held === null) {
               const owned = await tx.translationContext.count({
-                where: { ownerId },
+                where: scopeWhere(scope),
               });
               if (owned >= maxPerOwner) return { kind: 'limit' } as const;
             }
@@ -292,17 +295,25 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
               );
             }
 
-            const row = await tx.translationContext.upsert({
-              where: { ownerId_clientId: { ownerId, clientId: contextId } },
-              create: {
-                ownerId,
-                clientId: contextId,
-                ...parent,
-                glossaryId: linkedGlossaryId,
-              },
-              update: { ...parent, glossaryId: linkedGlossaryId },
-              select: { id: true },
-            });
+            // Created or updated by id, never addressed through the
+            // `(ownerId, clientId)` unique, which cannot carry `teamId: null`.
+            const row =
+              held === null
+                ? await tx.translationContext.create({
+                    data: {
+                      ownerId: scope.userId,
+                      teamId: scope.kind === 'team' ? scope.teamId : null,
+                      clientId: contextId,
+                      ...parent,
+                      glossaryId: linkedGlossaryId,
+                    },
+                    select: { id: true },
+                  })
+                : await tx.translationContext.update({
+                    where: { id: held.id },
+                    data: { ...parent, glossaryId: linkedGlossaryId },
+                    select: { id: true },
+                  });
 
             // Deleted before the insert, never merged: the client re-sends the
             // whole dictionary, so a shorter re-save must not leave behind the
@@ -367,13 +378,13 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
     }
   }
 
-  async remove(ownerId: string, contextId: string): Promise<boolean> {
+  async remove(scope: LibraryScope, contextId: string): Promise<boolean> {
     // `deleteMany` rather than `delete`: it reports a zero count instead of
     // throwing, so an id that was never there and one belonging to someone else
     // take the identical path and are indistinguishable to the caller. The
     // glossary goes with it through the relation's cascade.
     const { count } = await this.prisma.translationContext.deleteMany({
-      where: { ownerId, clientId: contextId },
+      where: { ...scopeWhere(scope), clientId: contextId },
     });
     return count > 0;
   }

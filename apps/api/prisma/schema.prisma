@@ -104,7 +104,6 @@ model User {
   avatarChangedAt   DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  glossaries        Glossary[]
   preferences       UserPreferences?
 }
 
@@ -474,6 +473,11 @@ model TranslationContext {
   // Glossary degrades gracefully (no renderings) rather than cascading the context.
   glossaryId     String?
   linkedGlossary Glossary? @relation(fields: [glossaryId], references: [id], onDelete: SetNull)
+  // Set when the context belongs to a team's shared library, null for a
+  // personal one. `ownerId` stays the AUTHOR either way. Cascade, so deleting a
+  // team takes its library with it.
+  teamId    String?
+  team      Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
@@ -487,6 +491,12 @@ model TranslationContext {
   // conversation ran under, so the column would describe a feature that does not
   // exist.
   @@unique([ownerId, clientId])
+  // A team's own addressing key. NULLs are distinct in Postgres, so personal
+  // rows (teamId null) are unaffected by it; `ownerId` above is the author.
+  @@unique([teamId, clientId])
+  // A team create checks the client id against EVERY row of the model, in any
+  // scope, so one team cannot plant an id another scope already uses.
+  @@index([clientId])
 }
 
 // One dictionary entry: a term per language, in at least two.
@@ -636,8 +646,8 @@ model ConferenceMinutesActionItem {
 // independent of TranslationContext.
 //
 // `clientId` is a UUID minted by the browser and sent as the PUT path
-// parameter; the server stores it here so the pair (ownerId, clientId) can
-// be used as the upsert target. The DB-generated `id` is what child rows
+// parameter; the server stores it here so the pair (ownerId, clientId), or
+// (teamId, clientId) for a team glossary, addresses the row. The DB-generated `id` is what child rows
 // reference.
 //
 // `sourceLang` is stored as text (not a Postgres enum) so that adding a
@@ -649,18 +659,30 @@ model ConferenceMinutesActionItem {
 model Glossary {
   id          String        @id @default(cuid())
   clientId    String
+  // A plain author column, like `TranslationContext.ownerId`, with no relation
+  // to `User`: a team glossary must survive its author's account. Deleting an
+  // account therefore has to delete its PERSONAL glossaries by `ownerId`.
   ownerId     String
-  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name        String
   description String?
   sourceLang  String
   isActive    Boolean       @default(true)
+  // Set when the glossary belongs to a team's shared library, null for a
+  // personal one. Cascade, so deleting a team takes its library with it.
+  teamId      String?
+  team        Team?         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   items    GlossaryItem[]
   contexts TranslationContext[]
 
   @@unique([ownerId, clientId])
+  // A team's own addressing key. NULLs are distinct in Postgres, so personal
+  // rows (teamId null) are unaffected by it; `ownerId` above is the author.
+  @@unique([teamId, clientId])
+  // A team create checks the client id against EVERY row of the model, in any
+  // scope, so one team cannot plant an id another scope already uses.
+  @@index([clientId])
 }
 
 // One term pair inside a Glossary.
@@ -681,6 +703,63 @@ model GlossaryItem {
   createdAt   DateTime @default(now())
 
   @@unique([glossaryId, clientId])
+}
+
+// A team: a shared library of AI Contexts and Glossaries.
+//
+// No creator column: the owner is the `TeamMember` row with role 'owner', so
+// there is one source of truth for who may rename or delete the team.
+model Team {
+  id         String               @id @default(cuid())
+  name       String
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  members    TeamMember[]
+  invites    TeamInvite[]
+  glossaries Glossary[]
+  contexts   TranslationContext[]
+}
+
+// One user's membership in one team.
+//
+// `userId` is a plain column with no relation to `User`, for the reason
+// `Conversation.ownerId` gives: scoping is by the verified token's subject, and
+// membership is read per request rather than carried in the JWT. `role` is
+// text ('owner' | 'admin' | 'member', validated at the boundary) for the reason
+// `User.locale` gives: a new value must not be a column migration.
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     String
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+// A single-use email invitation to a team.
+//
+// Only `tokenHash` (sha256 hex of the mailed token) is stored, never the token:
+// a read of this table must not be enough to join a team. `createdAt` is also
+// the time the mail was sent, because an invite is never re-sent. `role` is
+// text ('admin' | 'member') for the reason `TeamMember.role` gives.
+model TeamInvite {
+  id          String    @id @default(cuid())
+  teamId      String
+  email       String
+  role        String
+  tokenHash   String    @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([invitedById, createdAt])
 }
 
 // One request a provider made to a paid language model: the persisted form of
