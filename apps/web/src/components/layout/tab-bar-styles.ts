@@ -6,3 +6,7 @@
  */
 export const TAB_CLASS =
   'flex min-h-14 w-full flex-col items-center justify-center gap-0.5 text-hint text-muted-foreground outline-none transition-colors duration-fast ease-standard focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 aria-[current=page]:font-semibold aria-[current=page]:text-foreground data-[active]:font-semibold data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-5';
+
+/** A row of the More sheet: a link, a button or the workspace switcher. */
+export const SHEET_ROW_CLASS =
+  'flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-body text-foreground outline-none hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:text-muted-foreground';

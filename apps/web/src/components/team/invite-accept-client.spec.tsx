@@ -208,6 +208,35 @@ describe('InviteAcceptClient', () => {
     expect(readPendingInvite()).toBe(TOKEN);
   });
 
+  it.each([
+    [403, 'web.invite.wrongAccount'],
+    [404, 'web.invite.invalid'],
+  ] as const)('maps an accept %i to its copy', async (status, key) => {
+    previewTeamInvite.mockResolvedValue(PENDING);
+    acceptTeamInvite.mockRejectedValue(
+      new ApiClientError({ code: 'FORBIDDEN', message: 'Refused.' }, status),
+    );
+    await render();
+    await click(en['web.invite.join']);
+    expect(text()).toContain(en[key]);
+  });
+
+  it.each(['team-cap', 'team-full'] as const)(
+    'keeps a %s invite, but stops it steering later sign-ins',
+    async (status) => {
+      const { hasInviteAwaitingSignIn } = await import('@/lib/pending-invite');
+      previewTeamInvite.mockResolvedValue({
+        status,
+        teamName: null,
+        role: null,
+        inviterEmail: null,
+      });
+      await render();
+      expect(readPendingInvite()).toBe(TOKEN);
+      expect(hasInviteAwaitingSignIn()).toBe(false);
+    },
+  );
+
   it('reads an accept refusal from its details, without previewing again', async () => {
     previewTeamInvite.mockResolvedValue(PENDING);
     acceptTeamInvite.mockRejectedValue(

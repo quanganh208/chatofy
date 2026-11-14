@@ -127,7 +127,7 @@ describe('the settings dialog', () => {
     expect(focus.mock.calls[call]?.[0]).toMatchObject({ focusVisible: false });
   });
 
-  it('lists five tabs in two captioned groups', async () => {
+  it('lists six tabs in two captioned groups', async () => {
     await openAt('?settings=general');
     const nav = document.querySelector('[role="dialog"] nav');
     expect(nav?.getAttribute('aria-label')).toBe('Settings sections');
@@ -135,7 +135,7 @@ describe('the settings dialog', () => {
       [...(nav?.querySelectorAll('[data-settings-tab]') ?? [])].map((b) =>
         b.getAttribute('data-settings-tab'),
       ),
-    ).toEqual(['general', 'translation', 'ai-context', 'account', 'billing']);
+    ).toEqual(['general', 'translation', 'ai-context', 'account', 'team', 'billing']);
     expect(nav?.textContent).toContain('Personal');
     expect(nav?.textContent).toContain('Account');
   });

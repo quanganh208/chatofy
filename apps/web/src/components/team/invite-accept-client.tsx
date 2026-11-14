@@ -14,7 +14,7 @@ import {
   previewTeamInvite,
 } from '@/clients/teams-api-client';
 import { useTranslate } from '@/i18n/provider';
-import { clearPendingInvite, takeInviteFromUrl } from '@/lib/pending-invite';
+import { clearPendingInvite, parkPendingInvite, takeInviteFromUrl } from '@/lib/pending-invite';
 import { isLiveSession } from '@/lib/session-guard';
 import { writeStoredWorkspace } from '@/lib/workspace-store';
 import { FINAL_OUTCOMES, InviteOutcome, type Outcome } from './invite-outcome';
@@ -89,6 +89,7 @@ export function InviteAcceptClient() {
 
   useEffect(() => {
     if (outcome && FINAL_OUTCOMES.has(outcome)) clearPendingInvite();
+    else if (outcome === 'team-cap' || outcome === 'team-full') parkPendingInvite();
   }, [outcome]);
 
   if (status === 'loading' || token === undefined) return null;
