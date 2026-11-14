@@ -16,10 +16,12 @@ import { landingFaq } from '@/lib/landing-faq';
  *
  * **Every answer is in the server HTML, open or not.** Radix renders a closed panel's
  * children only when `forceMount` is set (`isOpen = context.open || present`), so it is
- * set here, and the closed state is hidden with `display: none` on the panel's inner
- * wrapper, keyed on the panel's own `data-state`. A crawler, a no-script reader and the
- * JSON-LD `FAQPage` therefore all see the same answers; a closed answer stays out of the
- * accessibility tree until it is opened. `hidden="until-found"` would also let
+ * set here, and a closed panel is hidden with `display: none` on the panel element itself
+ * (its `role="region"` included), keyed on that panel's own `data-state` through a child
+ * selector on the item. A crawler, a no-script reader and the JSON-LD `FAQPage` therefore
+ * all see the same answers, while a closed answer and its region stay out of the
+ * accessibility tree until opened. Hiding at once costs the close animation; the open one
+ * still plays. `hidden="until-found"` would also let
  * find-in-page open it, but Radix sets `hidden` itself and offers no way to ask for that
  * value, so it is not used.
  *
@@ -40,14 +42,15 @@ export async function Faq() {
         </div>
         <Accordion type="single" collapsible className="border-hairline border-t">
           {entries.map((entry) => (
-            <AccordionItem key={entry.topic} value={entry.topic} className="border-hairline">
+            <AccordionItem
+              key={entry.topic}
+              value={entry.topic}
+              className="border-hairline [&>[data-slot=accordion-content][data-state=closed]]:hidden"
+            >
               <AccordionTrigger className="text-body py-5 hover:no-underline">
                 {entry.question}
               </AccordionTrigger>
-              <AccordionContent
-                forceMount
-                className="text-prose max-w-prose pb-5 in-data-[state=closed]:hidden"
-              >
+              <AccordionContent forceMount className="text-prose max-w-prose pb-5">
                 {entry.answer}
               </AccordionContent>
             </AccordionItem>

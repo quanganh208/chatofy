@@ -154,12 +154,15 @@ describe('Faq', () => {
       LANDING_FAQ.map((topic) => en[`web.landing.faq${topic}Question`]),
     );
 
-    // Closed, the answer is in the DOM but its panel is closed, and the wrapper the
-    // text sits in carries the class that hides it while the panel is closed.
+    // Closed, the answer is in the DOM but its panel is closed. The panel itself — the
+    // `role="region"`, not a wrapper inside it — is what the item's child selector hides,
+    // so a closed answer leaves no empty landmark behind.
     const panel = () => container.querySelectorAll('[data-slot="accordion-content"]')[2]!;
     expect(panel().textContent).toBe(en['web.landing.faqHeadphonesAnswer']);
     expect(panel().getAttribute('data-state')).toBe('closed');
-    expect(panel().firstElementChild?.classList).toContain('in-data-[state=closed]:hidden');
+    expect(panel().parentElement?.classList).toContain(
+      '[&>[data-slot=accordion-content][data-state=closed]]:hidden',
+    );
 
     await act(async () => {
       (triggers[2] as HTMLButtonElement).click();

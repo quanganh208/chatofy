@@ -102,6 +102,27 @@ describe('fetchPublicPlans', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a success stored while a slower request was failing', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let failSlowly!: () => void;
+    const hanging = vi.fn<typeof fetch>(
+      () => new Promise((_, reject) => (failSlowly = () => reject(new Error('timeout')))),
+    );
+    const slow = fetchPublicPlans(hanging, API);
+
+    vi.advanceTimersByTime(1_000);
+    await expect(fetchPublicPlans(answering(envelope({ plans: [PRO] })), API)).resolves.toEqual([
+      PRO,
+    ]);
+
+    failSlowly();
+    await expect(slow).resolves.toEqual([PRO]);
+    const unused = answering(envelope({ plans: [] }));
+    await expect(fetchPublicPlans(unused, API)).resolves.toEqual([PRO]);
+    expect(unused).not.toHaveBeenCalled();
+  });
+
   it('remembers a failure for less time than a success', () => {
     expect(PLANS_FAILURE_CACHE_MS).toBeLessThan(PLANS_CACHE_MS);
   });

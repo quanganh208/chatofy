@@ -66,6 +66,9 @@ export async function fetchPublicPlans(
     if (now - cached.at < ttl) return cached.plans;
   }
   const plans = await requestPublicPlans(fetchImpl, apiBaseUrl, timeoutMs);
+  // A slow failure must not replace a success another request stored while this one hung.
+  const newerSuccess = cached?.plans && cached.apiBaseUrl === apiBaseUrl && cached.at > now;
+  if (!plans && newerSuccess) return cached!.plans;
   cached = { apiBaseUrl, at: now, plans };
   return plans;
 }

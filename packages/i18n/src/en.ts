@@ -1094,8 +1094,8 @@ export const en = {
   //
   // Every FAQ answer is traceable: languages and Auto-detect to `howTwoBody`; the
   // wait to `howOneBody`; headphones to `web.preferences.audio.echoCancellationHint`
-  // (echo cancellation defaults on in `mic-processing.ts`; "not usually" because it rests on the browser's echo cancellation); recordings to the
-  // `localKept*` lines; cost to `web.pricing.notOpen`; Zoom's desktop app to the
+  // (echo cancellation defaults on in `mic-processing.ts`; "not usually" because it
+  // rests on the browser's echo cancellation); recordings to the `localKept*` lines; cost to `web.pricing.notOpen`; Zoom's desktop app to the
   // README's extension section; accounts to `meetingsLinkBody` and `proxy.ts`.
   'web.landing.navModes': 'Features',
   'web.landing.navUseCases': 'Use cases',
