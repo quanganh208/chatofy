@@ -181,6 +181,34 @@ node decision-score.mjs                       # results/decision-verdict.md
 - **What it permits:** a shadow run, not skipping the polish.
 - **D3, audio LID (Gemini only):** not adopted. As a final-turn arbiter after Whisper it fails short vi (0.772 against 0.85) and `err_after_fallback` (0.064 against 0.05). See `benchmarks/lid/README.md`, `conv-r5-decision`.
 
+## Omission after polish
+
+Is the omission check (D2 above) needed at all? Its 30 positives were never sent through the prod polisher, so a dropped sentence might not survive the second pass that already runs. If it does survive, the next question is whether a local check, with no network, catches it as well as Jev or Gemini.
+
+**Bars, fixed on 2026-11-15 before any run.** The spend before the sitting (S0) was $41.03 under `results/`, so every judge run caps at `--budget-usd 47.03`.
+
+- **Positives:** `data/omission/positives.jsonl`, the 20 trailing drops and the 10 clause omissions. None of them appears in any replayed arm under `data/arms/`.
+  - 16 are block rows (`block-rows.mjs`). The block path polishes with the same polisher and context under its own budget key, `block-polish`.
+  - 8 are guard-bound: the full translation is longer than the polisher's `2 × draft + 40` length guard allows, so a faithful restore would be discarded.
+- **Ruler:** a positive counts when the Opus judge holds a serious `mt` error of category `omission` or `segmentation` on its draft in 2 of 3 repeats. If fewer than 27 of the 30 are confirmed, the run stops to ask.
+- **Survival:** a confirmed positive survives when the polish leaves the draft standing (a decline, a guard rejection or a failure), or when the judge still holds the omission on the rewritten line.
+- **Survival stop:** if at most 2 confirmed positives survive, the check is not needed. The record states both denominators, the confirmed n and all 30, and the Wilson interval; 2/30 is 1.8–21.3%, so that run cannot exclude about 1 in 5 surviving.
+- **Local check (new bar), if the stop does not fire:** the flag fires on either rule.
+  - **Rule S:** split on `[.!?。！？…]+` followed by whitespace or the end. A sentence has at least 3 words, or at least 4 characters in zh. Flag when the source has at least 2 sentences and the translation has fewer.
+  - **Rule L:** flag when `chars(translation) / chars(source)` is below its direction's 2.5th percentile on the clean set, fitted leaving out the row's own conversation.
+  - It wins with recall at least 27/30 **and** at most 5% of the clean set flagged. On 151 rows clean on every origin after the polish, that is at most 7. This is stricter than D2's 4/40, so Jev and Gemini are measured again on the same clean set rather than carried over.
+- **Model:** a decision model is chosen only if the local check fails and the model meets the same two bars. Fewer clean flags win, then lower p95 latency. If nothing passes, nothing ships.
+- **Action (new bar):** a flag ships only if re-polishing the flagged positives with a "keep every sentence" instruction fixes at least 80% of them (no serious omission on 2 of 3 repeats) and breaks none. Flagged clean rows that the hinted re-polish breaks are counted too.
+- **Caps for the whole sitting:** Command Code (the prod polisher, `gpt-5.6-sol`, a quota shared with prod) at most 60 calls, one at a time; Jev at most 480 calls.
+
+```bash
+node review-arms.mjs --arm 2 --host commandcode --in data/omission/positives.jsonl \
+  --out data/omission/a1-polished.jsonl --max-calls 30 --concurrency 1 --capture-raw
+node omission-verdict.mjs --stage survival      # results/omission-survival.md
+```
+
+`--capture-raw` wraps `fetch` to keep each raw answer, reading a clone so the polisher sees the untouched response. That is how a guard rejection is told apart from a decline. It needs `--concurrency 1`.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
