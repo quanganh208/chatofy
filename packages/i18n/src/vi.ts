@@ -604,6 +604,8 @@ export const vi: Messages = {
     'Những điều trình dịch cần biết trước khi cuộc hội thoại bắt đầu.',
   'web.preferences.aiContextHint':
     'Cho trình dịch biết cuộc trò chuyện nói về chuyện gì trước khi nó nghe bất cứ câu nào — chủ đề, những cái tên sẽ xuất hiện, và cách bạn muốn một số từ được dịch ra. Khi bắt đầu một cuộc trò chuyện, bạn chọn một ngữ cảnh ở đây hoặc trong tiện ích trình duyệt.',
+  'web.preferences.aiContextHintTeam':
+    'Cho trình dịch biết cuộc trò chuyện nói về chuyện gì trước khi nó nghe bất cứ câu nào — chủ đề, những cái tên sẽ xuất hiện, và cách bạn muốn một số từ được dịch ra. Khi bắt đầu một cuộc trò chuyện trên web, bạn chọn một ngữ cảnh ở đây. Tiện ích trình duyệt chỉ liệt kê các ngữ cảnh cá nhân của bạn.',
   'web.preferences.aiContext.empty': 'Bạn chưa có ngữ cảnh nào. Hãy tạo một cái để bắt đầu.',
   'web.preferences.aiContext.new': 'Ngữ cảnh mới',
   'web.preferences.aiContext.edit': 'Sửa',
