@@ -331,6 +331,80 @@ describe('Settings › Team', () => {
     expect(document.querySelector('input[name="team-name"]')).toBeNull();
   });
 
+  /** The provider moving the reader, played by re-rendering the same tree. */
+  function rerender(value: HostValue) {
+    act(() => {
+      root?.render(
+        <LocaleProvider>
+          <WorkspaceTestHost value={{ reloadTeams, select, ...value }}>
+            <TeamTabContent />
+          </WorkspaceTestHost>
+        </LocaleProvider>,
+      );
+    });
+  }
+  const nameInput = () => document.querySelector('input[name="team-name"]');
+
+  it('ends the create request once the reader is in another workspace', async () => {
+    requestTeamCreateForm();
+    await render({ workspace: { kind: 'personal' }, teams: [team('owner')] });
+    expect(nameInput()).not.toBeNull();
+    rerender({ workspace: { kind: 'team', team: team('owner') }, teams: [team('owner')] });
+    await settle();
+    expect(nameInput()).toBeNull();
+    expect(document.querySelector('[data-team-header]')).not.toBeNull();
+    // Back in personal after a Delete, a Leave or a switch: the plain list, no form.
+    rerender({ workspace: { kind: 'personal' }, teams: [team('owner')] });
+    await settle();
+    expect(nameInput()).toBeNull();
+    expect(document.querySelector('[data-team-create]')).not.toBeNull();
+  });
+
+  it('shows the create form inside a team without leaving it, and Cancel returns to the team', async () => {
+    requestTeamCreateForm();
+    await inTeam('owner');
+    expect(nameInput()).not.toBeNull();
+    expect(document.querySelector('[data-team-header]')).toBeNull();
+    expect(select).not.toHaveBeenCalled();
+    act(() => button(en['web.team.cancel'])!.click());
+    await settle();
+    expect(nameInput()).toBeNull();
+    expect(document.querySelector('[data-team-header]')).not.toBeNull();
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('holds a create request while the workspace resolves, then shows it where it settles', async () => {
+    requestTeamCreateForm();
+    await render({ workspace: { kind: 'resolving' } });
+    expect(nameInput()).toBeNull();
+    rerender({ workspace: { kind: 'personal' }, teams: [] });
+    await settle();
+    expect(nameInput()).not.toBeNull();
+  });
+
+  it('Cancel on a requested create form in personal leaves the plain personal view', async () => {
+    requestTeamCreateForm();
+    await render({ workspace: { kind: 'personal' }, teams: [team('admin')] });
+    act(() => button(en['web.team.cancel'])!.click());
+    await settle();
+    expect(nameInput()).toBeNull();
+    expect(document.querySelector('[data-team-row]')).not.toBeNull();
+    expect(document.querySelector('[data-team-create]')).not.toBeNull();
+  });
+
+  it('names each Open button for its team', async () => {
+    await render({ workspace: { kind: 'personal' }, teams: [team('admin')] });
+    const open = document.querySelector('[data-team-row] button');
+    expect(open?.getAttribute('aria-label')).toBe(`Open ${team('admin').name}`);
+  });
+
+  it('keeps the destructive trigger on its red-tinted hover, not the outline grey', async () => {
+    await inTeam('owner');
+    const trigger = document.querySelector('[data-team-confirm="delete"]')!;
+    expect(trigger.className).toMatch(/(^|\s)hover:bg-live-subtle(\s|$)/);
+    expect(trigger.className).not.toMatch(/(^|\s)hover:bg-border(\s|$)/);
+  });
+
   it('lists each team with its tile, member count and role', async () => {
     await render({
       workspace: { kind: 'personal' },

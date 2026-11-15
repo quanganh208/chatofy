@@ -102,6 +102,21 @@ describe('WorkspaceSwitcher trigger', () => {
     expect(t.textContent).toContain(en['web.workspace.personal']);
   });
 
+  it('falls through an empty session name to the email', () => {
+    const saved = session.value;
+    session.value = {
+      data: { user: { id: 'u1', name: '', email: 'zed@example.com' } },
+      status: 'authenticated',
+    };
+    try {
+      render('sidebar', { workspace: { kind: 'personal' } });
+      expect(trigger().querySelector('[data-workspace-tile="personal"]')?.textContent).toBe('Z');
+      expect(trigger().textContent).toContain('zed@example.com');
+    } finally {
+      session.value = saved;
+    }
+  });
+
   it('draws a neutral placeholder while the workspace resolves', () => {
     render('sidebar', { workspace: { kind: 'resolving' } });
     expect(trigger().querySelector('[data-workspace-tile]')).toBeNull();
@@ -162,11 +177,12 @@ describe('WorkspaceSwitcher menu', () => {
     expect(document.querySelector('[role="menuitemradio"][aria-checked="true"]')).toBeNull();
   });
 
-  it('Create team switches to personal and opens Settings › Team with the form requested', async () => {
+  it('Create team inside a team stays in it and opens Settings › Team with the form requested', async () => {
     render('sidebar', { workspace: { kind: 'team', team: TEAM } });
     await open();
     act(() => item(en['web.workspace.createTeam'])!.click());
-    expect(select).toHaveBeenCalledWith('personal');
+    // Nothing switches until a team exists: the create form succeeds or it is cancelled.
+    expect(select).not.toHaveBeenCalled();
     expect(openSettingsDialog).toHaveBeenCalledWith('team');
     expect(consumeTeamCreateIntent()).toBe(true);
   });

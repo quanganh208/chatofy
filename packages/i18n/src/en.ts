@@ -1326,6 +1326,7 @@ export const en = {
     'A team shares its glossaries and AI Contexts with everyone in it. Your history, meetings and credits stay yours.',
   'web.team.yourTeams': 'Your teams',
   'web.team.open': 'Open',
+  'web.team.openTeam': 'Open {name}',
   'web.team.create': 'Create team',
   'web.team.nameLabel': 'Team name',
   'web.team.createSubmit': 'Create',
@@ -1342,7 +1343,6 @@ export const en = {
   'web.team.removeConfirmTitle': 'Remove {name} from the team?',
   'web.team.removeConfirmBody':
     "They lose access to this team's glossaries and AI Contexts right away. What they created stays in the team.",
-  'web.team.invites': 'Pending invites',
   'web.team.inviteEmail': 'Email address',
   'web.team.inviteSubmit': 'Invite',
   'web.team.invitePending': 'Invite pending',

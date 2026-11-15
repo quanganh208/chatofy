@@ -1025,6 +1025,7 @@ export const zh: Messages = {
     '团队会与所有成员共享术语表和 AI Context。你的历史记录、会议和额度仍然只属于你。',
   'web.team.yourTeams': '你的团队',
   'web.team.open': '打开',
+  'web.team.openTeam': '打开{name}',
   'web.team.create': '创建团队',
   'web.team.nameLabel': '团队名称',
   'web.team.createSubmit': '创建',
@@ -1041,7 +1042,6 @@ export const zh: Messages = {
   'web.team.removeConfirmTitle': '要将 {name} 移出团队吗？',
   'web.team.removeConfirmBody':
     '对方将立即失去对该团队术语表和 AI Context 的访问权限。对方创建的内容会保留在团队中。',
-  'web.team.invites': '待处理的邀请',
   'web.team.inviteEmail': '邮箱地址',
   'web.team.inviteSubmit': '邀请',
   'web.team.invitePending': '待接受',

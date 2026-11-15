@@ -40,7 +40,7 @@ export function WorkspaceSwitcher({ variant }: { variant: 'sidebar' | 'chip' }) 
   const { workspace } = useWorkspace();
   const personal = t('web.workspace.personal');
   // The personal tile carries the reader's own initial, so it reads as "mine".
-  const personalTileName = identity.name ?? identity.email ?? personal;
+  const personalTileName = identity.name || identity.email || personal;
 
   const current =
     workspace.kind === 'team'
@@ -202,8 +202,8 @@ function WorkspaceMenu({
       <DropdownMenuItem
         data-workspace-create
         onSelect={() => {
-          // The create form lives in the personal view of Settings › Team.
-          if (workspace.kind === 'team') select('personal');
+          // Settings › Team opens on its create form in this workspace; the switch
+          // happens only once the new team exists.
           requestTeamCreateForm();
           openSettingsDialog('team');
         }}

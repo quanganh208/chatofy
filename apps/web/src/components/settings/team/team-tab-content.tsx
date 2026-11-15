@@ -11,6 +11,7 @@ import { useTranslate } from '@/i18n/provider';
 import { ROLE_KEY } from './team-copy';
 import { TeamInvitesSection } from './team-invites-section';
 import { TeamManageSection } from './team-manage-section';
+import { TeamCreateForm } from './team-create-form';
 import { TeamMembersSection } from './team-members-section';
 import { TeamOverviewSection } from './team-overview-section';
 
@@ -20,12 +21,28 @@ import { TeamOverviewSection } from './team-overview-section';
  * still resolving it shows a placeholder, or a retry when the team list failed.
  *
  * A request from outside Settings to start a team (`requestTeamCreateForm`) is taken
- * once, when the tab mounts, and opens the personal view on its create form.
+ * once, when the tab mounts, and shows the create form over whichever workspace the
+ * reader is in: nothing switches until a team exists. The request belongs to that
+ * workspace and ends on Cancel or when the workspace changes — a create succeeding
+ * is such a change — so no later visit to the personal view opens on the form.
  */
 export function TeamTabContent() {
   const t = useTranslate();
   const { workspace, teamsStatus, reloadTeams } = useWorkspace();
-  const [createRequested] = useState(consumeTeamCreateIntent);
+  const here = workspace.kind === 'team' ? workspace.team.id : workspace.kind;
+  // `pending` until the workspace settles, then the workspace it was asked in.
+  const [createIn, setCreateIn] = useState<string | null>(() =>
+    consumeTeamCreateIntent() ? 'pending' : null,
+  );
+  if (createIn !== null && here !== 'resolving' && createIn !== here) {
+    // Adjusting state from the previous render, React's documented pattern: pin the
+    // request to the workspace it settled in, or end it once the reader is elsewhere.
+    setCreateIn(createIn === 'pending' ? here : null);
+  }
+
+  if (createIn === here) {
+    return <TeamCreateForm onCancel={() => setCreateIn(null)} />;
+  }
 
   switch (workspace.kind) {
     case 'resolving':
@@ -42,7 +59,7 @@ export function TeamTabContent() {
         <Skeleton className="h-24 w-full" />
       );
     case 'personal':
-      return <TeamOverviewSection initiallyCreating={createRequested} />;
+      return <TeamOverviewSection />;
     case 'team':
       // Keyed by team: every list, form and open dialog starts over on a switch, so
       // nothing captured for one team can act on another.

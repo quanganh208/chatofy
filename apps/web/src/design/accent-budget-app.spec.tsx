@@ -231,6 +231,7 @@ const { LocaleProvider } = await import('@/i18n/provider');
 const { InviteAcceptClient } = await import('@/components/team/invite-accept-client');
 const { WorkspaceSwitcher } = await import('@/components/workspace/workspace-switcher');
 const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
+const { requestTeamCreateForm } = await import('@/components/workspace/team-create-intent');
 const { SidebarProvider } = await import('@chatofy/ui/react');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
@@ -880,6 +881,33 @@ const TEAM_SCREENS: ScreenState[] = [
     setup: settingsOn('team'),
     render: settingsOverAPage,
     steps: ['[data-team-create]'],
+    shows: '[data-settings-pane="team"] input[name="team-name"]',
+  },
+  {
+    // Sent by the switcher's Create team: the form alone, over the personal list.
+    name: 'settings dialog › team — personal, create requested',
+    filled: 1,
+    surfaces: 1,
+    setup: () => {
+      settingsOn('team')();
+      requestTeamCreateForm();
+    },
+    render: () => (
+      <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>{settingsOverAPage()}</WorkspaceTestHost>
+    ),
+    shows: '[data-settings-pane="team"] input[name="team-name"]',
+  },
+  {
+    // The same request inside a team: the form replaces the team view, whose invite
+    // Send would otherwise be a second fill.
+    name: 'settings dialog › team — team workspace, create requested',
+    filled: 1,
+    surfaces: 1,
+    setup: () => {
+      teamPane('owner')();
+      requestTeamCreateForm();
+    },
+    render: () => inTeam('owner', settingsOverAPage()),
     shows: '[data-settings-pane="team"] input[name="team-name"]',
   },
   {

@@ -12,17 +12,12 @@ import { TeamCreateForm } from './team-create-form';
 /**
  * Personal workspace: the teams you are in, each opened by switching to it, and the
  * way to make one. Nothing here is filled until the create form opens, whose Create
- * is then the tab's one accent. `initiallyCreating` opens on the form, for a reader
- * sent here to start a team.
+ * is then the tab's one accent.
  */
-export function TeamOverviewSection({
-  initiallyCreating = false,
-}: {
-  initiallyCreating?: boolean;
-}) {
+export function TeamOverviewSection() {
   const t = useTranslate();
   const { teams, select } = useWorkspace();
-  const [creating, setCreating] = useState(initiallyCreating);
+  const [creating, setCreating] = useState(false);
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,7 +40,12 @@ export function TeamOverviewSection({
                 </span>
               </div>
               <Badge variant="secondary">{t(ROLE_KEY[team.role])}</Badge>
-              <Button variant="ghost" size="sm" onClick={() => select(team.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={t('web.team.openTeam', { name: team.name })}
+                onClick={() => select(team.id)}
+              >
                 {t('web.team.open')}
               </Button>
             </div>

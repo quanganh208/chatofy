@@ -1055,6 +1055,7 @@ export const vi: Messages = {
     'Một nhóm chia sẻ bảng thuật ngữ và AI Context với mọi người trong nhóm. Lịch sử, cuộc họp và credit của bạn vẫn là của riêng bạn.',
   'web.team.yourTeams': 'Nhóm của bạn',
   'web.team.open': 'Mở',
+  'web.team.openTeam': 'Mở {name}',
   'web.team.create': 'Tạo nhóm',
   'web.team.nameLabel': 'Tên nhóm',
   'web.team.createSubmit': 'Tạo',
@@ -1072,7 +1073,6 @@ export const vi: Messages = {
   'web.team.removeConfirmTitle': 'Gỡ {name} khỏi nhóm?',
   'web.team.removeConfirmBody':
     'Họ mất quyền truy cập bảng thuật ngữ và AI Context của nhóm ngay lập tức. Những gì họ đã tạo vẫn ở lại trong nhóm.',
-  'web.team.invites': 'Lời mời đang chờ',
   'web.team.inviteEmail': 'Địa chỉ email',
   'web.team.inviteSubmit': 'Mời',
   'web.team.invitePending': 'Đang chờ',
