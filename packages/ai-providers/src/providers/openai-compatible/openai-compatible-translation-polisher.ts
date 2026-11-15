@@ -31,6 +31,27 @@ export const POLISH_TIMEOUT_MS = 8_000;
 /** A turn is at most ~8 s of speech; this is several times its translation. */
 const MAX_OUTPUT_TOKENS = 600;
 
+/** Targets whose translation runs about as long as its source. */
+const SOURCE_BOUND_TARGETS = new Set(['en', 'vi']);
+
+/**
+ * The longest answer that can still be an edit of this turn. Twice the draft
+ * bounds an ordinary edit. A draft that dropped a sentence is short, though, so
+ * a faithful restore would read as a runaway: for en and vi targets the bound
+ * widens to 1.3 × the source, which an en↔vi translation stays under. It
+ * widens no further, because a runaway that translates the context turns too
+ * fits under twice a long source. From a zh source the draft is already longer
+ * than the source, so the draft bound governs there. A zh translation is much
+ * shorter than its source, so zh targets keep the draft bound.
+ */
+export function editLengthLimit(
+  req: Pick<TranslationPolishRequest, 'source' | 'draft' | 'targetLanguage'>,
+): number {
+  const draftBound = 2 * req.draft.length + 40;
+  if (!SOURCE_BOUND_TARGETS.has(req.targetLanguage)) return draftBound;
+  return Math.max(draftBound, 1.3 * req.source.length + 40);
+}
+
 export interface OpenAiCompatibleTranslationPolisherConfig {
   apiKey?: string;
   baseUrl?: string;
@@ -141,7 +162,7 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
     if (!edited) return null;
     // A runaway answer — the context translated too, or commentary — is not
     // an edit of this turn.
-    if (edited.length > 2 * req.draft.length + 40) return null;
+    if (edited.length > editLengthLimit(req)) return null;
     if (leaksForeignScript(req.sourceLanguage, req.targetLanguage, req.source, edited)) return null;
     const rendered = toTargetScript(req.targetLanguage, edited);
     return rendered === req.draft.trim() ? null : rendered;

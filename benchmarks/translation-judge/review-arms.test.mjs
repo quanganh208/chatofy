@@ -28,11 +28,15 @@ test('capture ignores other hosts and passes the request through unchanged', asy
   assert.equal(seen.init, init, 'the same init object goes out');
 });
 
-test('the guard check mirrors the polisher: 2 × draft + 40 characters after tags', () => {
-  const draft = 'a'.repeat(10);
-  assert.equal(guardRejects('b'.repeat(60), draft), false);
-  assert.equal(guardRejects('b'.repeat(61), draft), true);
-  assert.equal(guardRejects(`<draft>${'b'.repeat(60)}</draft>`, draft), false);
+test('the guard check mirrors the polisher: draft bound, widened to 1.3 × source for en/vi', () => {
+  const req = { source: 'x'.repeat(10), draft: 'a'.repeat(10), targetLanguage: 'en' };
+  assert.equal(guardRejects('b'.repeat(60), req), false);
+  assert.equal(guardRejects('b'.repeat(61), req), true);
+  assert.equal(guardRejects(`<draft>${'b'.repeat(60)}</draft>`, req), false);
+  const short = { ...req, source: 'x'.repeat(100) };
+  assert.equal(guardRejects('b'.repeat(170), short), false);
+  assert.equal(guardRejects('b'.repeat(171), short), true);
+  assert.equal(guardRejects('b'.repeat(61), { ...short, targetLanguage: 'zh' }), true);
 });
 
 test('perturbed rows resume by their own id, others by conv#pos', () => {

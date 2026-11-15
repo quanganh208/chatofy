@@ -21,7 +21,6 @@ import { fileURLToPath } from 'node:url';
 
 import { consensus, loadJudgements } from './consensus.mjs';
 import { wilson } from './decision-score.mjs';
-import { languagesOf } from './review-arms.mjs';
 import { DATA, RESULTS, readJsonl, toJsonl, turnId } from './rows.mjs';
 
 export const GUARD_DIR = join(DATA, 'guard');
@@ -70,7 +69,7 @@ export const rejects = (raw, req, limit) => editedOf(raw).length > limit(req);
 
 /** The polish request for a row whose `translation` is the draft. */
 export function requestOf(row) {
-  const [sourceLanguage, targetLanguage] = languagesOf(row);
+  const [sourceLanguage, targetLanguage] = row.direction.split('_to_');
   return { source: row.source, draft: row.translation, sourceLanguage, targetLanguage };
 }
 

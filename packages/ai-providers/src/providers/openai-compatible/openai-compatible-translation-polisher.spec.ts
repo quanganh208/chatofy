@@ -84,6 +84,44 @@ describe('OpenAiCompatibleTranslationPolisher', () => {
     await expect(polisher().polish(request)).resolves.toBeNull();
   });
 
+  // A draft that dropped a sentence: short next to its source.
+  const shortDraft = {
+    ...request,
+    source:
+      'hôm nay trời mưa rất to nên chúng tôi ở nhà, và ngày mai chúng tôi sẽ đi thăm bà ngoại ở quê.',
+    draft: 'It rains a lot.',
+  };
+
+  it('accepts a restore longer than a short draft, within the source bound', async () => {
+    const restore =
+      'It is raining very heavily today, so we are staying home, and tomorrow we will visit grandma.';
+    expect(restore.length).toBeGreaterThan(2 * shortDraft.draft.length + 40);
+    answer(restore);
+    await expect(polisher().polish(shortDraft)).resolves.toBe(restore);
+  });
+
+  it('still lets the draft stand when an answer runs past the source bound', async () => {
+    const runaway = 'We went to the market. Then we came back. '.repeat(6).trim();
+    expect(runaway.length).toBeGreaterThan(1.3 * shortDraft.source.length + 40);
+    answer(runaway);
+    await expect(polisher().polish(shortDraft)).resolves.toBeNull();
+  });
+
+  it('bounds en and vi answers at exactly 1.3 × the source + 40', async () => {
+    const limit = Math.floor(1.3 * shortDraft.source.length + 40);
+    answer('a'.repeat(limit));
+    await expect(polisher().polish(shortDraft)).resolves.toBe('a'.repeat(limit));
+    answer('a'.repeat(limit + 1));
+    await expect(polisher().polish(shortDraft)).resolves.toBeNull();
+  });
+
+  it('keeps the draft bound for Chinese, whatever the source length', async () => {
+    answer('今天雨很大'.repeat(12));
+    await expect(
+      polisher().polish({ ...shortDraft, targetLanguage: 'zh', draft: '今天雨大。' }),
+    ).resolves.toBeNull();
+  });
+
   it('renders Chinese output in Simplified characters', async () => {
     answer('今天下雨很大，所以我們留在家裡。');
     const result = await polisher().polish({

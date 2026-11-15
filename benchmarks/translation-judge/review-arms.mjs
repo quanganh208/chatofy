@@ -24,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { rejects, successorLimit } from './guard-bound.mjs';
 import { DATA, HERE, readJsonl, turnId } from './rows.mjs';
 
 export const ARMS = [1, 2];
@@ -71,13 +72,8 @@ export function armRow(row, arm, outcome) {
 /** A replayed row's key: perturbed rows carry their own `id`, since two may share `conv#pos`. */
 export const replayId = (row) => row.id ?? turnId(row);
 
-/** The polisher's own length guard (`2 × draft + 40` characters), applied to a raw answer. */
-export function guardRejects(raw, draft) {
-  const edited = String(raw ?? '')
-    .replace(/<\/?(transcript|draft)>/gi, '')
-    .trim();
-  return edited.length > 2 * draft.length + 40;
-}
+/** The polisher's own length guard, `editLengthLimit` in the package, applied to a raw answer. */
+export const guardRejects = (raw, request) => rejects(raw, request, successorLimit);
 
 /**
  * Wraps `realFetch` so the content of every answer from `baseUrl` is kept for
@@ -267,7 +263,7 @@ if (isMain) {
       if (capture) {
         out.raw = capture.take();
         out.guardRejected =
-          !out.rewritten && Boolean(out.raw) && guardRejects(out.raw, row.translation);
+          !out.rewritten && Boolean(out.raw) && guardRejects(out.raw, polishRequest(row, args.arm));
       }
       appendFileSync(args.out, JSON.stringify(out) + '\n');
     }
