@@ -272,6 +272,15 @@ node judge.mjs --in data/guard/regression-diff.jsonl --out results/guard-regress
 node guard-bound.mjs --stage regression-verdict      # results/guard-bound.md
 ```
 
+**Result of criteria 1 and 2 (2026-11-15): the tested rule misses criterion 2 and is not shipped.**
+
+- **Restores:** the new rule accepts 10 of 10 (Wilson 72.2–100%), the old 0 of 10. The longest of the 29 raw answers is 0.665 of the new limit.
+- **Runaways, clean set:** the new rule rejects 19 of 20, the old 19 of 20.
+- **Runaways, short-draft set:** the new rule rejects **15 of 20** (Wilson 53.1–88.8%), under the bar of 19. The old rule rejects 18. Every miss is a context runaway: 5 of 10 pass the new rule, 2 of them also pass the old one.
+- **Why:** a context runaway slips under any length bound when the earlier turns are shorter than the turn itself. Context/source is 0.66–0.89 on the 5 accepted rows and 2.30–5.42 on the rejected ones. Doubling the source gives that shape room. An independent rebuild of the shapes found the same 5 rows; the harness is not at fault.
+- **The bar was out of reach for the old rule too** (18 of 20), so prod's guard already has this hole. Computed after the result (post-hoc), on 126 real en/vi turns with at least 2 context turns, an answer made of the context translations plus the draft would pass today's guard on 19.
+- **The prompt sends context as source text only** and says never to translate it, so this runaway needs the model to disobey. None of the 29 raw answers from the A1 replay is one, which bounds the rate only below about 11.7%.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
