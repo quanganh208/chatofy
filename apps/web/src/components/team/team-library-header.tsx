@@ -37,7 +37,7 @@ export function TeamLibraryHeader({
     <div data-library-note className={cn('flex min-w-0 items-center gap-3', className)}>
       <WorkspaceTile kind="team" name={team.name} size="md" />
       <div className="flex min-w-0 flex-col">
-        {label ? <span className="text-body font-medium">{label}</span> : null}
+        {label ? <h2 className="text-body font-medium">{label}</h2> : null}
         <span className="text-hint text-muted-foreground break-words">
           {shared} · {edits}
         </span>
