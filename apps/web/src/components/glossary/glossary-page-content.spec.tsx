@@ -417,11 +417,19 @@ describe('a team glossary the reader may not edit', () => {
     store.items = [TERM];
   });
 
-  it('names the team above the list', async () => {
+  it('heads the list with the team: its tile, "Team glossaries" and who shares it', async () => {
     await mount(TEAM);
-    expect(container.textContent).toContain(
-      en['web.workspace.libraryNote'].replace('{name}', TEAM.name),
+    const header = container.querySelector('[data-library-note]');
+    expect(header?.querySelector('[data-workspace-tile="team"]')?.textContent).toBe('C');
+    expect(header?.textContent).toContain(en['web.workspace.teamGlossaries']);
+    expect(header?.textContent).toContain(
+      `Shared with 3 members of ${TEAM.name} · ${en['web.workspace.editOwn']}`,
     );
+  });
+
+  it('draws no team header in the personal library', async () => {
+    await mount();
+    expect(container.querySelector('[data-library-note]')).toBeNull();
   });
 
   it('opens view-only: no switch, Delete, Add term or term controls', async () => {
@@ -451,5 +459,31 @@ describe('a write keeps the scope it was opened in', () => {
       expect.objectContaining({ name: 'Ward terms' }),
       TEAM.id,
     );
+  });
+});
+
+describe('arriving from an invite', () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it('says "You joined …" once', async () => {
+    const { rememberJoinedTeam } = await import('@/lib/pending-invite');
+    rememberJoinedTeam(TEAM.name);
+    await mount(TEAM);
+    // Raised a task later, so a host mounted in the same commit is subscribed first.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(notify.success).toHaveBeenCalledWith(`You joined ${TEAM.name}`);
+
+    // A later visit to the page has nothing left to say.
+    notify.success.mockClear();
+    act(() => root?.unmount());
+    await mount(TEAM);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(notify.success).not.toHaveBeenCalled();
+  });
+
+  it('says nothing on an ordinary visit', async () => {
+    await mount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(notify.success).not.toHaveBeenCalled();
   });
 });

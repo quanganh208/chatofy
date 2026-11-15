@@ -1279,15 +1279,18 @@ export const en = {
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
   'web.meta.invite': 'Team invitation · Chatofy',
-  // The invite page. The team name is shown on its own line as plain text, never
-  // inside a sentence: whoever made the team chose it.
+  // The invite page. The team name is whatever its creator typed, so it always
+  // renders as plain text: on its own line beside the team's tile, and in the
+  // after-join toast.
   'web.invite.heading': 'Team invitation',
   'web.invite.signInPrompt': 'Sign in with the email address this invitation was sent to.',
   'web.invite.createAccount': 'Create account',
   'web.invite.pendingAdmin': "You're invited to join a team as an admin.",
   'web.invite.pendingMember': "You're invited to join a team as a member.",
-  'web.invite.teamNameLabel': 'Team name, as its creator wrote it',
-  'web.invite.invitedBy': 'Invited by {email}',
+  'web.invite.invitedByAsAdmin': 'Invited by {email} · join as an admin',
+  'web.invite.invitedByAsMember': 'Invited by {email} · join as a member',
+  'web.invite.whatJoiningMeans':
+    "You'll share its glossaries and AI Contexts. Your history, meetings and credits stay yours.",
   'web.invite.join': 'Join team',
   'web.invite.joined': 'You joined the team.',
   'web.invite.openGlossary': 'Open glossaries',
@@ -1301,9 +1304,15 @@ export const en = {
   'web.invite.loadFailed': "Couldn't load this invite. Try again.",
   'web.invite.teamCap': "You're already in {max} teams. Leave one to join this team.",
   'web.invite.teamFull': 'This team is full. Ask its owner to make room.',
+  'web.invite.joinedToast': 'You joined {name}',
   'web.workspace.label': 'Workspace',
   'web.workspace.personal': 'Personal',
-  'web.workspace.libraryNote': "Everyone in {name} can use what's here.",
+  'web.workspace.teamGlossaries': 'Team glossaries',
+  'web.workspace.teamContexts': 'Team contexts',
+  'web.workspace.sharedWith': 'Shared with {count} members of {name}',
+  'web.workspace.sharedWithOnlyYou': 'Only you are in {name} so far',
+  'web.workspace.editOwn': 'you edit what you made',
+  'web.workspace.editAll': 'you can edit everything here',
   'web.workspace.switchTo': 'Switch workspace',
   'web.workspace.manageTeams': 'Manage teams',
   'web.settings.team': 'Team',

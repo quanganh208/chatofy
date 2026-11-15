@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { GLOSSARY_LIMITS } from '@chatofy/types';
 import type { SaveGlossaryRequest } from '@chatofy/types';
 import { TopbarActions } from '@/components/layout/chrome-slots';
+import { TeamLibraryHeader } from '@/components/team/team-library-header';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { useGlossaries } from '@/hooks/use-glossaries';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
+import { takeJoinedTeam } from '@/lib/pending-invite';
 import { cn } from '@/lib/utils';
 import { GlossaryCreateDialog } from './glossary-create-dialog';
 import { GlossaryDetailPanel } from './glossary-detail-panel';
@@ -32,12 +34,19 @@ import { GlossaryListPanel } from './glossary-list-panel';
  *
  * ## Scope
  *
- * The list is the active workspace's library. In a team it opens with one muted
- * line naming the team, and a glossary the reader may not edit opens view-only.
+ * The list is the active workspace's library. In a team it opens with the team's
+ * header line (its tile, "Team glossaries", who shares it and what the reader may
+ * edit), and a glossary the reader may not edit opens view-only. Personal shows no
+ * header: it is the library every screen had before teams.
  * Every write passes the scope of the render that made it — a dialog, a toast's
  * Undo or Retry — so a switch while one is pending cannot land it in the other
  * library. A selection is kept with its scope: a switch hides it, and switching
  * back shows it again only if the glossary is still listed there.
+ *
+ * ## Arriving from an invite
+ *
+ * `/invite` sends a fresh member here, already switched into the team, and leaves
+ * the team's name behind for one "You joined …" toast.
  *
  * ## The accent budget
  *
@@ -49,7 +58,7 @@ export function GlossaryPageContent() {
   const t = useTranslate();
   const { glossaries, status, teamId, save, patch, remove, retry, reload } = useGlossaries();
   const { workspace } = useWorkspace();
-  const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
+  const team = teamId !== undefined && workspace.kind === 'team' ? workspace.team : null;
   const [selection, setSelection] = useState<{ id: string; teamId: string | undefined } | null>(
     null,
   );
@@ -96,6 +105,15 @@ export function GlossaryPageContent() {
     );
   };
 
+  useEffect(() => {
+    const joined = takeJoinedTeam();
+    if (joined === null) return;
+    // Deferred a task: `AppToaster` mounts after this page in the same commit, and
+    // a toast raised before its host subscribes is never shown. No cleanup on
+    // purpose: the name is already taken, and a Strict Mode re-run must not lose it.
+    setTimeout(() => notify.success(t('web.invite.joinedToast', { name: joined })), 0);
+  }, [t]);
+
   const deleteSelected = async () => {
     if (!selected) return;
     const { id, name } = selected;
@@ -115,10 +133,8 @@ export function GlossaryPageContent() {
         </TopbarActions>
       ) : null}
 
-      {teamName !== null ? (
-        <p data-library-note className="text-hint text-muted-foreground">
-          {t('web.workspace.libraryNote', { name: teamName })}
-        </p>
+      {team !== null ? (
+        <TeamLibraryHeader team={team} label={t('web.workspace.teamGlossaries')} className="pb-4" />
       ) : null}
       <div className="@container">
         <div className="flex flex-col @3xl:flex-row @3xl:items-start">
