@@ -3,6 +3,7 @@
 //
 //   node guard-bound.mjs --stage restores            # criterion 1, offline
 //   node guard-bound.mjs --stage runaways            # criterion 2, offline
+//   node guard-bound.mjs --stage heldout             # the successor, held-out runaways
 //   node guard-bound.mjs --stage regression-input    # data/guard/regression-input.jsonl
 //   node guard-bound.mjs --stage regression-split    # data/guard/regression-diff.jsonl
 //   node guard-bound.mjs --stage regression-verdict  # criterion 3
@@ -36,6 +37,7 @@ export const BARS = {
   runawaysRejected: 19, // of 20, per set
   regressionMaxDiff: 30,
   regressionConclusiveFrom: 3, // a diff set of 0–2 rows is inconclusive
+  heldOutAdmitted: { clean: 0, shortDraft: 1 }, // successor, new bars
 };
 
 /** The answer as the guard measures it: transcript and draft tags removed, trimmed. */
@@ -51,6 +53,17 @@ export const oldLimit = ({ draft }) => 2 * draft.length + 40;
 export const newLimit = (req) =>
   SOURCE_BOUND_TARGETS.has(req.targetLanguage)
     ? 2 * Math.max(req.draft.length, req.source.length) + 40
+    : oldLimit(req);
+
+/**
+ * The successor, after the doubled source bound let context runaways through:
+ * today's bound, widened only up to 1.3 × source + 40 for en/vi. It accepts
+ * everything today's guard accepts, so no polish prod keeps can be lost.
+ */
+export const SOURCE_SLOPE = 1.3;
+export const successorLimit = (req) =>
+  SOURCE_BOUND_TARGETS.has(req.targetLanguage)
+    ? Math.max(oldLimit(req), SOURCE_SLOPE * req.source.length + 40)
     : oldLimit(req);
 
 export const rejects = (raw, req, limit) => editedOf(raw).length > limit(req);
@@ -157,6 +170,55 @@ export function runawaysVerdict(rows) {
   return out;
 }
 
+/**
+ * Context runaways on the rows the spent sets never built one for: every row
+ * with at least 2 context turns after the first 10, in the same id order.
+ */
+export function heldOutContext(rows, full, set) {
+  const sorted = [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return sorted
+    .filter((r) => (r.context ?? []).length >= 2)
+    .slice(PER_SHAPE)
+    .map((row) => {
+      const req = requestOf(row);
+      const answer = [
+        ...row.context.slice(-CONTEXT_WINDOW).map((t) => t.translation),
+        full(row),
+      ].join(' ');
+      return {
+        id: row.id,
+        set,
+        answerLength: editedOf(answer).length,
+        oldLimit: oldLimit(req),
+        successorLimit: successorLimit(req),
+      };
+    });
+}
+
+/** Non-inferiority: runaways today's guard rejects and the successor admits. */
+export function heldOutVerdict(rows) {
+  const out = { pass: true };
+  for (const set of [...new Set(rows.map((r) => r.set))]) {
+    const of = rows.filter((r) => r.set === set);
+    const oldRejected = of.filter((r) => r.answerLength > r.oldLimit).length;
+    const successorRejected = of.filter((r) => r.answerLength > r.successorLimit).length;
+    const admitted = of.filter(
+      (r) => r.answerLength > r.oldLimit && r.answerLength <= r.successorLimit,
+    );
+    out[set] = {
+      total: of.length,
+      oldRejected,
+      successorRejected,
+      oldWilson: wilson(oldRejected, of.length),
+      successorWilson: wilson(successorRejected, of.length),
+      admitted: admitted.length,
+      admittedIds: admitted.map((r) => r.id),
+    };
+    out.pass &&= admitted.length <= (BARS.heldOutAdmitted[set] ?? 0);
+  }
+  return out;
+}
+
 /** The 162 judged turns, as turn rows (labels carry no translation field). */
 export function regressionInput(labels, turns) {
   const ids = new Set(labels.map(turnId));
@@ -164,14 +226,24 @@ export function regressionInput(labels, turns) {
 }
 
 /**
- * Rows the new rule accepts and today's rejects, after the polisher's other
+ * Rows the successor accepts and today's guard rejects, after the polisher's other
  * checks (`finalize` returns the rendered edit or `null`, as `accept()` does).
  * The draft comes from the input file: a rewritten replay row has the polish
  * in `translation`.
  */
 export function regressionSplit(polished, input, finalize) {
   const draftOf = new Map(input.map((r) => [turnId(r), r]));
-  const counts = { rows: polished.length, failed: 0, rewritten: 0, declined: 0, oldRejected: 0 };
+  const counts = {
+    rows: polished.length,
+    failed: 0,
+    rewritten: 0,
+    declined: 0,
+    oldRejected: 0,
+    rawAnswers: 0,
+    maxAnswerOverSource: 0,
+    overSuccessor: 0,
+    overSourceBound: 0,
+  };
   const diff = [];
   let tightened = 0;
   for (const row of polished) {
@@ -180,14 +252,24 @@ export function regressionSplit(polished, input, finalize) {
     if (row.failed) counts.failed += 1;
     else if (row.rewritten) counts.rewritten += 1;
     const req = requestOf(base);
-    if (newLimit(req) < oldLimit(req)) tightened += 1;
+    if (successorLimit(req) < oldLimit(req)) tightened += 1;
+    const length = editedOf(row.raw).length;
+    if (length) {
+      counts.rawAnswers += 1;
+      counts.maxAnswerOverSource = Math.max(
+        counts.maxAnswerOverSource,
+        ratio(length, req.source.length),
+      );
+      if (length > successorLimit(req)) counts.overSuccessor += 1;
+      if (length > SOURCE_SLOPE * req.source.length + 40) counts.overSourceBound += 1;
+    }
     if (row.rewritten || row.failed || !editedOf(row.raw)) continue;
     if (!rejects(row.raw, req, oldLimit)) {
       counts.declined += 1;
       continue;
     }
     counts.oldRejected += 1;
-    if (rejects(row.raw, req, newLimit)) continue;
+    if (rejects(row.raw, req, successorLimit)) continue;
     const text = finalize({ ...req }, editedOf(row.raw));
     if (text) diff.push({ ...base, id: turnId(base), translation: text });
   }
@@ -260,11 +342,29 @@ export function markdown(report) {
     }
     lines.push(`- Runaways: **${report.runaways.pass ? 'PASS' : 'STOP'}**.`);
   }
+  if (report.heldOut) {
+    const h = report.heldOut;
+    for (const [set, v] of Object.entries(h)) {
+      if (set === 'pass' || set === 'postHocRestores') continue;
+      lines.push(
+        `- Held-out context runaways ${set} (successor, new bar): admitted over today's guard **${v.admitted}/${v.total}**; ` +
+          `rejected by the successor ${v.successorRejected}/${v.total} (Wilson ${pct(v.successorWilson)}), ` +
+          `by today's guard ${v.oldRejected}/${v.total} (Wilson ${pct(v.oldWilson)}).`,
+      );
+    }
+    lines.push(
+      `- Successor restores, post-hoc on the spent raws: ${h.postHocRestores.accepted}/${h.postHocRestores.total}, ` +
+        `max answer/limit over ${h.postHocRestores.rawAnswers} raws ${h.postHocRestores.maxOverLimit}.`,
+      `- Held out: **${h.pass ? 'PASS' : 'STOP'}**.`,
+    );
+  }
   if (report.regressionSplit) {
     const c = report.regressionSplit;
     lines.push(
       `- Replay: ${c.rows} rows, ${c.failed} failed, ${c.rewritten} rewritten, ${c.declined} declined, ` +
-        `${c.oldRejected} rejected by the old rule, diff ${c.diff} (${JSON.stringify(c.byDirection)}).`,
+        `${c.oldRejected} rejected by the old rule, diff ${c.diff} (${JSON.stringify(c.byDirection)}). ` +
+        `Runaway rate, no verdict: of ${c.rawAnswers} raws, ${c.overSuccessor} over the successor limit, ` +
+        `${c.overSourceBound} over 1.3 × source + 40; max answer/source ${c.maxAnswerOverSource}.`,
     );
   }
   if (report.regression) {
@@ -304,6 +404,26 @@ if (isMain) {
       ...runaways(positives, (r) => r.original, 'shortDraft'),
     ];
     save('runaways', runawaysVerdict(rows));
+  } else if (stage === 'heldout') {
+    const clean = readJsonl(join(DATA, 'calibration-clean.jsonl'));
+    const positives = readJsonl(join(DATA, 'omission', 'positives.jsonl'));
+    const verdict = heldOutVerdict([
+      ...heldOutContext(clean, (r) => r.translation, 'clean'),
+      ...heldOutContext(positives, (r) => r.original, 'shortDraft'),
+    ]);
+    // The spent raws: computed after the doubled-bound result, so description only.
+    const a1 = readJsonl(join(DATA, 'omission', 'a1-polished.jsonl'));
+    const withRaw = a1.filter((r) => editedOf(r.raw));
+    verdict.postHocRestores = {
+      total: a1.filter((r) => r.guardRejected).length,
+      accepted: a1.filter((r) => r.guardRejected && !rejects(r.raw, requestOf(r), successorLimit))
+        .length,
+      rawAnswers: withRaw.length,
+      maxOverLimit: Math.max(
+        ...withRaw.map((r) => ratio(editedOf(r.raw).length, successorLimit(requestOf(r)))),
+      ),
+    };
+    save('heldOut', verdict);
   } else if (stage === 'regression-input') {
     const rows = regressionInput(
       readJsonl(join(DATA, 'decision', 'labels.jsonl')),
@@ -343,6 +463,8 @@ if (isMain) {
       : new Map();
     save('regression', regressionVerdict(diff, { draftAnswers, diffAnswers }));
   } else {
-    throw new Error('--stage must be restores, runaways or regression-{input,split,verdict}');
+    throw new Error(
+      '--stage must be restores, runaways, heldout or regression-{input,split,verdict}',
+    );
   }
 }

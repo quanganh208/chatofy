@@ -3,6 +3,9 @@ import { test } from 'node:test';
 
 import {
   editedOf,
+  heldOutContext,
+  heldOutVerdict,
+  successorLimit,
   newLimit,
   oldLimit,
   regressionInput,
@@ -201,4 +204,43 @@ test('regressionVerdict: 0–2 rows are inconclusive, still judged, and an error
 test('requestOf reads languages from the direction', () => {
   const r = requestOf({ direction: 'vi_to_zh', source: 's', translation: 'd' });
   assert.deepEqual(r, { source: 's', draft: 'd', sourceLanguage: 'vi', targetLanguage: 'zh' });
+});
+
+test("the successor widens today's bound only up to 1.3 × source + 40, and never for zh", () => {
+  const en = { source: 'x'.repeat(100), draft: 'y'.repeat(20), targetLanguage: 'en' };
+  assert.equal(successorLimit(en), 170);
+  const long = { ...en, draft: 'y'.repeat(100) };
+  assert.equal(successorLimit(long), oldLimit(long));
+  assert.equal(successorLimit({ ...en, targetLanguage: 'zh' }), oldLimit(en));
+});
+
+test('held-out context runaways skip the 10 rows the spent set used', () => {
+  const rows = Array.from({ length: 23 }, (_, i) => row(i, 3));
+  const held = heldOutContext(rows, (r) => r.translation, 'clean');
+  assert.equal(held.length, 13);
+  const spent = new Set(
+    runaways(rows, (r) => r.translation, 'clean')
+      .filter((r) => r.shape === 'context')
+      .map((r) => r.id),
+  );
+  assert.ok(held.every((r) => !spent.has(r.id)));
+});
+
+test('held-out verdict: 0 admitted on clean, at most 1 on the short-draft set', () => {
+  const r = (set, answerLength) => ({
+    id: `${set}${answerLength}`,
+    set,
+    answerLength,
+    oldLimit: 100,
+    successorLimit: 150,
+  });
+  assert.equal(
+    heldOutVerdict([r('clean', 200), r('shortDraft', 120), r('shortDraft', 90)]).pass,
+    true,
+  );
+  assert.equal(heldOutVerdict([r('clean', 120), r('shortDraft', 200)]).pass, false);
+  assert.equal(
+    heldOutVerdict([r('clean', 200), r('shortDraft', 120), r('shortDraft', 130)]).pass,
+    false,
+  );
 });

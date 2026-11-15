@@ -281,6 +281,21 @@ node guard-bound.mjs --stage regression-verdict      # results/guard-bound.md
 - **The bar was out of reach for the old rule too** (18 of 20), so prod's guard already has this hole. Computed after the result (post-hoc), on 126 real en/vi turns with at least 2 context turns, an answer made of the context translations plus the draft would pass today's guard on 19.
 - **The prompt sends context as source text only** and says never to translate it, so this runaway needs the model to disobey. None of the 29 raw answers from the A1 replay is one, which bounds the rate only below about 11.7%.
 
+**Successor rule:** `max(2 × draft + 40, 1.3 × source + 40)` for en/vi, zh unchanged (`successorLimit`). It accepts everything today's guard accepts, so no polish prod keeps can be lost, and it opens a band only where the draft is under about 0.65 of the source. The slope is set by real drafts, not by the 10 restores: on 156 real en/vi turns, (draft − 40)/source is at most 1.34.
+
+**New bars for the successor, fixed on 2026-11-15 before its runs.** The 10 restores and both sets of 20 are spent: anything computed on them for the successor is post-hoc and is reported as a description only.
+
+- **N1, non-inferiority (carries the claim):** context runaways on the held-out rows, which are the rows with at least 2 context turns after the first 10 in `id` order (25 clean, 14 short-draft positives), built exactly as before. Bar: runaways that today's guard rejects and the successor admits, **0 on the clean rows and at most 1 on the positives**. Both rules' absolute counts are reported with Wilson intervals, with no absolute bar.
+  - This is a weaker claim than the spent bar. It says "no worse than today", not "stops runaways". The reason is the hole today's guard already has (19 of 126 real turns, above).
+- **N2, restores:** on fresh raw answers only. The 162-turn replay is the source. About 1 of 156 real drafts is short, so it will most likely be inconclusive.
+- **N3, regression:** criterion 3 above, with the successor in place of the doubled bound. The diff set is answers today's guard rejects and the successor accepts.
+- **Runaway rate, no verdict:** the same replay counts raw answers over the successor limit and over `1.3 × source + 40`, and the largest answer/source ratio. Two or more real runaways would point to a guard that tightens everywhere, which is a separate plan.
+- **The app change** follows only if N1 passes and N3 passes or is inconclusive. The caps for the sitting are unchanged: Command Code at most 170 calls, the judge at most $45.81.
+
+```bash
+node guard-bound.mjs --stage heldout                 # N1, plus the post-hoc restores
+```
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
