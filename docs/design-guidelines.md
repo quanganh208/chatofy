@@ -1034,36 +1034,38 @@ One row per gate row in `apps/web/src/design/accent-budget-app.spec.tsx`, named 
 `TEAM_SCREENS`, `INVITE_SCREENS` and the glossary, Settings and translate rows mount each one. Add
 a state here only with its gate row.
 
-| State (gate row)                                       | Renders at                                                                                                        |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `sidebar › workspace switcher open`                    | `workspace/workspace-switcher.tsx:56` — the menu, mounted from `layout/app-sidebar.tsx:78`                        |
-| `more sheet › workspace menu open`                     | `workspace/workspace-switcher.tsx:56` — the same menu, from its `sheet-row` trigger at `layout/more-sheet.tsx:92` |
-| `settings dialog › team — personal, no teams`          | `settings/team/team-overview-section.tsx:47` — outline New team                                                   |
-| `settings dialog › team — personal, teams listed`      | `settings/team/team-overview-section.tsx:31` — one hairline row per team                                          |
-| `settings dialog › team — creating a team`             | `settings/team/team-create-form.tsx:45` — the name field; Create is the one accent                                |
-| `settings dialog › team — failed to load`              | `settings/team/team-tab-content.tsx:24` — `role="alert"` plus Retry                                               |
-| `settings dialog › team — as owner`                    | `settings/team/team-invites-section.tsx:31` — invite rows; members at `team-member-row.tsx:53`                    |
-| `settings dialog › team — as admin`                    | `settings/team/team-invites-section.tsx:31` — the same, without owner-only controls                               |
-| `settings dialog › team — as member`                   | `settings/team/team-member-row.tsx:53` — members only; no invites section (`team-tab-content.tsx:50`)             |
-| `settings dialog › team — confirming a member removal` | `settings/team/team-members-section.tsx:93` — an `AlertDialog`                                                    |
-| `settings dialog › team — confirming team delete`      | `settings/team/team-manage-section.tsx:143` — type the team name, `:158`                                          |
-| `settings dialog › team — confirming leave`            | `settings/team/team-manage-section.tsx:47` — `team-confirm-dialog.tsx:64`                                         |
-| `/invite — signed out`                                 | `team/invite-accept-client.tsx:100` — Sign in and Create account, both outline                                    |
-| `/invite — pending`                                    | `team/invite-accept-client.tsx:158` — team name as plain text, Join at `:175`                                     |
-| `/invite — joined`                                     | `team/invite-outcome.tsx:46` — outcome `joined`, outline link to `/glossary`                                      |
-| `/invite — already a member`                           | `team/invite-outcome.tsx:46` — `already-member`                                                                   |
-| `/invite — already used`                               | `team/invite-outcome.tsx:46` — `accepted`                                                                         |
-| `/invite — withdrawn`                                  | `team/invite-outcome.tsx:46` — `revoked`                                                                          |
-| `/invite — expired`                                    | `team/invite-outcome.tsx:46` — `expired`                                                                          |
-| `/invite — sent to another address`                    | `team/invite-outcome.tsx:46` — `wrong-account`, outline Sign out at `:55`                                         |
-| `/invite — team limit reached`                         | `team/invite-outcome.tsx:46` — `team-cap`                                                                         |
-| `/invite — team is full`                               | `team/invite-outcome.tsx:46` — `team-full`                                                                        |
-| `/invite — link not valid`                             | `team/invite-accept-client.tsx:97` — outcome `invalid`                                                            |
-| `/invite — failed to load`                             | `team/invite-accept-client.tsx:116` — `role="alert"` plus Retry                                                   |
-| `/glossary — team scope, glossaries listed`            | `glossary/glossary-page-content.tsx:119` — the team note above the list                                           |
-| `/glossary — team scope, a view-only glossary open`    | `glossary/glossary-detail-header.tsx:53` — a secondary View only badge in place of the controls                   |
-| `settings dialog › ai-context — team scope`            | `settings/ai-context-section.tsx:146` — the team note; View only badge at `:187`                                  |
-| `/translate/one-way — personal and team contexts`      | `translate/context-picker.tsx:129` — one `SelectGroup` per scope                                                  |
+| State (gate row)                                            | Renders at                                                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `sidebar › workspace switcher open`                         | `workspace/workspace-switcher.tsx:143` — the menu (tile, name and role per row), from `layout/app-sidebar.tsx:78` |
+| `topbar › workspace chip menu open`                         | `workspace/workspace-switcher.tsx:143` — the same menu, from the chip below `md` at `layout/app-topbar.tsx:111`   |
+| `settings dialog › team — personal, no teams`               | `settings/team/team-overview-section.tsx:47` — outline New team                                                   |
+| `settings dialog › team — personal, teams listed`           | `settings/team/team-overview-section.tsx:31` — one hairline row per team                                          |
+| `settings dialog › team — creating a team`                  | `settings/team/team-create-form.tsx:45` — the name field; Create is the one accent                                |
+| `settings dialog › team — personal, create requested`       | `settings/team/team-tab-content.tsx:49` — switcher › Create team: a headed create form; Create is the one accent  |
+| `settings dialog › team — team workspace, create requested` | `settings/team/team-tab-content.tsx:49` — the same form inside a team; nothing switches until it is created       |
+| `settings dialog › team — failed to load`                   | `settings/team/team-tab-content.tsx:24` — `role="alert"` plus Retry                                               |
+| `settings dialog › team — as owner`                         | `settings/team/team-invites-section.tsx:31` — invite rows; members at `team-member-row.tsx:53`                    |
+| `settings dialog › team — as admin`                         | `settings/team/team-invites-section.tsx:31` — the same, without owner-only controls                               |
+| `settings dialog › team — as member`                        | `settings/team/team-member-row.tsx:53` — members only; no invites section (`team-tab-content.tsx:50`)             |
+| `settings dialog › team — confirming a member removal`      | `settings/team/team-members-section.tsx:93` — an `AlertDialog`                                                    |
+| `settings dialog › team — confirming team delete`           | `settings/team/team-manage-section.tsx:143` — type the team name, `:158`                                          |
+| `settings dialog › team — confirming leave`                 | `settings/team/team-manage-section.tsx:47` — `team-confirm-dialog.tsx:64`                                         |
+| `/invite — signed out`                                      | `team/invite-accept-client.tsx:100` — Sign in and Create account, both outline                                    |
+| `/invite — pending`                                         | `team/invite-accept-client.tsx:158` — team name as plain text, Join at `:175`                                     |
+| `/invite — joined`                                          | `team/invite-outcome.tsx:46` — outcome `joined`, outline link to `/glossary`                                      |
+| `/invite — already a member`                                | `team/invite-outcome.tsx:46` — `already-member`                                                                   |
+| `/invite — already used`                                    | `team/invite-outcome.tsx:46` — `accepted`                                                                         |
+| `/invite — withdrawn`                                       | `team/invite-outcome.tsx:46` — `revoked`                                                                          |
+| `/invite — expired`                                         | `team/invite-outcome.tsx:46` — `expired`                                                                          |
+| `/invite — sent to another address`                         | `team/invite-outcome.tsx:46` — `wrong-account`, outline Sign out at `:55`                                         |
+| `/invite — team limit reached`                              | `team/invite-outcome.tsx:46` — `team-cap`                                                                         |
+| `/invite — team is full`                                    | `team/invite-outcome.tsx:46` — `team-full`                                                                        |
+| `/invite — link not valid`                                  | `team/invite-accept-client.tsx:97` — outcome `invalid`                                                            |
+| `/invite — failed to load`                                  | `team/invite-accept-client.tsx:116` — `role="alert"` plus Retry                                                   |
+| `/glossary — team scope, glossaries listed`                 | `glossary/glossary-page-content.tsx:137` — the team header (tile, Team glossaries, who shares it) above the list  |
+| `/glossary — team scope, a view-only glossary open`         | `glossary/glossary-detail-header.tsx:53` — a secondary View only badge in place of the controls                   |
+| `settings dialog › ai-context — team scope`                 | `settings/ai-context-section.tsx:151` — the team header under Team contexts; View only badge                      |
+| `/translate/one-way — personal and team contexts`           | `translate/context-picker.tsx:129` — one `SelectGroup` per scope                                                  |
 
 `/history`, `/history/[conversationId]` and the AI Context states on `/translate` are
 enumerated as the `SCREENS` rows of `apps/web/src/design/accent-budget-app.spec.tsx`,

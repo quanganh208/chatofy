@@ -141,8 +141,10 @@ registers and then opens the verify link in a new tab; verify continues to
 `/login?verified=1&next=%2Finvite` while an invite is pending
 (`apps/web/src/components/auth/verify-email-client.tsx`). Signed out, the page links to
 sign in and register without the token. A `wrong-account` outcome offers Sign out
-(`apps/web/src/components/team/invite-outcome.tsx`). A join replaces the URL with
-`/invite?joined=1`, and `team-cap` and `team-full` keep the stored invite but park it so
+(`apps/web/src/components/team/invite-outcome.tsx`). A join stores the joined team as the
+workspace, replaces the URL with `/invite?joined=1`, moves on to `/glossary` and says
+"You joined {name}" there once (the page sits outside the workspace provider, so it
+writes the stored choice rather than calling `select`). `team-cap` and `team-cap` and `team-full` keep the stored invite but park it so
 it stops steering later sign-ins (`parkPendingInvite`, in
 `apps/web/src/components/team/invite-accept-client.tsx`).
 
@@ -154,6 +156,16 @@ the `noindex`.
 
 The workspace decides what a screen manages: `/glossary`, Settings › AI Context and
 Settings › Team. It never filters what translate offers.
+
+- **Where it shows.** The sidebar switcher names the workspace with a tile, its name and
+  "Team · role" or "Personal"; below `md`, a chip at the right of the topbar opens the
+  same menu (`apps/web/src/components/workspace/workspace-switcher.tsx`). In a team,
+  `/glossary` and Settings › AI Context open with the team's header, and Settings › Team
+  heads its view with the team and its seat count.
+- **Creating from the switcher.** Create team asks Settings › Team for its create form
+  through a five-second one-shot (`apps/web/src/lib/one-shot.ts`). The form shows over
+  whichever workspace the reader is in; only a successful create switches, then focuses
+  the invite field. Leave and Delete return to personal with a toast.
 
 - **Storage.** One localStorage key, `chatofy.workspace`, holding `{ userId, value }`,
   where `value` is `'personal'` or a team id. An entry written for another user is
