@@ -209,6 +209,31 @@ node omission-verdict.mjs --stage survival      # results/omission-survival.md
 
 `--capture-raw` wraps `fetch` to keep each raw answer, reading a clone so the polisher sees the untouched response. That is how a guard rejection is told apart from a decline. It needs `--concurrency 1`.
 
+**Result (2026-11-15): the polish restores the dropped sentence, and its length guard throws the fix away.**
+
+- **Ruler:** the judge confirmed 27 of the 30 positives, 18 of 20 trailing drops and 9 of 10 omissions. That is exactly the bar; the other 2 trailing drops were judged minor.
+- **Polish:** 30 calls to Command Code, none failed, the slowest at 7.4 s. 19 were rewritten, 10 answers were discarded by the guard and 1 was declined.
+- **Survived:** 11 of 27 confirmed (11/30 of all), Wilson 24.5–59.3%. The stop (at most 2) did not fire, so the gate reads **continue**.
+- **Survivors by outcome:** guard-rejected 10, declined 1, rewritten 0.
+  - Every confirmed positive the polish was allowed to rewrite, 16 of 16, lost its omission.
+  - All 8 guard-bound positives survived, against 3 of the other 19. The guard rejected 2 more than predicted: there the original fits the limit, but the model's answer ran longer.
+- **Counterfactual, judged and not a pipeline result:** the 10 answers the guard discarded, judged as translations, hold the omission in 0 of 10. The guard compares the answer with the draft (`2 × draft + 40` characters), and a draft missing a sentence is short. So the restore is read as a runaway answer.
+  - A bound on the longer of draft and source (`2 × max(draft, source) + 40`) would accept all 10. The longest of the 29 raw answers is 1.68 times its source.
+  - How often that rule would let a real runaway through is not measured yet.
+- **What did not run:** the local check, the Jev and Gemini comparison and the flag action. Re-sending a flagged turn to the polish meets the same guard, so the action could not reach its 80% bar on these rows. The maintainer chose to fix the guard first, in its own measured change, not to build a detector in front of it.
+- **Spend:** 30 of the 60 Command Code calls. The judge spent $1.78 (147 calls), bringing the total under `results/` to $42.81 of the $47.03 cap.
+
+```bash
+node judge.mjs --in data/decision/trailing-drops.jsonl --out results/omission-ruler-trailing \
+  --model claude-opus-5-5 --effort high --repeats 3 --limit-calls 60 --budget-usd 47.03
+node judge.mjs --in data/omission/a1-rewritten.jsonl --out results/omission-a1-rewritten \
+  --model claude-opus-5-5 --effort high --repeats 3 --limit-calls 57 --budget-usd 47.03
+node judge.mjs --in data/omission/a1-guard-raw.jsonl --out results/omission-a1-guard-raw \
+  --model claude-opus-5-5 --effort high --repeats 3 --limit-calls 30 --budget-usd 47.03
+```
+
+`a1-rewritten.jsonl` holds the rows with `rewritten: true`. `a1-guard-raw.jsonl` holds the `guardRejected` rows, with `translation` set to the raw answer.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
