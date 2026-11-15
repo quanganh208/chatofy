@@ -234,6 +234,44 @@ node judge.mjs --in data/omission/a1-guard-raw.jsonl --out results/omission-a1-g
 
 `a1-rewritten.jsonl` holds the rows with `rewritten: true`. `a1-guard-raw.jsonl` holds the `guardRejected` rows, with `translation` set to the raw answer.
 
+## Polish length guard
+
+The omission run showed the polish restoring a dropped sentence and its length guard (`2 × draft + 40` characters) discarding the restore, because a draft missing a sentence is short. The rule under test, in `guard-bound.mjs`:
+
+- **en or vi target:** reject when the answer is longer than `2 × max(draft, source) + 40`.
+- **zh target:** today's `2 × draft + 40`, unchanged. A Chinese translation is much shorter than its source, so a source bound would let long answers through.
+
+The answer is measured as the guard measures it: transcript and draft tags removed, trimmed.
+
+**New bars, fixed on 2026-11-15 before any run.** S0, the spend under `results/` before the sitting, is $42.81, so every judge run caps at `--budget-usd 45.81`.
+
+- **Criterion 1, restores (offline):** of the 10 guard-rejected answers in `data/omission/a1-polished.jsonl`, the new rule accepts at least 9.
+- **Criterion 2, runaways (offline, synthetic):** two sets of 20, one built on `data/calibration-clean.jsonl` and one on the 30 short-draft positives. The new rule rejects at least 19 of each; the old rule is reported beside it. Rows are taken in `id` order:
+  - **context:** the first 10 rows with at least 2 context turns. The answer is the translations of the last 3 context turns (the polish prompt's window) followed by the faithful answer (the clean translation, or the positive's full translation).
+  - **commentary:** the next 10 rows. The answer is the faithful answer followed by a note that quotes the whole source. That is over `2 × source + 40` by construction, so it shows only that the new rule still catches the obvious shape. The context shape carries the claim.
+  - Reported per shape, with the smallest answer/limit ratio and the ids of any runaway accepted.
+  - On the clean set draft and source are about as long, so the two rules nearly coincide; the short-draft set is the real test.
+- **Criterion 3, regression (Command Code):** the prod polisher replayed with `--capture-raw` over the 162 judged turns (arm 2, concurrency 1). The diff set is the rows the new rule accepts and today's rejects, after the polisher's other checks (foreign script, target script, equal to the draft), with the draft read from the input file. The Opus judge sees only the diff set, 3 repeats.
+  - A row introduces an error when its majority holds a serious `origin:category` that the draft's majority (`results/full-claude-opus-5-5`) does not.
+  - **Pass:** at least 3 rows and none introduces an error. **Inconclusive:** 0 to 2 rows, still judged; the short-draft runaway set carries the claim. **Stop:** any introduced error, or more than 30 rows.
+- **Criterion 4, the app change:** made only when criteria 1 and 2 pass and criterion 3 passes or is inconclusive. Its spec keeps the runaway case and adds a short draft with a long source (accepted), an answer over the source bound (rejected), and a zh target (draft bound).
+- **Stops:** a missed bar changes nothing in the app; the maintainer decides.
+- **Caps for the sitting:** Command Code at most 170 calls, tallied in `data/guard/calls.log` across resumes; the judge at most S0 + $3.
+
+```bash
+node guard-bound.mjs --stage restores
+node guard-bound.mjs --stage runaways
+node guard-bound.mjs --stage regression-input        # 162 rows: en_to_vi 80, vi_to_en 76, vi_to_zh 6
+set -o pipefail
+node review-arms.mjs --arm 2 --host commandcode --in data/guard/regression-input.jsonl \
+  --out data/guard/regression-polished.jsonl --max-calls 162 --concurrency 1 --capture-raw \
+  2>&1 | tee -a data/guard/calls.log
+node guard-bound.mjs --stage regression-split        # refuses an incomplete replay
+node judge.mjs --in data/guard/regression-diff.jsonl --out results/guard-regression-diff \
+  --model claude-opus-5-5 --effort high --repeats 3 --limit-calls <3 × diff rows> --budget-usd 45.81
+node guard-bound.mjs --stage regression-verdict      # results/guard-bound.md
+```
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
