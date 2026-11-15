@@ -480,8 +480,9 @@ you an AI?" in an AI-topic conversation; that is the grammatically correct
 reading of that shape and not a case the note is meant to flip.
 
 **Two models hold it** (`apps/api/prisma/schema.prisma`).
-`TranslationContext` is addressed by `@@unique([ownerId, clientId])` — the only
-Prisma shape where omitting the owner does not compile, which is the lesson
+`TranslationContext` is addressed by its `clientId` within a scope: every store query
+builds its `where` through `scopeWhere(scope)`, so a read can never omit the owner or
+the team (`apps/api/src/common/library-scope/library-scope.ts`), which is the lesson
 `MeetingMinutes` records the cost of. `GlossaryTerm` is a CHILD TABLE rather than
 parallel `String[]` columns, and the distinction from `keyPoints` is the
 reason: a key point is ONE string, while an entry is several correlated strings

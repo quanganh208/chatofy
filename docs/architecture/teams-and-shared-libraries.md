@@ -138,11 +138,13 @@ On web, `/invite` is outside the proxy matcher (`apps/web/proxy.ts`), like
 render the page moves the token into `localStorage` `chatofy.pendingInvite` and strips
 it from the URL. localStorage rather than sessionStorage, because a new invitee
 registers and then opens the verify link in a new tab; verify continues to
-`/login?verified=1&next=/invite` while an invite is pending
+`/login?verified=1&next=%2Finvite` while an invite is pending
 (`apps/web/src/components/auth/verify-email-client.tsx`). Signed out, the page links to
-sign in and register without the token. A `wrong-account` outcome offers Sign out; a
-join replaces the URL with `/invite?joined=1`; `team-cap` and `team-full` keep the
-stored invite but stop it steering later sign-ins (`apps/web/src/components/team/invite-outcome.tsx`).
+sign in and register without the token. A `wrong-account` outcome offers Sign out
+(`apps/web/src/components/team/invite-outcome.tsx`). A join replaces the URL with
+`/invite?joined=1`, and `team-cap` and `team-full` keep the stored invite but park it so
+it stops steering later sign-ins (`parkPendingInvite`, in
+`apps/web/src/components/team/invite-accept-client.tsx`).
 
 The page is `noindex` (`apps/web/app/(auth)/invite/page.tsx`) and is not disallowed in
 `robots.txt`, like the other two token pages: a crawler must be able to fetch it to read
@@ -189,8 +191,10 @@ routes kept their paths and response shapes, which is why neither client changed
 
 These are accepted, not open defects:
 
-- A removed member's running session keeps the inline hints it started with. Hints are
-  resolved on the client at session start; removal applies on the next request.
+- A removed member keeps a team context in an already-open translate tab. Hints are
+  built on the client from the picker list, which is read once per mount, so a running
+  session and any new session from that tab carry them until the page reloads. Every
+  team route refuses the member on the next request.
 - A team context is an instruction channel into every member's prompt. It is fenced as
   data and held to the same caps as a personal context
   ([data flow](./data-flow.md#ai-context-and-the-path-a-hint-takes-to-the-prompt)).
