@@ -3,7 +3,9 @@ import { act, useEffect } from 'react';
 import type * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { en } from '@chatofy/i18n';
 import { followHistoryForTests, useTestSearchParams } from './settings-dialog-test-location';
+import { team } from './team/team.fixture';
 
 /**
  * The Settings dialog's shell: which view the address opens, how the list and the pane
@@ -48,6 +50,8 @@ function UnsavedDraft() {
   return null;
 }
 const { LocaleProvider } = await import('@/i18n/provider');
+const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
+type Workspace = NonNullable<Parameters<typeof WorkspaceTestHost>[0]['value']['workspace']>;
 
 let root: Root | undefined;
 let unfollow: () => void;
@@ -60,15 +64,17 @@ function wideScreen(wide: boolean) {
   });
 }
 
-async function openAt(search: string, extra?: React.ReactNode) {
+async function openAt(search: string, extra?: React.ReactNode, workspace?: Workspace) {
   window.history.replaceState(null, '', `/history${search}`);
   await act(async () => {
     // In the document, so what is rendered in place (the toast host) can be found.
     root = createRoot(document.body.appendChild(document.createElement('div')));
     root.render(
       <LocaleProvider>
-        <SettingsDialog />
-        {extra}
+        <WorkspaceTestHost value={workspace ? { workspace } : {}}>
+          <SettingsDialog />
+          {extra}
+        </WorkspaceTestHost>
       </LocaleProvider>,
     );
     await Promise.resolve();
@@ -127,7 +133,7 @@ describe('the settings dialog', () => {
     expect(focus.mock.calls[call]?.[0]).toMatchObject({ focusVisible: false });
   });
 
-  it('lists six tabs in two captioned groups', async () => {
+  it('lists six tabs in three captioned groups', async () => {
     await openAt('?settings=general');
     const nav = document.querySelector('[role="dialog"] nav');
     expect(nav?.getAttribute('aria-label')).toBe('Settings sections');
@@ -135,9 +141,19 @@ describe('the settings dialog', () => {
       [...(nav?.querySelectorAll('[data-settings-tab]') ?? [])].map((b) =>
         b.getAttribute('data-settings-tab'),
       ),
-    ).toEqual(['general', 'translation', 'ai-context', 'account', 'team', 'billing']);
+    ).toEqual(['general', 'translation', 'team', 'ai-context', 'account', 'billing']);
     expect(nav?.textContent).toContain('Personal');
+    expect(nav?.textContent).toContain('Workspace');
     expect(nav?.textContent).toContain('Account');
+  });
+
+  it('describes Team by the workspace: joining one in personal, managing it inside a team', async () => {
+    await openAt('?settings=team');
+    const description = () => pane()?.querySelector('header p')?.textContent;
+    expect(description()).toBe(en['web.team.tabDescriptionPersonal']);
+    act(() => root?.unmount());
+    await openAt('?settings=team', undefined, { kind: 'team', team: team('owner') });
+    expect(description()).toBe(en['web.team.tabDescriptionTeam']);
   });
 
   it('switches tab in place when one is chosen', async () => {

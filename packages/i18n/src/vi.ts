@@ -739,6 +739,7 @@ export const vi: Messages = {
   'web.settings.nav': 'Các mục cài đặt',
   'web.settings.groupPersonal': 'Cá nhân',
   'web.settings.groupAccount': 'Tài khoản',
+  'web.settings.groupWorkspace': 'Không gian làm việc',
   'web.settings.general': 'Chung',
   'web.settings.translation': 'Dịch',
   'web.settings.translationDescription':
@@ -1085,6 +1086,26 @@ export const vi: Messages = {
   'web.team.loadFailed': 'Không tải được nhóm này. Hãy thử lại.',
   'web.team.retry': 'Thử lại',
   'web.team.actionFailed': 'Đã có lỗi xảy ra. Hãy thử lại.',
+  'web.team.tabDescriptionPersonal':
+    'Tạo nhóm hoặc mở một nhóm bạn đang tham gia. Nhóm chia sẻ bảng thuật ngữ và AI Context với mọi thành viên.',
+  'web.team.tabDescriptionTeam': 'Quản lý nhóm này: thành viên, lời mời và tên nhóm.',
+  'web.team.headerSubline': '{role} · {count}/{max} thành viên',
+  'web.team.memberCount': '{count} thành viên',
+  'web.team.memberCountOne': '1 thành viên',
+  'web.team.inviteHeading': 'Mời thành viên',
+  'web.team.invitePendingUntil': 'Đang chờ · hết hạn {date}',
+  'web.team.nameHeading': 'Tên nhóm',
+  'web.team.dangerZone': 'Vùng nguy hiểm',
+  'web.team.deleteRowLabel': 'Xóa nhóm này',
+  'web.team.deleteRowNote':
+    'Bảng thuật ngữ và AI Context của nhóm sẽ bị xóa với tất cả thành viên. Không thể hoàn tác.',
+  'web.team.leaveRowLabel': 'Rời nhóm này',
+  'web.team.leaveRowNote':
+    'Bạn sẽ mất quyền dùng bảng thuật ngữ và AI Context của nhóm cho đến khi được mời lại.',
+  'web.team.createdToast': 'Đã chuyển sang {name}',
+  'web.team.createdHint': 'Mời mọi người để cùng dùng bảng thuật ngữ và AI Context.',
+  'web.team.leftToast': 'Bạn đã rời {name}',
+  'web.team.deletedToast': 'Đã xóa {name}',
 
   // ---- mobile.conference: sảnh và màn hình gọi của ứng dụng React Native ----
   'mobile.conference.ongoingTitle': 'Đang trong cuộc họp',

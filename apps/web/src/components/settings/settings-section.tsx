@@ -23,11 +23,14 @@ import { cn } from '@/lib/utils';
 export function SettingsSection({
   title,
   note,
+  danger,
   children,
 }: {
   title?: string;
   /** One sentence under the heading, when the group needs explaining. */
   note?: string;
+  /** A group of acts that cannot be undone: its heading is set in the destructive colour. */
+  danger?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -39,7 +42,12 @@ export function SettingsSection({
       {title || note ? (
         <div className="flex flex-col gap-1 px-1">
           {title ? (
-            <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
+            <h3
+              className={cn(
+                'text-label font-semibold tracking-wide uppercase',
+                danger ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
               {title}
             </h3>
           ) : null}

@@ -12,9 +12,9 @@
 export const SETTINGS_TAB_IDS = [
   'general',
   'translation',
+  'team',
   'ai-context',
   'account',
-  'team',
   'billing',
 ] as const;
 
