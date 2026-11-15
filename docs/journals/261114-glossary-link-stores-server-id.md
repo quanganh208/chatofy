@@ -192,3 +192,25 @@ Left for Phase 8:
 
 - Resolving and personal are the same scope to a draft.
 - A hidden draft is overwritten by opening another.
+
+## 2026-11-15 — Phase 8: docs and prod replay
+
+**Docs PR.** #377 describes teams as built. It adds the new `docs/architecture/teams-and-shared-libraries.md` and points the index, summary, auth, data flow, extension, deployment, roadmap, state inventory, checklist and the CLAUDE.md tree at it.
+
+**Prod replay.** Run with no Deploy in progress, after a fresh `pg_dump`, with two throwaway `@example.com` accounts. Tokens were minted inside the API container and held only in memory. Every status matched:
+
+- `/auth/me` answered 200 for both accounts;
+- team create 201, team context 200, invite 201;
+- preview 200 `pending`, accept 200, a second accept 409;
+- `/translation-contexts/available` contains the team context, and the personal `/translation-contexts` does not;
+- removing the member answered 204; right after, the member's team read answered 404 and the team left their `/teams`;
+- team delete answered 204.
+
+**Cleanup.** Every count by user id came back 0: `User`, `TeamMember`, `TeamInvite`, `Glossary`, `TranslationContext`, `UserPreferences`, the credit tables and `ConferenceParticipant`.
+
+**AC11, proved statically.** Ten teamspace merges are on `origin/main`. None touched the credits, translate or realtime-event code. The schema has three `Team*` models, and no `Credit*` model has a `teamId`.
+
+**What bit:**
+
+- **The plan assumed the monorepo layout in the container.** The prod API image is rooted at `apps/api`, so `/app/apps/api` does not exist. Plain SQL through `psql` and an HS256 signature from `node:crypto` replaced the Prisma script.
+- **A doc sentence.** It said accepting again is idempotent, but the replay's second accept answered 409. Both are right: an open invite to a team the caller already belongs to is idempotent, and a link already used is `accepted` (409). The doc now says both.

@@ -117,7 +117,7 @@ and `apps/web/src/components/team/invite-accept-client.tsx` on web.
   `POST /team-invites/accept` joins. Both derive the status through one function, so they
   never disagree, and the statuses are one enum (`packages/types/src/http/team-invites.ts`).
   A refused accept answers 409 `INVITE_NOT_PENDING` with the status in `details`, so no
-  client matches on message text. An unknown token, or one whose team was deleted, is 404. Accepting again as an existing member is idempotent.
+  client matches on message text. An unknown token, or one whose team was deleted, is 404. An open invite to a team the caller already belongs to answers 200 and stays unspent; a link already used answers 409 with `accepted`.
 - **No team name in the mail.** The mail copy is static
   (`apps/api/src/modules/mail/interfaces/mail-sender.interface.ts`): a team name is text
   the inviter chose, and a team named like a security notice would be phishing from the
