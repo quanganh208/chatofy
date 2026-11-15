@@ -90,6 +90,12 @@ describe('WorkspaceSwitcher', () => {
     expect(reloadTeams).toHaveBeenCalled();
   });
 
+  it('checks no workspace while it resolves', async () => {
+    render('sidebar', { workspace: { kind: 'resolving' }, teamsStatus: 'failed' });
+    await open();
+    expect(document.querySelector('[role="menuitemradio"][aria-checked="true"]')).toBeNull();
+  });
+
   it('hands Manage teams to the host when one is given', async () => {
     const onManageTeams = vi.fn();
     act(() => {

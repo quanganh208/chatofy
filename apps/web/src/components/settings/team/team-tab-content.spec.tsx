@@ -188,6 +188,30 @@ describe('Settings › Team', () => {
     expect(text()).not.toContain(en['web.team.actionFailed']);
   });
 
+  it('reloads the teams when an invite answers 403, so a demoted admin loses the form', async () => {
+    createTeamInvite.mockRejectedValue(
+      new ApiClientError({ code: 'FORBIDDEN', message: 'Forbidden.' }, 403),
+    );
+    await inTeam('admin');
+    type(document.querySelector<HTMLInputElement>('input[type="email"]')!, 'new@example.com');
+    act(() => {
+      document.querySelector<HTMLInputElement>('input[type="email"]')!.form!.requestSubmit();
+    });
+    await settle();
+    expect(reloadTeams).toHaveBeenCalled();
+  });
+
+  it('says the invites failed to load and offers a retry', async () => {
+    listTeamInvites.mockRejectedValueOnce(new Error('offline'));
+    await inTeam('owner');
+    expect(document.querySelector('[data-invites-failed] [role="alert"]')?.textContent).toBe(
+      en['web.team.loadFailed'],
+    );
+    act(() => document.querySelector<HTMLButtonElement>('[data-invites-failed] button')!.click());
+    await settle();
+    expect(document.querySelector('[data-invites-failed]')).toBeNull();
+  });
+
   it('reloads the teams when the team answers 404', async () => {
     listTeamMembers.mockRejectedValue(
       new ApiClientError({ code: 'NOT_FOUND', message: 'Not found.' }, 404),

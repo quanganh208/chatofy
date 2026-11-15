@@ -26,10 +26,10 @@ function WithSettings() {
  * from the row and once from the picker underneath it.
  */
 
-const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listAvailableTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listVoices = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
-  listTranslationContexts: () => listTranslationContexts(),
+  listAvailableTranslationContexts: () => listAvailableTranslationContexts(),
   listVoices: () => listVoices(),
 }));
 
@@ -70,7 +70,7 @@ beforeEach(() => {
   root = createRoot(container);
   localStorage.clear();
   listVoices.mockResolvedValue({ voices: [] });
-  listTranslationContexts.mockResolvedValue({ contexts: [] });
+  listAvailableTranslationContexts.mockResolvedValue({ personal: [], teams: [] });
 });
 
 afterEach(() => {
@@ -88,19 +88,19 @@ describe('ConversationDefaultsSection — the AI Context row', () => {
   });
 
   it('is absent while the list is still loading', async () => {
-    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    listAvailableTranslationContexts.mockReturnValue(new Promise(() => {}));
     await mount();
     expect(container.textContent).not.toContain(en['web.translate.context']);
   });
 
   it('is absent when the list failed to load', async () => {
-    listTranslationContexts.mockRejectedValue(new Error('offline'));
+    listAvailableTranslationContexts.mockRejectedValue(new Error('offline'));
     await mount();
     expect(container.textContent).not.toContain(en['web.translate.context']);
   });
 
   it('draws the name visibly exactly once once a context exists', async () => {
-    listTranslationContexts.mockResolvedValue({ contexts: [CONTEXT] });
+    listAvailableTranslationContexts.mockResolvedValue({ personal: [CONTEXT], teams: [] });
     await mount();
 
     // Both the row's own label and the picker's `sr-only` one carry this exact

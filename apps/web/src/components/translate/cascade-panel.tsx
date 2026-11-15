@@ -35,7 +35,8 @@ import { useCaptionWindow } from '@/hooks/use-caption-window';
 import { cn } from '@/lib/utils';
 import { useImmersiveChrome } from '@/components/layout/chrome-slots';
 import { useErrorToast } from '@/components/translate/use-error-toast';
-import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-translation-contexts';
+import { useAvailableTranslationContexts } from '@/hooks/use-available-translation-contexts';
+import { resolveContext, toHints } from '@/hooks/use-translation-contexts';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -138,7 +139,13 @@ export function CascadePanel({
   // resolved into hints by the CLIENT rather than server-side, because
   // `client.session.start` fires once per TURN and a server that looked the id up
   // would read the row on every one of them.
-  const { contexts, status: contextStatus } = useTranslationContexts();
+  // Every context the reader may run under, personal and each team's, grouped
+  // for the picker; `contexts` is all of them, flattened, for the resolution.
+  const {
+    groups: contextGroups,
+    all: contexts,
+    status: contextStatus,
+  } = useAvailableTranslationContexts();
 
   // A stored selection resolves against `contexts`, which is `[]` for as long as
   // the list has not settled — `loading`, and `failed` too. Pressing Start in
@@ -689,7 +696,7 @@ export function CascadePanel({
               stage icons; the wide dock has room for the context's whole name. */}
           <div className="max-w-32 min-w-0 empty:hidden @[46rem]/main:max-w-none">
             <ContextPicker
-              contexts={contexts}
+              groups={contextGroups}
               status={contextStatus}
               value={settings.contextId}
               running={running}

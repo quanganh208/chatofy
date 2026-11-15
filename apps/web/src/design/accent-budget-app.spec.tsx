@@ -83,6 +83,7 @@ const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The AI Context library, defaulting to an empty one in `beforeEach`.
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listAvailableTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The conference lobby's "Create a room". Never pressed by a counting row except
 // the one that wants the failure line, which rejects it for itself.
 const createConference = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
@@ -118,6 +119,7 @@ vi.mock('@/clients/api-client', () => ({
   // for an empty list, exactly as `VoicePicker` does, so only the two rows that
   // seed contexts below see a picker at all.
   listTranslationContexts: () => listTranslationContexts(),
+  listAvailableTranslationContexts: () => listAvailableTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
   // Empty unless a `/glossary` row seeds some; the translate screens read it too.
@@ -726,6 +728,18 @@ const INVITE_TEAM: TeamSummary = {
   role: 'member',
   memberCount: 3,
   createdAt: '2026-11-14T00:00:00.000Z',
+};
+
+/** A context the team holds, which the member reading it may not edit. */
+const TEAM_CONTEXT = {
+  id: '33333333-3333-4333-8333-333333333333',
+  name: 'Cardiology rounds',
+  topic: 'Cardiology rounds',
+  hotwords: ['troponin'],
+  glossary: [],
+  style: null,
+  updatedAt: '2026-11-14T00:00:00.000Z',
+  canEdit: false,
 };
 
 function invitee(status: InvitePreviewStatus | null, query = `token=${INVITE_TOKEN}`) {
@@ -2248,7 +2262,31 @@ const SCREENS: ScreenState[] = [
     surfaces: 0,
     setup() {
       seedTranslateSettings({ contextId: CONTEXTS[0]!.id });
-      listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
+      listAvailableTranslationContexts.mockResolvedValue({ personal: CONTEXTS, teams: [] });
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    shows: '[data-slot="select-trigger"]',
+    render: translate(),
+  },
+  {
+    // A member of a team, with one of the TEAM's contexts selected. The picker
+    // groups by scope, but it is still one closed `Select`, so the counts are the
+    // personal row's above: the groups live in the portal this row never opens.
+    name: '/translate/one-way — personal and team contexts',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      seedTranslateSettings({ contextId: TEAM_CONTEXT.id });
+      listAvailableTranslationContexts.mockResolvedValue({
+        personal: CONTEXTS,
+        teams: [{ teamId: INVITE_TEAM.id, name: INVITE_TEAM.name, contexts: [TEAM_CONTEXT] }],
+      });
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
         saved: false,
@@ -2584,6 +2622,7 @@ beforeEach(() => {
   uploadConversationAudio.mockResolvedValue(undefined);
   // No contexts, which is what every screen but the two named for them sees.
   listTranslationContexts.mockResolvedValue({ contexts: [] });
+  listAvailableTranslationContexts.mockResolvedValue({ personal: [], teams: [] });
   createConference.mockRejectedValue(new Error('not created in this test'));
   getCreditBalance.mockResolvedValue(balanceFixture());
   listCreditUsage.mockResolvedValue(USAGE_PAGE);

@@ -11,12 +11,22 @@ import { TeamInviteForm } from './team-invite-form';
 /** Owner and admins: invite by email and withdraw open invites. */
 export function TeamInvitesSection({ team }: { team: TeamSummary }) {
   const t = useTranslate();
-  const { invites, create, revoke } = useTeamInvites(team.id, true);
+  const { invites, status, retry, create, revoke } = useTeamInvites(team.id, true);
   const [revokeFailed, setRevokeFailed] = useState(false);
 
   return (
     <SettingsSection title={t('web.team.invites')}>
       <TeamInviteForm canInviteAdmin={team.role === 'owner'} create={create} />
+      {invites.length === 0 && status === 'failed' && (
+        <div data-invites-failed className="flex items-center gap-3 py-3">
+          <p role="alert" className="text-destructive text-prose flex-1">
+            {t('web.team.loadFailed')}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void retry()}>
+            {t('web.team.retry')}
+          </Button>
+        </div>
+      )}
       {invites.map((invite) => (
         <div key={invite.id} data-invite-row className="flex items-center gap-3 py-3">
           <span className="text-body min-w-0 flex-1 truncate">{invite.email}</span>

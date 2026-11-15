@@ -52,7 +52,7 @@ const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
 // The AI Context library. The panel resolves the stored selection into hints
 // itself, because `client.session.start` fires once per TURN and a server that
 // looked the id up would read the row on every one of them.
-const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listAvailableTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The banner's balance read. Never answering keeps it silent — a balance it has
 // not read is not a problem to report — without a promise settling outside `act`.
 // The shared balance's refresh, so a case can see the panel ask for it.
@@ -65,7 +65,7 @@ vi.mock('@/clients/api-client', () => ({
   getCreditBalance: () => new Promise(() => {}),
   checkHealth: () => checkHealth(),
   uploadConversationAudio: (...args: unknown[]) => uploadConversationAudio(...(args as [])),
-  listTranslationContexts: () => listTranslationContexts(),
+  listAvailableTranslationContexts: () => listAvailableTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
 }));
@@ -200,7 +200,7 @@ beforeEach(() => {
   uploadConversationAudio.mockResolvedValue(undefined);
   // No contexts unless a case seeds them: the picker then renders nothing at all,
   // which is what leaves every case here about the save or the banner unchanged.
-  listTranslationContexts.mockResolvedValue({ contexts: [] });
+  listAvailableTranslationContexts.mockResolvedValue({ personal: [], teams: [] });
   // Shared across cases, so the hints assertions below would otherwise read the
   // first case's call.
   (conversation.start as ReturnType<typeof vi.fn>).mockClear();
@@ -674,14 +674,18 @@ describe('the context a conversation starts under', () => {
   };
 
   /** Mount `/translate` idle with these settings, then press Start. */
-  async function startWith(contextId: string | null, contexts: unknown[]): Promise<void> {
+  async function startWith(
+    contextId: string | null,
+    contexts: unknown[],
+    teams: unknown[] = [],
+  ): Promise<void> {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
       addEventListener() {},
       removeEventListener() {},
     });
-    listTranslationContexts.mockResolvedValue({ contexts });
+    listAvailableTranslationContexts.mockResolvedValue({ personal: contexts, teams });
     useStreamingTranslate.mockReturnValue(conversation);
     useConversationSave.mockReturnValue({
       saved: false,
@@ -732,6 +736,25 @@ describe('the context a conversation starts under', () => {
     });
   });
 
+  it("sends a team's context as hints, read from the available list", async () => {
+    const teamContext = {
+      ...CONTEXT,
+      id: '22222222-2222-4222-8222-222222222222',
+      topic: 'Cardiology rounds',
+      hotwords: ['troponin'],
+      glossary: [],
+      style: null,
+      canEdit: false,
+    };
+    await startWith(
+      teamContext.id,
+      [],
+      [{ teamId: 'team-1', name: 'Ward team', contexts: [teamContext] }],
+    );
+
+    expect(startedWith()?.hints).toEqual({ topic: 'Cardiology rounds', hotwords: ['troponin'] });
+  });
+
   it('sends no hints key at all when nothing is selected', async () => {
     await startWith(null, [CONTEXT]);
 
@@ -772,7 +795,7 @@ describe('a stored context that has not settled', () => {
       removeEventListener() {},
     });
     // Never resolved for the length of this test: the list is caught mid-flight.
-    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    listAvailableTranslationContexts.mockReturnValue(new Promise(() => {}));
     useStreamingTranslate.mockReturnValue(conversation);
     useConversationSave.mockReturnValue({
       saved: false,
@@ -813,7 +836,7 @@ describe('a stored context that has not settled', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    listAvailableTranslationContexts.mockReturnValue(new Promise(() => {}));
     useStreamingTranslate.mockReturnValue(conversation);
     useConversationSave.mockReturnValue({
       saved: false,
@@ -847,7 +870,7 @@ describe('a stored context that has not settled', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    listTranslationContexts.mockRejectedValue(new Error('offline'));
+    listAvailableTranslationContexts.mockRejectedValue(new Error('offline'));
     useStreamingTranslate.mockReturnValue(conversation);
     useConversationSave.mockReturnValue({
       saved: false,

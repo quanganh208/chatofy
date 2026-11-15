@@ -13,7 +13,7 @@ const fetchInvites = (teamId: string) => listTeamInvites(teamId).then((r) => r.i
  * withdraw the invite and create another.
  */
 export function useTeamInvites(teamId: string, enabled: boolean) {
-  const { rows, status, mutate } = useTeamList<TeamInvite>(teamId, enabled, fetchInvites);
+  const { rows, status, retry, mutate } = useTeamList<TeamInvite>(teamId, enabled, fetchInvites);
 
   const create = useCallback(
     (body: CreateTeamInviteRequest) => mutate(() => createTeamInvite(teamId, body)),
@@ -24,5 +24,5 @@ export function useTeamInvites(teamId: string, enabled: boolean) {
     [teamId, mutate],
   );
 
-  return { invites: rows, status, create, revoke };
+  return { invites: rows, status, retry, create, revoke };
 }
