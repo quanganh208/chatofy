@@ -231,7 +231,6 @@ const { LocaleProvider } = await import('@/i18n/provider');
 const { InviteAcceptClient } = await import('@/components/team/invite-accept-client');
 const { WorkspaceSwitcher } = await import('@/components/workspace/workspace-switcher');
 const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
-const { MoreSheet } = await import('@/components/layout/more-sheet');
 const { SidebarProvider } = await import('@chatofy/ui/react');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
@@ -840,19 +839,20 @@ const TEAM_SCREENS: ScreenState[] = [
     shows: '[role="menu"]',
   },
   {
-    name: 'more sheet › workspace menu open',
+    // Below `md` the switcher is a chip in the topbar, no longer a More sheet row.
+    name: 'topbar › workspace chip menu open',
     filled: 0,
-    surfaces: 2,
+    surfaces: 1,
     setup: () => {
       session.value = { data: { user: { id: 'u1', name: 'Quang Anh' } }, status: 'authenticated' };
     },
     render: () => (
       <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>
         {historyRoute()}
-        <MoreSheet active={false} />
+        <WorkspaceSwitcher variant="chip" />
       </WorkspaceTestHost>
     ),
-    steps: ['button[aria-haspopup="dialog"]', '[data-workspace-switcher]'],
+    steps: ['[data-workspace-chip]'],
     shows: '[role="menu"]',
   },
   {

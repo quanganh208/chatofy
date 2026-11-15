@@ -14,6 +14,7 @@ import {
 import { useTranslate } from '@/i18n/provider';
 import { useChromeSlots } from './chrome-slots';
 import { navPlaceFor } from './nav-items';
+import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 
 /**
  * Where you are, and what this screen lets you do: a breadcrumb on the left, the
@@ -32,6 +33,9 @@ import { navPlaceFor } from './nav-items';
  * Appearance.
  *
  * The sidebar trigger is gone below `md`: the bottom tab bar is the navigation there.
+ * In its place, at the right end, the workspace chip: the sidebar's switcher is the
+ * only other place that says whose library a screen is using, and it does not exist
+ * below `md`. The chip hides itself from `md` up.
  */
 export function AppTopbar() {
   const t = useTranslate();
@@ -104,6 +108,7 @@ export function AppTopbar() {
         data-slot="topbar-actions"
         className="flex shrink-0 items-center gap-2"
       />
+      <WorkspaceSwitcher variant="chip" />
     </div>
   );
 }
