@@ -162,4 +162,35 @@ describe('useTranslationContexts — scope', () => {
 
     expect(latest.contexts.map((c) => c.canEdit)).toEqual([true, false]);
   });
+
+  it('reloads the teams and the list, and rethrows, when a team write answers 403', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [] });
+    saveTranslationContext.mockRejectedValue(
+      new ApiClientError({ code: 'FORBIDDEN', message: 'Forbidden.' }, 403),
+    );
+    await render(IN_TEAM);
+    const listsBefore = listTranslationContexts.mock.calls.length;
+
+    let failure: unknown;
+    await act(async () => {
+      await latest.save('new', BODY, TEAM.id).catch((err: unknown) => {
+        failure = err;
+      });
+    });
+
+    expect(failure).toBeInstanceOf(ApiClientError);
+    expect(reloadTeams).toHaveBeenCalled();
+    expect(listTranslationContexts.mock.calls.length).toBeGreaterThan(listsBefore);
+  });
+
+  it('retries by reloading the teams while the workspace resolves', async () => {
+    await render({ workspace: { kind: 'resolving' }, teamsStatus: 'failed' });
+
+    await act(async () => {
+      await latest.retry();
+    });
+
+    expect(reloadTeams).toHaveBeenCalled();
+    expect(listTranslationContexts).not.toHaveBeenCalled();
+  });
 });

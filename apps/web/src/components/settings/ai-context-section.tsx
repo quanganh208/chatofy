@@ -54,9 +54,13 @@ export function AiContextSection() {
   const { workspace } = useWorkspace();
   const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
   const { glossaries } = useGlossaries();
-  const [draft, setDraftState] = useState<Draft | null>(null);
+  const [openDraft, setDraftState] = useState<Draft | null>(null);
   // The scope the open draft was started in: Save writes there, never to the live one.
   const [draftScope, setDraftScope] = useState<string | undefined>(undefined);
+  // A draft is shown only in the library it was opened in. When the workspace moves
+  // (say a team fell back to personal), the editor closes rather than standing over
+  // a list it does not belong to; switching back shows what was typed again.
+  const draft = draftScope === teamId ? openDraft : null;
   // What the open draft started as, so "unsaved" means changed rather than merely open.
   const [seed, setSeed] = useState<Draft | null>(null);
   const setDraft = useCallback((next: Draft | null, scope?: string) => {
@@ -126,7 +130,7 @@ export function AiContextSection() {
         {/* In a team, the scope is named here: the picker's "Personal" group caption
             must not be the only cue to whose library this is. */}
         {teamName !== null ? (
-          <p className="text-hint text-muted-foreground pt-3.5">
+          <p data-library-note className="text-hint text-muted-foreground pt-3.5">
             {t('web.workspace.libraryNote', { name: teamName })}
           </p>
         ) : null}

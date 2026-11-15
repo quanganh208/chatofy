@@ -1805,7 +1805,8 @@ const SCREENS: ScreenState[] = [
       listGlossaries.mockResolvedValue({ glossaries: TEAM_GLOSSARIES });
       listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
     },
-    shows: GLOSSARY_ROW,
+    // The team note: only the team's library draws it, so the row proves its scope.
+    shows: '[data-library-note]',
     render: () => inTeam('member', glossaryRoute()),
   },
   {
@@ -1819,7 +1820,9 @@ const SCREENS: ScreenState[] = [
       listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
     },
     steps: [GLOSSARY_ROW],
-    shows: '[data-slot="glossary-term"]',
+    // The View only badge in the open glossary's header: the row it opened is the
+    // one the reader may not edit.
+    shows: '[data-slot="glossary-detail-header"] [data-slot="badge"]',
     render: () => inTeam('member', glossaryRoute()),
   },
   {
