@@ -467,6 +467,19 @@ describe('AiContextSection — whose library it is', () => {
     );
   });
 
+  it('keeps the original note in a personal library, extension included', async () => {
+    await mountIn();
+    expect(container.textContent).toContain(en['web.preferences.aiContextHint']);
+    expect(container.textContent).not.toContain(en['web.preferences.aiContextHintTeam']);
+  });
+
+  it('does not promise team contexts in the browser extension', async () => {
+    await mountIn(TEAM);
+    expect(container.textContent).toContain(en['web.preferences.aiContextHintTeam']);
+    expect(container.textContent).not.toContain(en['web.preferences.aiContextHint']);
+    expect(container.textContent).not.toContain('here or in the browser extension');
+  });
+
   it('tells an admin they can edit all of it', async () => {
     await mountIn({ ...TEAM, role: 'admin' });
     expect(header()?.textContent).toContain(en['web.workspace.editAll']);

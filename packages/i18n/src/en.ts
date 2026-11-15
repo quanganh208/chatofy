@@ -775,6 +775,9 @@ export const en = {
     'What the translator should know before a conversation starts.',
   'web.preferences.aiContextHint':
     'Tell the translator what a conversation is about before it hears any of it — the subject, names it should expect, and how particular terms should come out. Pick one when you start a conversation, here or in the browser extension.',
+  // The extension lists only personal contexts, so a team library must not promise it.
+  'web.preferences.aiContextHintTeam':
+    'Tell the translator what a conversation is about before it hears any of it — the subject, names it should expect, and how particular terms should come out. Pick one when you start a conversation on the web. The browser extension lists only your personal contexts.',
   'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',

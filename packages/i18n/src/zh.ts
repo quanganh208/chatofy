@@ -608,6 +608,8 @@ export const zh: Messages = {
   'web.preferences.aiContextDescription': '对话开始前，翻译需要知道的信息。',
   'web.preferences.aiContextHint':
     '在翻译听到任何内容之前，先告诉它这场对话是关于什么的：主题、可能出现的名字，以及某些术语该怎么译。开始对话时选一个即可，在这里或浏览器扩展中都可以。',
+  'web.preferences.aiContextHintTeam':
+    '在翻译听到任何内容之前，先告诉它这场对话是关于什么的：主题、可能出现的名字，以及某些术语该怎么译。在网页上开始对话时选一个即可。浏览器扩展只列出你的个人语境。',
   'web.preferences.aiContext.empty': '还没有语境。新建一个开始吧。',
   'web.preferences.aiContext.new': '新建语境',
   'web.preferences.aiContext.edit': '编辑',

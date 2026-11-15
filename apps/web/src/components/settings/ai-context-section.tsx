@@ -143,7 +143,11 @@ export function AiContextSection() {
             ? t('web.workspace.teamContexts')
             : t('web.preferences.aiContext.libraryTitle')
         }
-        note={t('web.preferences.aiContextHint')}
+        note={
+          team !== null
+            ? t('web.preferences.aiContextHintTeam')
+            : t('web.preferences.aiContextHint')
+        }
       >
         {/* In a team, the scope is named here: the picker's "Personal" group caption
             must not be the only cue to whose library this is. The section title
