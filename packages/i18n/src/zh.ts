@@ -1025,7 +1025,7 @@ export const zh: Messages = {
   'web.team.remove': '移除',
   'web.team.removeConfirmTitle': '要将 {name} 移出团队吗？',
   'web.team.removeConfirmBody':
-    '对方将立即失去对该团队术语表和 AI Context 的访问权限。他们创建的内容会保留在团队中。',
+    '对方将立即失去对该团队术语表和 AI Context 的访问权限。对方创建的内容会保留在团队中。',
   'web.team.invites': '待处理的邀请',
   'web.team.inviteEmail': '邮箱地址',
   'web.team.inviteSubmit': '邀请',

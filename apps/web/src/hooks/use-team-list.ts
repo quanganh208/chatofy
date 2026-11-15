@@ -12,14 +12,24 @@ export function isTeamGone(err: unknown): boolean {
 }
 
 /**
+ * True when the team list no longer describes the caller: a 404 (the team is gone)
+ * or a 403 (their role changed, e.g. an admin demoted while the tab was open). Either
+ * way the teams reload, and the view redraws for the role the caller now holds.
+ */
+function teamListIsStale(err: unknown): boolean {
+  return isTeamGone(err) || (err instanceof ApiClientError && err.status === 403);
+}
+
+/**
  * One list that belongs to one team (its members, its invites), loaded for the team
  * on screen and nothing else.
  *
  * Every fetch takes a number from a generation counter that also moves when the team
  * changes, and a response whose number is not the current one is dropped: switching
  * teams mid-request must never paint the previous team's rows under the new name.
- * A 404 means the team list itself is stale, so it reloads the teams, and the
- * workspace falls back to personal if the team is gone.
+ * A 404 or 403 means the team list itself is stale, so it reloads the teams: the
+ * workspace falls back to personal if the team is gone, and a demoted admin's view
+ * loses the controls their new role does not have.
  */
 export function useTeamList<T>(
   teamId: string,
@@ -44,7 +54,7 @@ export function useTeamList<T>(
       },
       (err: unknown) => {
         if (mine !== generation.current) return;
-        if (isTeamGone(err)) void reloadTeams();
+        if (teamListIsStale(err)) void reloadTeams();
         setState((prev) => ({
           teamId,
           rows: prev.teamId === teamId ? prev.rows : [],
@@ -63,13 +73,13 @@ export function useTeamList<T>(
     };
   }, [enabled, fetchAndSettle]);
 
-  /** Run a write, then reload; a 404 sends the workspace back through `reloadTeams`. */
+  /** Run a write, then reload; a 404 or 403 sends the workspace back through `reloadTeams`. */
   const mutate = useCallback(
     async (write: () => Promise<unknown>) => {
       try {
         await write();
       } catch (err) {
-        if (isTeamGone(err)) void reloadTeams();
+        if (teamListIsStale(err)) void reloadTeams();
         throw err;
       }
       await load();

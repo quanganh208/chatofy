@@ -47,7 +47,10 @@ export function WorkspaceSwitcher({
       : workspace.kind === 'personal'
         ? t('web.workspace.personal')
         : t('web.workspace.label');
-  const active = workspace.kind === 'team' ? workspace.team.id : 'personal';
+  // No item is checked while the workspace resolves: ticking Personal there would
+  // claim a choice that may turn out to be a team a moment later.
+  const active =
+    workspace.kind === 'team' ? workspace.team.id : workspace.kind === 'personal' ? 'personal' : '';
 
   const menu = (
     <DropdownMenuContent align="start" className="w-60">

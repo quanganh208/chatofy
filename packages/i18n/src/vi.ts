@@ -1052,8 +1052,8 @@ export const vi: Messages = {
   'web.team.you': 'Bạn',
   'web.team.unnamed': 'Thành viên chưa đặt tên',
   'web.team.roleLabel': 'Vai trò',
-  'web.team.remove': 'Xóa khỏi nhóm',
-  'web.team.removeConfirmTitle': 'Xóa {name} khỏi nhóm?',
+  'web.team.remove': 'Gỡ khỏi nhóm',
+  'web.team.removeConfirmTitle': 'Gỡ {name} khỏi nhóm?',
   'web.team.removeConfirmBody':
     'Họ mất quyền truy cập bảng thuật ngữ và AI Context của nhóm ngay lập tức. Những gì họ đã tạo vẫn ở lại trong nhóm.',
   'web.team.invites': 'Lời mời đang chờ',
@@ -1063,7 +1063,7 @@ export const vi: Messages = {
   'web.team.inviteExpired': 'Đã hết hạn',
   'web.team.inviteRevoke': 'Rút lại',
   'web.team.inviteNote':
-    'Liên kết mời chỉ dùng được một lần và hết hạn sau 7 ngày. Muốn gửi lại, hãy rút lời mời rồi mời lại.',
+    'Liên kết mời chỉ dùng được một lần và hết hạn sau 7 ngày. Muốn mời lại, hãy rút lời mời này rồi tạo lời mời mới.',
   'web.team.inviteRefused':
     'Địa chỉ này đã ở trong nhóm, đã được mời, vừa được mời gần đây, hoặc nhóm đã đủ người.',
   'web.team.inviteForbidden': 'Chỉ chủ nhóm mới có thể mời quản trị viên.',
