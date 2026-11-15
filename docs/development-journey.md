@@ -2875,3 +2875,13 @@ Before building an omission check (the decision-model benchmark's D2), its 30 po
 - **Why:** the guard measures the answer against the draft, and a draft that dropped a sentence is short. A restore therefore looks like a runaway answer (the context translated too, or commentary), which the guard exists to stop.
 - **Decision:** the detector and its re-polish action were not built, because a re-sent polish meets the same guard. The next change is the guard itself. A bound on the longer of draft and source accepts all 10 captured restores, but how often it would admit a real runaway is still unmeasured. That needs its own bars and a raw-answer replay of the 162 judged turns before `packages/ai-providers` changes.
 - **Spend:** 30 Command Code calls and $1.78 of judge spend.
+
+## The polish length guard widens to 1.3 × the source for en and vi (15/11/2026)
+
+The guard (`2 × draft + 40`) threw away restored sentences because a draft that lost one is short. Two rules were measured against bars committed before each run; details are in `benchmarks/translation-judge/README.md`, "Polish length guard".
+
+- **The first rule, `2 × max(draft, source) + 40`, failed.** It kept all 10 restores but rejected only 15 of 20 synthetic runaways on short drafts, against a bar of 19. A runaway that also translates the earlier turns fits under twice a long source whenever those turns are shorter than the current one. Today's guard has the same hole, though it rejected 18 of the 20.
+- **The shipped rule, `max(2 × draft + 40, 1.3 × source + 40)`, cannot reject anything today's guard accepts.** On held-out runaways it admitted none that today's guard rejects (0 of 25 clean, 0 of 14 short-draft). Post-hoc, it accepts all 10 restores.
+- **A replay of the 162 judged turns found no runaway at all:** 0 of 162 raw answers ran over either bound, which puts the rate below about 2.3%. It also found no fresh restore, so its regression check is inconclusive (no answer rejected today, nothing to judge). That is allowed by the bars, and the claim rests on the held-out set.
+- **Chinese targets keep the draft bound,** because a zh translation is much shorter than its source.
+- **Spend:** 162 of 170 Command Code calls, $0 of judge spend.
