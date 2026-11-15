@@ -26,6 +26,10 @@ export const OMISSION_CATEGORIES = new Set(['omission', 'segmentation']);
 export const SURVIVAL_STOP_AT_MOST = 2;
 /** The polisher's own time limit (`POLISH_TIMEOUT_MS`). */
 export const POLISH_TIMEOUT_MS = 8000;
+/** Judge repeats per row. */
+export const REPEATS = 3;
+/** How an aborted 8 s polish reads in the replay's `failed` message. */
+const TIMEOUT = /timeout|timed out|abort/i;
 
 const hasSeriousOmission = (answer) =>
   (answer.errors ?? []).some(
@@ -54,13 +58,31 @@ export function outcomeOf(arm) {
  * its judge answers; `arms` maps it to its replayed row; `blocks` is a set of
  * `conv#pos` that are block rows.
  */
-export function survivalRows(positives, { draftAnswers, polishedAnswers, arms, blocks }) {
+export function survivalRows(
+  positives,
+  { draftAnswers, polishedAnswers, arms, blocks, repeats = REPEATS },
+) {
+  const answersFor = (answers, id, what) => {
+    const list = answers.get(id) ?? [];
+    // A missing answer would read as "no omission" and bias the count towards
+    // the stop, so an incomplete judgement refuses to score.
+    if (list.length < repeats) throw new Error(`${id}: ${list.length}/${repeats} ${what} answers`);
+    return list;
+  };
   return positives.map((row) => {
     const arm = arms.get(row.id);
     if (!arm) throw new Error(`${row.id}: not replayed`);
     const outcome = outcomeOf(arm);
-    const confirmed = heldOmission(draftAnswers.get(row.id));
-    const survived = outcome === 'rewritten' ? heldOmission(polishedAnswers.get(row.id)) : true;
+    // A timeout leaves the draft standing in prod too; any other failure is
+    // the replay's, and counting it as a survivor would inflate the result.
+    if (outcome === 'failed' && !TIMEOUT.test(arm.failed)) {
+      throw new Error(`${row.id}: failed with "${arm.failed}"; retry it with --resume`);
+    }
+    const confirmed = heldOmission(answersFor(draftAnswers, row.id, 'draft'));
+    const survived =
+      outcome === 'rewritten'
+        ? heldOmission(answersFor(polishedAnswers, row.id, 'polished'))
+        : true;
     return {
       id: row.id,
       kind: row.kind,

@@ -94,3 +94,35 @@ test('survival refuses a positive that was never replayed', () => {
     /not replayed/,
   );
 });
+
+test('survival refuses an incomplete judgement and a failure that is not a timeout', () => {
+  const positives = [
+    { id: 'a', kind: 'trailing', conv: 'c', pos: 1, translation: 'x', original: 'xy' },
+  ];
+  const base = { polishedAnswers: new Map(), blocks: new Set() };
+  assert.throws(
+    () =>
+      survivalRows(positives, {
+        ...base,
+        draftAnswers: new Map([['a', [omit, omit]]]),
+        arms: new Map([['a', { rewritten: false }]]),
+      }),
+    /2\/3 draft answers/,
+  );
+  const draftAnswers = new Map([['a', [omit, omit, omit]]]);
+  assert.throws(
+    () =>
+      survivalRows(positives, {
+        ...base,
+        draftAnswers,
+        arms: new Map([['a', { failed: '429 Too Many Requests' }]]),
+      }),
+    /retry it/,
+  );
+  const [row] = survivalRows(positives, {
+    ...base,
+    draftAnswers,
+    arms: new Map([['a', { failed: 'The operation was aborted due to timeout' }]]),
+  });
+  assert.equal(row.survived, true, 'a timed-out polish leaves the draft standing, as in prod');
+});
