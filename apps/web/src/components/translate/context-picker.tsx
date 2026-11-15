@@ -1,15 +1,30 @@
 'use client';
 
 import { useId } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@chatofy/ui/react';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@chatofy/ui/react';
 import type { TranslationContext } from '@chatofy/types';
+import type { ContextGroup } from '@/hooks/use-available-translation-contexts';
 import type { TranslationContextsState } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
 
 /**
  * Which saved AI Context a conversation runs under.
  *
- * **Renders nothing when the list is empty**, mirroring `VoicePicker`'s
+ * **Groups by scope**: personal first, then each team the reader belongs to,
+ * under the team's name. A reader in no team gets one group with no label, so
+ * the list renders flat, exactly as it did before teams existed. The active
+ * workspace never filters this list — it decides which library the editors
+ * manage, not which contexts a session may run under.
+ *
+ * **Renders nothing when every group is empty**, mirroring `VoicePicker`'s
  * render-nothing case and for the same reason: an account that has authored no
  * contexts has no choice to make, and a picker with one item in it is a control
  * that cannot do anything. `ready` is load-bearing — an empty list is only an
@@ -45,7 +60,7 @@ import { useTranslate } from '@/i18n/provider';
 const NO_CONTEXT = '__no_context__';
 
 interface ContextPickerProps {
-  contexts: TranslationContext[];
+  groups: ContextGroup[];
   status: TranslationContextsState;
   /** The stored selection, or null for none. */
   value: string | null;
@@ -63,7 +78,7 @@ interface ContextPickerProps {
 }
 
 export function ContextPicker({
-  contexts,
+  groups,
   status,
   value,
   running,
@@ -74,7 +89,15 @@ export function ContextPicker({
   const t = useTranslate();
   const labelId = useId();
 
+  const contexts = groups.flatMap((group) => group.contexts);
   if (status !== 'ready' || contexts.length === 0) return null;
+
+  const items = (list: TranslationContext[]) =>
+    list.map((context) => (
+      <SelectItem key={context.id} value={context.id}>
+        {context.name}
+      </SelectItem>
+    ));
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -99,11 +122,16 @@ export function ContextPicker({
         </SelectTrigger>
         <SelectContent className="max-h-[min(18rem,var(--radix-select-content-available-height))]">
           <SelectItem value={NO_CONTEXT}>{t('web.translate.contextNone')}</SelectItem>
-          {contexts.map((context) => (
-            <SelectItem key={context.id} value={context.id}>
-              {context.name}
-            </SelectItem>
-          ))}
+          {groups.map((group) =>
+            group.label === null ? (
+              items(group.contexts)
+            ) : (
+              <SelectGroup key={group.key}>
+                <SelectLabel>{group.label}</SelectLabel>
+                {items(group.contexts)}
+              </SelectGroup>
+            ),
+          )}
         </SelectContent>
       </Select>
       {/* Words explain a refusal, never a function: the hint exists only while the

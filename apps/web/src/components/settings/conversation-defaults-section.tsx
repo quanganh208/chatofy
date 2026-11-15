@@ -18,7 +18,7 @@ import {
   representablePair,
   type TranslateSettings,
 } from '@/lib/translate-settings';
-import { useTranslationContexts } from '@/hooks/use-translation-contexts';
+import { useAvailableTranslationContexts } from '@/hooks/use-available-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
 import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
 import { useSettingSaver } from './use-setting-saver';
@@ -69,7 +69,7 @@ export function ConversationDefaultsSection({
   running?: boolean;
 }) {
   const t = useTranslate();
-  const { contexts, status } = useTranslationContexts();
+  const { groups: contextGroups, all: contexts, status } = useAvailableTranslationContexts();
   const nameLanguage = languageNamer(t);
   const save = useSettingSaver<TranslateSettings>(set, current);
 
@@ -144,7 +144,7 @@ export function ConversationDefaultsSection({
         <SettingsSection title={t('web.settings.groupDefaultContext')}>
           <SettingsSectionRow label={t('web.translate.context')} block>
             <ContextPicker
-              contexts={contexts}
+              groups={contextGroups}
               status={status}
               value={settings.contextId}
               running={running}

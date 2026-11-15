@@ -20,6 +20,7 @@ import {
   minutesResponseSchema,
   planListResponseSchema,
   preferencesReadResponseSchema,
+  readableAvailableTranslationContextsSchema,
   readableTranslationContextListSchema,
   storedConferenceMinutesResponseSchema,
   translationContextSchema,
@@ -402,6 +403,15 @@ export function listTranslationContexts() {
   // Read entry by entry: a glossary key this build does not know costs that
   // key, not every saved context (see `readTranslationContextList`).
   return authedFetch('/translation-contexts', readableTranslationContextListSchema);
+}
+
+/**
+ * Every AI Context the caller may run a session under: their own, then each
+ * team's, oldest membership first. The translate picker reads this; the library
+ * editors read `listTranslationContexts` (or its team form) instead.
+ */
+export function listAvailableTranslationContexts() {
+  return authedFetch('/translation-contexts/available', readableAvailableTranslationContextsSchema);
 }
 
 /**

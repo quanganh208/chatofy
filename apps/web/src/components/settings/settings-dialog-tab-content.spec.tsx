@@ -16,10 +16,10 @@ import { en } from '@chatofy/i18n';
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const listVoices = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
-const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const listAvailableTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listVoices: () => listVoices(),
-  listTranslationContexts: () => listTranslationContexts(),
+  listAvailableTranslationContexts: () => listAvailableTranslationContexts(),
 }));
 
 const { SettingsTabContent } = await import('./settings-dialog-tab-content');
@@ -50,7 +50,7 @@ async function render(running: boolean) {
 beforeEach(() => {
   localStorage.clear();
   listVoices.mockResolvedValue({ voices: [] });
-  listTranslationContexts.mockResolvedValue({ contexts: [] });
+  listAvailableTranslationContexts.mockResolvedValue({ personal: [], teams: [] });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -116,8 +116,9 @@ describe('Settings › Translation while a conversation runs', () => {
 
   it('freezes the pairs and voices, keeps volume, display and microphone live, and says why once', async () => {
     // An account with a context, so the context picker is on screen and frozen too.
-    listTranslationContexts.mockResolvedValue({
-      contexts: [
+    listAvailableTranslationContexts.mockResolvedValue({
+      teams: [],
+      personal: [
         {
           id: 'ctx-1',
           name: 'Thesis defense',
