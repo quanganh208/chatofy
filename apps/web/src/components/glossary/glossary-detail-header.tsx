@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, Label, Switch } from '@chatofy/ui/react';
+import { Badge, Button, Label, Switch } from '@chatofy/ui/react';
 import { GLOSSARY_LIMITS, LANGUAGES } from '@chatofy/types';
 import type { Glossary } from '@chatofy/types';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
@@ -25,6 +25,9 @@ interface Props {
  * Add term is outline: the glossary screen spends no accent until a dialog opens,
  * and the dialog's submit is then the one. Delete is the shared AlertDialog
  * confirm, ghost so it reads quieter than the action you came for.
+ *
+ * A team glossary the reader may not edit (`canEdit: false`) shows none of the
+ * controls, only a View only badge: its terms stay readable.
  */
 export function GlossaryDetailHeader({
   glossary,
@@ -37,6 +40,7 @@ export function GlossaryDetailHeader({
   const switchId = useId();
   const lang = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
   const atLimit = termCount >= GLOSSARY_LIMITS.MAX_ITEMS_PER_GLOSSARY;
+  const viewOnly = glossary.canEdit === false;
 
   return (
     <div data-slot="glossary-detail-header" className="flex flex-col gap-4">
@@ -46,34 +50,40 @@ export function GlossaryDetailHeader({
           <p className="text-body text-muted-foreground max-w-[60ch]">{glossary.description}</p>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex items-center gap-2">
-          <Switch id={switchId} checked={glossary.isActive} onCheckedChange={onToggleActive} />
-          <Label htmlFor={switchId} className="text-body font-normal">
-            {t('web.glossary.activeLabel')}
-          </Label>
+      {viewOnly ? (
+        <Badge variant="secondary" className="self-start">
+          {t('web.glossary.viewOnly')}
+        </Badge>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex items-center gap-2">
+            <Switch id={switchId} checked={glossary.isActive} onCheckedChange={onToggleActive} />
+            <Label htmlFor={switchId} className="text-body font-normal">
+              {t('web.glossary.activeLabel')}
+            </Label>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <ConfirmDeleteButton
+              triggerVariant="ghost"
+              name={glossary.name}
+              description={t('web.glossary.deleteConsequence')}
+              labels={{
+                action: t('web.glossary.delete'),
+                pending: t('web.glossary.deleting'),
+                cancel: t('web.glossary.cancel'),
+                failed: t('web.glossary.deleteFailed'),
+              }}
+              onConfirm={onDelete}
+            />
+            {atLimit ? null : (
+              <Button variant="outline" size="sm" onClick={onAddTerm}>
+                <Plus aria-hidden />
+                {t('web.glossary.addTerm')}
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <ConfirmDeleteButton
-            triggerVariant="ghost"
-            name={glossary.name}
-            description={t('web.glossary.deleteConsequence')}
-            labels={{
-              action: t('web.glossary.delete'),
-              pending: t('web.glossary.deleting'),
-              cancel: t('web.glossary.cancel'),
-              failed: t('web.glossary.deleteFailed'),
-            }}
-            onConfirm={onDelete}
-          />
-          {atLimit ? null : (
-            <Button variant="outline" size="sm" onClick={onAddTerm}>
-              <Plus aria-hidden />
-              {t('web.glossary.addTerm')}
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

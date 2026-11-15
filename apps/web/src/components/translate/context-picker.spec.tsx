@@ -172,6 +172,18 @@ describe('ContextPicker — grouped by scope', () => {
     expect(trigger()?.textContent).toBe('Cardiology rounds');
   });
 
+  it('draws no group or label for a reader in no team', () => {
+    render(<ContextPicker groups={FLAT} status="ready" value={null} onChange={vi.fn()} />);
+    act(() => {
+      trigger()?.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }),
+      );
+    });
+    expect(document.querySelector('[role="option"]')).not.toBeNull();
+    expect(document.querySelector('[data-slot="select-label"]')).toBeNull();
+    expect(document.querySelector('[data-slot="select-group"]')).toBeNull();
+  });
+
   it('labels each group when open', () => {
     render(<ContextPicker groups={GROUPED} status="ready" value={null} onChange={vi.fn()} />);
     act(() => {

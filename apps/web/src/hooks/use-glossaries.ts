@@ -5,92 +5,71 @@ import {
   createElement,
   useCallback,
   useContext,
-  useEffect,
-  useState,
   type ReactElement,
   type ReactNode,
 } from 'react';
 import { deleteGlossary, listGlossaries, patchGlossary, saveGlossary } from '@/clients/api-client';
 import type { Glossary, PatchGlossaryRequest, SaveGlossaryRequest } from '@chatofy/types';
+import { useScopedLibrary } from './use-scoped-library';
 
 export type GlossariesState = 'loading' | 'ready' | 'failed';
 
 export interface GlossariesValue {
   glossaries: Glossary[];
   status: GlossariesState;
-  save: (glossaryId: string, body: SaveGlossaryRequest) => Promise<void>;
-  patch: (glossaryId: string, body: PatchGlossaryRequest) => Promise<void>;
-  remove: (glossaryId: string) => Promise<void>;
+  /** The scope the rows belong to: `undefined` is personal, else the team's id. */
+  teamId: string | undefined;
+  /**
+   * Writes take the scope they are aimed at, captured when their editor or toast was
+   * made (pass `teamId` from that render), never the live workspace: a switch while a
+   * dialog or an undo is pending must not land the write in the other library.
+   */
+  save: (
+    glossaryId: string,
+    body: SaveGlossaryRequest,
+    teamId: string | undefined,
+  ) => Promise<void>;
+  patch: (
+    glossaryId: string,
+    body: PatchGlossaryRequest,
+    teamId: string | undefined,
+  ) => Promise<void>;
+  remove: (glossaryId: string, teamId: string | undefined) => Promise<void>;
   /** Load again after a failure, showing the loading state while it runs. */
   retry: () => Promise<void>;
+  /** Refetch in the background, e.g. after a refused term write changed `canEdit`. */
+  reload: () => Promise<void>;
 }
 
 const SharedGlossaries = createContext<GlossariesValue | null>(null);
 
+/** Team rows carry `canEdit`; a personal row is always the caller's own. */
+const fetchGlossaries = (teamId: string | undefined) =>
+  listGlossaries(teamId).then((result) =>
+    result.glossaries.map((glossary) => ({ ...glossary, canEdit: glossary.canEdit ?? true })),
+  );
+
+/** The active workspace's glossaries (`use-scoped-library.ts` holds the scope rules). */
 function useOwnGlossaries(enabled: boolean): GlossariesValue {
-  const [glossaries, setGlossaries] = useState<Glossary[]>([]);
-  const [status, setStatus] = useState<GlossariesState>('loading');
-
-  const reload = useCallback(async () => {
-    try {
-      const result = await listGlossaries();
-      setGlossaries(result.glossaries);
-      setStatus('ready');
-    } catch {
-      setGlossaries([]);
-      setStatus('failed');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    listGlossaries()
-      .then((result) => {
-        if (cancelled) return;
-        setGlossaries(result.glossaries);
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setGlossaries([]);
-        setStatus('failed');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled]);
+  const { teamId, rows, status, write, retry, reload } = useScopedLibrary(enabled, fetchGlossaries);
 
   const save = useCallback(
-    async (glossaryId: string, body: SaveGlossaryRequest) => {
-      await saveGlossary(glossaryId, body);
-      await reload();
-    },
-    [reload],
+    (glossaryId: string, body: SaveGlossaryRequest, scope: string | undefined) =>
+      write(scope, () => saveGlossary(glossaryId, body, scope)),
+    [write],
   );
-
   const patch = useCallback(
-    async (glossaryId: string, body: PatchGlossaryRequest) => {
-      await patchGlossary(glossaryId, body);
-      await reload();
-    },
-    [reload],
+    (glossaryId: string, body: PatchGlossaryRequest, scope: string | undefined) =>
+      write(scope, () => patchGlossary(glossaryId, body, scope)),
+    [write],
   );
-
   const remove = useCallback(
-    async (glossaryId: string) => {
-      await deleteGlossary(glossaryId);
-      await reload();
-    },
-    [reload],
+    (glossaryId: string, scope: string | undefined) =>
+      write(scope, () => deleteGlossary(glossaryId, scope)),
+    [write],
   );
 
-  const retry = useCallback(async () => {
-    setStatus('loading');
-    await reload();
-  }, [reload]);
-
-  return { glossaries, status, save, patch, remove, retry };
+  return { glossaries: rows, status, teamId, save, patch, remove, retry, reload };
 }
 
 export function GlossariesProvider({ children }: { children: ReactNode }): ReactElement {

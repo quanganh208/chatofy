@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import {
   deleteTranslationContext,
   listTranslationContexts,
@@ -11,6 +11,7 @@ import type {
   TranslationContext,
   TranslationHints,
 } from '@chatofy/types';
+import { useScopedLibrary } from './use-scoped-library';
 
 /**
  * What the library request produced.
@@ -69,77 +70,47 @@ export function toHints(context: TranslationContext | null): TranslationHints | 
 export interface TranslationContextsValue {
   contexts: TranslationContext[];
   status: TranslationContextsState;
-  save: (contextId: string, body: SaveTranslationContextRequest) => Promise<void>;
-  remove: (contextId: string) => Promise<void>;
+  /** The scope the rows belong to: `undefined` is personal, else the team's id. */
+  teamId: string | undefined;
+  /** Writes take the scope captured when their editor opened, never the live one. */
+  save: (
+    contextId: string,
+    body: SaveTranslationContextRequest,
+    teamId: string | undefined,
+  ) => Promise<void>;
+  remove: (contextId: string, teamId: string | undefined) => Promise<void>;
+  retry: () => Promise<void>;
 }
 
+/** Team rows carry `canEdit`; a personal row is always the caller's own. */
+const fetchContexts = (teamId: string | undefined) =>
+  listTranslationContexts(teamId).then((result) =>
+    result.contexts.map((context) => ({ ...context, canEdit: context.canEdit ?? true })),
+  );
+
 /**
- * The caller's AI Context library, with the writes that change it.
+ * The AI Context library the reader MANAGES: the active workspace's, with the
+ * writes that change it. The translate picker does not read this: it reads every
+ * context the reader may use (`use-available-translation-contexts.ts`).
  *
- * Fetches once per mount. Unlike the voice catalog, this list is a property of the
- * USER and changes while they are looking at it, so an unscoped module cache would
- * show a reader the library they had before their own edit. Each screen has one
- * reader: the editor on Settings › AI Context, the picker on Settings › Translation
- * and the translate panel are on separate pages, so nothing on one screen can
- * disagree with another copy of the list.
+ * Fetches per scope, not from a module cache: the list is a property of the user
+ * or the team and changes while they look at it. A save or a delete refetches
+ * rather than splicing the response in, because the server decides `updatedAt`,
+ * the list's sort key. The scope rules are `use-scoped-library.ts`'s.
  */
 export function useTranslationContexts(): TranslationContextsValue {
-  const [contexts, setContexts] = useState<TranslationContext[]>([]);
-  const [status, setStatus] = useState<TranslationContextsState>('loading');
+  const { teamId, rows, status, write, retry } = useScopedLibrary(true, fetchContexts);
 
-  const reload = useCallback(async () => {
-    try {
-      const result = await listTranslationContexts();
-      setContexts(result.contexts);
-      setStatus('ready');
-    } catch {
-      // Deliberately not rethrown and deliberately not silent: the caller shows
-      // `failed` rather than pretending the account has no contexts.
-      setContexts([]);
-      setStatus('failed');
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    listTranslationContexts()
-      .then((result) => {
-        if (cancelled) return;
-        setContexts(result.contexts);
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setContexts([]);
-        setStatus('failed');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /**
-   * Save one context and refetch.
-   *
-   * The refetch rather than a local splice: the server decides `updatedAt`,
-   * which is the list's sort key, so writing the response into place would put
-   * the row in an order the next load disagrees with.
-   */
   const save = useCallback(
-    async (contextId: string, body: SaveTranslationContextRequest) => {
-      await saveTranslationContext(contextId, body);
-      await reload();
-    },
-    [reload],
+    (contextId: string, body: SaveTranslationContextRequest, scope: string | undefined) =>
+      write(scope, () => saveTranslationContext(contextId, body, scope)),
+    [write],
   );
-
   const remove = useCallback(
-    async (contextId: string) => {
-      await deleteTranslationContext(contextId);
-      await reload();
-    },
-    [reload],
+    (contextId: string, scope: string | undefined) =>
+      write(scope, () => deleteTranslationContext(contextId, scope)),
+    [write],
   );
 
-  return { contexts, status, save, remove };
+  return { contexts: rows, status, teamId, save, remove, retry };
 }

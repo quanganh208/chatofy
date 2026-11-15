@@ -167,6 +167,17 @@ describe('AiContextSection', () => {
     expect(container.textContent).toContain('Hotel check-in');
   });
 
+  it('shows a row the reader may not edit as View only, with no Edit or Delete', async () => {
+    listTranslationContexts.mockResolvedValue({
+      contexts: [context({ canEdit: false }), context({ id: 'ctx-2', name: 'Standup' })],
+    });
+    await mount();
+    const [locked, open] = Array.from(container.querySelectorAll('li'));
+    expect(locked?.textContent).toContain(en['web.preferences.aiContext.viewOnly']);
+    expect(locked?.querySelector('button')).toBeNull();
+    expect(open?.textContent).toContain(en['web.preferences.aiContext.edit']);
+  });
+
   it('opens the editor INLINE, portalling nothing', async () => {
     // A `Dialog` would portal into `document.body`, which the surface counter
     // queries — the screen already has its two surfaces and a third fails the
@@ -285,7 +296,7 @@ describe('AiContextSection', () => {
     );
     await click(confirm);
 
-    expect(deleteTranslationContext).toHaveBeenCalledWith('ctx-2');
+    expect(deleteTranslationContext).toHaveBeenCalledWith('ctx-2', undefined);
   });
 
   it('puts keyboard focus inside the step it just opened, and back when dismissed', async () => {

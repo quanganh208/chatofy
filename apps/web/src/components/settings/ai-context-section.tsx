@@ -2,12 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, Skeleton } from '@chatofy/ui/react';
+import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS, type TranslationContext } from '@chatofy/types';
 import { AiContextEditor } from './ai-context-editor';
 import { draftOf, emptyDraft, keywordsOf, type Draft } from './ai-context-draft';
 import { useGlossaries } from '@/hooks/use-glossaries';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
+import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { notify } from '@/lib/notify';
 import { SettingsSection } from './settings-section';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
@@ -49,14 +50,19 @@ function summaryOf(context: TranslationContext): string {
 
 export function AiContextSection() {
   const t = useTranslate();
-  const { contexts, status, save, remove } = useTranslationContexts();
+  const { contexts, status, teamId, save, remove } = useTranslationContexts();
+  const { workspace } = useWorkspace();
+  const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
   const { glossaries } = useGlossaries();
   const [draft, setDraftState] = useState<Draft | null>(null);
+  // The scope the open draft was started in: Save writes there, never to the live one.
+  const [draftScope, setDraftScope] = useState<string | undefined>(undefined);
   // What the open draft started as, so "unsaved" means changed rather than merely open.
   const [seed, setSeed] = useState<Draft | null>(null);
-  const setDraft = useCallback((next: Draft | null) => {
+  const setDraft = useCallback((next: Draft | null, scope?: string) => {
     setDraftState(next);
     setSeed(next);
+    setDraftScope(scope);
   }, []);
   // While the draft differs from what it opened as, Esc and a click beside the
   // Settings dialog do not close it (`use-unsaved-settings-draft.ts`).
@@ -79,14 +85,18 @@ export function AiContextSection() {
     setSaving(true);
     setSaveFailed(false);
     try {
-      await save(draft.id, {
-        name: draft.name.trim(),
-        topic: draft.topic.trim() || null,
-        hotwords: keywordsOf(draft.hotwords),
-        glossary: [],
-        style: draft.style,
-        glossaryId: draft.glossaryId,
-      });
+      await save(
+        draft.id,
+        {
+          name: draft.name.trim(),
+          topic: draft.topic.trim() || null,
+          hotwords: keywordsOf(draft.hotwords),
+          glossary: [],
+          style: draft.style,
+          glossaryId: draft.glossaryId,
+        },
+        draftScope,
+      );
       setDraft(null);
       notify.success(t('web.settings.contextSaved', { name: draft.name.trim() }), {
         id: `context-${draft.id}`,
@@ -113,6 +123,13 @@ export function AiContextSection() {
         title={t('web.preferences.aiContext.libraryTitle')}
         note={t('web.preferences.aiContextHint')}
       >
+        {/* In a team, the scope is named here: the picker's "Personal" group caption
+            must not be the only cue to whose library this is. */}
+        {teamName !== null ? (
+          <p className="text-hint text-muted-foreground pt-3.5">
+            {t('web.workspace.libraryNote', { name: teamName })}
+          </p>
+        ) : null}
         {status === 'loading' ? (
           <div className="py-3.5">
             <Skeleton aria-hidden className="h-16" />
@@ -149,36 +166,45 @@ export function AiContextSection() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="-ml-3 flex shrink-0 items-center gap-1 sm:ml-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`${t('web.preferences.aiContext.edit')} ${context.name}`}
-                        onClick={() => {
-                          setSaveFailed(false);
-                          setDraft(draftOf(context));
-                        }}
-                      >
-                        {t('web.preferences.aiContext.edit')}
-                      </Button>
-                      <ConfirmDeleteButton
-                        name={context.name}
-                        triggerVariant="ghost"
-                        withIcon={false}
-                        labels={{
-                          action: t('web.preferences.aiContext.delete'),
-                          pending: t('web.preferences.aiContext.deleting'),
-                          cancel: t('web.preferences.aiContext.cancel'),
-                          failed: t('web.preferences.aiContext.deleteFailed'),
-                        }}
-                        onConfirm={async () => {
-                          await remove(context.id);
-                          notify.success(t('web.settings.contextDeleted', { name: context.name }), {
-                            id: `context-${context.id}`,
-                          });
-                        }}
-                      />
-                    </div>
+                    {context.canEdit === false ? (
+                      <Badge variant="secondary" className="self-start sm:self-center">
+                        {t('web.preferences.aiContext.viewOnly')}
+                      </Badge>
+                    ) : (
+                      <div className="-ml-3 flex shrink-0 items-center gap-1 sm:ml-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`${t('web.preferences.aiContext.edit')} ${context.name}`}
+                          onClick={() => {
+                            setSaveFailed(false);
+                            setDraft(draftOf(context), teamId);
+                          }}
+                        >
+                          {t('web.preferences.aiContext.edit')}
+                        </Button>
+                        <ConfirmDeleteButton
+                          name={context.name}
+                          triggerVariant="ghost"
+                          withIcon={false}
+                          labels={{
+                            action: t('web.preferences.aiContext.delete'),
+                            pending: t('web.preferences.aiContext.deleting'),
+                            cancel: t('web.preferences.aiContext.cancel'),
+                            failed: t('web.preferences.aiContext.deleteFailed'),
+                          }}
+                          onConfirm={async () => {
+                            await remove(context.id, teamId);
+                            notify.success(
+                              t('web.settings.contextDeleted', { name: context.name }),
+                              {
+                                id: `context-${context.id}`,
+                              },
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -196,7 +222,7 @@ export function AiContextSection() {
                   disabled={atLimit}
                   onClick={() => {
                     setSaveFailed(false);
-                    setDraft(emptyDraft());
+                    setDraft(emptyDraft(), teamId);
                   }}
                 >
                   <Plus aria-hidden /> {t('web.preferences.aiContext.new')}

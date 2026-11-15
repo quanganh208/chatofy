@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { en } from '@chatofy/i18n';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -105,6 +106,7 @@ const { GlossaryPageContent } = await import('./glossary-page-content');
 const { GlossariesProvider } = await import('@/hooks/use-glossaries');
 const { ChromeSlotsTestHost } = await import('@/components/history/chrome-slots-test-host');
 const { LocaleProvider } = await import('@/i18n/provider');
+const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
 
 const GLOSSARY: Glossary = {
   id: 'g-1',
@@ -161,16 +163,29 @@ async function settle(until: () => boolean): Promise<void> {
   });
 }
 
-async function mount(): Promise<void> {
+const TEAM = {
+  id: 'c' + 'a'.repeat(24),
+  name: 'Cardiology unit',
+  role: 'member' as const,
+  memberCount: 3,
+  createdAt: '2026-11-14T00:00:00.000Z',
+};
+
+/** Mount the page, in the personal library unless a team is given. */
+async function mount(team?: typeof TEAM): Promise<void> {
   await act(async () => {
     root = createRoot(container);
     root.render(
       <LocaleProvider locale="en">
-        <ChromeSlotsTestHost>
-          <GlossariesProvider>
-            <GlossaryPageContent />
-          </GlossariesProvider>
-        </ChromeSlotsTestHost>
+        <WorkspaceTestHost
+          value={{ workspace: team ? { kind: 'team', team } : { kind: 'personal' } }}
+        >
+          <ChromeSlotsTestHost>
+            <GlossariesProvider>
+              <GlossaryPageContent />
+            </GlossariesProvider>
+          </ChromeSlotsTestHost>
+        </WorkspaceTestHost>
       </LocaleProvider>,
     );
     await flush();
@@ -382,5 +397,30 @@ describe('the open glossary', () => {
       retry: anyFunction,
     });
     expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+  });
+});
+
+describe('a team glossary the reader may not edit', () => {
+  beforeEach(() => {
+    store.glossaries = [{ ...GLOSSARY, canEdit: false }];
+    store.items = [TERM];
+  });
+
+  it('names the team above the list', async () => {
+    await mount(TEAM);
+    expect(container.textContent).toContain(
+      en['web.workspace.libraryNote'].replace('{name}', TEAM.name),
+    );
+  });
+
+  it('opens view-only: no switch, Delete, Add term or term controls', async () => {
+    await mount(TEAM);
+    await openGlossary();
+    expect(container.querySelector('[data-slot="glossary-term"]')?.textContent).toContain('đồ án');
+    expect(container.textContent).toContain(en['web.glossary.viewOnly']);
+    expect(container.querySelector('[role="switch"]')).toBeNull();
+    expect(button(en['web.glossary.delete'], container)).toBeUndefined();
+    expect(button(en['web.glossary.addTerm'], container)).toBeUndefined();
+    expect(button(en['web.glossary.editTerm'], container)).toBeUndefined();
   });
 });

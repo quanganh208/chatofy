@@ -334,57 +334,76 @@ export function deleteConversation(conversationId: string) {
 
 // ─── Glossary ────────────────────────────────────────────────────────────────
 
-/** The caller's named glossaries, newest first. */
-export function listGlossaries() {
-  return authedFetch('/glossaries', glossaryListResponseSchema);
+/**
+ * A library route in the caller's personal scope, or under one team.
+ *
+ * Every glossary and AI Context function takes a LAST optional `teamId`; left out,
+ * the URL is byte-identical to the personal route it always was.
+ */
+function libraryPath(teamId: string | undefined, rest: string): string {
+  return teamId ? `/teams/${encodeURIComponent(teamId)}${rest}` : rest;
+}
+
+/** The named glossaries of the caller, or of a team, newest first. */
+export function listGlossaries(teamId?: string) {
+  return authedFetch(libraryPath(teamId, '/glossaries'), glossaryListResponseSchema);
 }
 
 /** Create or replace one glossary's metadata. 409 at the ceiling. */
-export function saveGlossary(glossaryId: string, body: SaveGlossaryRequest) {
+export function saveGlossary(glossaryId: string, body: SaveGlossaryRequest, teamId?: string) {
   return authedFetch(
-    `/glossaries/${encodeURIComponent(glossaryId)}`,
+    libraryPath(teamId, `/glossaries/${encodeURIComponent(glossaryId)}`),
     z.object({ glossary: glossarySchema }),
     { method: 'PUT', body: JSON.stringify(body) },
   );
 }
 
 /** Toggle isActive. */
-export function patchGlossary(glossaryId: string, body: PatchGlossaryRequest) {
+export function patchGlossary(glossaryId: string, body: PatchGlossaryRequest, teamId?: string) {
   return authedFetch(
-    `/glossaries/${encodeURIComponent(glossaryId)}`,
+    libraryPath(teamId, `/glossaries/${encodeURIComponent(glossaryId)}`),
     z.object({ glossary: glossarySchema }),
     { method: 'PATCH', body: JSON.stringify(body) },
   );
 }
 
 /** Delete a glossary and all its terms. Idempotent (204). */
-export function deleteGlossary(glossaryId: string) {
-  return authedFetch(`/glossaries/${encodeURIComponent(glossaryId)}`, z.undefined(), {
-    method: 'DELETE',
-  });
+export function deleteGlossary(glossaryId: string, teamId?: string) {
+  return authedFetch(
+    libraryPath(teamId, `/glossaries/${encodeURIComponent(glossaryId)}`),
+    z.undefined(),
+    { method: 'DELETE' },
+  );
 }
 
 /** List terms in a glossary. Empty list when glossary does not exist. */
-export function listGlossaryItems(glossaryId: string) {
+export function listGlossaryItems(glossaryId: string, teamId?: string) {
   return authedFetch(
-    `/glossaries/${encodeURIComponent(glossaryId)}/items`,
+    libraryPath(teamId, `/glossaries/${encodeURIComponent(glossaryId)}/items`),
     glossaryItemListResponseSchema,
   );
 }
 
 /** Add a term pair. clientId in body provides idempotency. */
-export function addGlossaryItem(glossaryId: string, body: SaveGlossaryItemRequest) {
+export function addGlossaryItem(
+  glossaryId: string,
+  body: SaveGlossaryItemRequest,
+  teamId?: string,
+) {
   return authedFetch(
-    `/glossaries/${encodeURIComponent(glossaryId)}/items`,
+    libraryPath(teamId, `/glossaries/${encodeURIComponent(glossaryId)}/items`),
     z.object({ item: glossaryItemSchema }),
     { method: 'POST', body: JSON.stringify(body) },
   );
 }
 
 /** Delete one term. Idempotent (204). */
-export function deleteGlossaryItem(glossaryId: string, itemId: string) {
+export function deleteGlossaryItem(glossaryId: string, itemId: string, teamId?: string) {
   return authedFetch(
-    `/glossaries/${encodeURIComponent(glossaryId)}/items/${encodeURIComponent(itemId)}`,
+    libraryPath(
+      teamId,
+      `/glossaries/${encodeURIComponent(glossaryId)}/items/${encodeURIComponent(itemId)}`,
+    ),
     z.undefined(),
     { method: 'DELETE' },
   );
@@ -393,16 +412,19 @@ export function deleteGlossaryItem(glossaryId: string, itemId: string) {
 // ─── Translation contexts ─────────────────────────────────────────────────────
 
 /**
- * The caller's saved AI Contexts, newest first.
+ * The saved AI Contexts of the caller, or of a team, newest first.
  *
  * Unpaged, because the library is bounded at `CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER`
  * rows per account — a cursor here would be machinery for a page that can never
  * exist.
  */
-export function listTranslationContexts() {
+export function listTranslationContexts(teamId?: string) {
   // Read entry by entry: a glossary key this build does not know costs that
   // key, not every saved context (see `readTranslationContextList`).
-  return authedFetch('/translation-contexts', readableTranslationContextListSchema);
+  return authedFetch(
+    libraryPath(teamId, '/translation-contexts'),
+    readableTranslationContextListSchema,
+  );
 }
 
 /**
@@ -422,9 +444,13 @@ export function listAvailableTranslationContexts() {
  * pairs the operator removed. 409 when the account is already at the ceiling and
  * this id is not one of the rows it holds.
  */
-export function saveTranslationContext(contextId: string, body: SaveTranslationContextRequest) {
+export function saveTranslationContext(
+  contextId: string,
+  body: SaveTranslationContextRequest,
+  teamId?: string,
+) {
   return authedFetch(
-    `/translation-contexts/${encodeURIComponent(contextId)}`,
+    libraryPath(teamId, `/translation-contexts/${encodeURIComponent(contextId)}`),
     z.object({ context: translationContextSchema }),
     { method: 'PUT', body: JSON.stringify(body) },
   );
@@ -437,10 +463,12 @@ export function saveTranslationContext(contextId: string, body: SaveTranslationC
  * schema — hence `z.undefined()` rather than an object nothing will send. It is
  * idempotent: an id that was never there answers 204 too.
  */
-export function deleteTranslationContext(contextId: string) {
-  return authedFetch(`/translation-contexts/${encodeURIComponent(contextId)}`, z.undefined(), {
-    method: 'DELETE',
-  });
+export function deleteTranslationContext(contextId: string, teamId?: string) {
+  return authedFetch(
+    libraryPath(teamId, `/translation-contexts/${encodeURIComponent(contextId)}`),
+    z.undefined(),
+    { method: 'DELETE' },
+  );
 }
 
 /** Fetch the caller's previously generated minutes for a conversation (404 → throws). */

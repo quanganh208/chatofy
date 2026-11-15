@@ -3,84 +3,121 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addGlossaryItem, deleteGlossaryItem, listGlossaryItems } from '@/clients/api-client';
 import type { GlossaryItem, SaveGlossaryItemRequest } from '@chatofy/types';
+import { useWorkspace } from '@/components/workspace/workspace-provider';
+import { notifyLibraryChanged } from '@/lib/library-changed';
+import { teamListIsStale } from './use-team-list';
 
 export type GlossaryItemsState = 'idle' | 'loading' | 'ready' | 'failed';
 
 export interface GlossaryItemsValue {
   items: GlossaryItem[];
   status: GlossaryItemsState;
-  addItem: (body: SaveGlossaryItemRequest) => Promise<void>;
-  removeItem: (itemId: string) => Promise<void>;
+  /** Writes take the scope of the glossary they were opened on, never the live one. */
+  addItem: (body: SaveGlossaryItemRequest, teamId: string | undefined) => Promise<void>;
+  removeItem: (itemId: string, teamId: string | undefined) => Promise<void>;
 }
 
-/** One finished read, kept with the glossary it was for. */
+/** One finished read, kept with the glossary and the scope it was for. */
 interface LoadedItems {
-  glossaryId: string;
+  key: string;
   items: GlossaryItem[];
   status: 'ready' | 'failed';
 }
 
 const NO_ITEMS: GlossaryItem[] = [];
+const keyOf = (glossaryId: string, teamId: string | undefined) => `${teamId ?? ''}/${glossaryId}`;
 
 /**
- * Items for the currently selected glossary.
+ * Items for the currently selected glossary, in the scope its list came from.
  *
- * Pass `glossaryId = null` when no glossary is selected — the hook returns
- * idle state and makes no network request.
+ * Pass `glossaryId = null` when no glossary is selected: the hook returns idle state
+ * and makes no network request. `teamId` is the scope the glossary LIST belongs to
+ * (`useGlossaries().teamId`), not the live workspace, so the items always come from
+ * the library the glossary was listed in.
  *
  * `idle` and `loading` are derived rather than stored: a read is kept with the
- * glossary it was for, and a selection whose read has not landed yet is
- * loading. The effect then only ever sets state once a request settles, and a
- * reply for a glossary that is no longer selected — a slow reload after the
- * user moved on — is dropped instead of painting the wrong list.
+ * glossary and scope it was for, and a selection whose read has not landed yet is
+ * loading. A reply for a glossary that is no longer selected — a slow reload after
+ * the user moved on — is dropped instead of painting the wrong list. A 403 or 404
+ * from a team read reloads the teams; from a team write it reloads the teams, the
+ * items and the glossary list (`onListStale`, so a lost edit right shows at once),
+ * then rethrows.
  */
-export function useGlossaryItems(glossaryId: string | null): GlossaryItemsValue {
+export function useGlossaryItems(
+  glossaryId: string | null,
+  teamId: string | undefined,
+  /** Reload the glossary LIST: a refused team write may mean `canEdit` changed. */
+  onListStale?: () => void,
+): GlossaryItemsValue {
+  const { reloadTeams } = useWorkspace();
   const [loaded, setLoaded] = useState<LoadedItems | null>(null);
-  const selected = useRef(glossaryId);
+  const key = glossaryId === null ? null : keyOf(glossaryId, teamId);
+  const selected = useRef(key);
 
   useEffect(() => {
-    selected.current = glossaryId;
-  }, [glossaryId]);
+    selected.current = key;
+  }, [key]);
 
-  const load = useCallback(async (id: string) => {
-    let next: LoadedItems;
-    try {
-      const result = await listGlossaryItems(id);
-      next = { glossaryId: id, items: result.items, status: 'ready' };
-    } catch {
-      next = { glossaryId: id, items: [], status: 'failed' };
-    }
-    if (selected.current === id) setLoaded(next);
-  }, []);
+  const load = useCallback(
+    async (id: string, scope: string | undefined) => {
+      const forKey = keyOf(id, scope);
+      let next: LoadedItems;
+      try {
+        const result = await listGlossaryItems(id, scope);
+        next = { key: forKey, items: result.items, status: 'ready' };
+      } catch (err) {
+        if (scope !== undefined && teamListIsStale(err)) void reloadTeams();
+        next = { key: forKey, items: [], status: 'failed' };
+      }
+      if (selected.current === forKey) setLoaded(next);
+    },
+    [reloadTeams],
+  );
 
   useEffect(() => {
-    if (glossaryId !== null) void load(glossaryId);
-  }, [glossaryId, load]);
+    if (glossaryId !== null) void load(glossaryId, teamId);
+  }, [glossaryId, teamId, load]);
 
   const reload = useCallback(async () => {
-    if (glossaryId !== null) await load(glossaryId);
-  }, [glossaryId, load]);
+    if (glossaryId !== null) await load(glossaryId, teamId);
+  }, [glossaryId, teamId, load]);
 
-  const current = glossaryId !== null && loaded?.glossaryId === glossaryId ? loaded : null;
+  const current = key !== null && loaded?.key === key ? loaded : null;
   const items = current?.items ?? NO_ITEMS;
   const status: GlossaryItemsState = glossaryId === null ? 'idle' : (current?.status ?? 'loading');
 
-  const addItem = useCallback(
-    async (body: SaveGlossaryItemRequest) => {
-      if (glossaryId === null) return;
-      await addGlossaryItem(glossaryId, body);
+  const write = useCallback(
+    async (scope: string | undefined, op: () => Promise<unknown>) => {
+      try {
+        await op();
+      } catch (err) {
+        if (scope !== undefined && teamListIsStale(err)) {
+          void reloadTeams();
+          void reload();
+          onListStale?.();
+        }
+        throw err;
+      }
+      notifyLibraryChanged();
       await reload();
     },
-    [glossaryId, reload],
+    [reload, reloadTeams, onListStale],
+  );
+
+  const addItem = useCallback(
+    async (body: SaveGlossaryItemRequest, scope: string | undefined) => {
+      if (glossaryId === null) return;
+      await write(scope, () => addGlossaryItem(glossaryId, body, scope));
+    },
+    [glossaryId, write],
   );
 
   const removeItem = useCallback(
-    async (itemId: string) => {
+    async (itemId: string, scope: string | undefined) => {
       if (glossaryId === null) return;
-      await deleteGlossaryItem(glossaryId, itemId);
-      await reload();
+      await write(scope, () => deleteGlossaryItem(glossaryId, itemId, scope));
     },
-    [glossaryId, reload],
+    [glossaryId, write],
   );
 
   return { items, status, addItem, removeItem };

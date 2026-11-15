@@ -6,6 +6,7 @@ import { Button } from '@chatofy/ui/react';
 import { GLOSSARY_LIMITS } from '@chatofy/types';
 import type { SaveGlossaryRequest } from '@chatofy/types';
 import { TopbarActions } from '@/components/layout/chrome-slots';
+import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { useGlossaries } from '@/hooks/use-glossaries';
 import { useTranslate } from '@/i18n/provider';
 import { notify } from '@/lib/notify';
@@ -29,6 +30,15 @@ import { GlossaryListPanel } from './glossary-list-panel';
  * New glossary sits in the topbar and opens a dialog. Selection is local UI state;
  * the glossaries themselves are the shared provider's.
  *
+ * ## Scope
+ *
+ * The list is the active workspace's library. In a team it opens with one muted
+ * line naming the team, and a glossary the reader may not edit opens view-only.
+ * Every write passes the scope of the render that made it — a dialog, a toast's
+ * Undo or Retry — so a switch while one is pending cannot land it in the other
+ * library. A selection is kept with its scope: a switch hides it, and switching
+ * back shows it again only if the glossary is still listed there.
+ *
  * ## The accent budget
  *
  * None spent on the screen itself: New glossary and Add term are outline. An open
@@ -37,9 +47,16 @@ import { GlossaryListPanel } from './glossary-list-panel';
  */
 export function GlossaryPageContent() {
   const t = useTranslate();
-  const { glossaries, status, save, patch, remove, retry } = useGlossaries();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const { glossaries, status, teamId, save, patch, remove, retry, reload } = useGlossaries();
+  const { workspace } = useWorkspace();
+  const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
+  const [selection, setSelection] = useState<{ id: string; teamId: string | undefined } | null>(
+    null,
+  );
+  const selectedId = selection !== null && selection.teamId === teamId ? selection.id : null;
+  const setSelectedId = (id: string | null) => setSelection(id === null ? null : { id, teamId });
+  // The scope New glossary was opened in; the dialog saves there even after a switch.
+  const [creating, setCreating] = useState<{ teamId: string | undefined } | null>(null);
 
   const selected = glossaries.find((g) => g.id === selectedId) ?? null;
   const atLimit = glossaries.length >= GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER;
@@ -49,23 +66,32 @@ export function GlossaryPageContent() {
 
   const create = async (body: SaveGlossaryRequest) => {
     const id = crypto.randomUUID();
-    await save(id, body);
-    setCreating(false);
-    setSelectedId(id);
+    const scope = creating?.teamId;
+    await save(id, body, scope);
+    setCreating(null);
+    setSelection({ id, teamId: scope });
     notify.success(t('web.glossary.created', { name: body.name }));
   };
 
-  const setActive = (glossaryId: string, active: boolean, name: string) => {
-    patch(glossaryId, { isActive: active }).then(
+  const setActive = (
+    glossaryId: string,
+    active: boolean,
+    name: string,
+    scope: string | undefined,
+  ) => {
+    patch(glossaryId, { isActive: active }, scope).then(
       () =>
         notify.success(
           active ? t('web.glossary.turnedOn', { name }) : t('web.glossary.turnedOff', { name }),
-          { id: `glossary-active-${glossaryId}`, undo: () => setActive(glossaryId, !active, name) },
+          {
+            id: `glossary-active-${glossaryId}`,
+            undo: () => setActive(glossaryId, !active, name, scope),
+          },
         ),
       () =>
         notify.error(t('web.glossary.toggleFailed', { name }), {
           id: `glossary-active-${glossaryId}`,
-          retry: () => setActive(glossaryId, active, name),
+          retry: () => setActive(glossaryId, active, name, scope),
         }),
     );
   };
@@ -73,7 +99,7 @@ export function GlossaryPageContent() {
   const deleteSelected = async () => {
     if (!selected) return;
     const { id, name } = selected;
-    await remove(id);
+    await remove(id, teamId);
     setSelectedId(null);
     notify.success(t('web.glossary.deleted', { name }));
   };
@@ -82,13 +108,18 @@ export function GlossaryPageContent() {
     <>
       {status === 'ready' && !atLimit ? (
         <TopbarActions>
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+          <Button variant="outline" size="sm" onClick={() => setCreating({ teamId })}>
             <Plus aria-hidden />
             {t('web.glossary.new')}
           </Button>
         </TopbarActions>
       ) : null}
 
+      {teamName !== null ? (
+        <p className="text-hint text-muted-foreground">
+          {t('web.workspace.libraryNote', { name: teamName })}
+        </p>
+      ) : null}
       <div className="@container">
         <div className="flex flex-col @3xl:flex-row @3xl:items-start">
           <GlossaryListPanel
@@ -108,9 +139,11 @@ export function GlossaryPageContent() {
               <GlossaryDetailPanel
                 key={selected?.id ?? 'none'}
                 glossary={selected}
+                teamId={teamId}
+                onListStale={() => void reload()}
                 onBack={() => setSelectedId(null)}
                 onToggleActive={(active) =>
-                  selected && setActive(selected.id, active, selected.name)
+                  selected && setActive(selected.id, active, selected.name, teamId)
                 }
                 onDelete={deleteSelected}
                 className={cn('min-w-0 flex-1 @3xl:pl-8', selected ? undefined : '@max-3xl:hidden')}
@@ -120,7 +153,11 @@ export function GlossaryPageContent() {
         </div>
       </div>
 
-      <GlossaryCreateDialog open={creating} onOpenChange={setCreating} onCreate={create} />
+      <GlossaryCreateDialog
+        open={creating !== null}
+        onOpenChange={(open) => setCreating(open ? { teamId } : null)}
+        onCreate={create}
+      />
     </>
   );
 }
