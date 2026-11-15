@@ -8,6 +8,7 @@ import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { WorkspaceTile } from '@/components/workspace/workspace-tile';
 import { useTeamMembers } from '@/hooks/use-team-members';
 import { useTranslate } from '@/i18n/provider';
+import { SettingsSection } from '../settings-section';
 import { ROLE_KEY } from './team-copy';
 import { TeamInvitesSection } from './team-invites-section';
 import { TeamManageSection } from './team-manage-section';
@@ -41,7 +42,18 @@ export function TeamTabContent() {
   }
 
   if (createIn === here) {
-    return <TeamCreateForm onCancel={() => setCreateIn(null)} />;
+    // Headed as a create, with the line on what a team shares: inside a team the
+    // pane's description is about managing that team, and a bare "Team name" field
+    // under it read as renaming the team the reader is in.
+    return (
+      <div data-team-create-requested>
+        <SettingsSection title={t('web.team.create')} note={t('web.team.noneHint')}>
+          <div className="py-3.5">
+            <TeamCreateForm onCancel={() => setCreateIn(null)} />
+          </div>
+        </SettingsSection>
+      </div>
+    );
   }
 
   switch (workspace.kind) {

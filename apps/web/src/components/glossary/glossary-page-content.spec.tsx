@@ -422,6 +422,8 @@ describe('a team glossary the reader may not edit', () => {
     const header = container.querySelector('[data-library-note]');
     expect(header?.querySelector('[data-workspace-tile="team"]')?.textContent).toBe('C');
     expect(header?.textContent).toContain(en['web.workspace.teamGlossaries']);
+    // A heading, so heading navigation finds the team's library.
+    expect(header?.querySelector('h2')?.textContent).toBe(en['web.workspace.teamGlossaries']);
     expect(header?.textContent).toContain(
       `Shared with 3 members of ${TEAM.name} · ${en['web.workspace.editOwn']}`,
     );

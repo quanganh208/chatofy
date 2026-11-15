@@ -67,7 +67,9 @@ export function TeamCreateForm({ onCancel }: { onCancel: () => void }) {
         <Button type="submit" disabled={busy || !trimmed}>
           {t('web.team.createSubmit')}
         </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        {/* Not while Create is in flight: the request would still land and move the
+            reader who cancelled into the new team. */}
+        <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
           {t('web.team.cancel')}
         </Button>
       </div>

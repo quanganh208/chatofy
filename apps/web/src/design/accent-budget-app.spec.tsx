@@ -884,7 +884,8 @@ const TEAM_SCREENS: ScreenState[] = [
     shows: '[data-settings-pane="team"] input[name="team-name"]',
   },
   {
-    // Sent by the switcher's Create team: the form alone, over the personal list.
+    // Sent by the switcher's Create team: a headed create form in place of the
+    // personal list, which comes back on Cancel.
     name: 'settings dialog › team — personal, create requested',
     filled: 1,
     surfaces: 1,

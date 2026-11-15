@@ -365,6 +365,9 @@ describe('Settings › Team', () => {
     await inTeam('owner');
     expect(nameInput()).not.toBeNull();
     expect(document.querySelector('[data-team-header]')).toBeNull();
+    // Headed as a create, so it cannot be taken for renaming the current team.
+    const heading = document.querySelector('[data-team-create-requested] h3');
+    expect(heading?.textContent).toBe(en['web.team.create']);
     expect(select).not.toHaveBeenCalled();
     act(() => button(en['web.team.cancel'])!.click());
     await settle();
