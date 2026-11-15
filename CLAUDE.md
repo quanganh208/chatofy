@@ -130,6 +130,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 │   ├── authentication.md
 │   ├── data-flow.md
 │   ├── modules-extension-ci.md
+│   ├── teams-and-shared-libraries.md   # teams, roles, invites, shared libraries
 │   ├── video-client-support.md
 │   ├── video-conferencing-v2-synthesis.md
 │   ├── video-network-path.md

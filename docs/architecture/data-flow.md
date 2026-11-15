@@ -401,13 +401,23 @@ The path, and the one thing about it that is not obvious:
    preferences (see [Account preferences](#account-preferences-one-document-per-account-every-client)).
    The content lives on the server.
 2. The **client** resolves that id against the fetched list and maps it to
-   `TranslationHints` (`apps/web/src/hooks/use-translation-contexts.ts`,
-   `apps/extension/src/translation-contexts.ts`).
+   `TranslationHints` (`resolveContext` and `toHints` in
+   `apps/web/src/hooks/use-translation-contexts.ts`;
+   `apps/extension/src/translation-contexts.ts`). On web the list is
+   `GET /translation-contexts/available`, every scope the reader may use
+   (`apps/web/src/hooks/use-available-translation-contexts.ts`): the id names the
+   personal context if there is one, else a team context only when exactly one team
+   holds that id, else nothing. The extension reads the personal
+   `GET /translation-contexts` only. Why the rule is shaped that way is in
+   [teams and shared libraries](./teams-and-shared-libraries.md#workspace-on-web).
 3. It travels on `client.session.start` as `sessionOptions.hints`
    (`packages/types/src/events/ws-events.ts`).
 4. `TurnSession` holds it for the turn, and
    `packages/ai-providers/src/providers/gemini/prompt-builder.ts` renders it into
    the `<context>` block.
+
+A team context reaches the prompt the same way, as inline hints under the same caps;
+the hints contract does not know which library a context came from.
 
 **The client resolves the id, not the server, and that is deliberate.**
 `client.session.start` fires once per **TURN**, not once per conversation — see
