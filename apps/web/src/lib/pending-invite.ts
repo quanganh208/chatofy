@@ -75,9 +75,10 @@ export function clearPendingInvite(): void {
 
 /**
  * Take the token out of the URL before anything else runs, so it sits in the
- * address bar and history for no longer than this read. Runs in the state
- * initializer rather than an effect: the first client render already knows the
- * token, and repeating it is harmless (the URL is stripped, the save is the same).
+ * address bar and history for no longer than this read. `/invite` calls it from its
+ * first effect, not during render: the server cannot read the URL or storage, so a
+ * render-time read would make the first client render differ from the server's.
+ * Repeating it is harmless (the URL is stripped, the save is the same).
  */
 export function takeInviteFromUrl(fromUrl: string | null): string | null | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -89,4 +90,32 @@ export function takeInviteFromUrl(fromUrl: string | null): string | null | undef
     savePendingInvite(fromUrl);
   }
   return readPendingInvite();
+}
+
+/**
+ * The team a join on `/invite` just landed in, handed to `/glossary` so it can say
+ * so. `/invite` sits outside the app shell, which is where the toast host lives:
+ * a toast raised before navigating would have no host to show it, and sonner does
+ * not replay to a host that mounts later. sessionStorage, because the hand-off is
+ * one navigation in this tab and nothing else should ever read it.
+ */
+const JOINED_TEAM_KEY = 'chatofy.joinedTeam';
+
+export function rememberJoinedTeam(name: string): void {
+  try {
+    sessionStorage.setItem(JOINED_TEAM_KEY, name);
+  } catch {
+    // Storage refused: the join stands, only the toast is lost.
+  }
+}
+
+/** The joined team's name, once: reading it removes it. */
+export function takeJoinedTeam(): string | null {
+  try {
+    const name = sessionStorage.getItem(JOINED_TEAM_KEY);
+    sessionStorage.removeItem(JOINED_TEAM_KEY);
+    return name || null;
+  } catch {
+    return null;
+  }
 }

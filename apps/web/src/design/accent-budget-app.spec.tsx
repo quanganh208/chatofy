@@ -231,7 +231,7 @@ const { LocaleProvider } = await import('@/i18n/provider');
 const { InviteAcceptClient } = await import('@/components/team/invite-accept-client');
 const { WorkspaceSwitcher } = await import('@/components/workspace/workspace-switcher');
 const { WorkspaceTestHost } = await import('@/components/workspace/workspace-provider');
-const { MoreSheet } = await import('@/components/layout/more-sheet');
+const { requestTeamCreateForm } = await import('@/components/workspace/team-create-intent');
 const { SidebarProvider } = await import('@chatofy/ui/react');
 const { forgetVoiceCatalogs } = await import('@/hooks/use-voice-catalog');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
@@ -840,19 +840,20 @@ const TEAM_SCREENS: ScreenState[] = [
     shows: '[role="menu"]',
   },
   {
-    name: 'more sheet › workspace menu open',
+    // Below `md` the switcher is a chip in the topbar, no longer a More sheet row.
+    name: 'topbar › workspace chip menu open',
     filled: 0,
-    surfaces: 2,
+    surfaces: 1,
     setup: () => {
       session.value = { data: { user: { id: 'u1', name: 'Quang Anh' } }, status: 'authenticated' };
     },
     render: () => (
       <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>
         {historyRoute()}
-        <MoreSheet active={false} />
+        <WorkspaceSwitcher variant="chip" />
       </WorkspaceTestHost>
     ),
-    steps: ['button[aria-haspopup="dialog"]', '[data-workspace-switcher]'],
+    steps: ['[data-workspace-chip]'],
     shows: '[role="menu"]',
   },
   {
@@ -880,6 +881,34 @@ const TEAM_SCREENS: ScreenState[] = [
     setup: settingsOn('team'),
     render: settingsOverAPage,
     steps: ['[data-team-create]'],
+    shows: '[data-settings-pane="team"] input[name="team-name"]',
+  },
+  {
+    // Sent by the switcher's Create team: a headed create form in place of the
+    // personal list, which comes back on Cancel.
+    name: 'settings dialog › team — personal, create requested',
+    filled: 1,
+    surfaces: 1,
+    setup: () => {
+      settingsOn('team')();
+      requestTeamCreateForm();
+    },
+    render: () => (
+      <WorkspaceTestHost value={{ teams: [INVITE_TEAM] }}>{settingsOverAPage()}</WorkspaceTestHost>
+    ),
+    shows: '[data-settings-pane="team"] input[name="team-name"]',
+  },
+  {
+    // The same request inside a team: the form replaces the team view, whose invite
+    // Send would otherwise be a second fill.
+    name: 'settings dialog › team — team workspace, create requested',
+    filled: 1,
+    surfaces: 1,
+    setup: () => {
+      teamPane('owner')();
+      requestTeamCreateForm();
+    },
+    render: () => inTeam('owner', settingsOverAPage()),
     shows: '[data-settings-pane="team"] input[name="team-name"]',
   },
   {

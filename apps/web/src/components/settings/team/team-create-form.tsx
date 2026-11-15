@@ -7,9 +7,15 @@ import { Button, Input, Label } from '@chatofy/ui/react';
 import { createTeam } from '@/clients/teams-api-client';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { useTranslate } from '@/i18n/provider';
+import { notify } from '@/lib/notify';
 import { refusalKey } from './team-copy';
+import { requestInviteFocus } from './team-invite-focus';
 
-/** Name a new team and switch to it. Its Create is the tab's only filled control. */
+/**
+ * Name a new team and switch to it. Its Create is the tab's only filled control.
+ * Success says where the reader now is, and the team view that replaces this form
+ * opens with the caret in its invite email, the next thing to do.
+ */
 export function TeamCreateForm({ onCancel }: { onCancel: () => void }) {
   const t = useTranslate();
   const id = useId();
@@ -30,7 +36,11 @@ export function TeamCreateForm({ onCancel }: { onCancel: () => void }) {
         createTeam({ name: trimmed }).then(
           async ({ team }) => {
             await reloadTeams();
+            requestInviteFocus();
             select(team.id);
+            notify.success(t('web.team.createdToast', { name: team.name }), {
+              description: t('web.team.createdHint'),
+            });
           },
           (err: unknown) => {
             setBusy(false);
@@ -57,7 +67,9 @@ export function TeamCreateForm({ onCancel }: { onCancel: () => void }) {
         <Button type="submit" disabled={busy || !trimmed}>
           {t('web.team.createSubmit')}
         </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        {/* Not while Create is in flight: the request would still land and move the
+            reader who cancelled into the new team. */}
+        <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
           {t('web.team.cancel')}
         </Button>
       </div>

@@ -22,7 +22,6 @@ import { SETTINGS_ENTRY } from './nav-items';
 import { IdentityAvatar, useSessionIdentity } from './session-identity';
 import { PlanBadge, usePlan } from './plan-badge';
 import { SHEET_ROW_CLASS as ROW, TAB_CLASS } from './tab-bar-styles';
-import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 
 /**
  * The fourth tab: what the sidebar holds that the tab bar has no room for.
@@ -88,15 +87,6 @@ export function MoreSheet({ active }: { active: boolean }) {
           </SheetDescription>
         </SheetHeader>
         <nav aria-label={t('web.chrome.tabMore')} className="flex flex-col gap-1 px-2">
-          {identity.status === 'authenticated' && (
-            <WorkspaceSwitcher
-              variant="sheet-row"
-              onManageTeams={() => {
-                pending.current = 'team';
-                setOpen(false);
-              }}
-            />
-          )}
           <SheetClose asChild>
             <Link href="/glossary" className={ROW}>
               <BookOpen aria-hidden />

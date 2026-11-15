@@ -936,6 +936,7 @@ export const en = {
   'web.settings.nav': 'Settings sections',
   'web.settings.groupPersonal': 'Personal',
   'web.settings.groupAccount': 'Account',
+  'web.settings.groupWorkspace': 'Workspace',
   'web.settings.general': 'General',
   'web.settings.translation': 'Translation',
   'web.settings.translationDescription':
@@ -1279,15 +1280,18 @@ export const en = {
   'web.meta.conference': 'Conference · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
   'web.meta.invite': 'Team invitation · Chatofy',
-  // The invite page. The team name is shown on its own line as plain text, never
-  // inside a sentence: whoever made the team chose it.
+  // The invite page. The team name is whatever its creator typed, so it always
+  // renders as plain text: on its own line beside the team's tile, and in the
+  // after-join toast.
   'web.invite.heading': 'Team invitation',
   'web.invite.signInPrompt': 'Sign in with the email address this invitation was sent to.',
   'web.invite.createAccount': 'Create account',
   'web.invite.pendingAdmin': "You're invited to join a team as an admin.",
   'web.invite.pendingMember': "You're invited to join a team as a member.",
-  'web.invite.teamNameLabel': 'Team name, as its creator wrote it',
-  'web.invite.invitedBy': 'Invited by {email}',
+  'web.invite.invitedByAsAdmin': 'Invited by {email} · join as an admin',
+  'web.invite.invitedByAsMember': 'Invited by {email} · join as a member',
+  'web.invite.whatJoiningMeans':
+    "You'll share its glossaries and AI Contexts. Your history, meetings and credits stay yours.",
   'web.invite.join': 'Join team',
   'web.invite.joined': 'You joined the team.',
   'web.invite.openGlossary': 'Open glossaries',
@@ -1301,18 +1305,28 @@ export const en = {
   'web.invite.loadFailed': "Couldn't load this invite. Try again.",
   'web.invite.teamCap': "You're already in {max} teams. Leave one to join this team.",
   'web.invite.teamFull': 'This team is full. Ask its owner to make room.',
+  'web.invite.joinedToast': 'You joined {name}',
   'web.workspace.label': 'Workspace',
   'web.workspace.personal': 'Personal',
-  'web.workspace.libraryNote': "Everyone in {name} can use what's here.",
+  'web.workspace.teamGlossaries': 'Team glossaries',
+  'web.workspace.teamContexts': 'Team contexts',
+  'web.workspace.sharedWith': 'Shared with {count} members of {name}',
+  'web.workspace.sharedWithOnlyYou': 'Only you are in {name} so far',
+  'web.workspace.editOwn': 'you edit what you made',
+  'web.workspace.editAll': 'you can edit everything here',
   'web.workspace.switchTo': 'Switch workspace',
   'web.workspace.manageTeams': 'Manage teams',
+  'web.workspace.manageTeam': 'Manage team',
+  'web.workspace.createTeam': 'Create team',
+  'web.workspace.teamSubline': 'Team · {role}',
+  'web.workspace.current': 'Switch workspace, current: {name}',
   'web.settings.team': 'Team',
-  'web.settings.teamDescription': 'Create a team, invite people and choose what they can change.',
   'web.team.none': "You're not in a team yet.",
   'web.team.noneHint':
     'A team shares its glossaries and AI Contexts with everyone in it. Your history, meetings and credits stay yours.',
   'web.team.yourTeams': 'Your teams',
   'web.team.open': 'Open',
+  'web.team.openTeam': 'Open {name}',
   'web.team.create': 'Create team',
   'web.team.nameLabel': 'Team name',
   'web.team.createSubmit': 'Create',
@@ -1329,7 +1343,6 @@ export const en = {
   'web.team.removeConfirmTitle': 'Remove {name} from the team?',
   'web.team.removeConfirmBody':
     "They lose access to this team's glossaries and AI Contexts right away. What they created stays in the team.",
-  'web.team.invites': 'Pending invites',
   'web.team.inviteEmail': 'Email address',
   'web.team.inviteSubmit': 'Invite',
   'web.team.invitePending': 'Invite pending',
@@ -1354,6 +1367,26 @@ export const en = {
   'web.team.loadFailed': "Couldn't load this team. Try again.",
   'web.team.retry': 'Try again',
   'web.team.actionFailed': 'Something went wrong. Try again.',
+  'web.team.tabDescriptionPersonal':
+    'Create a team or open one you are in. A team shares its glossaries and AI Contexts.',
+  'web.team.tabDescriptionTeam': 'Manage this team: its members, invites and name.',
+  'web.team.headerSubline': '{role} · {count} / {max} members',
+  'web.team.memberCount': '{count} members',
+  'web.team.memberCountOne': '1 member',
+  'web.team.inviteHeading': 'Invite people',
+  'web.team.invitePendingUntil': 'Pending · expires {date}',
+  'web.team.nameHeading': 'Team name',
+  'web.team.dangerZone': 'Danger zone',
+  'web.team.deleteRowLabel': 'Delete this team',
+  'web.team.deleteRowNote':
+    'Deletes its glossaries and AI Contexts for everyone. This cannot be undone.',
+  'web.team.leaveRowLabel': 'Leave this team',
+  'web.team.leaveRowNote':
+    'You lose access to its glossaries and AI Contexts until someone invites you again.',
+  'web.team.createdToast': 'Now in {name}',
+  'web.team.createdHint': 'Invite people to share glossaries and AI Contexts.',
+  'web.team.leftToast': 'You left {name}',
+  'web.team.deletedToast': '{name} was deleted',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
   //

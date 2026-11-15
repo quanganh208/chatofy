@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Badge, Button } from '@chatofy/ui/react';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
+import { WorkspaceTile } from '@/components/workspace/workspace-tile';
 import { useTranslate } from '@/i18n/provider';
 import { SettingsSection } from '../settings-section';
 import { ROLE_KEY } from './team-copy';
@@ -29,9 +30,22 @@ export function TeamOverviewSection() {
         <SettingsSection title={t('web.team.yourTeams')}>
           {teams.map((team) => (
             <div key={team.id} data-team-row className="flex items-center gap-3 py-3">
-              <span className="text-body min-w-0 flex-1 truncate">{team.name}</span>
+              <WorkspaceTile kind="team" name={team.name} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body truncate">{team.name}</span>
+                <span className="text-muted-foreground text-hint">
+                  {team.memberCount === 1
+                    ? t('web.team.memberCountOne')
+                    : t('web.team.memberCount', { count: team.memberCount })}
+                </span>
+              </div>
               <Badge variant="secondary">{t(ROLE_KEY[team.role])}</Badge>
-              <Button variant="ghost" size="sm" onClick={() => select(team.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={t('web.team.openTeam', { name: team.name })}
+                onClick={() => select(team.id)}
+              >
                 {t('web.team.open')}
               </Button>
             </div>

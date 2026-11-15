@@ -8,6 +8,7 @@ import { AiContextEditor } from './ai-context-editor';
 import { draftOf, emptyDraft, keywordsOf, type Draft } from './ai-context-draft';
 import { useGlossaries } from '@/hooks/use-glossaries';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
+import { TeamLibraryHeader } from '@/components/team/team-library-header';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { notify } from '@/lib/notify';
 import { SettingsSection } from './settings-section';
@@ -52,7 +53,7 @@ export function AiContextSection() {
   const t = useTranslate();
   const { contexts, status, teamId, save, remove } = useTranslationContexts();
   const { workspace } = useWorkspace();
-  const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
+  const team = teamId !== undefined && workspace.kind === 'team' ? workspace.team : null;
   const { glossaries } = useGlossaries();
   const [openDraft, setDraftState] = useState<Draft | null>(null);
   // The scope the open draft was started in: Save writes there, never to the live one.
@@ -137,16 +138,17 @@ export function AiContextSection() {
           longer "what is it for" lives here, as the group's note, where it is read
           once beside the list it explains. */}
       <SettingsSection
-        title={t('web.preferences.aiContext.libraryTitle')}
+        title={
+          team !== null
+            ? t('web.workspace.teamContexts')
+            : t('web.preferences.aiContext.libraryTitle')
+        }
         note={t('web.preferences.aiContextHint')}
       >
         {/* In a team, the scope is named here: the picker's "Personal" group caption
-            must not be the only cue to whose library this is. */}
-        {teamName !== null ? (
-          <p data-library-note className="text-hint text-muted-foreground pt-3.5">
-            {t('web.workspace.libraryNote', { name: teamName })}
-          </p>
-        ) : null}
+            must not be the only cue to whose library this is. The section title
+            already says "Team contexts", so the header line carries no label. */}
+        {team !== null ? <TeamLibraryHeader team={team} className="pt-3.5" /> : null}
         {status === 'loading' ? (
           <div className="py-3.5">
             <Skeleton aria-hidden className="h-16" />

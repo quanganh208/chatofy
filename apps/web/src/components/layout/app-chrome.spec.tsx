@@ -215,15 +215,18 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
-  it('holds the sidebar toggle and the breadcrumb, and nothing else of its own', () => {
+  it('holds the sidebar toggle, the breadcrumb and the workspace chip, and nothing else', () => {
     // Language and theme left for Settings; a page's actions arrive through
-    // `TopbarActions`. A new control appearing here unasked is the regression.
+    // `TopbarActions`. A new control appearing here unasked is the regression. The
+    // workspace chip is the sidebar switcher's stand-in below `md` (still resolving
+    // here, so it has no workspace to name yet).
     render();
     const bar = container.querySelector('[data-slot="app-topbar"]');
     const named = [...(bar?.querySelectorAll('[aria-label]') ?? [])].map((el) =>
       el.getAttribute('aria-label'),
     );
-    expect(named).toEqual(['Toggle the sidebar', 'Breadcrumb']);
+    expect(named).toEqual(['Toggle the sidebar', 'Breadcrumb', 'Switch workspace']);
+    expect(bar?.querySelector('[data-workspace-chip]')?.classList.contains('md:hidden')).toBe(true);
     expect(bar?.querySelector('[data-slot="topbar-actions"]')?.childElementCount).toBe(0);
   });
 

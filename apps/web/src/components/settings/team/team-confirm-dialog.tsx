@@ -16,10 +16,14 @@ import {
 import { useTranslate } from '@/i18n/provider';
 
 /**
- * An outline trigger and the AlertDialog it opens, for an act that cannot be undone
- * (delete a team, leave one). The dialog's action is destructive, never primary, so
- * the screen's one accent stays where it was. It stays open while the request runs
- * and says so inline when it fails.
+ * A destructive-outline trigger and the AlertDialog it opens, for an act that cannot
+ * be undone (delete a team, leave one). The trigger is the outline button with its
+ * label in the destructive colour, not a fill: a filled red would compete with the
+ * screen's one accent. Its hover is the destructive tint, as on a destructive menu
+ * item: the outline's own `hover:bg-border` drops the red label under 4.5:1 in dark
+ * (4.33), where `live-subtle` keeps it at 4.74 (5.55 in light). The dialog's action is the filled destructive one, inside a
+ * dialog that has no other. It stays open while the request runs and says so inline
+ * when it fails.
  */
 export function TeamConfirmDialog({
   slot,
@@ -57,7 +61,11 @@ export function TeamConfirmDialog({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="outline" data-team-confirm={slot}>
+        <Button
+          variant="outline"
+          className="text-destructive hover:bg-live-subtle"
+          data-team-confirm={slot}
+        >
           {trigger}
         </Button>
       </AlertDialogTrigger>
