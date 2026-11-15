@@ -7,6 +7,7 @@ import { CONTEXT_LIMITS } from '@chatofy/types';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 import { WorkspaceTestHost } from '@/components/workspace/workspace-provider';
+import { notify } from '@/lib/notify';
 import { AiContextSection } from './ai-context-section';
 
 /**
@@ -425,5 +426,24 @@ describe('AiContextSection — a draft keeps its library', () => {
       expect.objectContaining({ name: 'Ward rounds' }),
       TEAM.id,
     );
+  });
+
+  it('says so with a toast when a refused team save leaves the workspace elsewhere', async () => {
+    const error = vi.spyOn(notify, 'error');
+    saveTranslationContext.mockRejectedValue(new Error('removed from the team'));
+    await mountIn(TEAM);
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+    await type('#ai-context-name', 'Ward rounds');
+    await click(buttonSaying(en['web.preferences.aiContext.save']));
+    expect(error).not.toHaveBeenCalled();
+
+    // The refusal made the workspace fall back: the editor and its inline failure go.
+    await mountIn();
+    expect(container.querySelector('#ai-context-name')).toBeNull();
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error.mock.calls[0]?.[0]).toBe(
+      en['web.preferences.aiContext.saveFailedElsewhere'].replace('{name}', 'Ward rounds'),
+    );
+    error.mockRestore();
   });
 });

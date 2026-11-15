@@ -645,6 +645,8 @@ export const vi: Messages = {
     'Bạn đã đạt số ngữ cảnh tối đa. Hãy xoá bớt một cái để tạo cái mới.',
   'web.preferences.aiContext.saveFailed':
     'Không lưu được ngữ cảnh này. Những gì bạn vừa nhập vẫn còn nguyên.',
+  'web.preferences.aiContext.saveFailedElsewhere':
+    '“{name}” chưa được lưu. Bản nháp vẫn nằm trong thư viện nơi bạn mở nó.',
   'web.preferences.aiContext.loadFailed':
     'Không tải được danh sách ngữ cảnh. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
 

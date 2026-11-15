@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS, type TranslationContext } from '@chatofy/types';
@@ -73,6 +73,18 @@ export function AiContextSection() {
   useReportUnsavedSettingsDraft(draft !== null && JSON.stringify(draft) !== JSON.stringify(seed));
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  // A save refused because the library it was opened in is gone (the reader was
+  // removed, so the workspace fell back) hides the editor and its inline failure with
+  // it. Say so where it can be seen, once per failed save, rather than let the typed
+  // text vanish. Back in that library, the inline failure is still beside Save.
+  const failedOutOfSight = saveFailed && openDraft !== null && draftScope !== teamId;
+  const unsavedName = openDraft?.name.trim() ?? '';
+  const toldOutOfSight = useRef(false);
+  useEffect(() => {
+    if (!failedOutOfSight || toldOutOfSight.current) return;
+    toldOutOfSight.current = true;
+    notify.error(t('web.preferences.aiContext.saveFailedElsewhere', { name: unsavedName }));
+  }, [failedOutOfSight, unsavedName, t]);
   const patch = useCallback(
     (next: Partial<Draft>) =>
       setDraftState((current) => (current ? { ...current, ...next } : current)),
@@ -88,6 +100,7 @@ export function AiContextSection() {
     if (!draft) return;
     setSaving(true);
     setSaveFailed(false);
+    toldOutOfSight.current = false;
     try {
       await save(
         draft.id,
