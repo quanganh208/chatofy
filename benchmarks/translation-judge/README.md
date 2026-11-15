@@ -296,6 +296,17 @@ node guard-bound.mjs --stage regression-verdict      # results/guard-bound.md
 node guard-bound.mjs --stage heldout                 # N1, plus the post-hoc restores
 ```
 
+**Result of the successor (2026-11-15).**
+
+- **N1 passes:** the successor admits no held-out context runaway that today's guard rejects, 0 of 25 clean and 0 of 14 positives. Both rules reject 23 of 25 clean (Wilson 75.0–97.8%) and 14 of 14 positives (78.5–100%).
+- **Restores, post-hoc:** the successor accepts 10 of the 10 spent restores. The longest of the 29 raws is 0.921 of its limit.
+- **Replay:** 162 calls to Command Code, none failed, the slowest 7.8 s. 138 rewritten, 24 left to stand (equal to the draft or refused by the script checks), 0 empty.
+- **N3 is inconclusive:** no answer was rejected by today's guard, so the diff set is empty and nothing was sent to the judge ($0).
+- **N2 is inconclusive** for the same reason: no fresh restore exists in real traffic of this size.
+- **Runaway rate, no verdict:** 0 of 162 raw answers run over the successor limit, and 0 over `1.3 × source + 40`. The 0/162 bounds the rate only below about 2.3% (Wilson upper). The largest answer/source ratio, 4.33, is a vi→en turn with a very short source, where the +40 constant governs. With no runaway in real traffic, nothing points to tightening the guard everywhere.
+
+The bars allow the app change: N1 passed and N3 is inconclusive.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
