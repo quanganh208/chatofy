@@ -936,6 +936,7 @@ export const en = {
   'web.settings.nav': 'Settings sections',
   'web.settings.groupPersonal': 'Personal',
   'web.settings.groupAccount': 'Account',
+  'web.settings.groupWorkspace': 'Workspace',
   'web.settings.general': 'General',
   'web.settings.translation': 'Translation',
   'web.settings.translationDescription':
@@ -1311,7 +1312,6 @@ export const en = {
   'web.workspace.teamSubline': 'Team · {role}',
   'web.workspace.current': 'Switch workspace, current: {name}',
   'web.settings.team': 'Team',
-  'web.settings.teamDescription': 'Create a team, invite people and choose what they can change.',
   'web.team.none': "You're not in a team yet.",
   'web.team.noneHint':
     'A team shares its glossaries and AI Contexts with everyone in it. Your history, meetings and credits stay yours.',
@@ -1358,6 +1358,26 @@ export const en = {
   'web.team.loadFailed': "Couldn't load this team. Try again.",
   'web.team.retry': 'Try again',
   'web.team.actionFailed': 'Something went wrong. Try again.',
+  'web.team.tabDescriptionPersonal':
+    'Create a team or open one you are in. A team shares its glossaries and AI Contexts.',
+  'web.team.tabDescriptionTeam': 'Manage this team: its members, invites and name.',
+  'web.team.headerSubline': '{role} · {count} / {max} members',
+  'web.team.memberCount': '{count} members',
+  'web.team.memberCountOne': '1 member',
+  'web.team.inviteHeading': 'Invite people',
+  'web.team.invitePendingUntil': 'Pending · expires {date}',
+  'web.team.nameHeading': 'Team name',
+  'web.team.dangerZone': 'Danger zone',
+  'web.team.deleteRowLabel': 'Delete this team',
+  'web.team.deleteRowNote':
+    'Deletes its glossaries and AI Contexts for everyone. This cannot be undone.',
+  'web.team.leaveRowLabel': 'Leave this team',
+  'web.team.leaveRowNote':
+    'You lose access to its glossaries and AI Contexts until someone invites you again.',
+  'web.team.createdToast': 'Now in {name}',
+  'web.team.createdHint': 'Invite people to share glossaries and AI Contexts.',
+  'web.team.leftToast': 'You left {name}',
+  'web.team.deletedToast': '{name} was deleted',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
   //

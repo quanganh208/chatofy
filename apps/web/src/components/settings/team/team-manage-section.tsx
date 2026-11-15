@@ -7,13 +7,16 @@ import { deleteTeam, removeTeamMember, renameTeam } from '@/clients/teams-api-cl
 import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { isTeamGone } from '@/hooks/use-team-list';
 import { useTranslate } from '@/i18n/provider';
-import { SettingsSection } from '../settings-section';
+import { notify } from '@/lib/notify';
+import { SettingsSection, SettingsSectionRow } from '../settings-section';
 import { TeamConfirmDialog } from './team-confirm-dialog';
 
 /**
- * The owner renames or deletes the team; anyone else may leave it. Each request is
- * sent with the team id this view was mounted for, never a live read of the
- * workspace, and lands the tab back in personal afterwards.
+ * The team's own settings, below its members and invites: the owner gets a "Team
+ * name" section and a "Danger zone" holding Delete; anyone else gets a Danger zone
+ * holding Leave. Each request is sent with the team id this view was mounted for,
+ * never a live read of the workspace, and lands the tab back in personal afterwards
+ * with a toast saying what happened.
  */
 export function TeamManageSection({
   team,
@@ -29,21 +32,25 @@ export function TeamManageSection({
     select('personal');
     await reloadTeams();
   };
-  /** A 404 means the team is already gone for this caller: go where the outcome is. */
-  const orGone = async (write: () => Promise<unknown>) => {
+  /**
+   * A 404 means the team is already gone for this caller: go where the outcome is,
+   * and say it, since the reader's intent was carried out either way.
+   */
+  const orGone = async (write: () => Promise<unknown>, done: string) => {
     try {
       await write();
     } catch (err) {
       if (!isTeamGone(err)) throw err;
     }
     await backToPersonal();
+    notify.success(done);
   };
 
   if (team.role !== 'owner') {
     const self = members.find((member) => member.isSelf);
     return (
-      <SettingsSection>
-        <div className="py-3.5">
+      <SettingsSection title={t('web.team.dangerZone')} danger>
+        <SettingsSectionRow label={t('web.team.leaveRowLabel')} note={t('web.team.leaveRowNote')}>
           <TeamConfirmDialog
             slot="leave"
             trigger={t('web.team.leave')}
@@ -53,21 +60,31 @@ export function TeamManageSection({
             ready={self !== undefined}
             onConfirm={async () => {
               if (!self) return;
-              await orGone(() => removeTeamMember(teamId, self.id));
+              await orGone(
+                () => removeTeamMember(teamId, self.id),
+                t('web.team.leftToast', { name: team.name }),
+              );
             }}
           />
-        </div>
+        </SettingsSectionRow>
       </SettingsSection>
     );
   }
 
   return (
-    <SettingsSection>
-      <RenameRow team={team} onSaved={reloadTeams} onGone={backToPersonal} />
-      <div className="py-3.5">
-        <DeleteTeam team={team} remove={orGone} />
-      </div>
-    </SettingsSection>
+    <>
+      <SettingsSection title={t('web.team.nameHeading')}>
+        <RenameRow team={team} onSaved={reloadTeams} onGone={backToPersonal} />
+      </SettingsSection>
+      <SettingsSection title={t('web.team.dangerZone')} danger>
+        <SettingsSectionRow label={t('web.team.deleteRowLabel')} note={t('web.team.deleteRowNote')}>
+          <DeleteTeam
+            team={team}
+            remove={(write) => orGone(write, t('web.team.deletedToast', { name: team.name }))}
+          />
+        </SettingsSectionRow>
+      </SettingsSection>
+    </>
   );
 }
 
@@ -101,7 +118,10 @@ function RenameRow({
           .finally(() => setBusy(false));
       }}
     >
-      <Label htmlFor={id}>{t('web.team.rename')}</Label>
+      {/* The section heading already says "Team name"; the label stays for the field. */}
+      <Label htmlFor={id} className="sr-only">
+        {t('web.team.rename')}
+      </Label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           id={id}

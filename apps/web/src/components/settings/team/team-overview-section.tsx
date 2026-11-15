@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Badge, Button } from '@chatofy/ui/react';
 import { useWorkspace } from '@/components/workspace/workspace-provider';
+import { WorkspaceTile } from '@/components/workspace/workspace-tile';
 import { useTranslate } from '@/i18n/provider';
 import { SettingsSection } from '../settings-section';
 import { ROLE_KEY } from './team-copy';
@@ -11,12 +12,17 @@ import { TeamCreateForm } from './team-create-form';
 /**
  * Personal workspace: the teams you are in, each opened by switching to it, and the
  * way to make one. Nothing here is filled until the create form opens, whose Create
- * is then the tab's one accent.
+ * is then the tab's one accent. `initiallyCreating` opens on the form, for a reader
+ * sent here to start a team.
  */
-export function TeamOverviewSection() {
+export function TeamOverviewSection({
+  initiallyCreating = false,
+}: {
+  initiallyCreating?: boolean;
+}) {
   const t = useTranslate();
   const { teams, select } = useWorkspace();
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(initiallyCreating);
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,7 +35,15 @@ export function TeamOverviewSection() {
         <SettingsSection title={t('web.team.yourTeams')}>
           {teams.map((team) => (
             <div key={team.id} data-team-row className="flex items-center gap-3 py-3">
-              <span className="text-body min-w-0 flex-1 truncate">{team.name}</span>
+              <WorkspaceTile kind="team" name={team.name} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body truncate">{team.name}</span>
+                <span className="text-muted-foreground text-hint">
+                  {team.memberCount === 1
+                    ? t('web.team.memberCountOne')
+                    : t('web.team.memberCount', { count: team.memberCount })}
+                </span>
+              </div>
               <Badge variant="secondary">{t(ROLE_KEY[team.role])}</Badge>
               <Button variant="ghost" size="sm" onClick={() => select(team.id)}>
                 {t('web.team.open')}

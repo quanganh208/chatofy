@@ -15,6 +15,7 @@ import {
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { refusalKey } from './team-copy';
+import { consumeInviteFocus } from './team-invite-focus';
 
 /**
  * Invite one address. Invite is the team view's one filled control.
@@ -37,9 +38,12 @@ export function TeamInviteForm({
   const [role, setRole] = useState<InviteRole>('member');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
+  // Read once, on the first render: a team created a moment ago lands here with the caret.
+  const [focusOnMount] = useState(consumeInviteFocus);
 
   return (
     <form
+      data-team-invite-form
       className="flex flex-col gap-2 py-3.5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -72,6 +76,7 @@ export function TeamInviteForm({
           type="email"
           name="invite-email"
           autoComplete="off"
+          autoFocus={focusOnMount}
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}

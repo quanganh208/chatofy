@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogTitle } from '@chatofy/ui/react';
 import { AppToaster } from '@/components/layout/app-toaster';
+import { useWorkspace } from '@/components/workspace/workspace-provider';
 import { useReturnFocus } from '@/hooks/use-return-focus';
 import { hasUnsavedSettingsDraft } from '@/hooks/use-unsaved-settings-draft';
 import { useTranslate } from '@/i18n/provider';
@@ -12,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { paneTabFor, type SettingsDialogView } from './settings-dialog-url';
 import { SettingsTabContent } from './settings-dialog-tab-content';
 import type { SettingsTabId } from './settings-tab-ids';
-import { SETTINGS_TAB_GROUPS, settingsTab } from './settings-tabs';
+import { SETTINGS_TAB_GROUPS, settingsTab, settingsTabDescriptionKey } from './settings-tabs';
 import { settingsListBesidePane, useSettingsDialog } from './use-settings-dialog';
 
 /**
@@ -59,6 +60,7 @@ export function SettingsDialog() {
   const listing = view === null;
   const paneTab = paneTabFor(view);
   const meta = settingsTab(paneTab);
+  const { workspace } = useWorkspace();
 
   const navRef = useRef<HTMLElement>(null);
   const paneTitleRef = useRef<HTMLHeadingElement>(null);
@@ -296,7 +298,7 @@ export function SettingsDialog() {
                   {t(meta.labelKey)}
                 </h2>
                 <p className="text-muted-foreground text-body max-w-[62ch]">
-                  {t(meta.descriptionKey)}
+                  {t(settingsTabDescriptionKey(meta, workspace.kind))}
                 </p>
               </header>
               <SettingsTabContent tab={paneTab} />

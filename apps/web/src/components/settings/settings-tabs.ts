@@ -15,14 +15,21 @@ import type { SettingsTabId } from './settings-tab-ids';
  * them. The ids and the URL token live in `settings-tab-ids.ts`, which has no
  * imports, because `next.config.ts` reads them for the legacy redirects.
  *
- * Two groups, split by what the setting belongs to: this person's way of using the
- * app ("Personal"), or the account itself ("Account").
+ * Three groups, split by what the setting belongs to: this person's way of using the
+ * app ("Personal"), the workspace the app is in ("Workspace": its team and its AI
+ * Contexts follow the switcher), or the account itself ("Account").
  */
 export interface SettingsTabMeta {
   id: SettingsTabId;
   labelKey: MessageKey;
   /** One line under the pane's title saying what the tab holds. */
   descriptionKey: MessageKey;
+  /**
+   * For a tab whose content follows the workspace: the line to show inside a team
+   * instead of {@link descriptionKey}, which then speaks for personal (and for the
+   * moment the workspace is still resolving).
+   */
+  teamDescriptionKey?: MessageKey;
   icon: LucideIcon;
 }
 
@@ -47,6 +54,20 @@ export const SETTINGS_TAB_GROUPS: readonly SettingsTabGroup[] = [
         descriptionKey: 'web.settings.translationDescription',
         icon: Languages,
       },
+    ],
+  },
+  {
+    labelKey: 'web.settings.groupWorkspace',
+    tabs: [
+      // Both follow the workspace switcher: inside a team, Team manages that team and
+      // AI Context lists what it shares.
+      {
+        id: 'team',
+        labelKey: 'web.settings.team',
+        descriptionKey: 'web.team.tabDescriptionPersonal',
+        teamDescriptionKey: 'web.team.tabDescriptionTeam',
+        icon: Users,
+      },
       {
         id: 'ai-context',
         labelKey: 'web.preferences.aiContext',
@@ -64,13 +85,6 @@ export const SETTINGS_TAB_GROUPS: readonly SettingsTabGroup[] = [
         descriptionKey: 'web.settings.accountDescription',
         icon: UserRound,
       },
-      // In Account because team membership belongs to the account, not to a device.
-      {
-        id: 'team',
-        labelKey: 'web.settings.team',
-        descriptionKey: 'web.settings.teamDescription',
-        icon: Users,
-      },
       {
         id: 'billing',
         labelKey: 'web.settings.billing',
@@ -85,6 +99,16 @@ export const SETTINGS_TAB_GROUPS: readonly SettingsTabGroup[] = [
 export const SETTINGS_TABS: readonly SettingsTabMeta[] = SETTINGS_TAB_GROUPS.flatMap(
   (group) => group.tabs,
 );
+
+/** The line under a tab's title, for the workspace the app is in. */
+export function settingsTabDescriptionKey(
+  tab: SettingsTabMeta,
+  workspaceKind: 'personal' | 'team' | 'resolving',
+): MessageKey {
+  return workspaceKind === 'team' && tab.teamDescriptionKey
+    ? tab.teamDescriptionKey
+    : tab.descriptionKey;
+}
 
 export function settingsTab(id: SettingsTabId): SettingsTabMeta {
   const tab = SETTINGS_TABS.find((candidate) => candidate.id === id);
