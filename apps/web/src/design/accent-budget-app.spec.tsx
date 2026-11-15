@@ -1805,7 +1805,9 @@ const SCREENS: ScreenState[] = [
       listGlossaries.mockResolvedValue({ glossaries: TEAM_GLOSSARIES });
       listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
     },
-    shows: GLOSSARY_ROW,
+    // The team note with the list under it: only the team's library draws the note,
+    // and a row must have landed beside it, so the row proves both scope and list.
+    shows: '[data-library-note] ~ div [data-slot="glossary-row"]',
     render: () => inTeam('member', glossaryRoute()),
   },
   {
@@ -1819,7 +1821,10 @@ const SCREENS: ScreenState[] = [
       listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
     },
     steps: [GLOSSARY_ROW],
-    shows: '[data-slot="glossary-term"]',
+    // The View only badge in the open glossary's header, with its terms loaded under
+    // it: the row it opened is the one the reader may not edit, and it is filled.
+    shows:
+      '[data-slot="glossary-detail-header"]:has([data-slot="badge"]) ~ div [data-slot="glossary-term"]',
     render: () => inTeam('member', glossaryRoute()),
   },
   {

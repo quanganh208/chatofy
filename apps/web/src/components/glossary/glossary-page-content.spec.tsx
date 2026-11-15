@@ -41,10 +41,16 @@ vi.mock('@/clients/api-client', () => ({
     await Promise.resolve();
     return { items: store.items.map((i) => ({ ...i })) };
   },
-  saveGlossary: async (id: string, body: { name: string; description: string | null }) => {
+  saveGlossary: async (
+    id: string,
+    body: { name: string; description: string | null },
+    teamId?: string,
+  ) => {
     // Answered on a later turn, as the network would.
     await Promise.resolve();
-    api.saveGlossary(id, body);
+    // Recorded with the scope only when there is one, as the personal calls always were.
+    if (teamId === undefined) api.saveGlossary(id, body);
+    else api.saveGlossary(id, body, teamId);
     const glossary: Glossary = {
       id,
       name: body.name,
@@ -173,9 +179,14 @@ const TEAM = {
 
 /** Mount the page, in the personal library unless a team is given. */
 async function mount(team?: typeof TEAM): Promise<void> {
+  root = createRoot(container);
+  await switchTo(team);
+}
+
+/** Render (again) with the workspace on a team, or on personal. */
+async function switchTo(team?: typeof TEAM): Promise<void> {
   await act(async () => {
-    root = createRoot(container);
-    root.render(
+    root!.render(
       <LocaleProvider locale="en">
         <WorkspaceTestHost
           value={{ workspace: team ? { kind: 'team', team } : { kind: 'personal' } }}
@@ -422,5 +433,23 @@ describe('a team glossary the reader may not edit', () => {
     expect(button(en['web.glossary.delete'], container)).toBeUndefined();
     expect(button(en['web.glossary.addTerm'], container)).toBeUndefined();
     expect(button(en['web.glossary.editTerm'], container)).toBeUndefined();
+  });
+});
+
+describe('a write keeps the scope it was opened in', () => {
+  it('creates in the team New glossary was opened in, after a switch to personal', async () => {
+    await mount(TEAM);
+    await press(button('New glossary', container.querySelector('[data-slot="topbar-actions"]')!));
+    await settle(() => dialog() !== null);
+    await switchTo();
+
+    fill('Name', 'Ward terms');
+    await submitDialog();
+
+    expect(api.saveGlossary).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      expect.objectContaining({ name: 'Ward terms' }),
+      TEAM.id,
+    );
   });
 });

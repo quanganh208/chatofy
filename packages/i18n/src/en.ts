@@ -819,6 +819,8 @@ export const en = {
     'You have reached the maximum number of contexts. Delete one to create another.',
   'web.preferences.aiContext.saveFailed':
     'Could not save this context. Your changes are still here.',
+  'web.preferences.aiContext.saveFailedElsewhere':
+    '“{name}” was not saved. Its draft stays in the library it was opened in.',
   'web.preferences.aiContext.loadFailed':
     'Could not load your contexts. Your session is still valid.',
 

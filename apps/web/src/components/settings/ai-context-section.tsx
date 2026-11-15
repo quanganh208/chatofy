@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS, type TranslationContext } from '@chatofy/types';
@@ -54,9 +54,13 @@ export function AiContextSection() {
   const { workspace } = useWorkspace();
   const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
   const { glossaries } = useGlossaries();
-  const [draft, setDraftState] = useState<Draft | null>(null);
+  const [openDraft, setDraftState] = useState<Draft | null>(null);
   // The scope the open draft was started in: Save writes there, never to the live one.
   const [draftScope, setDraftScope] = useState<string | undefined>(undefined);
+  // A draft is shown only in the library it was opened in. When the workspace moves
+  // (say a team fell back to personal), the editor closes rather than standing over
+  // a list it does not belong to; switching back shows what was typed again.
+  const draft = draftScope === teamId ? openDraft : null;
   // What the open draft started as, so "unsaved" means changed rather than merely open.
   const [seed, setSeed] = useState<Draft | null>(null);
   const setDraft = useCallback((next: Draft | null, scope?: string) => {
@@ -69,6 +73,18 @@ export function AiContextSection() {
   useReportUnsavedSettingsDraft(draft !== null && JSON.stringify(draft) !== JSON.stringify(seed));
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  // A save refused because the library it was opened in is gone (the reader was
+  // removed, so the workspace fell back) hides the editor and its inline failure with
+  // it. Say so where it can be seen, once per failed save, rather than let the typed
+  // text vanish. Back in that library, the inline failure is still beside Save.
+  const failedOutOfSight = saveFailed && openDraft !== null && draftScope !== teamId;
+  const unsavedName = openDraft?.name.trim() ?? '';
+  const toldOutOfSight = useRef(false);
+  useEffect(() => {
+    if (!failedOutOfSight || toldOutOfSight.current) return;
+    toldOutOfSight.current = true;
+    notify.error(t('web.preferences.aiContext.saveFailedElsewhere', { name: unsavedName }));
+  }, [failedOutOfSight, unsavedName, t]);
   const patch = useCallback(
     (next: Partial<Draft>) =>
       setDraftState((current) => (current ? { ...current, ...next } : current)),
@@ -84,6 +100,7 @@ export function AiContextSection() {
     if (!draft) return;
     setSaving(true);
     setSaveFailed(false);
+    toldOutOfSight.current = false;
     try {
       await save(
         draft.id,
@@ -126,7 +143,7 @@ export function AiContextSection() {
         {/* In a team, the scope is named here: the picker's "Personal" group caption
             must not be the only cue to whose library this is. */}
         {teamName !== null ? (
-          <p className="text-hint text-muted-foreground pt-3.5">
+          <p data-library-note className="text-hint text-muted-foreground pt-3.5">
             {t('web.workspace.libraryNote', { name: teamName })}
           </p>
         ) : null}

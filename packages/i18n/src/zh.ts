@@ -642,6 +642,7 @@ export const zh: Messages = {
   'web.preferences.aiContext.register': '语体',
   'web.preferences.aiContext.limitReached': '语境数量已达上限。删除一个后才能新建。',
   'web.preferences.aiContext.saveFailed': '无法保存这个语境。你的修改还在。',
+  'web.preferences.aiContext.saveFailedElsewhere': '“{name}”未保存。草稿仍留在打开它的资料库中。',
   'web.preferences.aiContext.loadFailed': '无法加载你的语境。你仍处于登录状态。',
 
   // ---- web.account ----
