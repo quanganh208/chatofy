@@ -39,11 +39,15 @@ const keyOf = (glossaryId: string, teamId: string | undefined) => `${teamId ?? '
  * glossary and scope it was for, and a selection whose read has not landed yet is
  * loading. A reply for a glossary that is no longer selected — a slow reload after
  * the user moved on — is dropped instead of painting the wrong list. A 403 or 404
- * from a team write reloads the teams and the items, then rethrows.
+ * from a team read reloads the teams; from a team write it reloads the teams, the
+ * items and the glossary list (`onListStale`, so a lost edit right shows at once),
+ * then rethrows.
  */
 export function useGlossaryItems(
   glossaryId: string | null,
   teamId: string | undefined,
+  /** Reload the glossary LIST: a refused team write may mean `canEdit` changed. */
+  onListStale?: () => void,
 ): GlossaryItemsValue {
   const { reloadTeams } = useWorkspace();
   const [loaded, setLoaded] = useState<LoadedItems | null>(null);
@@ -54,17 +58,21 @@ export function useGlossaryItems(
     selected.current = key;
   }, [key]);
 
-  const load = useCallback(async (id: string, scope: string | undefined) => {
-    const forKey = keyOf(id, scope);
-    let next: LoadedItems;
-    try {
-      const result = await listGlossaryItems(id, scope);
-      next = { key: forKey, items: result.items, status: 'ready' };
-    } catch {
-      next = { key: forKey, items: [], status: 'failed' };
-    }
-    if (selected.current === forKey) setLoaded(next);
-  }, []);
+  const load = useCallback(
+    async (id: string, scope: string | undefined) => {
+      const forKey = keyOf(id, scope);
+      let next: LoadedItems;
+      try {
+        const result = await listGlossaryItems(id, scope);
+        next = { key: forKey, items: result.items, status: 'ready' };
+      } catch (err) {
+        if (scope !== undefined && teamListIsStale(err)) void reloadTeams();
+        next = { key: forKey, items: [], status: 'failed' };
+      }
+      if (selected.current === forKey) setLoaded(next);
+    },
+    [reloadTeams],
+  );
 
   useEffect(() => {
     if (glossaryId !== null) void load(glossaryId, teamId);
@@ -86,13 +94,14 @@ export function useGlossaryItems(
         if (scope !== undefined && teamListIsStale(err)) {
           void reloadTeams();
           void reload();
+          onListStale?.();
         }
         throw err;
       }
       notifyLibraryChanged();
       await reload();
     },
-    [reload, reloadTeams],
+    [reload, reloadTeams, onListStale],
   );
 
   const addItem = useCallback(

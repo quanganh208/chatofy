@@ -36,7 +36,8 @@ import { GlossaryListPanel } from './glossary-list-panel';
  * line naming the team, and a glossary the reader may not edit opens view-only.
  * Every write passes the scope of the render that made it — a dialog, a toast's
  * Undo or Retry — so a switch while one is pending cannot land it in the other
- * library. A selection is kept with its scope, so a switch clears it.
+ * library. A selection is kept with its scope: a switch hides it, and switching
+ * back shows it again only if the glossary is still listed there.
  *
  * ## The accent budget
  *
@@ -46,7 +47,7 @@ import { GlossaryListPanel } from './glossary-list-panel';
  */
 export function GlossaryPageContent() {
   const t = useTranslate();
-  const { glossaries, status, teamId, save, patch, remove, retry } = useGlossaries();
+  const { glossaries, status, teamId, save, patch, remove, retry, reload } = useGlossaries();
   const { workspace } = useWorkspace();
   const teamName = teamId !== undefined && workspace.kind === 'team' ? workspace.team.name : null;
   const [selection, setSelection] = useState<{ id: string; teamId: string | undefined } | null>(
@@ -139,6 +140,7 @@ export function GlossaryPageContent() {
                 key={selected?.id ?? 'none'}
                 glossary={selected}
                 teamId={teamId}
+                onListStale={() => void reload()}
                 onBack={() => setSelectedId(null)}
                 onToggleActive={(active) =>
                   selected && setActive(selected.id, active, selected.name, teamId)

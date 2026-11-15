@@ -102,3 +102,29 @@ describe('useAvailableTranslationContexts — after a library write', () => {
     expect(listAvailableTranslationContexts).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useAvailableTranslationContexts — a write during the first read', () => {
+  it('reports failed, not loading, when the refetch that superseded it fails', async () => {
+    act(() => root.unmount());
+    root = createRoot(container);
+    let failFirst!: (err: Error) => void;
+    listAvailableTranslationContexts.mockReset();
+    listAvailableTranslationContexts.mockReturnValueOnce(
+      new Promise((_, reject) => (failFirst = reject)),
+    );
+    listAvailableTranslationContexts.mockRejectedValueOnce(new Error('offline'));
+    act(() =>
+      root.render(
+        <LocaleProvider>
+          <Probe />
+        </LocaleProvider>,
+      ),
+    );
+    act(() => notifyLibraryChanged());
+    await flush();
+    failFirst(new Error('offline'));
+    await flush();
+
+    expect(latest.status).toBe('failed');
+  });
+});

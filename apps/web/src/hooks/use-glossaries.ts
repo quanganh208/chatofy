@@ -37,6 +37,8 @@ export interface GlossariesValue {
   remove: (glossaryId: string, teamId: string | undefined) => Promise<void>;
   /** Load again after a failure, showing the loading state while it runs. */
   retry: () => Promise<void>;
+  /** Refetch in the background, e.g. after a refused term write changed `canEdit`. */
+  reload: () => Promise<void>;
 }
 
 const SharedGlossaries = createContext<GlossariesValue | null>(null);
@@ -49,7 +51,7 @@ const fetchGlossaries = (teamId: string | undefined) =>
 
 /** The active workspace's glossaries (`use-scoped-library.ts` holds the scope rules). */
 function useOwnGlossaries(enabled: boolean): GlossariesValue {
-  const { teamId, rows, status, write, retry } = useScopedLibrary(enabled, fetchGlossaries);
+  const { teamId, rows, status, write, retry, reload } = useScopedLibrary(enabled, fetchGlossaries);
 
   const save = useCallback(
     (glossaryId: string, body: SaveGlossaryRequest, scope: string | undefined) =>
@@ -67,7 +69,7 @@ function useOwnGlossaries(enabled: boolean): GlossariesValue {
     [write],
   );
 
-  return { glossaries: rows, status, teamId, save, patch, remove, retry };
+  return { glossaries: rows, status, teamId, save, patch, remove, retry, reload };
 }
 
 export function GlossariesProvider({ children }: { children: ReactNode }): ReactElement {

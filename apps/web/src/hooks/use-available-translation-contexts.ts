@@ -88,23 +88,28 @@ export function useAvailableTranslationContexts(): AvailableTranslationContextsV
 
   useEffect(() => {
     let generation = 0;
-    const fetchAvailable = (first: boolean) => {
+    // Whether any read has landed. A failure before that is the list's answer, even
+    // when it comes from a refetch that superseded the first read; after it, a failed
+    // refetch keeps the list that is on screen.
+    let settled = false;
+    const fetchAvailable = () => {
       const mine = ++generation;
       listAvailableTranslationContexts().then(
         (result) => {
           if (mine !== generation) return;
+          settled = true;
           setAvailable(result);
           setStatus('ready');
         },
         () => {
-          if (mine !== generation || !first) return;
+          if (mine !== generation || settled) return;
           setAvailable(null);
           setStatus('failed');
         },
       );
     };
-    fetchAvailable(true);
-    const unsubscribe = onLibraryChanged(() => fetchAvailable(false));
+    fetchAvailable();
+    const unsubscribe = onLibraryChanged(fetchAvailable);
     return () => {
       generation += 1;
       unsubscribe();

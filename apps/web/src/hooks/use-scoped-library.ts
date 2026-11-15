@@ -122,6 +122,8 @@ export function useScopedLibrary<T>(
     status,
     write,
     retry,
+    /** Refetch the scope on screen in the background, keeping its rows meanwhile. */
+    reload,
   };
 }
 

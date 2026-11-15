@@ -16,6 +16,8 @@ interface Props {
   glossary: Glossary | null;
   /** The scope the glossary was listed in: `undefined` is personal. */
   teamId: string | undefined;
+  /** Reload the glossary list after a refused team write (`canEdit` may have changed). */
+  onListStale?: () => void;
   /** Back to the list — drawn only where the list gives way to this (one pane). */
   onBack: () => void;
   onToggleActive: (active: boolean) => void;
@@ -39,13 +41,18 @@ interface Props {
 export function GlossaryDetailPanel({
   glossary,
   teamId,
+  onListStale,
   onBack,
   onToggleActive,
   onDelete,
   className,
 }: Props) {
   const t = useTranslate();
-  const { items, status, addItem, removeItem } = useGlossaryItems(glossary?.id ?? null, teamId);
+  const { items, status, addItem, removeItem } = useGlossaryItems(
+    glossary?.id ?? null,
+    teamId,
+    onListStale,
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GlossaryItem | null>(null);
 
