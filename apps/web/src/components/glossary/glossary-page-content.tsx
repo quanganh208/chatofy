@@ -115,7 +115,7 @@ export function GlossaryPageContent() {
       ) : null}
 
       {teamName !== null ? (
-        <p className="text-hint text-muted-foreground pb-4">
+        <p className="text-hint text-muted-foreground">
           {t('web.workspace.libraryNote', { name: teamName })}
         </p>
       ) : null}
