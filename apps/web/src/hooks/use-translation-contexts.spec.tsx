@@ -111,14 +111,18 @@ describe('useTranslationContexts', () => {
     });
 
     await act(async () => {
-      await latest.save('ctx-2', {
-        name: 'Standup',
-        topic: null,
-        hotwords: [],
-        glossary: [],
-        style: null,
-        glossaryId: null,
-      });
+      await latest.save(
+        'ctx-2',
+        {
+          name: 'Standup',
+          topic: null,
+          hotwords: [],
+          glossary: [],
+          style: null,
+          glossaryId: null,
+        },
+        undefined,
+      );
     });
 
     // The refetch rather than a local splice: the server owns `updatedAt`, which

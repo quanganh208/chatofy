@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { TranslationContext } from '@chatofy/types';
 import { listAvailableTranslationContexts } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
+import { onLibraryChanged } from '@/lib/library-changed';
 import type { TranslationContextsState } from '@/hooks/use-translation-contexts';
 
 /** One scope's contexts as the picker draws them. `label: null` renders flat. */
@@ -75,7 +76,9 @@ export interface AvailableTranslationContextsValue {
  *
  * Deliberately NOT tied to the active workspace: the workspace decides which
  * library the editors manage, never which contexts a session may use. Fetches
- * once per mount, like the library hook it replaces on the picker screens.
+ * once per mount, and again after any library write in this tab, so an edit in
+ * Settings over `/translate` reaches the picker. A refetch that fails keeps the
+ * list it had: the picker must not vanish because one background read did.
  */
 export function useAvailableTranslationContexts(): AvailableTranslationContextsValue {
   const t = useTranslate();
@@ -84,20 +87,27 @@ export function useAvailableTranslationContexts(): AvailableTranslationContextsV
   const [status, setStatus] = useState<TranslationContextsState>('loading');
 
   useEffect(() => {
-    let cancelled = false;
-    listAvailableTranslationContexts()
-      .then((result) => {
-        if (cancelled) return;
-        setAvailable(result);
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAvailable(null);
-        setStatus('failed');
-      });
+    let generation = 0;
+    const fetchAvailable = (first: boolean) => {
+      const mine = ++generation;
+      listAvailableTranslationContexts().then(
+        (result) => {
+          if (mine !== generation) return;
+          setAvailable(result);
+          setStatus('ready');
+        },
+        () => {
+          if (mine !== generation || !first) return;
+          setAvailable(null);
+          setStatus('failed');
+        },
+      );
+    };
+    fetchAvailable(true);
+    const unsubscribe = onLibraryChanged(() => fetchAvailable(false));
     return () => {
-      cancelled = true;
+      generation += 1;
+      unsubscribe();
     };
   }, []);
 

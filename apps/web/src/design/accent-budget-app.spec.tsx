@@ -114,10 +114,10 @@ vi.mock('@/clients/api-client', () => ({
   fetchConversationAudio: () => fetchConversationAudio(),
   uploadConversationAudio: () => uploadConversationAudio(),
   deleteConversation: vi.fn(),
-  // The AI Context library. Answering with NOTHING by default is what keeps every
-  // existing row of this table unchanged: `ContextPicker` renders nothing at all
-  // for an empty list, exactly as `VoicePicker` does, so only the two rows that
-  // seed contexts below see a picker at all.
+  // The AI Context library (Settings › AI Context) and the contexts a session may
+  // use (the picker). Answering with NOTHING by default keeps every other row of
+  // this table unchanged: `ContextPicker` renders nothing at all for an empty list,
+  // exactly as `VoicePicker` does, so only the rows that seed contexts see one.
   listTranslationContexts: () => listTranslationContexts(),
   listAvailableTranslationContexts: () => listAvailableTranslationContexts(),
   saveTranslationContext: vi.fn(),
@@ -630,6 +630,12 @@ function glossaryWithTerms() {
   listGlossaries.mockResolvedValue({ glossaries: [GLOSSARY] });
   listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
 }
+
+/** A team's glossaries: the first is one the reader may not edit. */
+const TEAM_GLOSSARIES = [
+  { ...GLOSSARY, id: '22222222-2222-4222-8222-222222222222', name: 'Ward terms', canEdit: false },
+  { ...GLOSSARY, canEdit: true },
+];
 
 const GLOSSARY_ROW = '[data-slot="glossary-row"]';
 const NEW_GLOSSARY = '[data-slot="topbar-actions"] button';
@@ -1790,6 +1796,33 @@ const SCREENS: ScreenState[] = [
     render: glossaryRoute,
   },
   {
+    // A team's library: the note naming the team is muted text, and a view-only
+    // glossary's row is the same row. Nothing filled, no surface.
+    name: '/glossary — team scope, glossaries listed',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockResolvedValue({ glossaries: TEAM_GLOSSARIES });
+      listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
+    },
+    shows: GLOSSARY_ROW,
+    render: () => inTeam('member', glossaryRoute()),
+  },
+  {
+    // The view-only glossary open (listed first, so its row is the one pressed): no
+    // switch, Delete or Add term, only a secondary badge, which spends nothing.
+    name: '/glossary — team scope, a view-only glossary open',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listGlossaries.mockResolvedValue({ glossaries: TEAM_GLOSSARIES });
+      listGlossaryItems.mockResolvedValue({ items: GLOSSARY_TERMS });
+    },
+    steps: [GLOSSARY_ROW],
+    shows: '[data-slot="glossary-term"]',
+    render: () => inTeam('member', glossaryRoute()),
+  },
+  {
     // New glossary pressed: the dialog is the one surface and Create the one
     // accent — the topbar button under it is outline.
     name: '/glossary — creating a glossary',
@@ -1941,6 +1974,21 @@ const SCREENS: ScreenState[] = [
     },
     render: settingsOverAPage,
     shows: '[data-settings-pane="ai-context"] li button[data-slot="button"]',
+  },
+  {
+    // A team's AI Contexts: one row editable, one View only. The dialog is the one
+    // surface; the badge and the note spend nothing.
+    name: 'settings dialog › ai-context — team scope',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      settingsOn('ai-context')();
+      listTranslationContexts.mockResolvedValue({
+        contexts: [{ ...CONTEXTS[0]!, canEdit: false }, CONTEXTS[1]!],
+      });
+    },
+    render: () => inTeam('member', settingsOverAPage()),
+    shows: '[data-settings-pane="ai-context"] li [data-slot="badge"]',
   },
   {
     // The editor open, the ONE state on this tab that spends an accent: Save is the

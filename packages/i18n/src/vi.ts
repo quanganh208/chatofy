@@ -607,6 +607,7 @@ export const vi: Messages = {
   'web.preferences.aiContext.empty': 'Bạn chưa có ngữ cảnh nào. Hãy tạo một cái để bắt đầu.',
   'web.preferences.aiContext.new': 'Ngữ cảnh mới',
   'web.preferences.aiContext.edit': 'Sửa',
+  'web.preferences.aiContext.viewOnly': 'Chỉ xem',
   // The editor group's heading when it holds a stored context.
   // The library group's heading; the editor group beside it is titled for its draft.
   'web.preferences.aiContext.libraryTitle': 'Ngữ cảnh của bạn',
@@ -1030,6 +1031,7 @@ export const vi: Messages = {
   'web.invite.teamFull': 'Nhóm này đã đủ người. Hãy nhờ chủ nhóm dành chỗ.',
   'web.workspace.label': 'Không gian làm việc',
   'web.workspace.personal': 'Cá nhân',
+  'web.workspace.libraryNote': 'Mọi người trong {name} đều dùng được những gì ở đây.',
   'web.workspace.switchTo': 'Chuyển không gian làm việc',
   'web.workspace.manageTeams': 'Quản lý nhóm',
   'web.settings.team': 'Nhóm',
@@ -1147,6 +1149,7 @@ export const vi: Messages = {
   'web.glossary.termCount': '{count} thuật ngữ',
   'web.glossary.badgeInactive': 'Tắt',
   'web.glossary.delete': 'Xoá',
+  'web.glossary.viewOnly': 'Chỉ xem',
   'web.glossary.nameLabel': 'Tên',
   'web.glossary.descriptionLabel': 'Mô tả',
   'web.glossary.sourceLangLabel': 'Ngôn ngữ nguồn',

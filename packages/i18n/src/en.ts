@@ -778,6 +778,7 @@ export const en = {
   'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',
+  'web.preferences.aiContext.viewOnly': 'View only',
   // The library group's heading; the editor group beside it is titled for its draft.
   'web.preferences.aiContext.libraryTitle': 'Your contexts',
   // The editor group's heading when it holds a stored context.
@@ -1300,6 +1301,7 @@ export const en = {
   'web.invite.teamFull': 'This team is full. Ask its owner to make room.',
   'web.workspace.label': 'Workspace',
   'web.workspace.personal': 'Personal',
+  'web.workspace.libraryNote': "Everyone in {name} can use what's here.",
   'web.workspace.switchTo': 'Switch workspace',
   'web.workspace.manageTeams': 'Manage teams',
   'web.settings.team': 'Team',
@@ -1429,6 +1431,7 @@ export const en = {
   'web.glossary.termCount': '{count} terms',
   'web.glossary.badgeInactive': 'Inactive',
   'web.glossary.delete': 'Delete',
+  'web.glossary.viewOnly': 'View only',
   'web.glossary.nameLabel': 'Name',
   'web.glossary.descriptionLabel': 'Description',
   'web.glossary.sourceLangLabel': 'Source language',

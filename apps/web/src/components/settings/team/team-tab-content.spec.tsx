@@ -192,6 +192,21 @@ describe('Settings › Team', () => {
     createTeamInvite.mockRejectedValue(
       new ApiClientError({ code: 'FORBIDDEN', message: 'Forbidden.' }, 403),
     );
+    // The reloaded team list says the caller is now a plain member.
+    reloadTeams.mockImplementationOnce(() => {
+      act(() => {
+        root?.render(
+          <LocaleProvider>
+            <WorkspaceTestHost
+              value={{ reloadTeams, select, workspace: { kind: 'team', team: team('member') } }}
+            >
+              <TeamTabContent />
+            </WorkspaceTestHost>
+          </LocaleProvider>,
+        );
+      });
+      return Promise.resolve();
+    });
     await inTeam('admin');
     type(document.querySelector<HTMLInputElement>('input[type="email"]')!, 'new@example.com');
     act(() => {
@@ -199,6 +214,7 @@ describe('Settings › Team', () => {
     });
     await settle();
     expect(reloadTeams).toHaveBeenCalled();
+    expect(document.querySelector('input[type="email"]')).toBeNull();
   });
 
   it('says the invites failed to load and offers a retry', async () => {
@@ -212,9 +228,12 @@ describe('Settings › Team', () => {
     expect(document.querySelector('[data-invites-failed]')).toBeNull();
   });
 
-  it('reloads the teams when the team answers 404', async () => {
+  it.each([404, 403])('reloads the teams when the member list answers %i', async (status) => {
     listTeamMembers.mockRejectedValue(
-      new ApiClientError({ code: 'NOT_FOUND', message: 'Not found.' }, 404),
+      new ApiClientError(
+        { code: status === 404 ? 'NOT_FOUND' : 'FORBIDDEN', message: 'Refused.' },
+        status,
+      ),
     );
     await inTeam('member');
     expect(reloadTeams).toHaveBeenCalled();

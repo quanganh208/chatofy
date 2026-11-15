@@ -14,6 +14,8 @@ import { GlossaryTermList } from './glossary-term-list';
 
 interface Props {
   glossary: Glossary | null;
+  /** The scope the glossary was listed in: `undefined` is personal. */
+  teamId: string | undefined;
   /** Back to the list — drawn only where the list gives way to this (one pane). */
   onBack: () => void;
   onToggleActive: (active: boolean) => void;
@@ -36,13 +38,14 @@ interface Props {
  */
 export function GlossaryDetailPanel({
   glossary,
+  teamId,
   onBack,
   onToggleActive,
   onDelete,
   className,
 }: Props) {
   const t = useTranslate();
-  const { items, status, addItem, removeItem } = useGlossaryItems(glossary?.id ?? null);
+  const { items, status, addItem, removeItem } = useGlossaryItems(glossary?.id ?? null, teamId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GlossaryItem | null>(null);
 
@@ -62,7 +65,7 @@ export function GlossaryDetailPanel({
   };
 
   const removeOld = (item: GlossaryItem): Promise<void> =>
-    removeItem(item.id).catch(() => {
+    removeItem(item.id, teamId).catch(() => {
       notify.error(t('web.glossary.oldTermKept', { term: item.original }), {
         id: `glossary-term-${item.id}`,
         retry: () => void removeOld(item),
@@ -70,7 +73,7 @@ export function GlossaryDetailPanel({
     });
 
   const submit = async (body: SaveGlossaryItemRequest) => {
-    await addItem(body);
+    await addItem(body, teamId);
     setDialogOpen(false);
     if (!editing) {
       notify.success(t('web.glossary.termAdded', { term: body.original }));
@@ -84,7 +87,7 @@ export function GlossaryDetailPanel({
   };
 
   const remove = async (item: GlossaryItem) => {
-    await removeItem(item.id);
+    await removeItem(item.id, teamId);
     notify.success(t('web.glossary.termDeleted', { term: item.original }));
   };
 
@@ -115,6 +118,7 @@ export function GlossaryDetailPanel({
           <GlossaryTermList
             items={items}
             status={status}
+            readOnly={glossary.canEdit === false}
             onEdit={(item) => openDialog(item)}
             onRemove={remove}
           />

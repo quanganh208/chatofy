@@ -11,6 +11,8 @@ import { useTranslate } from '@/i18n/provider';
 interface Props {
   items: GlossaryItem[];
   status: 'idle' | 'loading' | 'ready' | 'failed';
+  /** A glossary the reader may not edit: no Edit or Delete on any term. */
+  readOnly?: boolean;
   onEdit: (item: GlossaryItem) => void;
   /** Rejects when the server refused; the confirm dialog says so and stays open. */
   onRemove: (item: GlossaryItem) => Promise<void>;
@@ -21,7 +23,7 @@ interface Props {
  * the page ground — no box around the list. Each row carries Edit (a dialog) and
  * Delete (the shared AlertDialog confirm), both ghost.
  */
-export function GlossaryTermList({ items, status, onEdit, onRemove }: Props) {
+export function GlossaryTermList({ items, status, readOnly, onEdit, onRemove }: Props) {
   const t = useTranslate();
   const [filter, setFilter] = useState('');
 
@@ -90,28 +92,30 @@ export function GlossaryTermList({ items, status, onEdit, onRemove }: Props) {
                     <p className="text-hint text-muted-foreground truncate">{item.notes}</p>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={t('web.glossary.editTermNamed', { term: item.original })}
-                    onClick={() => onEdit(item)}
-                  >
-                    <Pencil aria-hidden />
-                    {t('web.glossary.editTerm')}
-                  </Button>
-                  <ConfirmDeleteButton
-                    triggerVariant="ghost"
-                    name={item.original}
-                    labels={{
-                      action: t('web.glossary.delete'),
-                      pending: t('web.glossary.deleting'),
-                      cancel: t('web.glossary.cancel'),
-                      failed: t('web.glossary.termDeleteFailed'),
-                    }}
-                    onConfirm={() => onRemove(item)}
-                  />
-                </div>
+                {readOnly ? null : (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={t('web.glossary.editTermNamed', { term: item.original })}
+                      onClick={() => onEdit(item)}
+                    >
+                      <Pencil aria-hidden />
+                      {t('web.glossary.editTerm')}
+                    </Button>
+                    <ConfirmDeleteButton
+                      triggerVariant="ghost"
+                      name={item.original}
+                      labels={{
+                        action: t('web.glossary.delete'),
+                        pending: t('web.glossary.deleting'),
+                        cancel: t('web.glossary.cancel'),
+                        failed: t('web.glossary.termDeleteFailed'),
+                      }}
+                      onConfirm={() => onRemove(item)}
+                    />
+                  </div>
+                )}
               </li>
             );
           })}

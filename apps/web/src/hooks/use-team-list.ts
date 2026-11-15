@@ -16,7 +16,7 @@ export function isTeamGone(err: unknown): boolean {
  * or a 403 (their role changed, e.g. an admin demoted while the tab was open). Either
  * way the teams reload, and the view redraws for the role the caller now holds.
  */
-function teamListIsStale(err: unknown): boolean {
+export function teamListIsStale(err: unknown): boolean {
   return isTeamGone(err) || (err instanceof ApiClientError && err.status === 403);
 }
 

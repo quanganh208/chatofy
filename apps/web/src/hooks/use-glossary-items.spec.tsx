@@ -50,7 +50,7 @@ function deferred(glossaryId: string): {
 }
 
 function Probe({ glossaryId }: { glossaryId: string | null }) {
-  const value = useGlossaryItems(glossaryId);
+  const value = useGlossaryItems(glossaryId, undefined);
   React.useEffect(() => {
     latest = value;
   });
@@ -159,13 +159,16 @@ describe('useGlossaryItems', () => {
     listGlossaryItems.mockReturnValueOnce(reloadForA.promise);
     let adding: Promise<void> = Promise.resolve();
     await act(async () => {
-      adding = latest.addItem({
-        clientId: '00000000-0000-4000-8000-000000000002',
-        original: 'term',
-        translation: 'rendering',
-        targetLang: 'en',
-        notes: null,
-      });
+      adding = latest.addItem(
+        {
+          clientId: '00000000-0000-4000-8000-000000000002',
+          original: 'term',
+          translation: 'rendering',
+          targetLang: 'en',
+          notes: null,
+        },
+        undefined,
+      );
       await Promise.resolve();
     });
 
