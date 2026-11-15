@@ -369,7 +369,7 @@ refresh rotation. Setup steps are in `environment-variables.md`.
 
 ### Every mailed link is a web link
 
-Mail from `register` and `forgot-password` always links to `WEB_BASE_URL`
+Mail from `register`, `forgot-password` and a team invite always links to `WEB_BASE_URL`
 (`/verify-email?token=…`, `/reset-password?token=…`, `/forgot-password`, `/register`),
 including when the phone app made the request. The web pages redeem the tokens with the
 same endpoints the app would, so the reader confirms or resets in the browser and signs
@@ -384,6 +384,17 @@ links on the web origin, signed with a release key the app does not have yet.
 
 The app's `verify-email` and `reset-password` screens remain, for a `chatofy://` link
 opened by hand.
+
+A team invite links to `/invite?token=…` on the same origin, and the copy is static:
+it names no team and no inviter, because a team name is text the inviter chose. The
+page shows both only after the invitee signs in (see
+[teams and shared libraries](./teams-and-shared-libraries.md#invites)).
+
+The three token pages, `/verify-email`, `/reset-password` and `/invite`, take the query
+out of the address bar on first client render (`apps/web/src/components/auth/verify-email-client.tsx`,
+`apps/web/src/components/auth/reset-password-form.tsx`, `apps/web/src/lib/pending-invite.ts`).
+On 2026-11-15 the Cloudflare Web Analytics beacon on all three was checked on prod: it
+reports `location` without the query, so no part of the token appears in its payload.
 
 ### Google account linking
 
@@ -459,6 +470,15 @@ sender bound to `MAIL_SENDER`, so there is no unguarded seam to inject instead:
   address was invented by the caller, and putting it in the reserved tier would
   let someone registering rotating addresses drain the allowance account
   recovery depends on.
+
+A third sender is authenticated: `POST /teams/:teamId/invites`, an admin or owner
+naming the invitee (`apps/api/src/modules/teams/invites/team-invites.service.ts`). It
+draws on the same attacker-facing tier as registration, because the recipient is still an
+address the caller chose, and the route adds its own caps before anything is mailed: 20
+invites per inviter per rolling 24 hours, and a refusal when any team invited that address
+in the last 11 minutes. The guard's cooldown is 10 minutes counted from the send, which
+lands just after the invite row, so the route's window is one minute longer; without it
+the API would answer `201` for a mail the guard then drops.
 
 No user-supplied text reaches any mail body, subject or header — bodies are
 constants plus the link, and the dispatch type has no field for anything else.
