@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientError } from '@chatofy/api-client';
 import type { InvitePreviewResponse } from '@chatofy/types';
@@ -14,7 +14,13 @@ import {
   previewTeamInvite,
 } from '@/clients/teams-api-client';
 import { useTranslate } from '@/i18n/provider';
-import { clearPendingInvite, parkPendingInvite, takeInviteFromUrl } from '@/lib/pending-invite';
+import { WorkspaceTile } from '@/components/workspace/workspace-tile';
+import {
+  clearPendingInvite,
+  parkPendingInvite,
+  rememberJoinedTeam,
+  takeInviteFromUrl,
+} from '@/lib/pending-invite';
 import { isLiveSession } from '@/lib/session-guard';
 import { writeStoredWorkspace } from '@/lib/workspace-store';
 import { FINAL_OUTCOMES, InviteOutcome, type Outcome } from './invite-outcome';
@@ -35,16 +41,30 @@ const isStatus = (err: unknown, status: number) =>
  * account and never puts the token in either link; after sign-in (including a new
  * account's verify, which continues here) it previews the invite, which spends
  * nothing, and joins on one button. The team name is the creator's own text, so it
- * renders on its own line as plain text and never inside a sentence.
+ * renders as plain text, on its own line beside the team's tile.
+ *
+ * A join lands in the team: the stored workspace is set to it (this page is outside
+ * the app shell, so there is no provider to ask), and the page moves on to
+ * `/glossary`, which says "You joined …" once its toast host is up.
  */
 export function InviteAcceptClient() {
   const t = useTranslate();
   const params = useSearchParams();
+  const router = useRouter();
   const { data, status } = useSession();
   const userId = data?.user?.id;
-  const nameLabelId = useId();
 
-  const [token] = useState(() => takeInviteFromUrl(params.get('token')));
+  // `undefined` until mounted. The server has no URL to strip and no storage to
+  // read, so resolving the token in a state initializer made the first client
+  // render differ from the server's (a hydration mismatch on every visit). The
+  // effect runs before the preview's, which waits on the token, so the URL is still
+  // stripped before any request. Once only: the URL this page rewrites (to
+  // `/invite`, then `/invite?joined=1`) must not be read again as a new link.
+  const [token, setToken] = useState<string | null | undefined>(undefined);
+  const firstLinkToken = useRef(params.get('token'));
+  useEffect(() => {
+    setToken(takeInviteFromUrl(firstLinkToken.current));
+  }, []);
   // Set on the URL after a join, so a reload shows the join, not a spent link.
   const [joinedOnLoad] = useState(() => params.get('joined') === '1');
   // A session that can no longer renew is signed out for this page's purposes.
@@ -141,8 +161,11 @@ export function InviteAcceptClient() {
     acceptTeamInvite(token).then(
       ({ team }) => {
         if (userId) writeStoredWorkspace(userId, team.id);
+        rememberJoinedTeam(team.name);
+        // Shown while the glossary loads, and on a reload if navigating fails.
         window.history.replaceState(null, '', '/invite?joined=1');
         setView({ kind: 'outcome', outcome: 'joined' });
+        router.replace('/glossary');
       },
       (err: unknown) => {
         setJoining(false);
@@ -155,22 +178,23 @@ export function InviteAcceptClient() {
     );
   };
 
+  const asAdmin = preview.role === 'admin';
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-prose">
-        {t(preview.role === 'admin' ? 'web.invite.pendingAdmin' : 'web.invite.pendingMember')}
-      </p>
-      <div role="group" aria-labelledby={nameLabelId} className="flex flex-col gap-1">
-        <span id={nameLabelId} className="text-muted-foreground text-hint">
-          {t('web.invite.teamNameLabel')}
-        </span>
-        <p className="text-prose break-words">{preview.teamName}</p>
-      </div>
-      {preview.inviterEmail && (
-        <p className="text-muted-foreground text-prose break-words">
-          {t('web.invite.invitedBy', { email: preview.inviterEmail })}
+      <div className="flex min-w-0 items-center gap-3">
+        <WorkspaceTile kind="team" name={preview.teamName ?? ''} size="lg" />
+        <p data-invite-team className="text-heading font-display min-w-0 break-words">
+          {preview.teamName}
         </p>
-      )}
+      </div>
+      <p className="text-muted-foreground text-prose break-words">
+        {preview.inviterEmail
+          ? t(asAdmin ? 'web.invite.invitedByAsAdmin' : 'web.invite.invitedByAsMember', {
+              email: preview.inviterEmail,
+            })
+          : t(asAdmin ? 'web.invite.pendingAdmin' : 'web.invite.pendingMember')}
+      </p>
+      <p className="text-prose">{t('web.invite.whatJoiningMeans')}</p>
       <AuthAlert id="invite-error" message={joinFailed ? t('web.team.actionFailed') : undefined} />
       <Button id="invite-join" type="button" className="w-full" disabled={joining} onClick={join}>
         {t('web.invite.join')}

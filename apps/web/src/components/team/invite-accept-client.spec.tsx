@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@chatofy/i18n';
 import { ApiClientError } from '@chatofy/api-client';
@@ -17,6 +18,7 @@ const acceptTeamInvite = vi.fn<(token: string) => Promise<TeamResponse>>();
 const signOut = vi.fn<(options: unknown) => Promise<void>>();
 const session = { value: { data: null as unknown, status: 'unauthenticated' } };
 let search = new URLSearchParams();
+const routerReplace = vi.fn<(href: string) => void>();
 
 vi.mock('@/clients/api-client', () => ({ authedFetch: vi.fn() }));
 vi.mock('@/clients/teams-api-client', async () => {
@@ -29,7 +31,10 @@ vi.mock('@/clients/teams-api-client', async () => {
     acceptTeamInvite: (token: string) => acceptTeamInvite(token),
   };
 });
-vi.mock('next/navigation', () => ({ useSearchParams: () => search }));
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => search,
+  useRouter: () => ({ replace: routerReplace, push: vi.fn(), refresh: vi.fn() }),
+}));
 vi.mock('next-auth/react', () => ({
   useSession: () => session.value,
   signOut: (options: unknown) => signOut(options),
@@ -37,7 +42,7 @@ vi.mock('next-auth/react', () => ({
 
 const { InviteAcceptClient } = await import('./invite-accept-client');
 const { LocaleProvider } = await import('@/i18n/provider');
-const { readPendingInvite } = await import('@/lib/pending-invite');
+const { readPendingInvite, takeJoinedTeam } = await import('@/lib/pending-invite');
 
 const SIGNED_IN = { data: { user: { id: 'u1' } }, status: 'authenticated' };
 const PENDING: InvitePreviewResponse = {
@@ -61,6 +66,8 @@ let container: HTMLElement;
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
+  routerReplace.mockReset();
   container = document.createElement('div');
   document.body.appendChild(container);
   window.history.pushState(null, '', `/invite?token=${TOKEN}`);
@@ -172,24 +179,60 @@ describe('InviteAcceptClient', () => {
     expect(previewTeamInvite).not.toHaveBeenCalled();
   });
 
-  it('shows the team name as plain text and joins on one button', async () => {
+  it('renders nothing on the server pass, so hydration matches whatever the link holds', () => {
+    // The server has no URL to strip and no storage: a first render that resolved
+    // the token would differ from the server's and fail hydration.
+    for (const value of [SIGNED_IN, { data: null, status: 'unauthenticated' }]) {
+      session.value = value;
+      expect(
+        renderToString(
+          <LocaleProvider>
+            <InviteAcceptClient />
+          </LocaleProvider>,
+        ),
+      ).toBe('');
+    }
+  });
+
+  it('names the team with its tile, as plain text, and says what joining means', async () => {
     previewTeamInvite.mockResolvedValue(PENDING);
-    acceptTeamInvite.mockResolvedValue(TEAM);
     await render();
 
     expect(container.querySelector('b')).toBeNull();
-    expect(text()).toContain('Cardiology <b>unit</b>');
-    expect(text()).toContain('Invited by lead@example.com');
+    expect(container.querySelector('[data-invite-team]')?.textContent).toBe(
+      'Cardiology <b>unit</b>',
+    );
+    expect(container.querySelector('[data-workspace-tile="team"]')?.textContent).toBe('C');
+    expect(text()).toContain('Invited by lead@example.com · join as a member');
+    expect(text()).toContain(en['web.invite.whatJoiningMeans']);
+    expect(buttonLabels()).toEqual([en['web.invite.join']]);
+  });
+
+  it('says the role without an inviter when the inviter is gone', async () => {
+    previewTeamInvite.mockResolvedValue({ ...PENDING, role: 'admin', inviterEmail: null });
+    await render();
+    expect(text()).toContain(en['web.invite.pendingAdmin']);
+    expect(text()).not.toContain('Invited by');
+  });
+
+  it('joins on one button, opens the app in the team and moves on to its glossaries', async () => {
+    previewTeamInvite.mockResolvedValue(PENDING);
+    acceptTeamInvite.mockResolvedValue(TEAM);
+    await render();
     await click(en['web.invite.join']);
 
     expect(acceptTeamInvite).toHaveBeenCalledWith(TOKEN);
     expect(text()).toContain(en['web.invite.joined']);
     expect(window.location.pathname + window.location.search).toBe('/invite?joined=1');
     expect(readPendingInvite()).toBeNull();
+    // The workspace the app shell reads on mount: the joined team.
     expect(JSON.parse(localStorage.getItem('chatofy.workspace')!)).toEqual({
       userId: 'u1',
       value: TEAM.team.id,
     });
+    expect(routerReplace).toHaveBeenCalledWith('/glossary');
+    // Left for /glossary's "You joined …" toast.
+    expect(takeJoinedTeam()).toBe(TEAM.team.name);
   });
 
   it('offers sign-out and no Join for another account, and keeps the invite', async () => {
@@ -219,6 +262,8 @@ describe('InviteAcceptClient', () => {
     await render();
     await click(en['web.invite.join']);
     expect(text()).toContain(en[key]);
+    expect(routerReplace).not.toHaveBeenCalled();
+    expect(takeJoinedTeam()).toBeNull();
   });
 
   it.each(['team-cap', 'team-full'] as const)(

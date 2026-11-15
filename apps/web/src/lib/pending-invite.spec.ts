@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearPendingInvite, readPendingInvite, savePendingInvite } from './pending-invite';
+import {
+  clearPendingInvite,
+  readPendingInvite,
+  rememberJoinedTeam,
+  savePendingInvite,
+  takeJoinedTeam,
+} from './pending-invite';
 
 /** A token taken out of the `/invite` URL survives register and verify, for 7 days. */
 const TOKEN = 'A'.repeat(42) + '_';
@@ -45,5 +51,23 @@ describe('the pending invite', () => {
     savePendingInvite(TOKEN);
     clearPendingInvite();
     expect(readPendingInvite()).toBeNull();
+  });
+});
+
+describe('the joined-team hand-off', () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it('is read once, then gone', () => {
+    rememberJoinedTeam('Cardiology unit');
+    expect(takeJoinedTeam()).toBe('Cardiology unit');
+    expect(takeJoinedTeam()).toBeNull();
+  });
+
+  it('is nothing when storage refuses', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    expect(takeJoinedTeam()).toBeNull();
+    vi.restoreAllMocks();
   });
 });

@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TranslationContext } from '@chatofy/types';
+import type { TeamSummary, TranslationContext } from '@chatofy/types';
 import { CONTEXT_LIMITS } from '@chatofy/types';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
@@ -68,16 +68,16 @@ async function mount(): Promise<void> {
   });
 }
 
-const TEAM = {
+const TEAM: TeamSummary = {
   id: 'c' + 'a'.repeat(24),
   name: 'Cardiology unit',
-  role: 'member' as const,
+  role: 'member',
   memberCount: 3,
   createdAt: '2026-11-14T00:00:00.000Z',
 };
 
 /** Render (again) inside a workspace: the team's library, or personal. */
-async function mountIn(team?: typeof TEAM): Promise<void> {
+async function mountIn(team?: TeamSummary): Promise<void> {
   await act(async () => {
     root.render(
       <LocaleProvider>
@@ -445,5 +445,31 @@ describe('AiContextSection — a draft keeps its library', () => {
       en['web.preferences.aiContext.saveFailedElsewhere'].replace('{name}', 'Ward rounds'),
     );
     error.mockRestore();
+  });
+});
+
+describe('AiContextSection — whose library it is', () => {
+  const title = () => container.querySelector('[data-slot="settings-section"] h3')?.textContent;
+  const header = () => container.querySelector('[data-library-note]');
+
+  it('heads a personal library "Your contexts", with no team line', async () => {
+    await mountIn();
+    expect(title()).toBe(en['web.preferences.aiContext.libraryTitle']);
+    expect(header()).toBeNull();
+  });
+
+  it('heads a team library "Team contexts", with who shares it and what a member edits', async () => {
+    await mountIn(TEAM);
+    expect(title()).toBe(en['web.workspace.teamContexts']);
+    expect(header()?.querySelector('[data-workspace-tile="team"]')?.textContent).toBe('C');
+    expect(header()?.textContent).toContain(
+      `Shared with 3 members of ${TEAM.name} · ${en['web.workspace.editOwn']}`,
+    );
+  });
+
+  it('tells an admin they can edit all of it', async () => {
+    await mountIn({ ...TEAM, role: 'admin' });
+    expect(header()?.textContent).toContain(en['web.workspace.editAll']);
+    expect(header()?.textContent).not.toContain(en['web.workspace.editOwn']);
   });
 });
