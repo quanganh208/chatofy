@@ -89,7 +89,10 @@ export function WorkspaceSwitcher({ variant }: { variant: 'sidebar' | 'chip' }) 
             ) : (
               <span aria-hidden className="bg-muted size-5 shrink-0 rounded-md" />
             )}
-            <span className="text-body max-w-40 truncate">{chipName}</span>
+            {/* Below `sm` the name goes: the page title and its actions share a 375px
+                bar with this chip, and a named chip squeezed the title to nothing. The
+                tile still says which workspace, and the accessible name says it in full. */}
+            <span className="text-body max-w-32 truncate max-sm:hidden">{chipName}</span>
             <ChevronsUpDown aria-hidden className="text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
