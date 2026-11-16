@@ -2,6 +2,7 @@ package expo.modules.appnightmode
 
 import android.app.UiModeManager
 import android.content.Context
+import android.graphics.Color
 import android.os.Build
 import androidx.core.view.WindowCompat
 import expo.modules.kotlin.modules.Module
@@ -17,9 +18,12 @@ import expo.modules.kotlin.modules.ModuleDefinition
  * the splash, the navigation bar and the window background follow the choice.
  *
  * The bars of a window already open were styled when it was created, so
- * `setNavigationBarDark` restyles the navigation bar's buttons (and with them the
- * contrast scrim Android draws behind three-button navigation) for the scheme the
- * app is drawing now, on every Android version.
+ * `setSystemBarsDark` restyles them for the scheme the app is drawing now: the
+ * status bar's icons and the navigation bar's buttons, which on Android 10+ also
+ * pick the contrast scrim drawn behind three-button navigation. Below Android 10
+ * React Native paints the navigation bar an opaque colour instead, so that colour
+ * is repainted to match, with React Native's own values. Android 7 (API 24-25) has
+ * no light navigation bar, so there only the status bar changes.
  */
 class AppNightModeModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -41,12 +45,25 @@ class AppNightModeModule : Module() {
       true
     }
 
-    Function("setNavigationBarDark") { dark: Boolean ->
+    Function("setSystemBarsDark") { dark: Boolean ->
       val activity = appContext.currentActivity ?: return@Function
       activity.runOnUiThread {
-        WindowCompat.getInsetsController(activity.window, activity.window.decorView)
-          .isAppearanceLightNavigationBars = !dark
+        val window = activity.window
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        bars.isAppearanceLightStatusBars = !dark
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return@runOnUiThread
+        bars.isAppearanceLightNavigationBars = !dark
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+          @Suppress("DEPRECATION")
+          window.navigationBarColor = if (dark) DARK_NAVIGATION_BAR else LIGHT_NAVIGATION_BAR
+        }
       }
     }
+  }
+
+  private companion object {
+    // React Native's own bar colours below Android 10 (WindowUtil.kt).
+    val LIGHT_NAVIGATION_BAR = Color.argb(0xE6, 0xFF, 0xFF, 0xFF)
+    val DARK_NAVIGATION_BAR = Color.argb(0x80, 0x1B, 0x1B, 0x1B)
   }
 }
