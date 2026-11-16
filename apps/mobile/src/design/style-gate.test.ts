@@ -216,12 +216,23 @@ describe('scanSource', () => {
       ),
       [[2], [5]],
     );
+    // A block-body callback, even one with its own early return, counts with the
+    // return around it.
+    assert.deepEqual(
+      groups(
+        'const A = () => (\n  <View>\n    <PrimaryButton />\n    {xs.map(function (x) {\n      if (x) return null;\n      return <Button />;\n    })}\n  </View>\n);',
+      ),
+      [[3, 6]],
+    );
   });
 
   it('counts a legacy fill from the primary colour as an accent', () => {
     const src =
       '<><TouchableOpacity style={[s.a, { backgroundColor: colors.primary }]} /><Button /></>';
     assert.deepEqual(scanSource('a.tsx', src).accentGroups, [[1, 1]]);
+    // `accent` in the legacy theme is the speaking hue, a readout, not an action.
+    const readout = '<View style={{ backgroundColor: colors.accent }} />';
+    assert.deepEqual(scanSource('a.tsx', readout).accentGroups, []);
   });
 
   it('flags vector-icon imports', () => {
