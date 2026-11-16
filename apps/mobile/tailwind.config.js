@@ -50,20 +50,27 @@ module.exports = {
       medium: fontWeight.medium,
       semibold: fontWeight.semibold,
     },
-    fontFamily: {
-      // Be Vietnam Pro, the face web reads at text sizes. Android resolves the
-      // weight's file from the XML font family the expo-font plugin writes under
-      // this name (app.json); iOS matches the embedded font's own family name and
-      // picks the weight natively.
-      sans: [
-        platformSelect({ android: 'BeVietnamPro', ios: 'Be Vietnam Pro', default: 'BeVietnamPro' }),
-      ],
-    },
     padding: tokenSpacing,
     margin: { auto: 'auto', ...tokenSpacing },
     gap: tokenSpacing,
     space: tokenSpacing,
-    extend: {},
+    extend: {
+      // Be Vietnam Pro, the face web reads at text sizes. Android resolves each
+      // weight's file from the XML font family the expo-font plugin writes under
+      // this name (app.json); iOS matches the embedded font's family name.
+      //
+      // Two traps, both measured on a device (the computed style, not the class):
+      // - It sits in `extend` because nativewind/preset declares
+      //   `extend.fontFamily.sans` as Android "san-serif", and `extend` is applied
+      //   after `theme` — a plain `theme.fontFamily` computed "san-serif", and
+      //   every weight fell back to regular.
+      // - `platformSelect` must be the whole value with only platform keys, the
+      //   way the preset writes it. Wrapped in a list, or given a `default` key,
+      //   it computed no family at all.
+      fontFamily: {
+        sans: platformSelect({ android: 'BeVietnamPro', ios: "'Be Vietnam Pro'" }),
+      },
+    },
   },
   plugins: [require('tailwindcss-animate')],
 };

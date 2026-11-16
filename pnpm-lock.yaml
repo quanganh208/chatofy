@@ -414,6 +414,9 @@ importers:
       react-native-audio-api:
         specifier: 1.0.0
         version: 1.0.0(patch_hash=c9a859a5c7975f9d3601b94364fa63cbe96f09e0913447e5dab7d3b5e53e108b)(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      react-native-css-interop:
+        specifier: 0.2.7
+        version: 0.2.7(9da3ea4a8ef7d5ce7caebb64bced83f5)
       react-native-gesture-handler:
         specifier: ~3.3.0
         version: 3.3.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
