@@ -644,6 +644,12 @@ cap. Both still pass.
   plugin (`app.json`). Android gets one XML font family, `BeVietnamPro`, so
   `fontWeight` picks the file; iOS matches the family name. `font-sans` names it, and
   `components/ui/text.tsx` carries it at 14px, React Native's own default size.
+  The family sits in `extend.fontFamily`, because `nativewind/preset` sets
+  `extend.fontFamily.sans` to Android's `san-serif` and would otherwise win.
+- **Headers and the tab bar** take their colours and fonts from
+  `src/ui/navigation-colors.ts`, through `expo-router/react-navigation`'s
+  `ThemeProvider`. expo-router vendors React Navigation, so one imported from
+  `@react-navigation/native` reaches no navigator.
 
 **Adding a component.** Generate it — `npx @react-native-reusables/cli@0.7.1 add <name>`
 from `apps/mobile`, declining any overwrite of an existing `components/ui` file — then
