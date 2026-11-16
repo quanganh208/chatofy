@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { createTranslator, en } from '@chatofy/i18n';
 import { ArrowLeftRight } from 'lucide-react-native';
 import {

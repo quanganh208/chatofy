@@ -348,6 +348,12 @@ importers:
       '@rn-primitives/slot':
         specifier: ^1.5.2
         version: 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      '@rn-primitives/toggle':
+        specifier: ^1.5.2
+        version: 1.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      '@rn-primitives/toggle-group':
+        specifier: ^1.5.2
+        version: 1.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.0)
@@ -3991,8 +3997,44 @@ packages:
       react-native-web:
         optional: true
 
+  '@rn-primitives/toggle-group@1.5.2':
+    resolution: {integrity: sha512-L36GKwoaAz9feZENf7d3mT/9MohNT1vXYi8Vtnker1lObYeYayUxNVoHS59G6RlIsiOld8NBYGm9rrlH3MP3Ag==}
+    peerDependencies:
+      react: 19.3.0
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native:
+        optional: true
+      react-native-web:
+        optional: true
+
+  '@rn-primitives/toggle@1.5.2':
+    resolution: {integrity: sha512-D3qyfDPDDNutvpeGfLZucNp5WFDHi/rYc0mS5AlNxMJcIK/NbJeI3NL8lZXK9W+oTCS7FVnaJVTEvBmcSdIj4Q==}
+    peerDependencies:
+      react: 19.3.0
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native:
+        optional: true
+      react-native-web:
+        optional: true
+
   '@rn-primitives/types@1.5.2':
     resolution: {integrity: sha512-qoJOeCGBvQCTyEdKl4CL5MHwTLA2P3Lr6EzuJAxQcc/dUL0ev7IDtsAxHpoLraDD2kZdIkqnFtNsasr2iH25ZQ==}
+    peerDependencies:
+      react: 19.3.0
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native:
+        optional: true
+      react-native-web:
+        optional: true
+
+  '@rn-primitives/utils@1.5.2':
+    resolution: {integrity: sha512-pNt1hemLFnzYwz7V8s+owMo2KG/oKDO++OuscgWz9hcUhn5CVGpgJ9HEnpAAcm406QPorxKlqL/vUDcQj7H8ww==}
     peerDependencies:
       react: 19.3.0
       react-native: '*'
@@ -13134,7 +13176,43 @@ snapshots:
       react-native: 0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0)
       react-native-web: 0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
 
+  '@rn-primitives/toggle-group@1.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)':
+    dependencies:
+      '@radix-ui/react-toggle-group': 1.2.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@rn-primitives/slot': 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      '@rn-primitives/types': 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      '@rn-primitives/utils': 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      react: 19.3.0
+    optionalDependencies:
+      react-native: 0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0)
+      react-native-web: 0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+
+  '@rn-primitives/toggle@1.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)':
+    dependencies:
+      '@radix-ui/react-toggle': 1.2.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@rn-primitives/slot': 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      '@rn-primitives/types': 1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)
+      react: 19.3.0
+    optionalDependencies:
+      react-native: 0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0)
+      react-native-web: 0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+
   '@rn-primitives/types@1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)':
+    dependencies:
+      react: 19.3.0
+    optionalDependencies:
+      react-native: 0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0)
+      react-native-web: 0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+
+  '@rn-primitives/utils@1.5.2(react-native-web@0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@11.0.0))(supports-color@11.0.0))(@types/react@19.3.0)(react@19.3.0)(supports-color@11.0.0))(react@19.3.0)':
     dependencies:
       react: 19.3.0
     optionalDependencies:

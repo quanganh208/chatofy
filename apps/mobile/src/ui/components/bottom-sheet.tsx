@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
+import { palettes, space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 import { GhostButton } from './ghost-button';
 
@@ -40,7 +41,8 @@ export function BottomSheet({ visible, title, closeLabel, onClose, children }: B
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  // The dark ground at 40% in both themes: a scrim dims, it never lightens.
+  backdrop: { flex: 1, backgroundColor: palettes.dark.bg, opacity: 0.4 },
   sheet: {
     maxHeight: '75%',
     borderTopLeftRadius: radius.lg,

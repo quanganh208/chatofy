@@ -1,4 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 

@@ -4,7 +4,8 @@
  * screen is the Leave button.
  */
 
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { RTCView, type MediaStream } from 'react-native-webrtc';
 import { space, radius, fontSize, fontWeight, overlay, color } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';

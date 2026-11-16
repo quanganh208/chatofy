@@ -3,7 +3,8 @@
  * with muted/camera-off readouts. Pure list, no accent; dismiss is a ghost control.
  */
 
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Modal, View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import type { Translate } from '@chatofy/i18n';
 import { useTheme } from '@/providers/theme-provider';

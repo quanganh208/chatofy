@@ -9,13 +9,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   SafeAreaView,
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   PermissionsAndroid,
   Platform,
   StyleSheet,
 } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
