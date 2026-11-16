@@ -78,7 +78,7 @@ function attributeLiteral(attribute: ts.JsxAttribute): string | undefined {
 const ACCENT_COMPONENTS = new Set(['AuthSubmit', 'AuthNextStep', 'PrimaryButton']);
 const PALETTE_EXPORTS = new Set(['palettes', 'color', 'colorLight']);
 
-/** A legacy fill: `style` sets `backgroundColor` to `<theme>.primary` (or `.accent`). */
+/** A legacy fill: `style` sets `backgroundColor` to `<theme>.primary` (`accent` there is the speaking hue). */
 function fillsPrimaryInStyle(element: ts.JsxOpeningLikeElement): boolean {
   const style = element.attributes.properties.find(
     (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'style',
@@ -89,7 +89,7 @@ function fillsPrimaryInStyle(element: ts.JsxOpeningLikeElement): boolean {
       ts.isPropertyAssignment(node) &&
       node.name.getText() === 'backgroundColor' &&
       ts.isPropertyAccessExpression(node.initializer) &&
-      /^(primary|accent)$/.test(node.initializer.name.text)
+      node.initializer.name.text === 'primary'
     ) {
       found = true;
     }
@@ -133,15 +133,6 @@ function isInlineInJsx(fn: ts.Node): boolean {
   return false;
 }
 
-/** The function that owns `node`, skipping functions written inline in JSX. */
-function owningFunction(node: ts.Node): ts.Node {
-  for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
-    if (ts.isFunctionLike(at) && !isInlineInJsx(at)) return at;
-    if (ts.isSourceFile(at)) return at;
-  }
-  return node.getSourceFile();
-}
-
 /**
  * Where an element is drawn: a screen state (the nearest `return` statement or
  * arrow expression body of a component), or, for JSX hoisted into a variable,
@@ -156,17 +147,24 @@ function placeOf(node: ts.Node): { state: ts.Node; owner: ts.Node; hoisted: bool
       ts.isReturnStatement(at) ||
       (ts.isArrowFunction(at) && !ts.isBlock(at.body) && contains(at.body, node));
     if (isState) {
-      const fn = ts.isArrowFunction(at) ? at : owningFunction(at);
-      if (ts.isArrowFunction(at) ? !isInlineInJsx(at) : fn === owningFunction(node)) {
-        return { state: at, owner: fn, hoisted: false };
-      }
-      continue;
+      // The function this return (or arrow body) belongs to; one written inline in
+      // JSX is looked through, so its return is not a state of its own.
+      const own = ts.isArrowFunction(at) ? at : nearestFunction(at);
+      if (own !== undefined && isInlineInJsx(own)) continue;
+      return { state: at, owner: own ?? at.getSourceFile(), hoisted: false };
     }
     if (ts.isFunctionLike(at) && !isInlineInJsx(at)) return { state: at, owner: at, hoisted: true };
     if (ts.isSourceFile(at)) return { state: at, owner: at, hoisted: true };
   }
   const file = node.getSourceFile();
   return { state: file, owner: file, hoisted: true };
+}
+
+function nearestFunction(node: ts.Node): ts.Node | undefined {
+  for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
+    if (ts.isFunctionLike(at)) return at;
+  }
+  return undefined;
 }
 
 function contains(outer: ts.Node, node: ts.Node): boolean {
