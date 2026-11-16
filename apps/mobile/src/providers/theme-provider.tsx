@@ -1,16 +1,19 @@
 import { createContext, use, useEffect, type ReactNode } from 'react';
 import { Appearance, useColorScheme, View } from 'react-native';
 import { vars } from 'nativewind';
+// expo-router vendors React Navigation; its navigators read the theme from this
+// copy, so a ThemeProvider imported from `@react-navigation/native` reaches none
+// of them (measured: the active tab stayed the library's default blue).
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider as NavigationTheme,
-} from '@react-navigation/native';
+} from 'expo-router/react-navigation';
 import * as SystemUI from 'expo-system-ui';
 import type { ThemeChoice } from '@chatofy/types';
 import { colors, type ColorScheme, type ThemeColors } from '@/ui/theme';
 import { themeVariables } from '@/ui/theme-variables';
-import { navigationColors } from '@/ui/navigation-colors';
+import { navigationColors, navigationFonts } from '@/ui/navigation-colors';
 import { useAccountPreferences } from '@/preferences/account-preferences';
 
 interface ThemeContextValue {
@@ -28,8 +31,8 @@ const rootVariables = {
 } as const;
 
 const navigationThemes = {
-  light: { ...DefaultTheme, colors: { ...DefaultTheme.colors, ...navigationColors('light') } },
-  dark: { ...DarkTheme, colors: { ...DarkTheme.colors, ...navigationColors('dark') } },
+  light: { ...DefaultTheme, colors: navigationColors('light'), fonts: navigationFonts },
+  dark: { ...DarkTheme, colors: navigationColors('dark'), fonts: navigationFonts },
 } as const;
 
 /** What `Appearance.setColorScheme` takes for a stored choice; `system` hands control back. */
