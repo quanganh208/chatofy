@@ -6,23 +6,19 @@
  */
 
 import { useState } from 'react';
-import { Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { fontSize, fontWeight, space } from '@chatofy/ui';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import { authFlowFailure } from '@/auth/auth-error-message';
 import { useAuth } from '@/providers/auth-provider';
-import { useTheme } from '@/providers/theme-provider';
-import { GhostButton } from '@/ui/components/ghost-button';
-import { InlineNotice } from '@/ui/components/inline-notice';
-import { PrimaryButton } from '@/ui/components/primary-button';
-import { Screen } from '@/ui/components/screen';
-import { TextField } from '@/ui/components/text-field';
+import { AuthField } from '@/components/auth/auth-field';
+import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
+import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 
 const t = createTranslator(en);
 
 export default function ForgotPasswordScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const { forgotPassword } = useAuth();
 
@@ -49,56 +45,50 @@ export default function ForgotPasswordScreen() {
     }
   }
 
-  return (
-    <Screen centered>
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: fontSize.xl,
-          fontWeight: fontWeight.semibold,
-          marginBottom: space.sm,
-        }}
-      >
-        {t('web.auth.forgotPasswordLink')}
-      </Text>
+  if (sent) {
+    return (
+      <AuthScreen title={t('web.auth.forgotPasswordLink')}>
+        <AuthForm>
+          <AuthStatus message={t('web.auth.resetLinkSent')} />
+          <Button onPress={() => router.replace('/sign-in')}>
+            <Text>{t('web.auth.backToSignIn')}</Text>
+          </Button>
+        </AuthForm>
+      </AuthScreen>
+    );
+  }
 
-      {sent ? (
-        <>
-          <InlineNotice message={t('web.auth.resetLinkSent')} />
-          <PrimaryButton
-            label={t('web.auth.backToSignIn')}
-            onPress={() => router.replace('/sign-in')}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={{ color: colors.textSecondary, fontSize: fontSize.base }}>
-            {t('web.auth.forgotPasswordBody')}
-          </Text>
-          <TextField
-            label={t('common.auth.email')}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            returnKeyType="go"
-            onSubmitEditing={() => void submit()}
-          />
-          {error ? <InlineNotice tone="error" message={t(error)} /> : null}
-          <PrimaryButton
-            label={t('web.auth.sendResetLink')}
-            onPress={() => void submit()}
-            busy={submitting}
-          />
-          <GhostButton
-            variant="link"
-            label={t('web.auth.backToSignIn')}
-            onPress={() => router.replace('/sign-in')}
-          />
-        </>
-      )}
-    </Screen>
+  return (
+    <AuthScreen
+      title={t('web.auth.forgotPasswordLink')}
+      description={t('web.auth.forgotPasswordBody')}
+    >
+      <AuthForm>
+        <AuthField
+          label={t('common.auth.email')}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="go"
+          onSubmitEditing={() => void submit()}
+        />
+        {error ? <AuthError message={t(error)} /> : null}
+        <AuthSubmit
+          label={t('web.auth.sendResetLink')}
+          busyLabel={t('web.auth.sending')}
+          busy={submitting}
+          onPress={() => void submit()}
+        />
+      </AuthForm>
+
+      <AuthFooter>
+        <Button variant="link" onPress={() => router.replace('/sign-in')}>
+          <Text>{t('web.auth.backToSignIn')}</Text>
+        </Button>
+      </AuthFooter>
+    </AuthScreen>
   );
 }

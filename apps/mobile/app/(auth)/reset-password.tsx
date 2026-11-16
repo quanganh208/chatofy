@@ -6,25 +6,21 @@
  */
 
 import { useState } from 'react';
-import { Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { fontSize, fontWeight, space } from '@chatofy/ui';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import { authFlowFailure } from '@/auth/auth-error-message';
 import { readLinkToken } from '@/auth/deep-link-token';
 import { validateNewPassword } from '@/auth/register-form-state';
 import { useAuth } from '@/providers/auth-provider';
-import { useTheme } from '@/providers/theme-provider';
-import { GhostButton } from '@/ui/components/ghost-button';
-import { InlineNotice } from '@/ui/components/inline-notice';
-import { PrimaryButton } from '@/ui/components/primary-button';
-import { Screen } from '@/ui/components/screen';
-import { TextField } from '@/ui/components/text-field';
+import { AuthField } from '@/components/auth/auth-field';
+import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
+import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 
 const t = createTranslator(en);
 
 export default function ResetPasswordScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const { resetPassword } = useAuth();
   const { token: rawToken } = useLocalSearchParams<{ token?: string }>();
@@ -55,79 +51,71 @@ export default function ResetPasswordScreen() {
     }
   }
 
-  const heading = (
-    <Text
-      style={{
-        color: colors.text,
-        fontSize: fontSize.xl,
-        fontWeight: fontWeight.semibold,
-        marginBottom: space.sm,
-      }}
-    >
-      {t('web.auth.resetPasswordHeading')}
-    </Text>
-  );
+  const title = t('web.auth.resetPasswordHeading');
 
   if (!token) {
     return (
-      <Screen centered>
-        {heading}
-        <InlineNotice tone="error" message={t('mobile.auth.linkMissingToken')} />
-        <PrimaryButton
-          label={t('web.auth.sendResetLink')}
-          onPress={() => router.replace('/forgot-password')}
-        />
-      </Screen>
+      <AuthScreen title={title}>
+        <AuthForm>
+          <AuthError message={t('mobile.auth.linkMissingToken')} />
+          <Button onPress={() => router.replace('/forgot-password')}>
+            <Text>{t('web.auth.sendResetLink')}</Text>
+          </Button>
+        </AuthForm>
+      </AuthScreen>
     );
   }
 
   if (done) {
     return (
-      <Screen centered>
-        {heading}
-        <InlineNotice message={t('mobile.auth.resetDone')} />
-        <PrimaryButton label={t('common.auth.signIn')} onPress={() => router.replace('/sign-in')} />
-      </Screen>
+      <AuthScreen title={title}>
+        <AuthForm>
+          <AuthStatus message={t('mobile.auth.resetDone')} />
+          <Button onPress={() => router.replace('/sign-in')}>
+            <Text>{t('common.auth.signIn')}</Text>
+          </Button>
+        </AuthForm>
+      </AuthScreen>
     );
   }
 
   return (
-    <Screen centered>
-      {heading}
-      <Text style={{ color: colors.textSecondary, fontSize: fontSize.base }}>
-        {t('web.auth.chooseNewPassword')}
-      </Text>
-      <TextField
-        label={t('web.auth.newPassword')}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoComplete="new-password"
-        textContentType="newPassword"
-      />
-      <TextField
-        label={t('mobile.auth.confirmPassword')}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        autoComplete="new-password"
-        textContentType="newPassword"
-        returnKeyType="go"
-        onSubmitEditing={() => void submit()}
-      />
-      {error ? <InlineNotice tone="error" message={t(error)} /> : null}
-      <PrimaryButton
-        label={t('web.auth.resetPasswordSubmit')}
-        onPress={() => void submit()}
-        busy={submitting}
-      />
-      {error === 'mobile.auth.linkExpired' ? (
-        <GhostButton
-          variant="link"
-          label={t('web.auth.sendResetLink')}
-          onPress={() => router.replace('/forgot-password')}
+    <AuthScreen title={title} description={t('web.auth.chooseNewPassword')}>
+      <AuthForm>
+        <AuthField
+          label={t('web.auth.newPassword')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete="new-password"
+          textContentType="newPassword"
         />
+        <AuthField
+          label={t('mobile.auth.confirmPassword')}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="go"
+          onSubmitEditing={() => void submit()}
+        />
+        {error ? <AuthError message={t(error)} /> : null}
+        <AuthSubmit
+          label={t('web.auth.resetPasswordSubmit')}
+          busyLabel={t('web.auth.resetting')}
+          busy={submitting}
+          onPress={() => void submit()}
+        />
+      </AuthForm>
+
+      {error === 'mobile.auth.linkExpired' ? (
+        <AuthFooter>
+          <Button variant="link" onPress={() => router.replace('/forgot-password')}>
+            <Text>{t('web.auth.sendResetLink')}</Text>
+          </Button>
+        </AuthFooter>
       ) : null}
-    </Screen>
+    </AuthScreen>
   );
 }

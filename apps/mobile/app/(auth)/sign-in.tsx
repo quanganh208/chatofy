@@ -5,20 +5,18 @@
  */
 
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { space, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import { safeNextPath } from '@/auth/route-guard';
 import { AuthRequestError } from '@/clients/http-auth-client';
 import { useAuth } from '@/providers/auth-provider';
-import { useTheme } from '@/providers/theme-provider';
+import { AuthField } from '@/components/auth/auth-field';
+import { AuthError } from '@/components/auth/auth-notice';
+import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
-import { GhostButton } from '@/ui/components/ghost-button';
-import { InlineNotice } from '@/ui/components/inline-notice';
-import { PrimaryButton } from '@/ui/components/primary-button';
-import { Screen } from '@/ui/components/screen';
-import { TextField } from '@/ui/components/text-field';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 
 // English for now, matching the conference screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
@@ -33,7 +31,6 @@ function failureMessage(err: unknown): MessageKey {
 }
 
 export default function SignInScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const { signIn } = useAuth();
   const { next } = useLocalSearchParams<{ next?: string }>();
@@ -61,66 +58,52 @@ export default function SignInScreen() {
   }
 
   return (
-    <Screen centered>
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: fontSize.xl,
-          fontWeight: fontWeight.semibold,
-          marginBottom: space.sm,
-        }}
-      >
-        {t('mobile.auth.signInTitle')}
-      </Text>
-
-      <TextField
-        label={t('common.auth.email')}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        textContentType="emailAddress"
-      />
-      <TextField
-        label={t('common.auth.password')}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoComplete="password"
-        textContentType="password"
-        returnKeyType="go"
-        onSubmitEditing={() => void submit()}
-      />
-
-      {error ? <InlineNotice tone="error" message={t(error)} /> : null}
-
-      <PrimaryButton
-        label={t('common.auth.signIn')}
-        onPress={() => void submit()}
-        busy={submitting}
-      />
-      <GhostButton
-        variant="link"
-        label={t('web.auth.forgotPasswordShort')}
-        onPress={() => router.push('/forgot-password')}
-      />
-
+    <AuthScreen title={t('mobile.auth.signInTitle')} description={t('web.auth.accountRequired')}>
       <GoogleSignInButton
         onSignedIn={() => router.replace(safeNextPath(next, '/translate') as Href)}
         onError={setError}
       />
 
-      <View style={{ alignItems: 'center' }}>
-        <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
-          {t('mobile.auth.noAccountPrompt')}
-        </Text>
-        <GhostButton
-          variant="link"
-          label={t('web.auth.createAccount')}
-          onPress={() => router.push('/sign-up')}
+      <AuthForm>
+        <AuthField
+          label={t('common.auth.email')}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
         />
-      </View>
-    </Screen>
+        <AuthField
+          label={t('common.auth.password')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete="password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={() => void submit()}
+        />
+        {error ? <AuthError message={t(error)} /> : null}
+        <AuthSubmit
+          label={t('common.auth.signIn')}
+          busyLabel={t('common.auth.signingIn')}
+          busy={submitting}
+          onPress={() => void submit()}
+        />
+      </AuthForm>
+
+      <AuthFooter>
+        <Button variant="link" onPress={() => router.push('/forgot-password')}>
+          <Text>{t('web.auth.forgotPasswordShort')}</Text>
+        </Button>
+        <View className="flex-row flex-wrap items-center justify-center">
+          <Text variant="muted">{t('mobile.auth.noAccountPrompt')}</Text>
+          <Button variant="link" className="px-2" onPress={() => router.push('/sign-up')}>
+            <Text>{t('web.auth.createAccount')}</Text>
+          </Button>
+        </View>
+      </AuthFooter>
+    </AuthScreen>
   );
 }
