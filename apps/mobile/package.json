@@ -20,7 +20,7 @@
     "@chatofy/ui": "workspace:*",
     "@config-plugins/react-native-webrtc": "15.0.2",
     "@react-native-vector-icons/ionicons": "^14.0.0",
-    "@tanstack/react-query": "^5.106.1",
+    "@tanstack/react-query": "^5.107.1",
     "expo": "~58.0.19",
     "expo-auth-session": "~58.0.17",
     "expo-constants": "~58.0.13",
@@ -48,7 +48,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@eslint-react/eslint-plugin": "^5.28.8",
+    "@eslint-react/eslint-plugin": "^5.30.2",
     "@eslint/js": "^10.0.1",
     "@types/react": "~19.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
@@ -57,7 +57,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.2"
   },
   "private": true,
   "expo": {
