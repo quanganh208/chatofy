@@ -42,6 +42,8 @@ src/
   lib/        `cn()` for class lists
   design/     the style gate (`style-gate.test.ts`)
   ui/         palette mapping (`theme-variables.ts`), elevation, and the older StyleSheet components
+modules/      local native modules (Android): meeting foreground service; app night mode, which
+              hands the theme choice to Android for the splash and system bars
 ```
 
 **Styling.** New UI is `className` (NativeWind) on `src/components/ui`, with colours,

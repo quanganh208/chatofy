@@ -17,6 +17,7 @@ import { navigationColors, navigationFonts } from '@/ui/navigation-colors';
 import { useAccountPreferences } from '@/preferences/account-preferences';
 import { readRememberedTheme, rememberTheme } from '@/preferences/remembered-theme';
 import { useAuth } from './auth-provider';
+import { setAppNightMode, setSystemBarsDark } from '../../modules/app-night-mode';
 
 interface ThemeContextValue {
   scheme: ColorScheme;
@@ -83,6 +84,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     if (choice === null) return;
     Appearance.setColorScheme(appearanceFor(choice));
     rememberTheme(choice);
+    // Android keeps this one across launches, so the native splash and the system
+    // bars of the next cold start are already in the choice (API 31 and up).
+    setAppNightMode(choice);
   }, [choice]);
 
   const raw = useColorScheme();
@@ -92,6 +96,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   // under the keyboard; without it Android shows the launch theme's white.
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(colors[scheme].background);
+    // The system bars were styled when the window opened; restyle them for the
+    // scheme drawn now, including a phone switching while the choice is `system`.
+    setSystemBarsDark(scheme === 'dark');
   }, [scheme]);
 
   return (
