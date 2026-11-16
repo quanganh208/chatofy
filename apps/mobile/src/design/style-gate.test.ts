@@ -20,9 +20,13 @@
  * the nearest `return` (or arrow body) around the element, read statically. An
  * accent is a default-variant `<Button>`, a component that exists to draw one
  * (`AuthSubmit`, `AuthNextStep`, `PrimaryButton`), or an element whose literal
- * `className` fills `bg-primary`. It misses a computed `variant`, a class string
- * held in a variable, and an accent drawn by some other child component; it flags
- * two accents in a ternary under one `return` — make one quiet or split the return.
+ * `className` fills `bg-primary`, or a legacy `style` whose `backgroundColor` is
+ * the theme's `primary`. Functions written inline in JSX (`.map` callbacks, render
+ * props) count with the element they draw into, and JSX hoisted into a variable
+ * counts with every return of its component. It misses a computed `variant`, a
+ * class string held in a variable, and an accent drawn by some other child
+ * component; it flags two accents in a ternary under one `return` — make one
+ * quiet or split the return.
  * Class strings held in variables also escape the `dark:`/opacity check.
  */
 import assert from 'node:assert/strict';
@@ -186,6 +190,38 @@ describe('scanSource', () => {
       'const C = () => <Pressable className="bg-primary/90 bg-muted" />;',
     ].join('\n');
     assert.deepEqual(scanSource('a.tsx', src).accentGroups, [[2], [3], [6, 6]]);
+  });
+
+  it('looks through map callbacks and render props, and counts hoisted JSX', () => {
+    const groups = (src: string) => scanSource('a.tsx', src).accentGroups;
+    assert.deepEqual(
+      groups('const A = () => <View><PrimaryButton />{xs.map((x) => <Button />)}</View>;'),
+      [[1, 1]],
+    );
+    assert.deepEqual(
+      groups(
+        'function A() {\n  return <List renderFooter={() => <AuthSubmit />}><Button /></List>;\n}',
+      ),
+      [[2, 2]],
+    );
+    assert.deepEqual(
+      groups(
+        'function A() {\n  const f = <AuthSubmit />;\n  if (x) return <Button />;\n  return f;\n}',
+      ),
+      [[2, 3]],
+    );
+    assert.deepEqual(
+      groups(
+        'function A() {\n  return <AuthSubmit />;\n}\nfunction B() {\n  const f = <Button />;\n  return f;\n}',
+      ),
+      [[2], [5]],
+    );
+  });
+
+  it('counts a legacy fill from the primary colour as an accent', () => {
+    const src =
+      '<><TouchableOpacity style={[s.a, { backgroundColor: colors.primary }]} /><Button /></>';
+    assert.deepEqual(scanSource('a.tsx', src).accentGroups, [[1, 1]]);
   });
 
   it('flags vector-icon imports', () => {

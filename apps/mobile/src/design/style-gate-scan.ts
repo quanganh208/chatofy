@@ -78,6 +78,27 @@ function attributeLiteral(attribute: ts.JsxAttribute): string | undefined {
 const ACCENT_COMPONENTS = new Set(['AuthSubmit', 'AuthNextStep', 'PrimaryButton']);
 const PALETTE_EXPORTS = new Set(['palettes', 'color', 'colorLight']);
 
+/** A legacy fill: `style` sets `backgroundColor` to `<theme>.primary` (or `.accent`). */
+function fillsPrimaryInStyle(element: ts.JsxOpeningLikeElement): boolean {
+  const style = element.attributes.properties.find(
+    (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'style',
+  );
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      node.name.getText() === 'backgroundColor' &&
+      ts.isPropertyAccessExpression(node.initializer) &&
+      /^(primary|accent)$/.test(node.initializer.name.text)
+    ) {
+      found = true;
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  if (style?.initializer) visit(style.initializer);
+  return found;
+}
+
 /**
  * True when an element is accent-filled: a `<Button>` on the default variant (no
  * `variant`, or `variant="default"`), a component that exists to draw one, or any
@@ -91,6 +112,7 @@ function isAccent(element: ts.JsxOpeningLikeElement): boolean {
   );
   const classes = className && attributeLiteral(className);
   if (classes?.split(/\s+/).includes('bg-primary')) return true;
+  if (fillsPrimaryInStyle(element)) return true;
   if (tag !== 'Button') return false;
   const variant = element.attributes.properties.find(
     (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'variant',
@@ -100,26 +122,56 @@ function isAccent(element: ts.JsxOpeningLikeElement): boolean {
 }
 
 /**
- * The screen state an element belongs to: the nearest `return` statement or arrow
- * expression body around it. Early returns are the states a screen switches
- * between, so two accents under different returns are never on screen together.
+ * True for a function written inline in JSX — a `.map` callback or a render prop.
+ * It draws into the element around it, so it is not a screen state of its own.
  */
-function screenState(node: ts.Node): ts.Node {
+function isInlineInJsx(fn: ts.Node): boolean {
+  for (let at: ts.Node | undefined = fn.parent; at; at = at.parent) {
+    if (ts.isJsxExpression(at) || ts.isJsxAttribute(at)) return true;
+    if (ts.isFunctionLike(at) || ts.isSourceFile(at) || ts.isBlock(at)) return false;
+  }
+  return false;
+}
+
+/** The function that owns `node`, skipping functions written inline in JSX. */
+function owningFunction(node: ts.Node): ts.Node {
   for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
-    if (ts.isReturnStatement(at)) return at;
-    if (ts.isArrowFunction(at) && at.body === findBody(node, at)) return at;
+    if (ts.isFunctionLike(at) && !isInlineInJsx(at)) return at;
     if (ts.isSourceFile(at)) return at;
   }
   return node.getSourceFile();
 }
 
-/** The arrow's expression body when `node` sits inside it, so `() => <X />` is one state. */
-function findBody(node: ts.Node, arrow: ts.ArrowFunction): ts.Node | undefined {
-  if (ts.isBlock(arrow.body)) return undefined;
-  for (let at: ts.Node | undefined = node; at && at !== arrow; at = at.parent) {
-    if (at === arrow.body) return arrow.body;
+/**
+ * Where an element is drawn: a screen state (the nearest `return` statement or
+ * arrow expression body of a component), or, for JSX hoisted into a variable,
+ * the component itself. Early returns are the states a screen switches between,
+ * so two accents under different returns are never on screen together. Functions
+ * written inline in JSX are looked through, so a `.map` callback or a render
+ * prop counts with the element it draws into.
+ */
+function placeOf(node: ts.Node): { state: ts.Node; owner: ts.Node; hoisted: boolean } {
+  for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
+    const isState =
+      ts.isReturnStatement(at) ||
+      (ts.isArrowFunction(at) && !ts.isBlock(at.body) && contains(at.body, node));
+    if (isState) {
+      const fn = ts.isArrowFunction(at) ? at : owningFunction(at);
+      if (ts.isArrowFunction(at) ? !isInlineInJsx(at) : fn === owningFunction(node)) {
+        return { state: at, owner: fn, hoisted: false };
+      }
+      continue;
+    }
+    if (ts.isFunctionLike(at) && !isInlineInJsx(at)) return { state: at, owner: at, hoisted: true };
+    if (ts.isSourceFile(at)) return { state: at, owner: at, hoisted: true };
   }
-  return undefined;
+  const file = node.getSourceFile();
+  return { state: file, owner: file, hoisted: true };
+}
+
+function contains(outer: ts.Node, node: ts.Node): boolean {
+  for (let at: ts.Node | undefined = node; at; at = at.parent) if (at === outer) return true;
+  return false;
 }
 
 export function scanSource(fileName: string, source: string): StyleFindings {
@@ -137,7 +189,7 @@ export function scanSource(fileName: string, source: string): StyleFindings {
     legacy: false,
     accentGroups: [],
   };
-  const groups = new Map<ts.Node, number[]>();
+  const groups = new Map<ts.Node, { owner: ts.Node; hoisted: boolean; lines: number[] }>();
   // Names bound to `useTheme()`, so `theme.colors` is caught as well as `{ colors }`.
   const themeNames = new Set<string>();
   const lineOf = (node: ts.Node) => file.getLineAndCharacterOfPosition(node.getStart()).line + 1;
@@ -195,13 +247,27 @@ export function scanSource(fileName: string, source: string): StyleFindings {
       findings.legacy = true;
     }
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && isAccent(node)) {
-      const state = screenState(node);
-      groups.set(state, [...(groups.get(state) ?? []), lineOf(node)]);
+      const { state, owner, hoisted } = placeOf(node);
+      const group = groups.get(state) ?? { owner, hoisted, lines: [] };
+      group.lines.push(lineOf(node));
+      groups.set(state, group);
     }
     ts.forEachChild(node, visit);
   };
   visit(file);
-  findings.accentGroups = [...groups.values()];
+  // Hoisted JSX is drawn by whichever return uses it: count it with each of its
+  // component's states, or on its own when the component has none with an accent.
+  const all = [...groups.values()];
+  const counted: number[][] = [];
+  for (const hoisted of all.filter((g) => g.hoisted)) {
+    const states = all.filter((g) => !g.hoisted && g.owner === hoisted.owner);
+    if (states.length === 0) counted.push(hoisted.lines);
+    for (const state of states) state.lines.push(...hoisted.lines);
+  }
+  for (const g of all.filter((g) => !g.hoisted)) counted.push(g.lines);
+  findings.accentGroups = counted
+    .map((lines) => [...lines].sort((x, y) => x - y))
+    .sort((x, y) => x[0]! - y[0]!);
   return findings;
 }
 

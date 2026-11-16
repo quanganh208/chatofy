@@ -19,9 +19,11 @@ import { getPreferences, resetPreferences, updatePreferences } from '@/clients/a
 import { createPreferencesCache } from './preferences-cache';
 
 /**
- * The sync state plus `hydrated`: true once the bound store has published the
- * account's own document, from the phone's cache or the server. Before that the
- * preferences are defaults, which a reader such as the theme must not act on.
+ * The sync state plus `hydrated`: true once the preferences are the account's own
+ * — the phone's cached copy was found, the server answered, or someone changed a
+ * setting here. Before that they are defaults, which a reader such as the theme
+ * must not act on. Other publishes (an orphaned change taken over, a status
+ * change) do not count.
  */
 export interface AccountPreferencesState extends PreferencesSyncState {
   hydrated: boolean;
@@ -37,6 +39,8 @@ const UNBOUND: AccountPreferencesState = {
 let sync: PreferencesSync | null = null;
 let unsubscribeSync: (() => void) | null = null;
 let snapshot: AccountPreferencesState = UNBOUND;
+/** Set by a change made on this phone, which is the account's own choice. */
+let edited = false;
 const listeners = new Set<() => void>();
 
 function setSnapshot(next: AccountPreferencesState): void {
@@ -47,14 +51,25 @@ function setSnapshot(next: AccountPreferencesState): void {
 /** Start syncing for `userId`; `locale` seeds the defaults a brand-new account gets. */
 export function bindAccountPreferences(userId: string, locale?: string | null): void {
   void unbindAccountPreferences(false);
+  edited = false;
+  const cache = createPreferencesCache(userId);
+  let cacheFound = false;
   const store = createPreferencesSync({
     transport: { load: getPreferences, save: updatePreferences, reset: resetPreferences },
-    cache: createPreferencesCache(userId),
+    cache: {
+      ...cache,
+      async read() {
+        const cached = await cache.read();
+        if (cached !== null && cached !== undefined) cacheFound = true;
+        return cached;
+      },
+    },
     defaults: defaultUserPreferences(locale),
   });
   sync = store;
-  // Every publish after start carries the cached or server document.
-  unsubscribeSync = store.subscribe((state) => setSnapshot({ ...state, hydrated: true }));
+  unsubscribeSync = store.subscribe((state) =>
+    setSnapshot({ ...state, hydrated: snapshot.hydrated || cacheFound || state.loaded || edited }),
+  );
   setSnapshot({ ...store.getState(), hydrated: false });
   void store.start();
 }
@@ -70,6 +85,7 @@ export async function unbindAccountPreferences(clearCache: boolean): Promise<voi
 }
 
 export function updateAccountPreferences(patch: UserPreferencesPatch): void {
+  if (sync) edited = true;
   sync?.update(patch);
 }
 

@@ -668,9 +668,12 @@ navigation-colour and elevation modules excepted) and fails on a raw colour lite
 more than one accent-filled control per screen state in any file under `app/` or
 `src/components/`. A state is the nearest `return` (or arrow body) around the
 element, read statically: there is no React Native renderer in `node --test`, so this
-stands in for web's rendered per-screen-state gate. An accent is a default-variant
-`<Button>`, `AuthSubmit`, `AuthNextStep`, `PrimaryButton`, or a literal `bg-primary`
-class; a computed `variant` or a class string held in a variable is not seen. Screens
+stands in for web's rendered per-screen-state gate. A `.map` callback or render prop
+counts with the element it draws into, and JSX hoisted into a variable with every
+return of its component. An accent is a default-variant `<Button>`, `AuthSubmit`,
+`AuthNextStep`, `PrimaryButton`, a literal `bg-primary` class, or a legacy `style`
+filling `backgroundColor` from the theme's `primary`; a computed `variant` or a class
+string held in a variable is not seen. Screens
 still on `StyleSheet`, `useTheme()` colours or palette values imported from
 `@chatofy/ui` are listed in `LEGACY_STYLE_FILES`, enforced in both directions like
 web's `KNOWN_VIOLATIONS` — a file that moves to `className` must delete its row, and
