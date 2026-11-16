@@ -2853,3 +2853,35 @@ The owner found the sidebar, the page headers, the notices and `/preferences` ha
 - **Two bugs that predate the redesign.**
   - The accent gate's rename row waited a fixed 20 ms for the menu's close animation, which was too short on a loaded CI runner. It now waits for the deferred screen.
   - Glossary terms never load or delete, because the API issues cuid ids while both schemas demand a uuid. Filed as issue #339, outside this change.
+
+## Decision models (Jev, Gemini Decision 1): a narrow polish-gate pass, no LID role (14–15/11/2026)
+
+Could a model that answers typed questions with probabilities, instead of writing text, decide when a paid call is unnecessary? TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 were measured offline against bars fixed before the runs. Details and commands are in `benchmarks/translation-judge/README.md` ("Decision models") and `benchmarks/lid/README.md` (`conv-r5-decision`).
+
+- **D1, skip the polish when the draft is faithful.** On the 162 judged turns, Gemini with earlier turns as context passes the pre-set pooled bars narrowly: 1 of 20 serious-mt drafts missed, 59.3% of polishes skipped, 1.9% serious after gating, and the skip-edge bar over "polish vi→en only" cleared by about two turns (+16.0 against 15). Recall is 19 of 20 (Wilson 0.76–0.99). One miss is the LOCO floor.
+  - Inside vi→en, where 18 of the 20 positives are, it skips 38% and serious goes from 1 to 2 of 76.
+  - Without context Gemini fails. Jev fails on misses (2) and flips (5.6–7.4%; Gemini is deterministic). The AUC difference between them is not significant (−0.032, interval −0.104 to 0.016).
+  - The gate also fires on 13 of 16 turns whose serious error is one of hearing, not mt.
+- **D2, catch a dropped clause or last sentence.** Both pass: 10/10 omissions, 20/20 trailing drops, 4/40 (Gemini) and 1/40 (Jev) clean translations flagged.
+- **D3, audio LID.** Inline replacement was NO-GO before measurement (about 1.1 s against the 150 ms gate). Gemini alone hears short Vietnamese far better than Whisper base (0.960 vs 0.745 two-way) but is worse on English (0.862 short; 6.5% of real long en turns go to vi or zh). As a final-turn arbiter at prod's 0.6 threshold it is consulted on 101 of 7,946 turns (57 en/vi): short vi 0.772 and `err_after_fallback` 0.064 both fail, so the arbiter fails the two bars it existed to fix. At 0.9 both short bars are crossed, report-only, on a threshold chosen on the scored set. Whisper's short vi errors are mostly confident ones (34 of 38 at 0.6 or above), so its confidence is a poor router for Gemini.
+- **What it permits.** A shadow run of the D1 gate only; the polish is not skipped. No decision model replaces or arbitrates LID. Latency was measured from the dev desk (Gemini 418/723 ms p50/p95 on text, about 1.1 s on audio), not the prod host. Spend: Gemini 714 text and 7,947 audio calls on the free tier, Jev 1,542 calls for about $0.04.
+
+## A dropped sentence is restored by the polish, then discarded by its length guard (15/11/2026)
+
+Before building an omission check (the decision-model benchmark's D2), its 30 positives were sent through the prod polisher (`gpt-5.6-sol`, with context). Bars were committed first; details are in `benchmarks/translation-judge/README.md`, "Omission after polish".
+
+- **11 of the 27 confirmed positives survived** (Wilson 24.5–59.3%). The pre-set stop was at most 2, so the gate read continue.
+- **The survivors are the guard's, not the model's.** Of the 16 confirmed positives the polish was allowed to rewrite, all 16 lost the omission. 10 survivors had a restored answer discarded by the polisher's `2 × draft + 40` length guard; judged as translations, those 10 answers hold the omission in 0 of 10. The 11th was declined.
+- **Why:** the guard measures the answer against the draft, and a draft that dropped a sentence is short. A restore therefore looks like a runaway answer (the context translated too, or commentary), which the guard exists to stop.
+- **Decision:** the detector and its re-polish action were not built, because a re-sent polish meets the same guard. The next change is the guard itself. A bound on the longer of draft and source accepts all 10 captured restores, but how often it would admit a real runaway is still unmeasured. That needs its own bars and a raw-answer replay of the 162 judged turns before `packages/ai-providers` changes.
+- **Spend:** 30 Command Code calls and $1.78 of judge spend.
+
+## The polish length guard widens to 1.3 × the source for en and vi (15/11/2026)
+
+The guard (`2 × draft + 40`) threw away restored sentences because a draft that lost one is short. Two rules were measured against bars committed before each run; details are in `benchmarks/translation-judge/README.md`, "Polish length guard".
+
+- **The first rule, `2 × max(draft, source) + 40`, failed.** It kept all 10 restores but rejected only 15 of 20 synthetic runaways on short drafts, against a bar of 19. A runaway that also translates the earlier turns fits under twice a long source whenever those turns are shorter than the current one. Today's guard has the same hole, though it rejected 18 of the 20.
+- **The shipped rule, `max(2 × draft + 40, 1.3 × source + 40)`, cannot reject anything today's guard accepts.** On held-out runaways it admitted none that today's guard rejects (0 of 25 clean, 0 of 14 short-draft). Post-hoc, it accepts all 10 restores.
+- **A replay of the 162 judged turns found no runaway at all:** 0 of 162 raw answers ran over either bound, which puts the rate below about 2.3%. It also found no fresh restore, so its regression check is inconclusive (no answer rejected today, nothing to judge). That is allowed by the bars, and the claim rests on the held-out set.
+- **Chinese targets keep the draft bound,** because a zh translation is much shorter than its source.
+- **Spend:** 162 of 170 Command Code calls, $0 of judge spend.

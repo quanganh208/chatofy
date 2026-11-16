@@ -24,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { rejects, successorLimit } from './guard-bound.mjs';
 import { DATA, HERE, readJsonl, turnId } from './rows.mjs';
 
 export const ARMS = [1, 2];
@@ -68,6 +69,44 @@ export function armRow(row, arm, outcome) {
   };
 }
 
+/** A replayed row's key: perturbed rows carry their own `id`, since two may share `conv#pos`. */
+export const replayId = (row) => row.id ?? turnId(row);
+
+/** The polisher's own length guard, `editLengthLimit` in the package, applied to a raw answer. */
+export const guardRejects = (raw, request) => rejects(raw, request, successorLimit);
+
+/**
+ * Wraps `realFetch` so the content of every answer from `baseUrl` is kept for
+ * the caller, while the polisher still reads the untouched response: the body
+ * is read from a clone. Only observes; the request goes out exactly as built.
+ * `take()` returns the last answer's content and clears it, which is only
+ * unambiguous with one call in flight, so the caller must run one at a time.
+ */
+export function captureFetch(baseUrl, realFetch = globalThis.fetch) {
+  let last = null;
+  const fetch = async (input, init) => {
+    const response = await realFetch(input, init);
+    const url = typeof input === 'string' ? input : (input?.url ?? String(input));
+    if (url.startsWith(baseUrl)) {
+      try {
+        const json = await response.clone().json();
+        last = json?.choices?.[0]?.message?.content ?? null;
+      } catch {
+        last = null;
+      }
+    }
+    return response;
+  };
+  return {
+    fetch,
+    take() {
+      const value = last;
+      last = null;
+      return value;
+    },
+  };
+}
+
 export const costOf = (inputTokens = 0, outputTokens = 0) =>
   (inputTokens * PRICE.input + outputTokens * PRICE.output) / 1e6;
 
@@ -95,7 +134,7 @@ export async function balance(key) {
   return usd ? Number(usd.total_balance) : NaN;
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     host: 'deepseek',
     budgetUsd: 0.5,
@@ -116,13 +155,16 @@ function parseArgs(argv) {
     else if (name === '--budget-usd') args.budgetUsd = Number(value);
     else if (name === '--concurrency') args.concurrency = Number(value);
     else if (name === '--limit') args.limit = Number(value);
-    else if (name === '--resume') {
-      args.resume = true;
+    else if (name === '--resume' || name === '--capture-raw') {
+      args[name === '--resume' ? 'resume' : 'captureRaw'] = true;
       continue;
     } else throw new Error(`unknown flag ${name}`);
     i += 1;
   }
   if (!ARMS.includes(args.arm)) throw new Error(`--arm must be one of ${ARMS.join(', ')}`);
+  if (args.captureRaw && args.concurrency !== 1) {
+    throw new Error('--capture-raw needs --concurrency 1: one answer in flight at a time');
+  }
   if (!HOSTS[args.host]) throw new Error(`--host must be one of ${Object.keys(HOSTS).join(', ')}`);
   args.model ??= HOSTS[args.host].model;
   args.in ??= join(DATA, 'turns.scribed.jsonl');
@@ -153,7 +195,7 @@ if (isMain) {
   const done = new Set();
   if (existsSync(args.out)) {
     if (!args.resume) throw new Error(`${args.out} exists; pass --resume to continue it`);
-    for (const row of readJsonl(args.out)) if (!row.failed) done.add(turnId(row));
+    for (const row of readJsonl(args.out)) if (!row.failed) done.add(replayId(row));
     // Failed rows are retried: keep only the good ones.
     writeFileSync(
       args.out,
@@ -163,7 +205,11 @@ if (isMain) {
         .join(''),
     );
   }
-  const todo = rows.filter((row) => !done.has(turnId(row))).slice(0, args.limit);
+  const todo = rows.filter((row) => !done.has(replayId(row))).slice(0, args.limit);
+  // The polisher returns `null` both when it declines and when its guards
+  // discard an answer; the raw answer tells the two apart.
+  const capture = args.captureRaw ? captureFetch(host.baseUrl) : null;
+  if (capture) globalThis.fetch = capture.fetch;
 
   // One polisher per worker, each with its own call hook, so a call's usage
   // is read from that call's event and not from a neighbour's.
@@ -213,7 +259,13 @@ if (isMain) {
       // A plan quota, not a bill: no per-token price to estimate.
       outcome.costUsd = onDeepSeek ? costOf(call?.inputTokens, call?.outputTokens) : 0;
       spent += outcome.costUsd;
-      appendFileSync(args.out, JSON.stringify(armRow(row, args.arm, outcome)) + '\n');
+      const out = armRow(row, args.arm, outcome);
+      if (capture) {
+        out.raw = capture.take();
+        out.guardRejected =
+          !out.rewritten && Boolean(out.raw) && guardRejects(out.raw, polishRequest(row, args.arm));
+      }
+      appendFileSync(args.out, JSON.stringify(out) + '\n');
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, args.concurrency) }, worker));
