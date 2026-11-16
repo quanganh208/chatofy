@@ -4,7 +4,7 @@
 
 ## What was measured
 
-- Could a model that answers typed questions with probabilities decide when a paid call is unnecessary? TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 ran offline against bars fixed before the runs. Commit `d8240424` adds `benchmarks/translation-judge/decision-*.mjs` and `benchmarks/lid/arms/gemini_decision/` with the `conv-r5-decision` results.
+- Could a model that answers typed questions with probabilities decide when a paid call is unnecessary? TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 ran offline against bars fixed before the runs. The commit "feat(benchmarks): measure Jev and Gemini Decision 1 as decision gates" added `benchmarks/translation-judge/decision-*.mjs` and `benchmarks/lid/arms/gemini_decision/` with the `conv-r5-decision` results.
 - **D1, polish gate**: skip the polish when the draft is already faithful, on the 162 judged turns.
 - **D2, omission check**: flag a dropped clause or a dropped trailing sentence.
 - **D3, audio LID**: Gemini as an LID arm and as a final-turn arbiter after Whisper.

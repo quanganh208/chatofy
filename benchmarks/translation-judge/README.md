@@ -113,7 +113,7 @@ node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewe
 
 ## Decision models (Jev, Gemini Decision 1): removed
 
-On 2026-11-14/15 two typed-decision models were measured as a polish gate (D1), an omission check (D2) and an audio LID arbiter (D3). D1 passed only narrowly with context, D2 was made unnecessary by the polish itself (below), and D3 failed. Neither model is used, and their scripts were removed on 2026-11-16. The numbers are in `docs/development-journey.md`, "Decision models (Jev, Gemini Decision 1)"; the code is in commit `d8240424`.
+On 2026-11-14/15 two typed-decision models were measured as a polish gate (D1), an omission check (D2) and an audio LID arbiter (D3). D1 passed only narrowly with context, D2 was made unnecessary by the polish itself (below), and D3 failed. Neither model is used, and their scripts were removed on 2026-11-16. The numbers are in `docs/development-journey.md`, "Decision models (Jev, Gemini Decision 1)"; the code is in the commit "feat(benchmarks): measure Jev and Gemini Decision 1 as decision gates".
 
 ## Omission after polish
 

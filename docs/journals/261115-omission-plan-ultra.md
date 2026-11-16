@@ -2,7 +2,7 @@
 
 2026-11-15
 
-- **Question:** where decision models belong in Chatofy after the benchmark (commits d8240424, d9650112).
+- **Question:** where decision models belong in Chatofy after the benchmark (the commits that measured Jev and Gemini Decision 1).
 - **Brainstorm --ultra (5 candidates, low margin, 88 vs 85):** do not ship a decision model yet. First measure whether a dropped sentence survives the prod polish at all, then whether a local, no-network check catches it as well as Jev or Gemini.
 - **Plan --ultra (85 vs 84):** `plans/261115-1730-omission-survival-and-cheapest-detector/`. The winning plan checked facts against the data that the brief had wrong:
   - 151–154 clean rows already exist, so no new recordings are needed;

@@ -484,7 +484,7 @@ G3 holds. The open decision is the user's: rent a GPU for medium.
 
 ### Gemini Decision 1 as a final-turn arbiter (not adopted, removed)
 
-On 2026-11-14/15, Gemini Decision 1 was measured as an audio LID arm and as an arbiter for the finals Whisper is unsure of (`conv-r5-decision`). As an arbiter it failed short vi (0.772 against 0.85) and `err_after_fallback` (0.064 against 0.05). Whisper's short-vi errors are mostly confident ones (34 of 38 at 0.6 or above), so its confidence is a poor router. The arm, its scripts and the run were removed on 2026-11-16; they are in commit `d8240424`, and the numbers are in `docs/development-journey.md`.
+On 2026-11-14/15, Gemini Decision 1 was measured as an audio LID arm and as an arbiter for the finals Whisper is unsure of (`conv-r5-decision`). As an arbiter it failed short vi (0.772 against 0.85) and `err_after_fallback` (0.064 against 0.05). Whisper's short-vi errors are mostly confident ones (34 of 38 at 0.6 or above), so its confidence is a poor router. The arm, its scripts and the run were removed on 2026-11-16; they are in the commit "feat(benchmarks): measure Jev and Gemini Decision 1 as decision gates", and the numbers are in `docs/development-journey.md`.
 
 ## Gate
 
