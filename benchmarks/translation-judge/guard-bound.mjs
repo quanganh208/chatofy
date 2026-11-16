@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { consensus, loadJudgements } from './consensus.mjs';
-import { wilson } from './decision-score.mjs';
+import { wilson } from './wilson.mjs';
 import { DATA, RESULTS, readJsonl, toJsonl, turnId } from './rows.mjs';
 
 export const GUARD_DIR = join(DATA, 'guard');
@@ -218,10 +218,9 @@ export function heldOutVerdict(rows) {
   return out;
 }
 
-/** The 162 judged turns, as turn rows (labels carry no translation field). */
-export function regressionInput(labels, turns) {
-  const ids = new Set(labels.map(turnId));
-  return turns.filter((t) => ids.has(turnId(t)) && t.translation);
+/** The 162 judged turns: every prod turn with a translation (`judge.mjs` scores no other). */
+export function regressionInput(turns) {
+  return turns.filter((t) => t.translation);
 }
 
 /**
@@ -424,10 +423,7 @@ if (isMain) {
     };
     save('heldOut', verdict);
   } else if (stage === 'regression-input') {
-    const rows = regressionInput(
-      readJsonl(join(DATA, 'decision', 'labels.jsonl')),
-      readJsonl(join(DATA, 'turns.scribed.jsonl')),
-    );
+    const rows = regressionInput(readJsonl(join(DATA, 'turns.scribed.jsonl')));
     mkdirSync(GUARD_DIR, { recursive: true });
     writeFileSync(input, toJsonl(rows));
     const byDirection = {};

@@ -17,6 +17,7 @@ import {
   runaways,
   runawaysVerdict,
 } from './guard-bound.mjs';
+import { wilson } from './wilson.mjs';
 
 const longSource = 'A source sentence that runs on. '.repeat(4).trim(); // 131 chars
 const shortDraft = 'A short draft.'; // 14 chars
@@ -114,18 +115,16 @@ test('restoresVerdict counts guard-rejected raws the new rule accepts', () => {
   assert.equal(v.pass, true);
 });
 
-test('regressionInput keeps judged turns with a translation', () => {
+test('regressionInput keeps the turns with a translation', () => {
   const turns = [row(1), row(2), { ...row(3), translation: '' }];
-  assert.equal(
-    regressionInput(
-      [
-        { conv: 'c1', pos: 1 },
-        { conv: 'c3', pos: 3 },
-      ],
-      turns,
-    ).length,
-    1,
-  );
+  assert.equal(regressionInput(turns).length, 2);
+});
+
+test('wilson brackets the estimate and is empty for no rows', () => {
+  const [lo, hi] = wilson(18, 20);
+  assert.ok(lo < 0.9 && hi > 0.9);
+  assert.ok(Math.abs(lo - 0.699) < 0.005, `lower bound ${lo}`);
+  assert.deepEqual(wilson(0, 0).map(Number.isNaN), [true, true]);
 });
 
 test('regressionSplit reads the draft from the input and applies the other checks', () => {

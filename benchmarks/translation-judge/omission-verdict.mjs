@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { blockIds } from './block-rows.mjs';
 import { SERIOUS, loadJudgements, majority } from './consensus.mjs';
-import { wilson } from './decision-score.mjs';
+import { wilson } from './wilson.mjs';
 import { DATA, RESULTS, readJsonl, turnId } from './rows.mjs';
 
 export const OMISSION_DIR = join(DATA, 'omission');

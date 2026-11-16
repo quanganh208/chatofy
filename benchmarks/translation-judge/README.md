@@ -111,79 +111,13 @@ node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewe
 - **Fallback model (2026-11-03, arm 2, reviewer `deepseek-flash`):** vi→en serious mt 23.7% → 6.6% (15 fixed, 2 broken); en→vi the same as `deepseek-v4-pro`. The reviewer cost $0.01 for 162 turns, against about $0.15 for v4-pro. v4-pro was chosen as the polish fallback while Command Code is out; judge spend reached $21.56.
 - **Prod polisher (2026-11-08, arm 2, reviewer `gpt-5.6-sol` via `--host commandcode`):** vi→en serious mt 23.7% → 1.3% (17 fixed, 0 broken), the same as `deepseek-v4-pro`; en→vi 1.3% → 0.0%; all turns 12.3% → 1.2% (19 fixed, 1 broken, the broken one in vi→zh). 134 of 162 turns rewritten, p95 4.7 s. The judge cost $4.81; spend under `results/` reached $41.03.
 
-## Decision models (Jev, Gemini Decision 1)
+## Decision models (Jev, Gemini Decision 1): removed
 
-Can a typed-decision model decide when a paid call is unnecessary? Neither model writes text. Each answers typed questions with probabilities: TypeSafe Jev (`jev-1.14.0`) and Gemini Decision 1 (`gemini-decision-1`).
-
-Two questions are asked about a translated turn. The state is the direction, the source, the draft and, in the `ctx` arm, the earlier turns.
-
-- **D1, polish gate:** `fidelity`, a choice between faithful, minor and wrong. The polish runs when P(wrong) reaches a threshold.
-- **D2, omission check:** `omission`, a noul: "does `translation` convey every sentence of `source`, including the last one?". A translation is flagged when P(yes) is under 0.5.
-
-```bash
-node decision-smoke.mjs                       # 3 live calls: both Gemini keys answer, Jev answers
-node decision-labels.mjs                      # data/decision/labels.jsonl: 162 turns, 20 serious-mt drafts
-node perturb.mjs trailing --in data/calibration-clean.jsonl --extra data/turns.scribed.jsonl \
-  --from-ids decision-trailing-drops.ids.jsonl --out data/decision/trailing-drops.jsonl
-node decision-gate.mjs --model <gemini|jev> --set solo --out results/decision-<model>-solo --repeats 3 --limit-calls 400
-node decision-variance.mjs --run results/decision-<model>-solo   # prints the repeat count for the other sets
-node decision-gate.mjs --model <gemini|jev> --set <judged|calibration|trailing> \
-  --out results/decision-<model>-<set> --repeats <R> --limit-calls <n>
-node decision-score.mjs                       # results/decision-verdict.md
-```
-
-- **Keys:** `GEMINI_API_KEY`, comma-separated and rotated on refusal, and `TYPESAFE_API_KEY`. Both come from the environment or the repo-root `.env` and are never printed.
-- **Call caps:** every HTTP attempt, retries included, counts toward `--limit-calls`. A run refuses before its first call when the plan is over the cap, and stops the sitting on the cap or on a host that refuses every attempt. `--resume` adds only the missing answers, and `meta.json` records the attempts and how complete the run is.
-- **Trailing drops:** 20 prod translations with their last sentence (at least 4 words) removed. Only `{conv, pos, kind}` is committed, in `decision-trailing-drops.ids.jsonl`, because the text is private. The rows are rebuilt from the ids, and the rebuild is byte-identical.
-- **Repeats:** they shuffle the option order through a Latin square.
-  - Gemini Decision 1 was fully deterministic and order-invariant (spread 0.0000), so it ran once.
-  - Jev's answers vary even in the same order (spread 0.16), so it ran 3 times.
-
-**Bars, fixed before the runs (2026-11-14):**
-
-- **D1, on all 162 turns:**
-  - At most 1 of 20 positives missed.
-  - Serious mt after gating at most 2.5% (always polishing leaves 1.2%).
-  - Skip at least 50%.
-  - At least 15 points more skip than "polish vi→en only" at equal recall.
-  - Verdict flips across repeats at most 5%.
-- **D2:**
-  - At least 9 of the 10 clause omissions caught.
-  - At least 90% of the trailing drops caught.
-  - At most 4 of 40 clean translations flagged.
-- **Positives:** a draft whose serious `mt` error is held by 2 of the judge's 3 repeats.
-- **Threshold:** chosen leave-one-conversation-out, as the largest that keeps 95% of the other conversations' positives. With under 20 training positives that is their lowest, so the lowest positive overall is always missed: one miss is the method's floor.
-
-**Result (2026-11-14):**
-
-|                                                      | Gemini, ctx          | Gemini, no ctx | Jev, ctx           | Jev, no ctx |
-| ---------------------------------------------------- | -------------------- | -------------- | ------------------ | ----------- |
-| D1 positives missed (of 20)                          | 1                    | 1              | 2                  | 2           |
-| D1 skip                                              | 59.3%                | 53.7%          | 65.4%              | 65.4%       |
-| D1 serious mt after gating                           | 1.9%                 | 1.9%           | 2.5%               | 2.5%        |
-| D1 skip edge over the direction rule                 | +16.0                | +9.9           | +24.1              | +20.4       |
-| D1 flips                                             | none (deterministic) | none           | 5.6%               | 7.4%        |
-| D1 AUC                                               | 0.907                | 0.875          | 0.939              | 0.939       |
-| **D1 verdict**                                       | **PASS (narrow)**    | FAIL           | FAIL               | FAIL        |
-| D2 clause omissions / trailing drops / clean flagged | 10/10, 20/20, 4/40   | —              | 10/10, 20/20, 1/40 | —           |
-| **D2 verdict**                                       | **PASS**             | —              | **PASS**           | —           |
-| Latency p50 / p95, dev desk                          | 418 / 723 ms         |                | 209 / 265 ms       |             |
-
-- **The D1 pass is narrow.**
-  - The skip edge clears 15 points by about two turns, against an in-sample threshold. Recall is 19 of 20, a Wilson interval of 0.76–0.99.
-  - At the leave-one-out operating point, the gate skips 6.2 points more than the direction rule and catches one more positive.
-  - Without context it fails.
-- **Inside vi→en,** where 18 of the 20 positives are, Gemini skips 38.2% and adds one serious turn: 1 of 76 becomes 2. The bars were not rescaled for this subset, so it is reported, not judged.
-- **No winner between the models:** AUC Gemini − Jev is −0.032, with an interval of −0.104 to 0.016. Jev fails on misses and flips.
-- **The gate also fires on serious errors of hearing,** on 13 of 16 turns whose serious error is not `mt`. A text-only gate is partly a hearing detector.
-- **D2:** dropping the last sentence lowered P(covers all) on 20 of 20 pairs, by 0.72 (Gemini) and 0.77 (Jev). Neither model is asked about negation or names, and they catch those poorly (Gemini 7/10 and 2/9, Jev 1/10 and 1/9).
-- **Spend:** 714 calls to Gemini (free tier, about 0.3M input tokens) and 1,542 to Jev (about 1.0M tokens, about $0.04).
-- **What it permits:** a shadow run, not skipping the polish.
-- **D3, audio LID (Gemini only):** not adopted. As a final-turn arbiter after Whisper it fails short vi (0.772 against 0.85) and `err_after_fallback` (0.064 against 0.05). See `benchmarks/lid/README.md`, `conv-r5-decision`.
+On 2026-11-14/15 two typed-decision models were measured as a polish gate (D1), an omission check (D2) and an audio LID arbiter (D3). D1 passed only narrowly with context, D2 was made unnecessary by the polish itself (below), and D3 failed. Neither model is used, and their scripts were removed on 2026-11-16. The numbers are in `docs/development-journey.md`, "Decision models (Jev, Gemini Decision 1)"; the code is in commit `d8240424`.
 
 ## Omission after polish
 
-Is the omission check (D2 above) needed at all? Its 30 positives were never sent through the prod polisher, so a dropped sentence might not survive the second pass that already runs. If it does survive, the next question is whether a local check, with no network, catches it as well as Jev or Gemini.
+Is the omission check (D2, above) needed at all? Its 30 positives were never sent through the prod polisher, so a dropped sentence might not survive the second pass that already runs. If it does survive, the next question is whether a local check, with no network, catches it as well as Jev or Gemini.
 
 **Bars, fixed on 2026-11-15 before any run.** The spend before the sitting (S0) was $41.03 under `results/`, so every judge run caps at `--budget-usd 47.03`.
 

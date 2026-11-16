@@ -32,6 +32,3 @@ results/**/manifest.jsonl
 results/**/sensevoice_lid.jsonl
 # Checkpoints SpeechBrain copies next to an arm.
 arms/*/pretrained/
-# Per-attempt HTTP logs and run logs of external-API arms: per-turn timing, re-derivable.
-results/**/*.http.jsonl
-results/**/*.run.log
