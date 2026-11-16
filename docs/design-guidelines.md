@@ -13,8 +13,8 @@ colour** and the only colour with any saturation is the **dawn** of the lotus ma
 and the landing illustration. Colour marks the brand; it never marks a control.
 
 The theme is the reader's choice — light, dark, or whatever the machine asks for.
-Web and the popup offer the three; mobile follows the machine and offers no choice
-yet (`apps/mobile/src/providers/theme-provider.tsx`). **The overlay follows nothing,
+Web, the popup and mobile Settings offer the three; mobile applies the account's
+choice in `apps/mobile/src/providers/theme-provider.tsx`. **The overlay follows nothing,
 and that is the one exception worth understanding.**
 
 The overlay renders on top of someone else's video, and inside a content script
@@ -284,7 +284,8 @@ Where the serif is **not** used, and why:
   outlined SVG path instead of a second pinned subset.
 - The overlay — it loads no font at all and keeps an explicit system stack, because it
   renders inside someone else's page and every byte is injected there.
-- Mobile — out of scope for the brand rollout.
+- Mobile — Be Vietnam Pro only, like the popup: the face is embedded by the
+  expo-font plugin; see [Mobile](#mobile).
 
 ## Elevation
 
@@ -333,8 +334,8 @@ form emits a 17-layer chain with the ring still in it.
 
 Spacing `4 / 8 / 16 / 24 / 32 / 48 / 64`. Radius `6 / 10 / 14 / full`.
 
-Mobile's own scaffolding scales are gone: `apps/mobile/src/ui/theme.ts` maps colour
-from `palettes` and re-exports no scale, so a screen imports these from `@chatofy/ui`.
+Mobile reads the same steps: its Tailwind scales are built from these tokens and
+nothing else (see [Mobile](#mobile)).
 
 ## Control depth
 
@@ -620,6 +621,49 @@ same uppercase label and the same segmented shape.
 The e2e suite is what makes this safe to change: it asserts the popup does not
 scroll sideways at 320px across every state, and that Start stays above the 600px
 cap. Both still pass.
+
+## Mobile
+
+`apps/mobile` is styled with **NativeWind** (Tailwind 3 classes on React Native) and
+**React Native Reusables**, the shadcn port. What holds it to the rules above:
+
+- **Colour is runtime variables.** `src/ui/theme-variables.ts` maps each shadcn name
+  (`background`, `primary`, `muted-foreground`, …) to a `palettes` key — the same
+  mapping web's `globals.css` declares — and `ThemeProvider` sets the values on the
+  root view with `vars()`. `global.css` declares no palette, so there is no second copy.
+- **The theme is the account's `theme` preference** (`light` / `dark` / `system`),
+  the field web reads, chosen in Settings and applied with `Appearance.setColorScheme`.
+  A class never writes `dark:`: the variables change instead.
+- **Every scale is a token.** `tailwind.config.js` replaces, not extends, colour,
+  radius, type, weight and spacing, so `rounded-xl`, `text-2xl` or `p-3` style
+  nothing. Width and height keep the full scale (a 48px target is a size).
+- **Depth is `boxShadow`, not `shadow-*`.** `useElevation(step)` and
+  `useFieldRecess()` in `src/ui/elevation.ts` return the per-theme layers; NativeWind's
+  `shadow-*` writes the old iOS props, which cannot carry them.
+- **The face is Be Vietnam Pro** at 400/500/600, embedded by the expo-font config
+  plugin (`app.json`). Android gets one XML font family, `BeVietnamPro`, so
+  `fontWeight` picks the file; iOS matches the family name. `font-sans` names it, and
+  `components/ui/text.tsx` carries it at 14px, React Native's own default size.
+
+**Adding a component.** Generate it — `npx @react-native-reusables/cli@0.7.1 add <name>`
+from `apps/mobile`, declining any overwrite of an existing `components/ui` file — then
+re-skin it in place: tokens only, no `dark:`, no colour opacity modifier (the
+variables hold hex, so `bg-primary/90` has nothing to fade), no `shadow-*`, 48px touch
+sizes, and `bg-accent` / `text-accent-foreground` replaced as in the
+[re-skin table](#re-skinning-a-generated-component). Record every deviation in the
+file's docblock, so the next `--overwrite` diff reads. A selected state is a readout
+(`toggle-group.tsx`: a `card` segment lifted at `sm`), never the accent.
+
+**The gate.** `src/design/style-gate.test.ts` scans `app/` and `src/` (the theme,
+navigation-colour and elevation modules excepted) and fails on a raw colour literal, a
+`dark:` or colour opacity modifier in a class string, a vector-icon font import, and
+more than one default-variant `<Button>` per screen or component file. The last is a
+static, per-file stand-in for web's per-screen-state accent gate: there is no React
+Native renderer in `node --test`. Screens still on `StyleSheet` or `useTheme()`
+colours are listed in `LEGACY_STYLE_FILES`, enforced in both directions like web's
+`KNOWN_VIOLATIONS` — a file that moves to `className` must delete its row, and no
+row is ever added. Legacy screens already take the brand face through
+`components/ui/text`.
 
 ## The app frame
 
