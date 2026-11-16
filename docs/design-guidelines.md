@@ -635,6 +635,13 @@ cap. Both still pass.
   the field web reads, chosen in Settings and applied with `Appearance.setColorScheme`.
   The phone remembers the theme it last applied and applies it before the first
   render, so a cold start does not paint the system scheme while the account loads.
+  On Android the choice is also handed to the system through the local
+  `modules/app-night-mode` (`UiModeManager.setApplicationNightMode`, API 31+), which
+  Android keeps per app: the native splash and the system bars of the next cold start
+  are drawn in it before any JS runs. The open window's navigation bar is restyled for
+  the scheme drawn now, since its buttons and the contrast scrim behind three-button
+  navigation were set when the window was created. Below API 31 the splash follows the
+  phone.
   A class never writes `dark:`: the variables change instead.
 - **Every scale is a token.** `tailwind.config.js` replaces, not extends, colour,
   radius, type, weight and spacing, so `rounded-xl`, `text-2xl` or `p-3` style
