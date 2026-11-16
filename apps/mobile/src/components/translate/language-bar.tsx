@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { createTranslator, en } from '@chatofy/i18n';
-import { Ionicons } from '@react-native-vector-icons/ionicons/static';
+import { ArrowLeftRight } from 'lucide-react-native';
 import {
   AUTO_DETECT,
   LANGUAGE_CODES,
@@ -80,11 +80,7 @@ export function LanguageBar({ pair, locked, onChange }: LanguageBarProps) {
         }
         accessibilityState={{ disabled: locked || swapped === null }}
       >
-        <Ionicons
-          name="swap-horizontal"
-          size={22}
-          color={locked || swapped === null ? colors.muted : colors.text}
-        />
+        <ArrowLeftRight size={22} color={locked || swapped === null ? colors.muted : colors.text} />
       </TouchableOpacity>
       {side('target', t(languageNameKey(pair.target)), t('web.translate.languagePairTarget'))}
 

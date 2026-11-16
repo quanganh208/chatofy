@@ -1,0 +1,8 @@
+/*
+ * NativeWind's entry. Nothing is declared here on purpose: the colour variables
+ * are set at runtime from @chatofy/ui by ThemeProvider, so this file cannot hold
+ * a second copy of the palette.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

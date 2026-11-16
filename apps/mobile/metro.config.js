@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require('nativewind/metro');
 const path = require('path');
 
 const projectRoot = __dirname;
@@ -17,4 +18,6 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-module.exports = config;
+// `inlineRem: 16` makes 1rem 16px, the size the Tailwind numeric spacing scale
+// assumes: `p-4` is 16, `gap-6` is 24 — the same steps as `space` in @chatofy/ui.
+module.exports = withNativeWind(config, { input: './global.css', inlineRem: 16 });

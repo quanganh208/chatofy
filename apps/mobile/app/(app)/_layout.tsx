@@ -1,27 +1,22 @@
-import type { ComponentProps } from 'react';
-import type { ColorValue } from 'react-native';
 import { useEffect } from 'react';
+import type { ColorValue } from 'react-native';
 import { Tabs, usePathname, useRouter, type Href } from 'expo-router';
 import { createTranslator, en } from '@chatofy/i18n';
 import { appGuardRedirect } from '@/auth/route-guard';
 import { useAuth } from '@/providers/auth-provider';
-import { Ionicons } from '@react-native-vector-icons/ionicons/static';
+import { Clock, Mic, Settings, Video, type LucideIcon } from 'lucide-react-native';
 
 // English for now, matching the other screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
 
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
-type IoniconColor = ComponentProps<typeof Ionicons>['color'];
-
-/** Build a tabBarIcon render fn so each tab shows a real glyph, not a missing-glyph box. */
-function tabIcon(name: IoniconName) {
+/** Build a tabBarIcon render fn from a lucide glyph, the icon set web draws too. */
+function tabIcon(Glyph: LucideIcon) {
   const Icon = ({ color, size }: { color: ColorValue; size: number }) => (
-    // The tab bar hands over React Native's full ColorValue (null and processed
-    // numbers included). The icon renders it through <Text>, which takes all of
-    // those; only the icon set's own prop type is narrower.
-    <Ionicons name={name} color={color as IoniconColor} size={size} />
+    // The tab bar hands over React Native's full ColorValue; it is always a
+    // palette string here, and lucide's prop type is only the string half.
+    <Glyph color={color as string} size={size} />
   );
-  Icon.displayName = `TabIcon(${name})`;
+  Icon.displayName = `TabIcon(${Glyph.displayName ?? 'icon'})`;
   return Icon;
 }
 
@@ -42,7 +37,7 @@ export default function AppLayout() {
     <Tabs>
       <Tabs.Screen
         name="translate"
-        options={{ title: t('common.nav.translate'), tabBarIcon: tabIcon('mic-outline') }}
+        options={{ title: t('common.nav.translate'), tabBarIcon: tabIcon(Mic) }}
       />
       <Tabs.Screen
         name="history"
@@ -50,16 +45,16 @@ export default function AppLayout() {
         options={{
           title: t('web.chrome.navHistory'),
           headerShown: false,
-          tabBarIcon: tabIcon('time-outline'),
+          tabBarIcon: tabIcon(Clock),
         }}
       />
       <Tabs.Screen
         name="conference"
-        options={{ title: t('mobile.tabs.conference'), tabBarIcon: tabIcon('videocam-outline') }}
+        options={{ title: t('mobile.tabs.conference'), tabBarIcon: tabIcon(Video) }}
       />
       <Tabs.Screen
         name="settings"
-        options={{ title: t('common.nav.settings'), tabBarIcon: tabIcon('settings-outline') }}
+        options={{ title: t('common.nav.settings'), tabBarIcon: tabIcon(Settings) }}
       />
     </Tabs>
   );
