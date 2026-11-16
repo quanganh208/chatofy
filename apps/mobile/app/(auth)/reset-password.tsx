@@ -13,6 +13,7 @@ import { readLinkToken } from '@/auth/deep-link-token';
 import { validateNewPassword } from '@/auth/register-form-state';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthField } from '@/components/auth/auth-field';
+import { AuthNextStep } from '@/components/auth/auth-next-step';
 import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
 import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
 import { Button } from '@/components/ui/button';
@@ -58,9 +59,10 @@ export default function ResetPasswordScreen() {
       <AuthScreen title={title}>
         <AuthForm>
           <AuthError message={t('mobile.auth.linkMissingToken')} />
-          <Button onPress={() => router.replace('/forgot-password')}>
-            <Text>{t('web.auth.sendResetLink')}</Text>
-          </Button>
+          <AuthNextStep
+            label={t('web.auth.sendResetLink')}
+            onPress={() => router.replace('/forgot-password')}
+          />
         </AuthForm>
       </AuthScreen>
     );
@@ -71,9 +73,10 @@ export default function ResetPasswordScreen() {
       <AuthScreen title={title}>
         <AuthForm>
           <AuthStatus message={t('mobile.auth.resetDone')} />
-          <Button onPress={() => router.replace('/sign-in')}>
-            <Text>{t('common.auth.signIn')}</Text>
-          </Button>
+          <AuthNextStep
+            label={t('common.auth.signIn')}
+            onPress={() => router.replace('/sign-in')}
+          />
         </AuthForm>
       </AuthScreen>
     );

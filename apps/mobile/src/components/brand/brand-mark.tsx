@@ -60,8 +60,8 @@ export function BrandMark({ size = 24 }: { size?: number }) {
           height={m.viewBox}
         >
           {/* Mask luminance, not colour: white keeps, black cuts the gap. */}
-          <Rect width={m.viewBox} height={m.viewBox} fill="#fff" />
-          <Path d={m.midPath} fill="none" stroke="#000" strokeWidth={gap} />
+          <Rect width={m.viewBox} height={m.viewBox} fill="white" />
+          <Path d={m.midPath} fill="none" stroke="black" strokeWidth={gap} />
         </Mask>
       </Defs>
       <G mask={`url(#${id}-g)`}>

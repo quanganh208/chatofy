@@ -13,6 +13,7 @@ import { authFlowFailure } from '@/auth/auth-error-message';
 import { validateRegistration } from '@/auth/register-form-state';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthField } from '@/components/auth/auth-field';
+import { AuthNextStep } from '@/components/auth/auth-next-step';
 import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
 import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
@@ -58,9 +59,10 @@ export default function SignUpScreen() {
       <AuthScreen title={t('web.auth.createAccountHeading')}>
         <AuthForm>
           <AuthStatus message={t('web.auth.checkYourEmail')} />
-          <Button onPress={() => router.replace('/sign-in')}>
-            <Text>{t('web.auth.backToSignIn')}</Text>
-          </Button>
+          <AuthNextStep
+            label={t('web.auth.backToSignIn')}
+            onPress={() => router.replace('/sign-in')}
+          />
         </AuthForm>
       </AuthScreen>
     );

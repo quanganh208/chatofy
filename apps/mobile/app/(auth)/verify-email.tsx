@@ -12,9 +12,9 @@ import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import { authFlowFailure } from '@/auth/auth-error-message';
 import { readLinkToken } from '@/auth/deep-link-token';
 import { useAuth } from '@/providers/auth-provider';
+import { AuthNextStep } from '@/components/auth/auth-next-step';
 import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
 import { AuthForm, AuthScreen } from '@/components/auth/auth-screen';
-import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 const t = createTranslator(en);
@@ -54,9 +54,10 @@ export default function VerifyEmailScreen() {
         {state.phase === 'done' ? <AuthStatus message={t('mobile.auth.verifyDone')} /> : null}
         {state.phase === 'failed' ? <AuthError message={t(state.message)} /> : null}
         {state.phase !== 'working' ? (
-          <Button onPress={() => router.replace('/sign-in')}>
-            <Text>{t('common.auth.signIn')}</Text>
-          </Button>
+          <AuthNextStep
+            label={t('common.auth.signIn')}
+            onPress={() => router.replace('/sign-in')}
+          />
         ) : null}
       </AuthForm>
     </AuthScreen>

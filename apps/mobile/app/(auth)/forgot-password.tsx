@@ -11,6 +11,7 @@ import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import { authFlowFailure } from '@/auth/auth-error-message';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthField } from '@/components/auth/auth-field';
+import { AuthNextStep } from '@/components/auth/auth-next-step';
 import { AuthError, AuthStatus } from '@/components/auth/auth-notice';
 import { AuthFooter, AuthForm, AuthScreen, AuthSubmit } from '@/components/auth/auth-screen';
 import { Button } from '@/components/ui/button';
@@ -50,9 +51,10 @@ export default function ForgotPasswordScreen() {
       <AuthScreen title={t('web.auth.forgotPasswordLink')}>
         <AuthForm>
           <AuthStatus message={t('web.auth.resetLinkSent')} />
-          <Button onPress={() => router.replace('/sign-in')}>
-            <Text>{t('web.auth.backToSignIn')}</Text>
-          </Button>
+          <AuthNextStep
+            label={t('web.auth.backToSignIn')}
+            onPress={() => router.replace('/sign-in')}
+          />
         </AuthForm>
       </AuthScreen>
     );
