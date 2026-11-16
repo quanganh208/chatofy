@@ -301,5 +301,5 @@ This documents the response as the standard success envelope with the given data
 ## Status
 
 - **Shipped:** web (translator, history, minutes, AI Contexts, preferences, account, teams with shared AI Contexts and glossaries, in English and Vietnamese) and the browser extension, over `POST /translate` and the streaming `/ws/translate`; email + Google auth with rotating refresh tokens; Postgres persistence; local STT/TTS sidecars, with cloud translation the only remote call in a turn
-- **Scaffold only:** mobile — screens, auth client and audio interfaces are stubs
+- **Mobile (development builds):** sign-in, live translate, History, video meetings and Settings against the same API; styled with NativeWind over `@chatofy/ui` tokens, older screens still on `StyleSheet` and listed in `apps/mobile/src/design/style-gate.test.ts`; the audio-player interface is still a stub
 - **Infrastructure:** response envelope, validation and tracing; Swagger at `/docs` (non-prod); all contracts in `@chatofy/types`

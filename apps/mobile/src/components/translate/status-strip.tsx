@@ -4,7 +4,8 @@
  * conversation was saved. Lines of text on the ground, never cards.
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { createTranslator, en } from '@chatofy/i18n';
 import type { ConversationStatus } from '@chatofy/realtime-client';
 import { space, fontSize } from '@chatofy/ui';

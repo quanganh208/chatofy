@@ -4,19 +4,31 @@
  * processing, with the account's synced-settings note and its reset. The screen scrolls: ten usage rows do not fit beside the rest. Sign out ends the refresh family server-side, so
  * the stored token cannot be replayed after it.
  *
+ * Theme: Light, Dark or Match system, the account's own `theme` preference — the
+ * one web reads — so a choice made here follows the account. It is a segmented
+ * readout, not the accent, and shows only when signed in: signed out, a choice
+ * would be stored nowhere.
+ *
  * Audio: the phone runs echo cancellation, noise suppression and gain control as
  * one chain, so there is one live switch; the other two rows show its value,
  * locked, rather than offering a choice the phone cannot apply.
  */
 
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
+import type { ThemeChoice } from '@chatofy/types';
 import { CreditsSummary } from '@/billing/credits-summary';
-import { resetAccountPreferences, useAccountPreferences } from '@/preferences/account-preferences';
+import { Text } from '@/components/ui/text';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  resetAccountPreferences,
+  updateAccountPreferences,
+  useAccountPreferences,
+} from '@/preferences/account-preferences';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useTranslateSettings } from '@/translate/use-translate-settings';
@@ -24,12 +36,18 @@ import { useTranslateSettings } from '@/translate/use-translate-settings';
 // English for now, matching the conference screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
 
+const THEME_CHOICES = ['light', 'dark', 'system'] as const satisfies readonly ThemeChoice[];
+
+function isThemeChoice(value: string | undefined): value is ThemeChoice {
+  return THEME_CHOICES.some((choice) => choice === value);
+}
+
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { session, signOut } = useAuth();
   const { settings, loaded, update } = useTranslateSettings();
-  const { status: syncStatus } = useAccountPreferences();
+  const { status: syncStatus, preferences } = useAccountPreferences();
   const [resetFailed, setResetFailed] = useState(false);
   const confirmReset = () =>
     Alert.alert(t('mobile.settings.sync.resetTitle'), t('mobile.settings.sync.resetBody'), [
@@ -121,6 +139,34 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
+        {session ? (
+          <View style={styles.theme}>
+            <Text style={[styles.account, { color: colors.text }]}>{t('common.theme.label')}</Text>
+            <ToggleGroup
+              type="single"
+              value={preferences.theme}
+              // Tapping the selected segment deselects it in the primitive; a theme
+              // is never "none", so that tap changes nothing.
+              onValueChange={(value) => {
+                if (isThemeChoice(value) && value !== preferences.theme) {
+                  updateAccountPreferences({ theme: value });
+                }
+              }}
+              accessibilityLabel={t('common.theme.label')}
+            >
+              {THEME_CHOICES.map((choice) => (
+                <ToggleGroupItem
+                  key={choice}
+                  value={choice}
+                  accessibilityLabel={t(`common.theme.${choice}`)}
+                >
+                  <Text>{t(`common.theme.${choice}`)}</Text>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </View>
+        ) : null}
+
         <CreditsSummary signedIn={session !== null} />
 
         <View style={styles.audio}>
@@ -200,6 +246,10 @@ const styles = StyleSheet.create({
   sync: {
     alignSelf: 'stretch',
     alignItems: 'center',
+    gap: space.sm,
+  },
+  theme: {
+    alignSelf: 'stretch',
     gap: space.sm,
   },
   audio: {

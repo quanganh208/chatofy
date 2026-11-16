@@ -14,7 +14,8 @@
  * against (matching web's white-on-black/80 subtitle).
  */
 
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight, overlay, color } from '@chatofy/ui';
 
 interface SubtitleOverlayProps {

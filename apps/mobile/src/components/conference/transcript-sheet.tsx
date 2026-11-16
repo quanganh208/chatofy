@@ -9,7 +9,8 @@
  * is given and decides nothing about the pipeline.
  */
 
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Modal, View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import type { Translate } from '@chatofy/i18n';
 import { useTheme } from '@/providers/theme-provider';
