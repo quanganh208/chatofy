@@ -15,6 +15,9 @@
  *   variables already follow the theme.
  * - Sizes are touch sizes: 48 is the default and the minimum target; the `sm:`
  *   desktop steps are removed and padding uses only `space` steps.
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { Icon } from '@/components/ui/icon';
 import { TextClassContext } from '@/components/ui/text';
@@ -65,7 +68,7 @@ function Toggle({
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
   return (
-    <TextClassContext.Provider value={cn(toggleTextClass(props.pressed), className)}>
+    <TextClassContext value={cn(toggleTextClass(props.pressed), className)}>
       <TogglePrimitive.Root
         className={cn(
           toggleVariants({ variant, size }),
@@ -75,12 +78,12 @@ function Toggle({
         )}
         {...props}
       />
-    </TextClassContext.Provider>
+    </TextClassContext>
   );
 }
 
 function ToggleIcon({ className, ...props }: React.ComponentProps<typeof Icon>) {
-  const textClass = React.useContext(TextClassContext);
+  const textClass = React.use(TextClassContext);
   return <Icon className={cn('size-4 shrink-0', textClass, className)} {...props} />;
 }
 

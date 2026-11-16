@@ -15,6 +15,9 @@
  * - Every `dark:` variant is gone; the variables change with the theme instead.
  * - Sizes are touch sizes: 48 is the default and the minimum target, the `sm:`
  *   desktop steps are removed, and the label is `text-base font-semibold`.
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -84,15 +87,13 @@ const buttonTextVariants = cva(
   },
 );
 
-type ButtonProps = React.ComponentProps<typeof Pressable> &
-  React.RefAttributes<typeof Pressable> &
-  VariantProps<typeof buttonVariants>;
+type ButtonProps = React.ComponentProps<typeof Pressable> & VariantProps<typeof buttonVariants>;
 
 function Button({ className, variant, size, style, ...props }: ButtonProps) {
   const lift = useElevation('sm');
   const lifted = variant === 'outline' && !props.disabled;
   return (
-    <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
+    <TextClassContext value={buttonTextVariants({ variant, size })}>
       <Pressable
         className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
         role="button"
@@ -105,7 +106,7 @@ function Button({ className, variant, size, style, ...props }: ButtonProps) {
         }
         {...props}
       />
-    </TextClassContext.Provider>
+    </TextClassContext>
   );
 }
 

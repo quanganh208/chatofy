@@ -12,6 +12,9 @@
  * - Spacing uses only `space` steps (`p-4`, `gap-1`), so upstream's `pt-3.5`,
  *   `left-3.5` icon offset and `ml-0.5` are replaced by a row: icon, then text.
  * - `icon` is optional — a short form error reads fine without one.
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { Icon } from '@/components/ui/icon';
 import { Text, TextClassContext } from '@/components/ui/text';
@@ -47,7 +50,6 @@ const alertTextVariants = cva('text-sm', {
 });
 
 type AlertProps = React.ComponentProps<typeof View> &
-  React.RefAttributes<View> &
   VariantProps<typeof alertVariants> & {
     icon?: LucideIcon;
     iconClassName?: string;
@@ -56,7 +58,7 @@ type AlertProps = React.ComponentProps<typeof View> &
 function Alert({ className, variant, children, icon, iconClassName, style, ...props }: AlertProps) {
   const lift = useElevation('sm');
   return (
-    <TextClassContext.Provider value={alertTextVariants({ variant })}>
+    <TextClassContext value={alertTextVariants({ variant })}>
       <View
         role="alert"
         className={cn(alertVariants({ variant }), className)}
@@ -70,7 +72,7 @@ function Alert({ className, variant, children, icon, iconClassName, style, ...pr
         ) : null}
         <View className="flex-1 gap-1">{children}</View>
       </View>
-    </TextClassContext.Provider>
+    </TextClassContext>
   );
 }
 

@@ -15,6 +15,9 @@
  *   per-theme layers that `boxShadow` does.
  * - Items share the track's width (`flex-1`, `px-1`) on every platform, not just web: three
  *   choices on a phone read as one row of equal segments.
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { Icon } from '@/components/ui/icon';
 import { TextClassContext } from '@/components/ui/text';
@@ -43,15 +46,13 @@ function ToggleGroup({
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider value={{ variant, size }}>
-        {children}
-      </ToggleGroupContext.Provider>
+      <ToggleGroupContext value={{ variant, size }}>{children}</ToggleGroupContext>
     </ToggleGroupPrimitive.Root>
   );
 }
 
 function useToggleGroupContext() {
-  const context = React.useContext(ToggleGroupContext);
+  const context = React.use(ToggleGroupContext);
   if (context === null) {
     throw new Error(
       'ToggleGroup compound components cannot be rendered outside the ToggleGroup component',
@@ -74,7 +75,7 @@ function ToggleGroupItem({
   const selected = ToggleGroupPrimitive.utils.getIsSelected(value, props.value);
 
   return (
-    <TextClassContext.Provider value={toggleTextClass(selected)}>
+    <TextClassContext value={toggleTextClass(selected)}>
       <ToggleGroupPrimitive.Item
         className={cn(
           toggleVariants({
@@ -100,12 +101,12 @@ function ToggleGroupItem({
       >
         {children}
       </ToggleGroupPrimitive.Item>
-    </TextClassContext.Provider>
+    </TextClassContext>
   );
 }
 
 function ToggleGroupIcon({ className, ...props }: React.ComponentProps<typeof Icon>) {
-  const textClass = React.useContext(TextClassContext);
+  const textClass = React.use(TextClassContext);
   return <Icon className={cn('size-4 shrink-0', textClass, className)} {...props} />;
 }
 

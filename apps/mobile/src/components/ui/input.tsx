@@ -12,6 +12,9 @@
  *   composite under the contrast floor the token was measured for.
  * - `invalid` paints the edge `destructive` on native, where upstream's
  *   `aria-invalid:` variant only reaches web.
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { cn } from '@/lib/utils';
 import { useFieldRecess } from '@/ui/elevation';
@@ -22,11 +25,10 @@ function Input({
   style,
   invalid = false,
   ...props
-}: React.ComponentProps<typeof TextInput> &
-  React.RefAttributes<TextInput> & {
-    /** The value was refused; draws the edge in `destructive`. */
-    invalid?: boolean;
-  }) {
+}: React.ComponentProps<typeof TextInput> & {
+  /** The value was refused; draws the edge in `destructive`. */
+  invalid?: boolean;
+}) {
   const recess = useFieldRecess();
   return (
     <TextInput

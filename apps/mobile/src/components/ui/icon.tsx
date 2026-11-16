@@ -8,7 +8,7 @@ import * as React from 'react';
 
 type IconProps = LucideProps & {
   as: LucideIcon;
-} & React.RefAttributes<LucideIcon>;
+};
 
 function IconImpl({ as: IconComponent, ...props }: IconProps) {
   return <IconComponent {...props} />;
@@ -45,7 +45,7 @@ cssInterop(IconImpl, {
  * @param {...LucideProps} ...props - Additional Lucide icon props passed to the "as" icon.
  */
 function Icon({ as: IconComponent, className, size = 20, ...props }: IconProps) {
-  const textClass = React.useContext(TextClassContext);
+  const textClass = React.use(TextClassContext);
   return (
     <IconImpl
       as={IconComponent}

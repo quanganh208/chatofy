@@ -11,6 +11,9 @@
  *   have no token. `h2` drops upstream's rule underneath.
  * - `code` and `blockquote` are removed: no monospace face is loaded and nothing
  *   quotes. `p`, `lead` and `large` lose their `sm:` steps (no breakpoints here).
+ * - React 19 idioms: `use` and `<Context value>`, and no extra `RefAttributes` —
+ *   `ComponentProps` already carries `ref`, and upstream's second ref type made
+ *   every `useRef` passed as `ref` a type error.
  */
 import { cn } from '@/lib/utils';
 import { Slot } from '@rn-primitives/slot';
@@ -67,11 +70,10 @@ function Text({
   variant = 'default',
   ...props
 }: React.ComponentProps<typeof RNText> &
-  React.RefAttributes<typeof RNText> &
   TextVariantProps & {
     asChild?: boolean;
   }) {
-  const textClass = React.useContext(TextClassContext);
+  const textClass = React.use(TextClassContext);
   const Component = asChild ? Slot : RNText;
   return (
     <Component
