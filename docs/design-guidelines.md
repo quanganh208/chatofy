@@ -633,6 +633,8 @@ cap. Both still pass.
   root view with `vars()`. `global.css` declares no palette, so there is no second copy.
 - **The theme is the account's `theme` preference** (`light` / `dark` / `system`),
   the field web reads, chosen in Settings and applied with `Appearance.setColorScheme`.
+  The phone remembers the theme it last applied and applies it before the first
+  render, so a cold start does not paint the system scheme while the account loads.
   A class never writes `dark:`: the variables change instead.
 - **Every scale is a token.** `tailwind.config.js` replaces, not extends, colour,
   radius, type, weight and spacing, so `rounded-xl`, `text-2xl` or `p-3` style
@@ -663,13 +665,17 @@ file's docblock, so the next `--overwrite` diff reads. A selected state is a rea
 **The gate.** `src/design/style-gate.test.ts` scans `app/` and `src/` (the theme,
 navigation-colour and elevation modules excepted) and fails on a raw colour literal, a
 `dark:` or colour opacity modifier in a class string, a vector-icon font import, and
-more than one default-variant `<Button>` per screen or component file. The last is a
-static, per-file stand-in for web's per-screen-state accent gate: there is no React
-Native renderer in `node --test`. Screens still on `StyleSheet` or `useTheme()`
-colours are listed in `LEGACY_STYLE_FILES`, enforced in both directions like web's
-`KNOWN_VIOLATIONS` — a file that moves to `className` must delete its row, and no
-row is ever added. Legacy screens already take the brand face through
-`components/ui/text`.
+more than one accent-filled control per screen state in any file under `app/` or
+`src/components/`. A state is the nearest `return` (or arrow body) around the
+element, read statically: there is no React Native renderer in `node --test`, so this
+stands in for web's rendered per-screen-state gate. An accent is a default-variant
+`<Button>`, `AuthSubmit`, `AuthNextStep`, `PrimaryButton`, or a literal `bg-primary`
+class; a computed `variant` or a class string held in a variable is not seen. Screens
+still on `StyleSheet`, `useTheme()` colours or palette values imported from
+`@chatofy/ui` are listed in `LEGACY_STYLE_FILES`, enforced in both directions like
+web's `KNOWN_VIOLATIONS` — a file that moves to `className` must delete its row, and
+no row is ever added. Legacy screens already take the brand face: their text through
+`components/ui/text`, their inputs through `font-sans`.
 
 ## The app frame
 

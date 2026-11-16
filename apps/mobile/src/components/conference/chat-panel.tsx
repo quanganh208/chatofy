@@ -97,6 +97,7 @@ export function ChatPanel({
 
           <View style={styles.composer}>
             <TextInput
+              className="font-sans"
               style={[
                 styles.input,
                 { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },

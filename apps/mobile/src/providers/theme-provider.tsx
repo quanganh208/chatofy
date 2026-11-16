@@ -15,6 +15,8 @@ import { colors, type ColorScheme, type ThemeColors } from '@/ui/theme';
 import { themeVariables } from '@/ui/theme-variables';
 import { navigationColors, navigationFonts } from '@/ui/navigation-colors';
 import { useAccountPreferences } from '@/preferences/account-preferences';
+import { readRememberedTheme, rememberTheme } from '@/preferences/remembered-theme';
+import { useAuth } from './auth-provider';
 
 interface ThemeContextValue {
   scheme: ColorScheme;
@@ -40,6 +42,22 @@ function appearanceFor(choice: ThemeChoice): 'light' | 'dark' | 'unspecified' {
   return choice === 'system' ? 'unspecified' : choice;
 }
 
+// Applied before the first render, so a cold start paints in the last theme this
+// phone showed instead of the system one while the account's choice loads.
+Appearance.setColorScheme(appearanceFor(readRememberedTheme()));
+
+/**
+ * The choice to apply now: the account's once its document has loaded, `system`
+ * for nobody signed in, and nothing (keep what is showing) while either is pending.
+ */
+function useSettledChoice(): ThemeChoice | null {
+  const { isLoading, session } = useAuth();
+  const { preferences, hydrated } = useAccountPreferences();
+  if (isLoading) return null;
+  if (session === null) return 'system';
+  return hydrated ? preferences.theme : null;
+}
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
@@ -48,7 +66,8 @@ interface ThemeProviderProps {
  * The account's theme choice, applied to everything the app draws.
  *
  * The choice is the `theme` field of the account preferences — the same one web
- * reads — and a signed-out visitor gets its default, `system`. It is applied
+ * reads — and a signed-out visitor gets `system`. Until the account's document
+ * has loaded, the theme this phone last applied stands in (`remembered-theme.ts`). It is applied
  * through `Appearance.setColorScheme`, so `useColorScheme()` answers with the
  * choice rather than the phone's setting: native pickers, the keyboard and every
  * screen still on `useTheme` follow it without knowing a choice exists.
@@ -59,9 +78,11 @@ interface ThemeProviderProps {
  * and tab bar.
  */
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const choice = useAccountPreferences().preferences.theme;
+  const choice = useSettledChoice();
   useEffect(() => {
+    if (choice === null) return;
     Appearance.setColorScheme(appearanceFor(choice));
+    rememberTheme(choice);
   }, [choice]);
 
   const raw = useColorScheme();

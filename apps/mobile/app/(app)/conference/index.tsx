@@ -158,6 +158,7 @@ export default function ConferenceLobbyScreen() {
           {t('common.conference.yourName')}
         </Text>
         <TextInput
+          className="font-sans"
           style={[
             styles.input,
             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
@@ -175,6 +176,7 @@ export default function ConferenceLobbyScreen() {
           {t('common.conference.roomId')}
         </Text>
         <TextInput
+          className="font-sans"
           style={[
             styles.input,
             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },

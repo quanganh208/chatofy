@@ -18,18 +18,28 @@ import { defaultUserPreferences, type UserPreferencesPatch } from '@chatofy/type
 import { getPreferences, resetPreferences, updatePreferences } from '@/clients/api-client';
 import { createPreferencesCache } from './preferences-cache';
 
-const UNBOUND: PreferencesSyncState = {
+/**
+ * The sync state plus `hydrated`: true once the bound store has published the
+ * account's own document, from the phone's cache or the server. Before that the
+ * preferences are defaults, which a reader such as the theme must not act on.
+ */
+export interface AccountPreferencesState extends PreferencesSyncState {
+  hydrated: boolean;
+}
+
+const UNBOUND: AccountPreferencesState = {
   preferences: defaultUserPreferences(),
   status: 'idle',
   loaded: false,
+  hydrated: false,
 };
 
 let sync: PreferencesSync | null = null;
 let unsubscribeSync: (() => void) | null = null;
-let snapshot: PreferencesSyncState = UNBOUND;
+let snapshot: AccountPreferencesState = UNBOUND;
 const listeners = new Set<() => void>();
 
-function setSnapshot(next: PreferencesSyncState): void {
+function setSnapshot(next: AccountPreferencesState): void {
   snapshot = next;
   for (const listener of listeners) listener();
 }
@@ -43,8 +53,9 @@ export function bindAccountPreferences(userId: string, locale?: string | null): 
     defaults: defaultUserPreferences(locale),
   });
   sync = store;
-  unsubscribeSync = store.subscribe(setSnapshot);
-  setSnapshot(store.getState());
+  // Every publish after start carries the cached or server document.
+  unsubscribeSync = store.subscribe((state) => setSnapshot({ ...state, hydrated: true }));
+  setSnapshot({ ...store.getState(), hydrated: false });
   void store.start();
 }
 
@@ -93,6 +104,6 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function useAccountPreferences(): PreferencesSyncState {
+export function useAccountPreferences(): AccountPreferencesState {
   return useSyncExternalStore(subscribe, () => snapshot);
 }

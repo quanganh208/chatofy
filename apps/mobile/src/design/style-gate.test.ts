@@ -8,17 +8,22 @@
  *   string. The variables already change with the theme, and they hold hex values,
  *   so NativeWind has no channel to apply an opacity to — both do nothing.
  * - No vector-icon font imports: icons are lucide through `components/ui/icon`.
- * - No legacy styling (`StyleSheet` from react-native, or the colours `useTheme()`
- *   returns) outside `LEGACY_STYLE_FILES`.
- * - At most one default-variant `<Button>` per file under `app/` and
- *   `src/components/` — the accent budget.
+ * - No legacy styling (`StyleSheet` from react-native, the colours `useTheme()`
+ *   returns, or palette values imported from @chatofy/ui) outside
+ *   `LEGACY_STYLE_FILES`.
+ * - At most one accent-filled control per screen state, in every file under `app/`
+ *   and `src/components/`, legacy ones included — the accent budget.
  *
  * The accent budget is an approximation. Web counts accent-filled controls per
  * screen STATE by rendering each state (apps/web/src/design/accent-budget-app.spec.tsx);
- * these tests run in plain Node with no React Native renderer, so this counts
- * default-variant `<Button>` elements per FILE, statically. It misses a second accent
- * drawn by a child component and a computed `variant`, and it flags two defaults in
- * branches that never render together — split such a file or make one quiet.
+ * these tests run in plain Node with no React Native renderer, so a state here is
+ * the nearest `return` (or arrow body) around the element, read statically. An
+ * accent is a default-variant `<Button>`, a component that exists to draw one
+ * (`AuthSubmit`, `AuthNextStep`, `PrimaryButton`), or an element whose literal
+ * `className` fills `bg-primary`. It misses a computed `variant`, a class string
+ * held in a variable, and an accent drawn by some other child component; it flags
+ * two accents in a ternary under one `return` — make one quiet or split the return.
+ * Class strings held in variables also escape the `dark:`/opacity check.
  */
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -115,11 +120,12 @@ describe('mobile style gate', () => {
     assert.deepEqual(stale, [], `no longer legacy or gone — delete these rows:${report(stale)}`);
   });
 
-  it('draws at most one default-variant Button per screen or component file', () => {
+  it('draws at most one accent-filled control per screen state', () => {
     const rows = scans
-      .filter((s) => /^(app|src\/components)\//.test(s.path) && !LEGACY_STYLE_FILES.has(s.path))
-      .filter((s) => s.defaultButtons.length > 1)
-      .map((s) => `${s.path}: lines ${s.defaultButtons.join(', ')}`);
+      .filter((s) => /^(app|src\/components)\//.test(s.path))
+      .flatMap((s) =>
+        s.accentGroups.filter((g) => g.length > 1).map((g) => `${s.path}: lines ${g.join(', ')}`),
+      );
     assert.deepEqual(
       rows,
       [],
@@ -151,6 +157,9 @@ describe('scanSource', () => {
     assert.equal(legacy("import { StyleSheet, View } from 'react-native';"), true);
     assert.equal(legacy('const { colors } = useTheme();'), true);
     assert.equal(legacy('const c = useTheme().colors;'), true);
+    assert.equal(legacy('const theme = useTheme();\nconst c = theme.colors.text;'), true);
+    assert.equal(legacy("import { palettes, space } from '@chatofy/ui';"), true);
+    assert.equal(legacy("import { space, radius } from '@chatofy/ui';"), false);
     assert.equal(legacy('const { scheme } = useTheme();'), false);
     assert.equal(
       legacy("import { View } from 'react-native'; // was StyleSheet, useTheme()"),
@@ -162,7 +171,21 @@ describe('scanSource', () => {
     const src =
       '<><Button /><Button variant="default">a</Button><Button variant="outline" />' +
       '<Button variant={quiet ? "ghost" : "default"} /></>';
-    assert.deepEqual(scanSource('a.tsx', src).defaultButtons, [1, 1]);
+    assert.deepEqual(scanSource('a.tsx', src).accentGroups, [[1, 1]]);
+  });
+
+  it('counts accents per screen state, not per file', () => {
+    const src = [
+      'function A() {',
+      '  if (done) return <AuthNextStep />;',
+      '  return <AuthScreen><AuthSubmit /></AuthScreen>;',
+      '}',
+      'function B() {',
+      '  return <><PrimaryButton /><Pressable className="rounded-md bg-primary" /></>;',
+      '}',
+      'const C = () => <Pressable className="bg-primary/90 bg-muted" />;',
+    ].join('\n');
+    assert.deepEqual(scanSource('a.tsx', src).accentGroups, [[2], [3], [6, 6]]);
   });
 
   it('flags vector-icon imports', () => {

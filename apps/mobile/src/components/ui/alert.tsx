@@ -7,8 +7,9 @@
  *   is told apart by fill AND hue so it never rests on colour alone: `default` is
  *   an outlined card, `live`/`warning` fill their `*-subtle` token with ink text,
  *   `destructive` is the outlined card in destructive ink.
- * - Every variant sits at `sm` elevation via `useElevation`, matching web's
- *   `shadow-elev-sm`; upstream draws none.
+ * - `default`, `live` and `warning` sit at `sm` elevation via `useElevation`,
+ *   matching web's `shadow-elev-sm`; `destructive` stays flat, as on web. Upstream
+ *   draws none.
  * - Spacing uses only `space` steps (`p-4`, `gap-1`), so upstream's `pt-3.5`,
  *   `left-3.5` icon offset and `ml-0.5` are replaced by a row: icon, then text.
  * - `icon` is optional — a short form error reads fine without one.
@@ -57,12 +58,13 @@ type AlertProps = React.ComponentProps<typeof View> &
 
 function Alert({ className, variant, children, icon, iconClassName, style, ...props }: AlertProps) {
   const lift = useElevation('sm');
+  const lifted = variant !== 'destructive';
   return (
     <TextClassContext value={alertTextVariants({ variant })}>
       <View
         role="alert"
         className={cn(alertVariants({ variant }), className)}
-        style={[lift, style]}
+        style={[lifted ? lift : null, style]}
         {...props}
       >
         {icon ? (

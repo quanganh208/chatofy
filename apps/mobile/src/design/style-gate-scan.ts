@@ -15,10 +15,17 @@ export interface StyleFindings {
   classProblems: string[];
   /** `line: specifier` for vector-icon or Ionicons imports. */
   iconImports: string[];
-  /** Imports `StyleSheet` from react-native or reads the colours `useTheme()` returns. */
+  /**
+   * Imports `StyleSheet` from react-native, reads the colours `useTheme()` returns
+   * (destructured, or through any name bound to the call), or imports palette
+   * values from @chatofy/ui to style with directly.
+   */
   legacy: boolean;
-  /** Lines of `<Button>` elements drawn with the default (accent-filled) variant. */
-  defaultButtons: number[];
+  /**
+   * Accent-filled controls, grouped by the screen state that draws them: one group
+   * per `return` (or arrow body) that renders JSX, each holding element lines.
+   */
+  accentGroups: number[][];
 }
 
 const HEX_COLOUR = /(?:^|[^\w&])#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})(?![\w-])/i;
@@ -67,14 +74,52 @@ function attributeLiteral(attribute: ts.JsxAttribute): string | undefined {
   return undefined;
 }
 
-/** True when a `<Button>` takes the default variant: no `variant`, or `variant="default"`. */
-function isDefaultButton(element: ts.JsxOpeningLikeElement): boolean {
-  if (element.tagName.getText() !== 'Button') return false;
+// Components whose whole job is to draw the screen's one accent-filled control.
+const ACCENT_COMPONENTS = new Set(['AuthSubmit', 'AuthNextStep', 'PrimaryButton']);
+const PALETTE_EXPORTS = new Set(['palettes', 'color', 'colorLight']);
+
+/**
+ * True when an element is accent-filled: a `<Button>` on the default variant (no
+ * `variant`, or `variant="default"`), a component that exists to draw one, or any
+ * element whose literal `className` fills `bg-primary`.
+ */
+function isAccent(element: ts.JsxOpeningLikeElement): boolean {
+  const tag = element.tagName.getText();
+  if (ACCENT_COMPONENTS.has(tag)) return true;
+  const className = element.attributes.properties.find(
+    (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className',
+  );
+  const classes = className && attributeLiteral(className);
+  if (classes?.split(/\s+/).includes('bg-primary')) return true;
+  if (tag !== 'Button') return false;
   const variant = element.attributes.properties.find(
     (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'variant',
   );
   // A computed variant is not counted: the gate cannot know which branch draws.
   return variant === undefined || attributeLiteral(variant) === 'default';
+}
+
+/**
+ * The screen state an element belongs to: the nearest `return` statement or arrow
+ * expression body around it. Early returns are the states a screen switches
+ * between, so two accents under different returns are never on screen together.
+ */
+function screenState(node: ts.Node): ts.Node {
+  for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
+    if (ts.isReturnStatement(at)) return at;
+    if (ts.isArrowFunction(at) && at.body === findBody(node, at)) return at;
+    if (ts.isSourceFile(at)) return at;
+  }
+  return node.getSourceFile();
+}
+
+/** The arrow's expression body when `node` sits inside it, so `() => <X />` is one state. */
+function findBody(node: ts.Node, arrow: ts.ArrowFunction): ts.Node | undefined {
+  if (ts.isBlock(arrow.body)) return undefined;
+  for (let at: ts.Node | undefined = node; at && at !== arrow; at = at.parent) {
+    if (at === arrow.body) return arrow.body;
+  }
+  return undefined;
 }
 
 export function scanSource(fileName: string, source: string): StyleFindings {
@@ -90,8 +135,11 @@ export function scanSource(fileName: string, source: string): StyleFindings {
     classProblems: [],
     iconImports: [],
     legacy: false,
-    defaultButtons: [],
+    accentGroups: [],
   };
+  const groups = new Map<ts.Node, number[]>();
+  // Names bound to `useTheme()`, so `theme.colors` is caught as well as `{ colors }`.
+  const themeNames = new Set<string>();
   const lineOf = (node: ts.Node) => file.getLineAndCharacterOfPosition(node.getStart()).line + 1;
 
   const visit = (node: ts.Node): void => {
@@ -112,6 +160,22 @@ export function scanSource(fileName: string, source: string): StyleFindings {
         findings.iconImports.push(`${lineOf(node)}: ${from}`);
       }
       if (from === 'react-native' && /\bStyleSheet\b/.test(names)) findings.legacy = true;
+      const bindings = node.importClause?.namedBindings;
+      if (
+        from === '@chatofy/ui' &&
+        bindings &&
+        ts.isNamedImports(bindings) &&
+        bindings.elements.some((e) => PALETTE_EXPORTS.has((e.propertyName ?? e.name).text))
+      ) {
+        findings.legacy = true;
+      }
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      isUseThemeCall(node.initializer)
+    ) {
+      themeNames.add(node.name.text);
     }
     // `const { colors } = useTheme()` and `useTheme().colors`; `{ scheme }` alone is not legacy.
     if (
@@ -125,19 +189,19 @@ export function scanSource(fileName: string, source: string): StyleFindings {
     if (
       ts.isPropertyAccessExpression(node) &&
       node.name.text === 'colors' &&
-      isUseThemeCall(node.expression)
+      (isUseThemeCall(node.expression) ||
+        (ts.isIdentifier(node.expression) && themeNames.has(node.expression.text)))
     ) {
       findings.legacy = true;
     }
-    if (
-      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
-      isDefaultButton(node)
-    ) {
-      findings.defaultButtons.push(lineOf(node));
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && isAccent(node)) {
+      const state = screenState(node);
+      groups.set(state, [...(groups.get(state) ?? []), lineOf(node)]);
     }
     ts.forEachChild(node, visit);
   };
   visit(file);
+  findings.accentGroups = [...groups.values()];
   return findings;
 }
 
