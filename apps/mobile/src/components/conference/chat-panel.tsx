@@ -11,15 +11,8 @@
  */
 
 import { useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { Modal, View, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import type { Translate } from '@chatofy/i18n';
 import type { ConferenceChatMessage } from '@chatofy/types/events';

@@ -4,7 +4,8 @@
  * control on this screen; mic/cam/participants are ghost/outline toggles and readouts.
  */
 
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import type { Translate } from '@chatofy/i18n';
 import { useTheme } from '@/providers/theme-provider';

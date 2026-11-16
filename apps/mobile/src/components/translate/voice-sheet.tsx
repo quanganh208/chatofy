@@ -5,7 +5,8 @@
  * speaks in the voice chosen for ITS language.
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { useQuery } from '@tanstack/react-query';
 import { createTranslator, en } from '@chatofy/i18n';
 import type { LanguageCode, VoiceGender } from '@chatofy/types';

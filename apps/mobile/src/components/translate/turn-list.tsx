@@ -5,7 +5,8 @@
  */
 
 import { useRef } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { createTranslator, en } from '@chatofy/i18n';
 import { space, fontSize, fontWeight } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';

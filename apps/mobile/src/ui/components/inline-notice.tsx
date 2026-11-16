@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { space, radius, fontSize } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 

@@ -7,7 +7,8 @@
  */
 
 import { useCallback } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { useFocusEffect } from 'expo-router';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
 import type { CreditBalance, CreditUsageKind } from '@chatofy/types';
