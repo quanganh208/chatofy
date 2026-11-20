@@ -203,6 +203,40 @@ describe('OpenAiCompatibleTranslationPolisher call reporting', () => {
     });
   });
 
+  it('lets the draft stand when an en→vi edit invents a name, and says which guard fired', async () => {
+    // A recorded prod answer: the transcript lost "childhood" at a cut.
+    answer('Sở thích của bạn có thay đổi kể từ khi có COVID không?');
+    const onCall = vi.fn<LlmCallListener>();
+
+    await expect(
+      reporting(onCall).polish({
+        source: 'Have your hobbies changed since hoping?',
+        draft: 'Sở thích của bạn có thay đổi kể từ khi hy vọng không?',
+        sourceLanguage: 'en',
+        targetLanguage: 'vi',
+      }),
+    ).resolves.toBeNull();
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ ok: true, rejected: 'name' });
+  });
+
+  it('names no guard when the edit is accepted or the model kept the draft', async () => {
+    const onCall = vi.fn<LlmCallListener>();
+    answer('It is raining very heavily today.');
+    await reporting(onCall).polish(request);
+    answer('Today it rain very big.');
+    await reporting(onCall).polish(request);
+
+    expect(onCall.mock.calls.map(([event]) => event.rejected)).toEqual([undefined, undefined]);
+  });
+
+  it('reports which guard discarded a runaway answer', async () => {
+    answer('x'.repeat(500));
+    const onCall = vi.fn<LlmCallListener>();
+
+    await expect(reporting(onCall).polish(request)).resolves.toBeNull();
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ rejected: 'length' });
+  });
+
   it('reports a refused polish as failed and still throws', async () => {
     answer('no', 503);
     const onCall = vi.fn<LlmCallListener>();
