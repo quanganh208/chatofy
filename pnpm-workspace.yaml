@@ -58,6 +58,13 @@ overrides:
   # GHSA-xhq7-xmqj-769h, GHSA-333x-w4r6-6crp (low), <3.1.9 — more scheme and host
   # confusion — moved it to 3.1.9.
   fast-uri: '>=3.1.9 <4'
+  # GHSA-7589-6fvf-x4pw — high, <=3.22.0: ReDoS in Schema.TemplateLiteral's
+  # compiled regex. Reached only through @prisma/config, which pins effect
+  # 3.20.0 exactly, so no prisma release clears it (7.10.1 is the latest). Prisma
+  # CLI only — generate, migrate, including the deploy migrate step — where it
+  # parses this repo's own config, never user input. Capped below 4, the next
+  # major. Remove once @prisma/config pins a patched release.
+  effect: '>=3.22.1 <4'
   # GHSA-86w9-cpqp-85rv, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p — high,
   # <=1.4.0: certificate-chain and basicConstraints verification bypasses.
   # Reached only by apps/mobile, through @expo/cli and its
