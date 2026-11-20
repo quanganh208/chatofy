@@ -47,4 +47,23 @@ describe('logLlmCall', () => {
       'llm kind=homophones purpose=- host=deepseek model=deepseek-flash ms=2501 ok=0 in=- out=- cached=- h=00ff00ff',
     );
   });
+
+  it('names the guard that discarded a polish, and only then', () => {
+    expect(
+      formatLlmCall({
+        kind: 'polish',
+        host: 'commandcode-polish',
+        model: 'gpt-5.6-sol',
+        ms: 1835,
+        ok: true,
+        inputTokens: 319,
+        outputTokens: 37,
+        rejected: 'name',
+        promptHash: 'e61c9019',
+      }),
+    ).toBe(
+      'llm kind=polish purpose=- host=commandcode-polish model=gpt-5.6-sol ms=1835 ok=1 ' +
+        'in=319 out=37 cached=- h=e61c9019 rejected=name',
+    );
+  });
 });

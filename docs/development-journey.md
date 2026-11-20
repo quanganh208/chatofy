@@ -2885,3 +2885,24 @@ The guard (`2 × draft + 40`) threw away restored sentences because a draft that
 - **A replay of the 162 judged turns found no runaway at all:** 0 of 162 raw answers ran over either bound, which puts the rate below about 2.3%. It also found no fresh restore, so its regression check is inconclusive (no answer rejected today, nothing to judge). That is allowed by the bars, and the claim rests on the held-out set.
 - **Chinese targets keep the draft bound,** because a zh translation is much shorter than its source.
 - **Spend:** 162 of 170 Command Code calls, $0 of judge spend.
+
+## The polish invented COVID; en→vi edits can no longer add an unsupported capitalised name or number (20/11/2026)
+
+A prod en→vi conversation (an IELTS mock interview, 268 s, 50 turns) was checked against a Scribe v2 transcript and the `claude-opus-5-5` judge, 3 repeats each. Two turns (4%) carried a serious error and 42% a minor one, which matches the 2026-11-02 en→vi baseline.
+
+- **One serious error was invented, not misheard.** The interviewer said "since h- uh, childhood?". The client's 8 s ceiling cut fell in the 280 ms pause after "h-", so the turn was heard as "Have your hobbies changed since hoping?", and "childhood?" opened the next turn under the other speaker. The saved line read "kể từ khi đại dịch COVID-19 xảy ra".
+- **Replay put the invention in the polish, not the translator.** `deepseek-v4-flash-fast` translated the turn literally 10 of 10 times without context, and 4 of 5 with it (once "kết hôn"). `gpt-5.6-sol`, on the prod prompt, turned that literal draft into COVID 5 of 5 times, and kept a COVID draft 5 of 5. The voice reads the draft, so the listener heard "hy vọng"; only the saved and displayed line was wrong.
+- **Two prompt rewrites did not stop it.** "Never add a name, event or fact the transcript lacks" still gave COVID 2 of 5 times, while it kept the needed repair "depends on the league" → "tùy từng tuần" (3 of 3). "A repair must sound like what was heard" gave COVID 5 of 5.
+- **A guard on new names cannot run on vi→en.** An offline version of the check, run on every direction and rejecting an edit that adds a digit, or a capital past a sentence's first word, absent from the transcript, the draft and the context, rejected 19 of 78 vi→en and vi→zh rewrites in the stored prod-polisher replay. Those include the best name repairs ("mode of adrec" → "Dario Amodei of Anthropic", "VDI" → "VNeID").
+- **Shipped: the guard on en→vi only** (`packages/ai-providers/src/text/polish-unsupported-names.ts`). The name repairs seen in the replay were all vi→en; none of the 56 en→vi rewrites needed one. On the stored replay, the shipped function rejects 0 of 56 en→vi rewrites, which puts its false-rejection rate below about 5%, and it touches no other direction. It rejects all 12 recorded COVID answers. Those come from one incident, so this shows the guard catches that form, not a recall figure.
+- **Rejections are now visible.** A polish discarded by any guard logs `rejected=empty|length|script|name` on its `llm kind=polish` line. Before this, every guard returned null silently.
+- **Known gaps:**
+  - The guard catches the form of an invention, not the act. An invented event in lower case ("kể từ khi đại dịch xảy ra") still passes, and so does a name that opens a sentence without a digit.
+  - It fails closed, keeping the draft, on some real edits: words turned into digits ("hai mươi lăm" → "25"), "5 giờ chiều" → "17 giờ", and exonym swaps ("Hoa Kỳ" → "Mỹ").
+  - The `rejected=name` rate on prod decides whether to widen it.
+- **Recorded, not fixed:**
+  - The ceiling cut is the root cause, and 18 of 58 server turns in this interview were forced cuts.
+  - Parakeet heard a 0.6 s "Okay." as "Don't care." ("Không quan tâm"), the other serious error.
+  - Short dictated phrases were split into pieces translated and spoken alone ("describe a time" / "when you helped a stranger").
+  - The speaker split left "Yes, I understand." (140 ms gap) inside the interviewer's turn.
+- **Spend:** 41 Command Code calls, 1 Scribe call and $1.58 of judge spend.
