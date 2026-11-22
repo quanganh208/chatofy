@@ -1,0 +1,27 @@
+flowchart TB
+  subgraph R1["Nghe và nhận dạng"]
+    direction LR
+    mic["① Thu âm<br/>(trình duyệt)"]
+    vad["② Cổng giọng nói,<br/>phân lượt (trình duyệt)"]
+    stt["③ Nhận dạng tiếng nói<br/>Zipformer vi · Parakeet en<br/>Paraformer zh"]
+    lid["④ Ngôn ngữ, người nói<br/>Whisper base · CAM++"]
+    mic --> vad -- "PCM16" --> stt --> lid
+  end
+
+  subgraph R2["Hiển thị, dịch và đọc"]
+    direction LR
+    disp["⑤ Hiển thị<br/>dấu câu · ITN"]
+    mt["⑥ Dịch máy<br/>+ hậu biên tập<br/>(đám mây)"]
+    tts["⑦ Tổng hợp tiếng nói<br/>dạng luồng<br/>VieNeu vi · Kokoro en/zh"]
+    out["⑧ Phát âm thanh,<br/>hiển thị văn bản<br/>(trình duyệt)"]
+    disp --> mt --> tts -- "PCM" --> out
+  end
+
+  R1 -- "văn bản, ngôn ngữ, người nói" --> R2
+
+  classDef local fill:#eef6ee,stroke:#4a7a4a
+  classDef cloud fill:#eef0f8,stroke:#4a5a8a
+  classDef client fill:#f6f6f6,stroke:#777
+  class stt,lid,disp,tts local
+  class mt cloud
+  class mic,vad,out client

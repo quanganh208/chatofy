@@ -1,0 +1,202 @@
+/* Style Word cho báo cáo: Times New Roman 13, giãn dòng 1,5. mso-style-name đặt tên style trong Word. */
+p.MsoNormal, li.MsoNormal {
+  mso-style-name: Normal;
+  margin: 0cm 0cm 6pt 0cm;
+  line-height: 150%;
+  text-align: justify;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+  color: black;
+}
+/* Đoạn văn thân bài: lùi đầu dòng 1 cm. Danh sách, ô bảng, chú thích dùng style riêng nên không bị lùi. */
+p.VanBan {
+  mso-style-name: "Van ban";
+  margin: 0cm 0cm 6pt 0cm;
+  text-indent: 1cm;
+  line-height: 150%;
+  text-align: justify;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+  color: black;
+}
+/* Dòng kẻ chấm và dòng "Điểm" trên trang nhận xét của giảng viên. */
+p.DongKe {
+  mso-style-name: "Dong ke";
+  margin: 0cm 0cm 0cm 0cm;
+  line-height: 150%;
+  text-align: left;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+  color: black;
+}
+h1 {
+  mso-style-name: "Heading 1";
+  mso-outline-level: 1;
+  margin: 0cm 0cm 18pt 0cm;
+  line-height: 150%;
+  text-align: center;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 14pt;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: black;
+}
+h2 {
+  mso-style-name: "Heading 2";
+  mso-outline-level: 2;
+  margin: 12pt 0cm 6pt 0cm;
+  line-height: 150%;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+  font-weight: bold;
+  color: black;
+}
+h3 {
+  mso-style-name: "Heading 3";
+  mso-outline-level: 3;
+  margin: 6pt 0cm 6pt 0cm;
+  line-height: 150%;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+  font-weight: bold;
+  font-style: italic;
+  color: black;
+}
+/* Tiêu đề các trang phần đầu: giống Heading 1 nhưng không có cấp đề mục.
+   "Tieu de trang" (lời cảm ơn, nhận xét, mục lục) không vào mục lục; "Tieu de danh muc" thì có. */
+p.TieuDeTrang {
+  mso-style-name: "Tieu de trang";
+  margin: 0cm 0cm 18pt 0cm;
+  line-height: 150%;
+  text-align: center;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 14pt;
+  font-weight: bold;
+  color: black;
+}
+p.TieuDeDanhMuc {
+  mso-style-name: "Tieu de danh muc";
+  margin: 0cm 0cm 18pt 0cm;
+  line-height: 150%;
+  text-align: center;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 14pt;
+  font-weight: bold;
+  color: black;
+}
+p.PhuDe {
+  mso-style-name: "Phu de";
+  margin: 0cm 0cm 12pt 0cm;
+  text-align: center;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+}
+p.KyTen {
+  mso-style-name: "Ky ten";
+  margin: 0cm 0cm 6pt 7cm;
+  line-height: 150%;
+  text-align: center;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+}
+/* Mục tài liệu tham khảo: căn trái, thụt treo để số thứ tự [n] đứng riêng một cột. */
+p.TaiLieu {
+  mso-style-name: "Tai lieu tham khao";
+  margin: 0cm 0cm 6pt 1cm;
+  text-indent: -1cm;
+  line-height: 150%;
+  text-align: left;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+}
+p.AnhGiua {
+  mso-style-name: "Anh";
+  margin: 6pt 0cm 0cm 0cm;
+  line-height: normal;
+  text-align: center;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 13pt;
+}
+p.ChuThichHinh {
+  mso-style-name: "Chu thich hinh";
+  margin: 6pt 0cm 12pt 0cm;
+  line-height: 130%;
+  text-align: center;
+  font-family: "Times New Roman", serif;
+  font-size: 12pt;
+  font-style: italic;
+  color: black;
+}
+p.ChuThichBang {
+  mso-style-name: "Chu thich bang";
+  margin: 12pt 0cm 6pt 0cm;
+  line-height: 130%;
+  text-align: center;
+  page-break-after: avoid;
+  font-family: "Times New Roman", serif;
+  font-size: 12pt;
+  font-style: italic;
+  color: black;
+}
+p.OBang {
+  mso-style-name: "O bang";
+  margin: 2pt 0cm 2pt 0cm;
+  line-height: 115%;
+  text-align: left;
+  font-family: "Times New Roman", serif;
+  font-size: 12pt;
+}
+p.CongThuc {
+  mso-style-name: "Cong thuc";
+  margin: 6pt 0cm 6pt 0cm;
+  text-align: center;
+  font-family: "Cambria Math", serif;
+  font-size: 13pt;
+}
+p.ChoAnh {
+  mso-style-name: "Cho anh";
+  margin: 6pt 0cm 12pt 0cm;
+  line-height: 130%;
+  text-align: center;
+  font-family: "Times New Roman", serif;
+  font-size: 12pt;
+  font-style: italic;
+  background: yellow;
+  mso-highlight: yellow;
+}
+pre {
+  mso-style-name: "Ma nguon";
+  margin: 6pt 0cm 6pt 0cm;
+  padding: 4pt;
+  background: #f2f2f2;
+  font-family: Consolas, monospace;
+  font-size: 10pt;
+  line-height: 115%;
+}
+code {
+  font-family: Consolas, monospace;
+  font-size: 11pt;
+}
+table.Bang {
+  border-collapse: collapse;
+  mso-table-layout-alt: autofit;
+}
+table.Bang td, table.Bang th {
+  border: solid black 0.5pt;
+  padding: 1pt 4pt 1pt 4pt;
+  vertical-align: top;
+}
+table.Bang th {
+  background: #e7e6e6;
+  font-weight: bold;
+}
+@page WordSection1 {
+  size: 595.3pt 841.9pt;
+  margin: 2cm 2cm 2cm 3cm;
+}

@@ -1,0 +1,32 @@
+sequenceDiagram
+  autonumber
+  actor U as Người tham gia
+  participant W as Trình duyệt
+  participant A as API /ws/conference
+  participant D as PostgreSQL
+  participant C as Cloudflare SFU
+
+  U->>W: mở đường dẫn phòng
+  W->>A: GET /conference/:id
+  A-->>W: thông tin phòng
+  U->>W: chọn micro, ngôn ngữ nói, bấm tham gia
+  W->>A: conference.join (ngôn ngữ nói)
+  A->>D: ghi ConferenceParticipant
+  A-->>W: danh sách người tham gia
+  W->>A: conference.media.publish (SDP offer)
+  A->>C: tạo phiên phát, đẩy track (HTTPS)
+  C-->>A: SDP answer
+  A-->>W: SDP answer
+  W-)C: WebRTC: phát audio/video
+  A-->>W: có track mới của người khác
+  W->>A: conference.media.subscribe
+  A->>C: tạo phiên nhận, kéo track (HTTPS)
+  C-->>A: SDP offer
+  A-->>W: SDP offer
+  W->>A: conference.media.renegotiate (SDP answer)
+  A->>C: hoàn tất đàm phán
+  C-)W: WebRTC: nhận audio/video
+  Note over W,A: Phụ đề và giọng dịch đến qua /ws/conference
+  U->>W: rời phòng
+  W->>A: conference.leave
+  A->>D: cập nhật leftAt

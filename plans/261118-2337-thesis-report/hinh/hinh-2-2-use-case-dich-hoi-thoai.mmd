@@ -1,0 +1,35 @@
+flowchart LR
+  nd["👤 Người dùng"]
+  ai["⚙ Dịch vụ AI"]
+
+  subgraph HT["Dịch hội thoại"]
+    dich(["Dịch hội thoại"])
+    motchieu(["Dịch một chiều"])
+    haichieu(["Dịch hai chiều Việt–Anh"])
+    nhandang(["Nhận dạng tiếng nói"])
+    dichvb(["Dịch văn bản"])
+    doc(["Đọc bản dịch"])
+    ngucanh(["Áp dụng ngữ cảnh dịch"])
+    lid(["Tự nhận diện ngôn ngữ"])
+    nguoinoi(["Gán người nói"])
+    luu(["Lưu hội thoại"])
+    bienban(["Sinh biên bản"])
+  end
+
+  nd --- motchieu
+  nd --- haichieu
+  nd --- bienban
+  motchieu -.->|kế thừa| dich
+  haichieu -.->|kế thừa| dich
+  dich -.->|include| nhandang
+  dich -.->|include| dichvb
+  dich -.->|include| luu
+  doc -.->|extend| dich
+  ngucanh -.->|extend| dich
+  lid -.->|extend| dich
+  haichieu -.->|include| nguoinoi
+  haichieu -.->|include| lid
+  bienban -.->|include| luu
+  nhandang --- ai
+  dichvb --- ai
+  doc --- ai

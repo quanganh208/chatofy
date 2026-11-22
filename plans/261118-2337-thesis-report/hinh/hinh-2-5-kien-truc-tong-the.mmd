@@ -1,0 +1,41 @@
+flowchart TB
+  subgraph Clients["Ứng dụng phía người dùng — dùng chung packages/: types (zod), realtime-client, api-client, ui, i18n"]
+    direction LR
+    web["apps/web<br/>Next.js"]
+    ext["apps/extension<br/>Chrome MV3"]
+    mob["apps/mobile<br/>Expo React Native"]
+  end
+
+  subgraph Server["Máy chủ tự quản (Docker Compose)"]
+    direction TB
+    api["apps/api — NestJS<br/>REST · /ws/translate · /ws/conference"]
+    subgraph Speech["Sidecar tiếng nói (CPU)"]
+      direction LR
+      stt["local-stt :8002<br/>Zipformer · Parakeet · Paraformer<br/>Whisper base (LID) · CAM++ · Dewpoint"]
+      tts["local-tts :8003<br/>VieNeu · Kokoro"]
+    end
+    subgraph Data["Lưu trữ"]
+      direction LR
+      pg[("PostgreSQL")]
+      redis[("Redis<br/>refresh token")]
+    end
+  end
+
+  subgraph Cloud["Dịch vụ đám mây"]
+    direction LR
+    mt["Dịch máy, hậu biên tập,<br/>biên bản (LLM)"]
+    sfu["Cloudflare<br/>Realtime SFU"]
+    r2[("Cloudflare R2<br/>ảnh, ghi âm")]
+    payg["Polar · SePay"]
+  end
+
+  Clients -- "HTTPS / WebSocket" --> api
+  api -- HTTP --> stt
+  api -- HTTP --> tts
+  api --> pg
+  api --> redis
+  api --> mt
+  api -- "HTTPS (điều khiển)" --> sfu
+  api --> r2
+  payg -- webhook --> api
+  Clients <-. "WebRTC media" .-> sfu

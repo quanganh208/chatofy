@@ -1,0 +1,24 @@
+sequenceDiagram
+  autonumber
+  participant W as Web (cookie phiên)
+  participant A as API /auth/refresh
+  participant R as Redis
+
+  W->>A: refresh token RT1
+  A->>R: Lua: kiểm tra băm(RT1)
+  alt RT1 hợp lệ, chưa dùng
+    R->>R: đánh dấu RT1 đã dùng, tạo RT2 cùng họ
+    R-->>A: RT2
+    A-->>W: access token mới (15 phút) + RT2
+  else RT1 đã dùng dưới 10 giây (yêu cầu đồng thời)
+    R->>R: tạo RT3 cùng họ
+    R-->>A: RT3
+    A-->>W: access token mới + RT3
+  else RT1 đã dùng quá 10 giây (nghi bị đánh cắp)
+    R->>R: thu hồi cả họ token
+    R-->>A: reuse
+    A-->>W: 401, yêu cầu đăng nhập lại
+  else họ token quá 30 ngày hoặc đã bị thu hồi
+    R-->>A: không hợp lệ
+    A-->>W: 401
+  end

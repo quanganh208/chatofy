@@ -1,0 +1,57 @@
+erDiagram
+  Conference ||--o{ ConferenceParticipant : "có"
+  Conference ||--o{ ConferenceTurn : "gồm"
+  Conference ||--o{ ConferenceMessage : "gồm"
+  Conference ||--o| ConferenceMinutes : "có"
+  ConferenceParticipant ||--o{ ConferenceTurn : "nói"
+  ConferenceParticipant ||--o{ ConferenceMessage : "gửi"
+  ConferenceMinutes ||--o{ ConferenceMinutesActionItem : "gồm"
+
+  Conference {
+    string id PK
+    string ownerId
+    string title
+    string status
+    datetime startedAt
+    datetime endedAt
+  }
+  ConferenceParticipant {
+    string id PK
+    string conferenceId FK
+    string userId
+    string displayName
+    string sourceLanguage
+    string status
+    datetime joinedAt
+    datetime leftAt
+  }
+  ConferenceTurn {
+    string id PK
+    string conferenceId FK
+    string participantId FK
+    string sourceLanguage
+    string sourceText
+    json translations
+  }
+  ConferenceMessage {
+    string id PK
+    string conferenceId FK
+    string participantId FK
+    string text
+    string sourceLanguage
+  }
+  ConferenceMinutes {
+    string id PK
+    string conferenceId FK
+    string status
+    string summary
+    string[] keyPoints
+    string[] decisions
+  }
+  ConferenceMinutesActionItem {
+    string id PK
+    string minutesId FK
+    string description
+    string owner
+    string dueDate
+  }

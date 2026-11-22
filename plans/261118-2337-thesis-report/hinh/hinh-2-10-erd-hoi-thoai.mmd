@@ -1,0 +1,110 @@
+erDiagram
+  User ||--o| UserPreferences : "có"
+  Conversation ||--o{ ConversationTurn : "gồm"
+  Conversation ||--o| MeetingMinutes : "có"
+  MeetingMinutes ||--o{ MinutesActionItem : "gồm"
+  TranslationContext ||--o{ GlossaryTerm : "gồm"
+  Glossary ||--o{ GlossaryItem : "gồm"
+  Glossary |o--o{ TranslationContext : "liên kết"
+  Team ||--o{ TeamMember : "gồm"
+  Team ||--o{ TeamInvite : "có"
+  Team |o--o{ Glossary : "sở hữu"
+  Team |o--o{ TranslationContext : "sở hữu"
+
+  User {
+    string id PK
+    string email UK
+    string passwordHash
+    string googleSub UK
+    string locale
+    string avatarKey
+  }
+  UserPreferences {
+    string userId PK
+    json data
+  }
+  Conversation {
+    string id PK
+    string ownerId
+    string clientId
+    string[] languages
+    datetime startedAt
+    datetime endedAt
+    string title
+    string mode
+    string audioKey
+  }
+  ConversationTurn {
+    string id PK
+    string conversationId FK
+    int position
+    string speakerLabel
+    string sourceText
+    string displayText
+    string[] sourceLanguages
+    json translations
+    int offsetMs
+  }
+  MeetingMinutes {
+    string id PK
+    string conversationId FK
+    string status
+    string summary
+    string[] keyPoints
+    string[] decisions
+  }
+  MinutesActionItem {
+    string id PK
+    string minutesId FK
+    string description
+    string owner
+    string dueDate
+  }
+  TranslationContext {
+    string id PK
+    string ownerId
+    string teamId FK
+    string glossaryId FK
+    string name
+    string topic
+    string[] hotwords
+    string style
+  }
+  GlossaryTerm {
+    string id PK
+    string contextId FK
+    json terms
+  }
+  Glossary {
+    string id PK
+    string ownerId
+    string teamId FK
+    string name
+    string sourceLang
+    boolean isActive
+  }
+  GlossaryItem {
+    string id PK
+    string glossaryId FK
+    string original
+    string translation
+    string targetLang
+  }
+  Team {
+    string id PK
+    string name
+  }
+  TeamMember {
+    string id PK
+    string teamId FK
+    string userId
+    string role
+  }
+  TeamInvite {
+    string id PK
+    string teamId FK
+    string email
+    string role
+    string tokenHash UK
+    datetime expiresAt
+  }

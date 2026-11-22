@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph A["Trình duyệt người nói (tiếng Việt)"]
+    camA["Camera + micro"]
+    legA["Nhánh dịch<br/>(realtime-client)"]
+  end
+  subgraph B["Trình duyệt người nghe (tiếng Anh)"]
+    viewB["Video + phụ đề tiếng Anh<br/>+ giọng đọc tiếng Anh"]
+  end
+  subgraph C["Trình duyệt người nghe (tiếng Trung)"]
+    viewC["Video + phụ đề tiếng Trung<br/>+ giọng đọc tiếng Trung"]
+  end
+
+  sfu["Cloudflare Realtime SFU"]
+  api["API NestJS"]
+  pipe["Luồng tầng<br/>STT → MT → TTS"]
+
+  camA -- "WebRTC: phát" --> sfu
+  sfu -- "WebRTC: nhận" --> viewB
+  sfu -- "WebRTC: nhận" --> viewC
+  api -- "HTTPS: tạo phiên phát/nhận" --> sfu
+  legA -- "/ws/translate" --> pipe
+  pipe -- "văn bản + bản dịch en, zh + âm thanh" --> legA
+  legA -- "conference.translation.broadcast" --> api
+  api -- "/ws/conference: chỉ bản tiếng Anh" --> viewB
+  api -- "/ws/conference: chỉ bản tiếng Trung" --> viewC

@@ -1,0 +1,44 @@
+sequenceDiagram
+  autonumber
+  actor U as Người nói
+  participant W as Trình duyệt (web)
+  participant A as API /ws/translate
+  participant S as local-stt
+  participant M as Dịch máy (đám mây)
+  participant T as local-tts
+
+  W->>A: client.session.start (cặp ngôn ngữ, chế độ)
+  A-->>W: server.session.ready (chế độ thực tế)
+  U->>W: nói
+  loop mỗi khung âm thanh có tiếng nói
+    W->>A: client.audio.frame (PCM16)
+    A->>S: đọc lại ≤ 9 s gần nhất (mỗi 300 ms)
+    S-->>A: văn bản tạm
+    A-->>W: server.transcript.partial
+    opt đủ 15 ký tự ổn định mới
+      A->>M: dịch phần đã ổn định (stream)
+      M-->>A: bản dịch tạm
+      A-->>W: server.translation.partial (chỉ chữ)
+    end
+  end
+  U->>W: dừng nói (im lặng ngắn)
+  W->>A: client.turn.speculate
+  A->>S: nhận dạng phần đã có
+  A->>M: dịch suy đoán
+  W->>A: client.session.end (hết lượt)
+  A->>S: nhận dạng cuối + nhận diện ngôn ngữ + speaker embedding
+  S-->>A: văn bản cuối, ngôn ngữ, vector giọng
+  alt không có âm thanh mới sau mốc suy đoán
+    A->>A: dùng lại bản dịch suy đoán
+  else có âm thanh mới
+    A->>M: dịch lại văn bản cuối
+    M-->>A: bản dịch
+  end
+  A-->>W: server.transcript.final + bản dịch
+  A->>T: tổng hợp bản dịch (stream)
+  T-->>A: PCM
+  A-->>W: server.audio.frame
+  W->>U: phát âm thanh bản dịch
+  A->>M: hậu biên tập (kèm ngữ cảnh các lượt trước)
+  M-->>A: bản dịch đã sửa
+  A-->>W: server.translation.polished (nếu khác bản nháp)
