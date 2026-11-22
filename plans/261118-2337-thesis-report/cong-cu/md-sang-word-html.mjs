@@ -37,6 +37,8 @@ function inline(text) {
   s = esc(s);
   s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   s = s.replace(/(?<![\w*])\*(?![\s*])(.+?)(?<![\s*])\*(?![\w*])/g, '<i>$1</i>');
+  // Prettier (hook pre-commit) đổi *nghiêng* thành _nghiêng_; không đụng tới tên_có_gạch_dưới.
+  s = s.replace(/(?<![\p{L}\p{N}_])_(?![\s_])(.+?)(?<![\s_])_(?![\p{L}\p{N}_])/gu, '<i>$1</i>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => slots[Number(i)]);
 }
 
@@ -218,7 +220,7 @@ for (let i = 0; i < lines.length;) {
     out.push(`<p class=ChuThichBang><b>${esc(cap[1])}</b> ${inline(cap[2])}</p>`);
     continue;
   }
-  if (/^\*Hà Nội, ngày/.test(text)) signature = true;
+  if (/^[*_]Hà Nội, ngày/.test(text)) signature = true;
 
   // Trang nhận xét: dòng kẻ chấm và dòng "Điểm" không lùi đầu dòng; dòng "Điểm" cách khối dòng kẻ một khoảng.
   if (/^\.{20,}$/.test(text)) {
