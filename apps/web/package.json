@@ -22,7 +22,7 @@
     "@chatofy/ui": "workspace:*",
     "@next/env": "16.4.3",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.76.0",
+    "lucide-react": "^1.77.0",
     "next": "16.4.6",
     "next-auth": "5.0.0-beta.32",
     "qrcode-generator": "^2.0.4",
