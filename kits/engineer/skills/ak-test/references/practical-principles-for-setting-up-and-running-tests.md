@@ -3,7 +3,7 @@
 ## 1. Test What Your System Owns
 
 Focus on application behavior, business rules, and integration contracts. Do
-not exhaustively retest guarantees already provided by the language, framework,
+not retest guarantees already provided by the language, framework,
 database, or dependencies. Test how your system configures, uses, and handles
 failures around them.
 
@@ -18,8 +18,6 @@ coverage and unnecessary combinatorial matrices.
 - Unit tests: Pure logic without external infrastructure.
 - Integration tests: Database, HTTP, messaging, and module contracts.
 - E2E tests: Critical user journeys that lower layers cannot fully prove.
-
-Lower-level tests are usually faster, cheaper, and more stable.
 
 ## 4. Isolate Test Environments
 

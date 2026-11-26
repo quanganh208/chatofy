@@ -5,13 +5,15 @@ when_to_use: "Use when diagnosing skill routing, activation or outputs."
 category: meta
 keywords: [skills, authoring, audit, routing, evaluation]
 license: Proprietary; includes Apache-2.0 and MIT material, see LICENSE.txt, LICENSE-MIT.txt and NOTICE.txt
-argument-hint: "<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user] [--long-horizon] [--apply] [--from-audit <report>] [--advice]"
+argument-hint: "<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user|--personal [<kit>]] [--long-horizon] [--apply] [--from-audit <report>] [--advice]"
 metadata:
   author: agentkit
-  version: "5.9.0"
+  version: "5.10.2"
 ---
 
 # Skill Creator
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Build practical instructions for fresh consumers on the runtimes the user targets.
 Capture the outcome, audience, constraints and completion criteria; preserve accepted
@@ -38,14 +40,21 @@ organizational scar tissue and domain-specific failure modes before generic text
 
 | Request | Read and do | Writes |
 |---|---|---|
-| `create <name or description> [--kit <kit>\|--project\|--user] [--long-horizon]` | `references/skill-creation-workflow.md`: resolve target, capture intent, author and evaluate | New skill |
-| `update <path> <change>` | Inspect the existing skill and affected resources; follow `references/writing-effective-instructions.md` and `references/testing-and-iteration.md`; preserve accepted behavior and bump `metadata.version` | Requested changes |
+| `create <name or description> [--kit <kit>\|--project\|--user\|--personal [<kit>]] [--long-horizon]` | `references/skill-creation-workflow.md`: resolve target, capture intent, author and evaluate | New skill |
+| `update <path> <change> [--personal [<kit>]]` | Inspect the existing skill and affected resources; follow `references/writing-effective-instructions.md` and `references/testing-and-iteration.md`; preserve accepted behavior and bump `metadata.version` | Requested changes |
 | `semantic-eval` (explicit optional diagnostic) | `references/semantic-routing-evaluation.md`: snapshot, replay or consented live batch diagnostics; freeze before holdout | Evaluation artifacts |
 | `audit [path\|kit\|--all] [--target-model <model>]` | `references/prompt-cruft-patterns.md`: inventory, measured local sessions (`references/session-usage-analysis.md`), provenance, lint and semantic review with proposed hunks | Report only |
 | `optimize <path> [--apply] [--from-audit <report>]` | Same audit reference: classify lint and session findings, compare original and scratch candidate, preserve justified constraints and quality | Proposed diff; apply only with `--apply` |
 
 Resolve scope through `references/agentkit-kit-skill-contract.md`: default to the
 current project, kit scope only inside AgentKit, user scope only on request.
+Personal kit, evolution and SkillX lanes are opt-in: run the read-only detect step in
+`references/personal-kit-and-skillx.md` once per turn and offer those lanes only when it
+finds the signal. Without a signal keep the default flow and never prompt; an explicit
+`--personal` then falls back to the project target with one line naming `ak update --ssot`.
+With evolution detected, `optimize --apply` goes through `ak skills improve --session <id|latest> --candidate`
+and `evolution evaluate/apply <candidateId>`, reporting the rollback command. Publishing is only ever
+proposed and needs the user's separate agreement.
 Use the installed catalog to resolve adjacent work and capabilities; do not assume
 a particular native tool, model or provider is available.
 
@@ -125,9 +134,10 @@ configuration are protected by that mode's scope contract.
 | Design patterns or recurring failures | `references/skill-design-patterns.md`, `references/troubleshooting-guide.md` |
 | MCP workflow or third-party portability | `references/mcp-skills-integration.md`, `references/skill-ecosystem-portability-and-safety.md` |
 | Packaging and marketplace delivery | `references/distribution-guide.md`, `references/cross-marketplace-distribution.md` |
+| Personal kit, evolution, SkillX publish | `references/personal-kit-and-skillx.md` |
 | Skillmark listing | `references/benchmark-optimization-guide.md` |
 
-Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>]` for a new skeleton and
+Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>|--personal]` for a new skeleton and
 `scripts/skill_standard_report.py <root>` for a warning-first summary across many skills.
 `scripts/eval_skill.py` validates cases, grades existing artifacts and summarizes
 observations; it does not invoke providers. `scripts/session_usage.py` measures a skill's

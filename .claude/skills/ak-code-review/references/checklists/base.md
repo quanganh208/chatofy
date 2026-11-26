@@ -1,10 +1,12 @@
 # Base Review Checklist
 
-Universal checklist for all project types. Two-pass model: critical (blocking) + informational (non-blocking).
+Universal checklist for all project types. Two-pass model: blocking + informational
+(non-blocking).
 
 ## Instructions
 
-Review `git diff origin/main` for the issues below. Be specific — cite `file:line` and suggest fixes. Skip anything that's fine. Only flag real problems.
+Review the diff against the target branch for the issues below. Cite `file:line` and a
+fix; skip anything that is fine.
 
 **Output format:**
 
@@ -22,11 +24,11 @@ Pre-Landing Review: N issues (X critical, Y informational)
 
 If no issues: `Pre-Landing Review: No issues found.`
 
-Be terse. One line problem, one line fix. No preamble.
+One line problem, one line fix. No preamble.
 
 ---
 
-## Pass 1 — CRITICAL (blocking)
+## Pass 1: blocking
 
 ### Injection & Data Safety
 - String interpolation in SQL/database queries (even with type casting — use parameterized queries)
@@ -42,34 +44,24 @@ Be terse. One line problem, one line fix. No preamble.
 - Shared mutable state accessed without synchronization
 
 ### Security Boundaries
-- Missing authentication checks on new endpoints/routes
+- Missing authentication or authorization checks on new endpoints/routes (authenticated but not authorized, admin-only operations open to regular users)
 - Privilege escalation paths (user can access/modify another user's data — IDOR)
 - Secrets in logs, error responses, or client-side code
 - LLM/AI output written to database or used in queries without validation
 - JWT/token comparison using `==` instead of constant-time comparison
-
-### Auth & Access Control
-- New API endpoints without auth middleware
-- Missing authorization check (authenticated but not authorized)
-- Admin-only operations accessible to regular users
 - Session fixation or token reuse defects
 
 ---
 
-## Pass 2 — INFORMATIONAL (non-blocking)
+## Pass 2: informational
 
 ### Conditional Side Effects
 - Code branches on condition but forgets side effect on one branch (e.g., sets status but not associated data)
 - Log messages claiming action happened but action was conditionally skipped
 
-### Magic Numbers & String Coupling
-- Bare numeric literals used in multiple files — should be named constants
+### Coupling & Staleness
 - Error message strings used as query filters elsewhere (grep for the string)
-
-### Dead Code & Consistency
-- Variables assigned but never read
 - Stale comments describing old behavior after code changed
-- Import/require statements for unused modules
 
 ### Test Gaps
 - Missing negative-path tests (error cases, validation failures)
@@ -82,19 +74,18 @@ Be terse. One line problem, one line fix. No preamble.
 
 ### Performance
 - O(n*m) lookups in views/templates (array search inside loops — use hash/map lookup)
-- Missing pagination on list endpoints returning unbounded results
 - N+1 queries: loading associations inside loops without eager loading
-- Unbounded queries without LIMIT
+- Unbounded queries or list endpoints without LIMIT or pagination
 
 ---
 
-## Suppressions — DO NOT flag these
+## Suppressions: do not flag these
 
 - Redundancy that aids readability (e.g., `present?` redundant with length check)
 - "Add comment explaining why this threshold was chosen" — thresholds change, comments rot
 - "This assertion could be tighter" when assertion already covers the behavior
 - Consistency-only changes (wrapping a value to match how another constant is guarded)
 - Harmless no-ops (e.g., `.filter()` on array that never contains the filtered value)
-- ANYTHING already addressed in the diff being reviewed — read the FULL diff before commenting
-- Style/formatting issues (use a linter for that)
+- Anything already addressed elsewhere in the diff being reviewed
+- Style, formatting, naming, unused imports or variables, and magic numbers (linters own these)
 - "Consider using X instead of Y" when Y works fine

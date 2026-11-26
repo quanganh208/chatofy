@@ -41,7 +41,12 @@ the first commit; this list only adds what is specific to a dogfood change.
    issues first and link matches, and summarize the session evidence in one line,
    described, never quoted. Nothing from the transcript goes into the diff, message
    or PR. Open it ready for review and stop.
-7. **Update the installed copy** so the fix helps at once: apply the same hunk to each
+7. **Update the installed copy** so the fix helps at once. When the store is
+   detected (SKILL.md "Store and SkillX detection"), runtime copies are projections the
+   store rewrites: do not patch them. Record the same change as a temporary overlay in
+   the personal kit `mine` through the personal-fork lane below, and say in the report
+   to remove it with `ak skills evolution rollback <candidateId>` (or
+   `ak skills kit rollback mine`) once the PR ships. Otherwise (legacy install) apply the same hunk to each
    runtime copy found in the inventory (for example `~/.claude/skills/ak-<slug>/`,
    `~/.agents/skills/ak-<slug>/` or the project's `.claude/skills/ak-<slug>/`) after
    copying the files it changes to a scratch folder. AgentKit updates treat that copy
@@ -68,11 +73,21 @@ either. The installed `ak-*` files stay untouched.
    `$AGENTKIT_KITS_DIR` or `./kits`). Exit 2 means the draft is invalid, 5 the base is
    unresolved (report it and the `--kits-dir` the user should pass; do not guess), 7 a
    secret or path was refused: fix the draft, not the gate.
-4. Preview the apply: `ak skills evolution apply <candidateId>`. A `regressed` or
+4. Evaluate first: `ak skills evolution evaluate <candidateId>`. A `regressed` or
+   `blocked` verdict stops the lane: report it and apply nothing.
+5. Preview the apply: `ak skills evolution apply <candidateId>`. A `regressed` or
    `blocked` verdict is not applied; report it. Otherwise add `--yes`, plus
-   `--plan <token>` when the preview asks, after showing `approval.reasons`.
-5. Project the personal kit with `ak skills kit apply <name>` (default `mine`) so the
+   `--plan <token>` when the preview asks, after showing `approval.reasons`. A SkillX
+   foundation the user does not own refuses with `evolve.apply_refused`; report it as
+   proposal only.
+6. Project the personal kit with `ak skills kit apply <name>` (default `mine`) so the
    runtime uses the change. Undo with `ak skills evolution rollback <candidateId>`.
+
+A new `@local/<slug>` skill has no foundation: the candidate's base is its own tree in
+the personal kit, so the draft edits that tree directly. A missing personal kit
+package for the skill is created with `ak skills kit new-skill <kit> <slug>` only when
+the user asked for a new skill; that command is new, so check
+`ak skills kit --help` first and report the gap when it is absent.
 
 When a command refuses because a lifecycle gate is off, report the step it names. A
 store migration such as `ak update --ssot` changes the user's install: run it only
@@ -89,3 +104,17 @@ Copy the files the change touches to a scratch folder, apply the hunk, bump
 
 Do not edit the installed files. Give the hunk in the report and, when the user wants
 it, offer an upstream issue or a user-owned fork under a different name.
+
+## Optional private publish (SkillX)
+
+Only when SkillX is detected and the user's personal kit changed. Publishing leaves the
+machine and is hard to take back, so it is never part of `--apply` or a blanket yes.
+
+1. Suggest, do not run: check `ak skills link status --json`; when not linked, say in
+   one line that `ak skills link` connects the account. When linked, show
+   `ak skills kit publish <kit> --private`.
+2. Run it only when the user says yes to that publish in the same turn.
+3. Exit 2 is an invalid kit or `source.unsupported` (SkillX does not accept this kit
+   shape yet): report the named code as a normal state, the local change stays
+   applied. Exit 10 (`kit.api_disabled`) means personal kits are not enabled for
+   the account yet: report it the same way.

@@ -16,7 +16,7 @@ Read the installed-skill catalog and activate the ones this task actually needs,
 
 1. **Test Execution & Validation**
    - Run all relevant test suites (unit, integration, e2e as applicable)
-   - Execute tests using appropriate test runners (Jest, Mocha, pytest, etc.)
+   - Execute tests using appropriate test runners detected from the project (e.g. `go test`, pytest, `cargo test`, JUnit via Maven/Gradle, Jest/Vitest, RSpec, PHPUnit)
    - Validate that all tests pass successfully
    - Identify and report any failing tests with detailed error messages
    - Check for flaky tests that may pass/fail intermittently
@@ -67,7 +67,7 @@ By default, analyze `git diff` to run only tests affected by recent changes. Use
 | A | Co-located | `foo.ts` → `foo.test.ts` or `__tests__/foo.test.ts` in same dir | `src/auth/login.ts` → `src/auth/login.test.ts` |
 | B | Mirror dir | Replace `src/` with `tests/` or `test/` | `src/utils/parser.ts` → `tests/utils/parser.test.ts` |
 | C | Import graph | `grep -r "from.*<module>" tests/ --include="*.test.*" -l` | Find tests importing the changed module |
-| D | Config change | tsconfig, jest.config, package.json, etc. → **full suite** | Config affects all tests |
+| D | Config change | build/test config or dependency manifests (`go.mod`, `pyproject.toml`, `Cargo.toml`, `package.json`, `tsconfig.json`, test-runner config, etc.) → **full suite** | Config affects all tests |
 | E | High fan-out | Module with >5 importers → **full suite** | Shared utils, barrel `index.ts` files |
 
 **Auto-escalation to `--full`:**
@@ -125,6 +125,8 @@ You should be familiar with common testing commands:
 - `pytest` or `python -m unittest` for Python projects
 - `go test` for Go projects
 - `cargo test` for Rust projects
+- `mvn test` / `gradle test` for JVM projects, `dotnet test` for .NET projects
+- Prefer the commands the project's CI, task runner, or scripts already define
 - `flutter analyze` and `flutter test` for Flutter projects
 - Docker-based test execution when applicable
 
@@ -190,3 +192,13 @@ assistant: "Let me use the tester agent to run the test suite and ensure the fix
 After bug fixes, use the tester agent to validate that existing tests still pass.
 </commentary>
 </example>
+
+## Status Protocol
+
+End every report to the orchestrator with:
+
+```text
+Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Summary: one or two sentences
+Concerns/Blockers: optional
+```

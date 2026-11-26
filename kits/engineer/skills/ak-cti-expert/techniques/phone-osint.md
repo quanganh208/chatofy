@@ -37,7 +37,7 @@ Returns caller ID name for US phone numbers. Lightweight, fast, no authenticatio
 ### Tertiary — WhoCalld (Phone Type + Carrier Scraping)
 ```bash
 # No install required — scrape phone type, carrier, location
-curl "http://whocalld.com/+12025551234" | python3 -c "
+curl "http://whocalld.com/+12025551234" | python -c "
 from bs4 import BeautifulSoup; import sys
 soup = BeautifulSoup(sys.stdin.read(), 'html.parser')
 for div in soup.find_all('div', class_='info'): print(div.text.strip())
@@ -49,7 +49,7 @@ Returns phone type (mobile/virtual/unknown), carrier, location. Complements Phon
 ```bash
 # Requires cloudscraper (pip3 install cloudscraper)
 # Search by phone number — returns name, addresses, relatives, emails
-python3 -c "
+python -c "
 import cloudscraper, json
 from bs4 import BeautifulSoup
 s = cloudscraper.create_scraper()
@@ -73,7 +73,7 @@ US-only. Extracts: name, current/previous addresses, related persons, emails, ph
 git clone https://github.com/AzizKpln/Moriarty-Project
 cd Moriarty-Project
 pip3 install -r requirements.txt
-python3 moriarty.py
+python moriarty.py
 ```
 
 ### Senary — NumVerify API (free tier: 100 requests/month)
@@ -188,7 +188,7 @@ intext:"202-555-1234" -site:yellowpages.com
 ### Moriarty (interactive)
 ```bash
 cd Moriarty-Project
-python3 moriarty.py
+python moriarty.py
 # Enter phone number when prompted
 # Checks: WhatsApp, Telegram, Instagram, Snapchat, Twitter
 ```

@@ -17,50 +17,40 @@ in scope.
 
 ## Verification Role Assignment
 
-Each reviewer carries their adversarial lens PLUS a verification role. Findings must include grep/glob evidence from the actual codebase, not just logical argument.
-Load: `references/verification-roles.md` for full role definitions.
+Each reviewer also carries a verification role from `verification-roles.md`.
+The verification tier decides which roles are active, not the persona: at Light
+tier every reviewer uses Fact Checker; at Standard, Fact Checker + Contract
+Verifier; at Full tier, the persona-specific role below applies.
 
-**Tier precedence rule:** The verification tier (Light/Standard/Full) determines which verification roles are active — NOT the reviewer's persona assignment. At Light tier, all reviewers use Fact Checker regardless of persona. At Standard tier, Fact Checker + Contract Verifier. At Full tier, the persona-specific role below applies.
-
-| Reviewer | Adversarial Lens | Verification Role (Full Tier) |
-|----------|-----------------|-------------------------------|
-| Security Adversary | Attacker mindset | Fact Checker |
-| Failure Mode Analyst | Murphy's Law | Flow Tracer |
-| Assumption Destroyer | Skeptic | Scope Auditor |
-| Scope & Complexity Critic | Unrequested-scope detector | Contract Verifier |
-
-### Evidence Requirement
-
-- Every finding MUST include verification evidence from the codebase
-- Run grep/glob to back up claims — cite file:line for every referenced symbol
-- If claiming "X doesn't handle Y", show the actual code path proving it
-- **Findings without codebase evidence = automatically rejected during adjudication**
+| Reviewer | Verification Role (Full Tier) |
+|----------|-------------------------------|
+| Security Adversary | Fact Checker |
+| Failure Mode Analyst | Flow Tracer |
+| Assumption Destroyer | Scope Auditor |
+| Scope & Complexity Critic | Contract Verifier |
 
 ## Reviewer Prompt Template
 
-Each reviewer prompt MUST include:
+Each reviewer prompt includes:
 
-1. This override: `"IGNORE your default code quality checks (linting, type safety, build validation). You are reviewing a PLAN DOCUMENT, not code — do not lint, build, or test. DO run grep/glob to verify the plan's factual claims against the actual codebase. Focus on plan quality backed by codebase evidence."`
-2. Their specific adversarial lens and persona
-3. The plan file paths so they can read original files directly
+1. This override, because the `code-reviewer` agent defaults to linting and building code: `"Ignore your default code quality checks (linting, type safety, build validation). You are reviewing a plan document, not code; do not lint, build, or test. Do run grep/glob to verify the plan's factual claims against the actual codebase. Focus on plan quality backed by codebase evidence."`
+2. Their adversarial lens and persona
+3. The plan file paths
 4. These instructions:
 
 ```
-You are a hostile reviewer. Your job is to DESTROY this plan.
-Adopt the {LENS_NAME} perspective. Find every flaw you can.
+You are a hostile reviewer. Adopt the {LENS_NAME} perspective and find the flaws
+that would make this plan fail.
 
 Rules:
-- Be specific: cite exact phase/section where the flaw lives
-- Be concrete: describe the failure scenario, not just "could be a problem"
+- Cite the exact phase/section where the flaw lives
+- Describe the concrete failure scenario, not just "could be a problem"
 - Rate severity: Critical (blocks success) | High (significant risk) | Medium (notable concern)
-- Skip trivial observations (style, naming, formatting)
-- No praise. No "overall looks good". Only findings.
-- 5-10 findings per reviewer. Quality over quantity.
-- Back up every finding with grep/glob evidence from the codebase
-- Your assigned verification role: {VERIFICATION_ROLE} — use it to fact-check plan claims
-- Your verification role methods (apply these exactly):
+- Skip trivial observations (style, naming, formatting) and praise; report findings only
+- 5-10 findings
+- Your verification role: {VERIFICATION_ROLE}. Apply these methods:
 {VERIFICATION_ROLE_METHODS}
-- Findings without codebase evidence (file:line citations) will be rejected at adjudication
+- Back every finding with file:line evidence from the codebase; findings without it are rejected at adjudication
 
 Output format per finding:
 ## Finding {N}: {title}
@@ -68,7 +58,7 @@ Output format per finding:
 - **Location:** Phase {X}, section "{name}"
 - **Flaw:** {what's wrong}
 - **Failure scenario:** {concrete description of how this fails}
-- **Evidence:** {quote from plan or missing element}
+- **Evidence:** {file:line citations and the quote from the plan}
 - **Suggested fix:** {brief recommendation}
 ```
 

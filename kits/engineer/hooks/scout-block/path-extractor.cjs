@@ -141,13 +141,357 @@ function extractFromToolInput(toolInput, options = {}) {
   return paths.filter(Boolean);
 }
 
+// Flags whose value is free text (a commit message, a PR body, a report),
+// never an accessed path, quoted or not: `git commit -m "fix the build step"`,
+// `gh pr create --body "..."`, `ak feedback --repro "..."`. Also matched in
+// the `--flag=value` form.
+const TEXT_ARG_FLAGS = [
+  '-m', '--message', '--body', '--title', '--subject', '--notes',
+  '--description', '--comment', '--repro', '--eval'
+];
+
+// Commands whose quoted arguments are text to print, not files they open.
+const TEXT_ARG_COMMANDS = ['echo', 'printf'];
+
+// Commands whose TEXT_ARG_FLAGS take free text. Elsewhere the same spelling
+// can be an ordinary switch (`ls -m`, `tar -m`) followed by a real path.
+const TEXT_FLAG_COMMANDS = ['git', 'gh', 'glab', 'ak', 'hg', 'svn', 'jj', 'node', 'deno', 'bun'];
+
+// Nesting cap for command substitutions checked as commands of their own.
+const MAX_SUBSTITUTION_DEPTH = 32;
+
+// Unquoted characters that end a word and start an operator.
+const OPERATOR_CHARS = '&|;()<>';
+
+/**
+ * Read a `$( ... )` body starting just after the `(`, honouring nested
+ * parentheses and quotes.
+ * @param {string} source
+ * @param {number} start
+ * @returns {{ inner: string, end: number }} end is the index after `)`
+ */
+function readParenBody(source, start) {
+  let depth = 1;
+  let pendingHeredocs = [];
+  for (let i = start; i < source.length; i++) {
+    const char = source[i];
+    if (char === '\n' && pendingHeredocs.length) {
+      // A heredoc body is text: an apostrophe in it opens no quote.
+      i = skipHeredocBodies(source, i + 1, pendingHeredocs) - 1;
+      pendingHeredocs = [];
+    } else if (char === '<' && source[i + 1] === '<' && source[i + 2] !== '<') {
+      const dash = source[i + 2] === '-';
+      const heredoc = readHeredocDelimiter(source, i + (dash ? 3 : 2), dash);
+      if (heredoc.word) pendingHeredocs.push(heredoc);
+      i = heredoc.end - 1;
+    } else if (char === "'") {
+      // An unmatched quote is kept literal rather than swallowing the rest.
+      const close = source.indexOf("'", i + 1);
+      if (close !== -1) i = close;
+    } else if (char === '"') {
+      i++;
+      while (i < source.length && source[i] !== '"') {
+        if (source[i] === '\\' || source[i] === '`') i++;
+        i++;
+      }
+    } else if (char === '(') {
+      depth++;
+    } else if (char === ')' && --depth === 0) {
+      return { inner: source.slice(start, i), end: i + 1 };
+    }
+  }
+  return { inner: source.slice(start), end: source.length };
+}
+
+/**
+ * Read the delimiter word of a heredoc, starting just after `<<` or `<<-`.
+ * Single quotes, double quotes and backslashes are removed from the word,
+ * and any of them marks the delimiter as quoted (`<<'E'`, `<<"E"`, `<<\\E`,
+ * `<<E"X"`). ANSI-C `$'E'` and locale `$"E"` quoting are not handled.
+ * @param {string} source
+ * @param {number} start
+ * @param {boolean} dash - `<<-`: leading tabs are stripped from body lines
+ * @returns {{ word: string, quoted: boolean, dash: boolean, end: number }}
+ */
+function readHeredocDelimiter(source, start, dash) {
+  let i = start;
+  while (source[i] === ' ' || source[i] === '\t') i++;
+  let word = '';
+  let quoted = false;
+  // Like the shell, only a space, tab or newline ends the word (a carriage
+  // return is part of it), and quoted blanks or operators stay in it.
+  while (i < source.length && !' \t\n'.includes(source[i]) && !OPERATOR_CHARS.includes(source[i])) {
+    const char = source[i];
+    if (char === "'") {
+      quoted = true;
+      const close = source.indexOf("'", i + 1);
+      const end = close === -1 ? source.length : close;
+      word += source.slice(i + 1, end);
+      i = end + 1;
+    } else if (char === '"') {
+      quoted = true;
+      i++;
+      while (i < source.length && source[i] !== '"') {
+        if (source[i] === '\\' && '"\\$`'.includes(source[i + 1] || ' ')) i++;
+        word += source[i++];
+      }
+      i++;
+    } else if (char === '\\') {
+      quoted = true;
+      word += source[i + 1] || '';
+      i += 2;
+    } else {
+      word += char;
+      i++;
+    }
+  }
+  return { word, quoted, dash, end: Math.min(i, source.length) };
+}
+
+/**
+ * Skip heredoc bodies that start at `index` (the character after the
+ * newline that ends the heredoc's command line).
+ *
+ * The shell expands `$(...)` and backticks in the body of a heredoc whose
+ * delimiter word is unquoted (`<<E`), so with `substitutions` given, those
+ * bodies are collected there as commands of their own. A quoted delimiter
+ * (`<<'E'`, `<<"E"`, `<<\E`) keeps the body as plain text.
+ * @param {string} source
+ * @param {number} index
+ * @param {Array<{word: string, quoted: boolean, dash: boolean}>} delimiters - In the order the heredocs were opened
+ * @param {string[]} [substitutions] - Receives the substitutions of unquoted bodies
+ * @returns {number} Index of the first character after the last body
+ */
+function skipHeredocBodies(source, index, delimiters, substitutions) {
+  let i = index;
+  for (const delimiter of delimiters) {
+    const bodyStart = i;
+    let bodyEnd = source.length;
+    while (i < source.length) {
+      const newline = source.indexOf('\n', i);
+      const lineEnd = newline === -1 ? source.length : newline;
+      const line = source.slice(i, lineEnd);
+      const lineStart = i;
+      i = newline === -1 ? source.length : newline + 1;
+      // Like the shell, only an exact line ends the body: `<<-` strips leading
+      // tabs, nothing strips spaces or a carriage return.
+      if ((delimiter.dash ? line.replace(/^\t+/, '') : line) === delimiter.word) {
+        bodyEnd = lineStart;
+        break;
+      }
+    }
+    if (substitutions && !delimiter.quoted) {
+      collectHeredocSubstitutions(source.slice(bodyStart, bodyEnd), substitutions);
+    }
+  }
+  return i;
+}
+
+/**
+ * Collect the `$(...)` and backtick substitutions of an unquoted heredoc
+ * body. Quotes in the body are literal text, and a backslash escapes `$`,
+ * a backtick, or another backslash, as in the shell.
+ * @param {string} body
+ * @param {string[]} substitutions
+ */
+function collectHeredocSubstitutions(body, substitutions) {
+  let i = 0;
+  while (i < body.length) {
+    const char = body[i];
+    if (char === '\\' && '$`\\'.includes(body[i + 1])) {
+      i += 2;
+    } else if (char === '$' && body[i + 1] === '(') {
+      const inner = readParenBody(body, i + 2);
+      substitutions.push(inner.inner);
+      i = inner.end;
+    } else if (char === '`') {
+      const close = body.indexOf('`', i + 1);
+      substitutions.push(body.slice(i + 1, close === -1 ? body.length : close));
+      i = close === -1 ? body.length : close + 1;
+    } else {
+      i++;
+    }
+  }
+}
+
+/**
+ * Split a command line into shell words and operators the way the shell
+ * does: a quote is closed only by the same quote type, a backslash (a
+ * backtick in PowerShell) escapes the next character, adjacent quoted and
+ * unquoted parts join into one word (`bu""ild` is `build`), and heredoc
+ * bodies are dropped.
+ *
+ * Variables are not expanded: `$DIR` stays the literal text `$DIR`, so a path
+ * held only in a variable is not detected, while a literal path around one
+ * (`"$HOME/build/x.js"`) still is. Command substitutions (`$(...)` and
+ * backticks) are returned separately because the shell runs them as commands
+ * of their own; single-quoted text never substitutes.
+ *
+ * @param {string} command
+ * @param {boolean} powershell
+ * @returns {{ tokens: Array<{type: string, text: string, quoted?: boolean}>, substitutions: string[] }}
+ */
+function tokenizeShell(command, powershell) {
+  const tokens = [];
+  const substitutions = [];
+  let word = null;
+  let pendingHeredocs = [];
+  const flush = () => {
+    if (word) tokens.push({ type: 'word', text: word.text, quoted: word.quoted });
+    word = null;
+  };
+  const begin = () => {
+    if (!word) word = { text: '', quoted: false };
+    return word;
+  };
+
+  let i = 0;
+  while (i < command.length) {
+    const char = command[i];
+    const next = command[i + 1];
+
+    if (char === '\n') {
+      flush();
+      tokens.push({ type: 'op', text: '\n' });
+      i++;
+      if (pendingHeredocs.length) {
+        // PowerShell has no heredocs, and its backtick is an escape character.
+        i = skipHeredocBodies(command, i, pendingHeredocs, powershell ? undefined : substitutions);
+        pendingHeredocs = [];
+      }
+      continue;
+    }
+    if (/\s/.test(char)) {
+      flush();
+      i++;
+      continue;
+    }
+    if (char === "'") {
+      const current = begin();
+      current.quoted = true;
+      i++;
+      while (i < command.length) {
+        if (command[i] === "'") {
+          // PowerShell writes a literal apostrophe inside '...' as ''.
+          if (powershell && command[i + 1] === "'") {
+            current.text += "'";
+            i += 2;
+            continue;
+          }
+          break;
+        }
+        current.text += command[i++];
+      }
+      i++;
+      continue;
+    }
+    if (char === '"') {
+      const current = begin();
+      current.quoted = true;
+      i++;
+      while (i < command.length && command[i] !== '"') {
+        const inner = command[i];
+        const after = command[i + 1];
+        if (!powershell && inner === '\\' && after !== undefined && '"\\$`\n'.includes(after)) {
+          current.text += after;
+          i += 2;
+        } else if (powershell && inner === '`' && after !== undefined) {
+          current.text += after;
+          i += 2;
+        } else if (inner === '$' && after === '(') {
+          const body = readParenBody(command, i + 2);
+          substitutions.push(body.inner);
+          i = body.end;
+        } else if (!powershell && inner === '`') {
+          const close = command.indexOf('`', i + 1);
+          substitutions.push(command.slice(i + 1, close === -1 ? command.length : close));
+          i = close === -1 ? command.length : close + 1;
+        } else {
+          current.text += inner;
+          i++;
+        }
+      }
+      i++;
+      continue;
+    }
+    if (char === '$' && next === '(') {
+      begin();
+      const body = readParenBody(command, i + 2);
+      substitutions.push(body.inner);
+      i = body.end;
+      continue;
+    }
+    if (char === '`') {
+      if (powershell) {
+        begin().text += next === undefined ? '' : next;
+        i += 2;
+      } else {
+        begin();
+        const close = command.indexOf('`', i + 1);
+        substitutions.push(command.slice(i + 1, close === -1 ? command.length : close));
+        i = close === -1 ? command.length : close + 1;
+      }
+      continue;
+    }
+    // A POSIX backslash escapes a shell metacharacter; before an ordinary
+    // character it is kept, so Windows-style `dist\app.js` still reads as a path.
+    if (!powershell && char === '\\' && next !== undefined && ` \t'"\\$\`${OPERATOR_CHARS}`.includes(next)) {
+      begin().text += next;
+      i += 2;
+      continue;
+    }
+    // PowerShell parentheses group an expression inside the same command
+    // (`Get-Content -Path ("node_modules")`), so they only end a word.
+    if (powershell && (char === '(' || char === ')')) {
+      flush();
+      i++;
+      continue;
+    }
+    if (OPERATOR_CHARS.includes(char)) {
+      flush();
+      const op = command.slice(i).match(/^(<<<|<<-|<<|>>|>&|<&|&&|\|\||\|&|;;|[&|;()<>])/)[0];
+      tokens.push({ type: 'op', text: op });
+      i += op.length;
+      if (op === '<<' || op === '<<-') {
+        const heredoc = readHeredocDelimiter(command, i, op === '<<-');
+        if (heredoc.word) pendingHeredocs.push(heredoc);
+        i = heredoc.end;
+      }
+      continue;
+    }
+    begin().text += char;
+    i++;
+  }
+  flush();
+  return { tokens, substitutions };
+}
+
+/**
+ * Split a `--flag=value` word into its flag and value.
+ * @param {string} text
+ * @returns {{ flag: string, value: (string|null) }}
+ */
+function splitFlagValue(text) {
+  const eq = text.indexOf('=');
+  if (!text.startsWith('-') || eq === -1) return { flag: text, value: null };
+  return { flag: text.slice(0, eq), value: text.slice(eq + 1) };
+}
+
 /**
  * Extract path-like segments from a Bash command string.
+ *
+ * The command is split into shell words first (see tokenizeShell), so quotes
+ * pair only with their own type and an apostrophe inside a double-quoted path
+ * cannot reach into later arguments.
  *
  * Uses pipe-segment-aware command context: for filesystem commands (cd, cat, ls, rm, etc.)
  * bare blocked directory names are extracted with priority. For non-filesystem commands
  * (grep, echo, sed, etc.) only tokens that structurally look like paths are extracted,
- * preventing false positives on search terms and string arguments.
+ * preventing false positives on search terms and string arguments. Values of free-text
+ * flags (-m, --body, --repro, ... on git/gh/ak and similar) and quoted echo/printf
+ * arguments are text, never paths. Inline scripts (`node -e "..."`) are treated as text
+ * too, so a script that reads a blocked file itself is not detected. Redirect targets
+ * (`> dist/x`) are always checked.
  *
  * PowerShell commands additionally recognize the filesystem cmdlets and their
  * aliases (Get-ChildItem node_modules, gc dist\app.js), Select-String's
@@ -168,53 +512,65 @@ function extractFromCommand(command, options = {}) {
     || (powershell && POWERSHELL_FILESYSTEM_COMMANDS.includes(name));
   const isPatternArgCommand = name => PATTERN_ARG_COMMANDS.includes(name)
     || (powershell && POWERSHELL_PATTERN_ARG_COMMANDS.includes(name));
+  const isPatternFlag = flag => isExcludeFlag(flag, powershell) || PATTERN_ARG_FLAGS.includes(flag)
+    || (powershell && POWERSHELL_PATTERN_ARG_FLAGS.includes(powerShellParameterName(flag)));
   const paths = [];
 
-  // First, extract quoted strings (preserve spaces in real paths). A quoted
-  // argument is only a path when the command actually takes a path there:
-  // quoted args to filter/pattern commands (grep, sed, awk, ...) and the values
-  // of pattern/exclude flags are search terms, not filesystem paths, so they
-  // must not be extracted (and therefore never wrongly blocked).
-  const quotedPattern = /["']([^"']+)["']/g;
-  let match;
-  while ((match = quotedPattern.exec(command)) !== null) {
-    const content = match[1];
+  const { tokens, substitutions } = tokenizeShell(command, powershell);
 
-    // Skip sed/awk substitution expressions (s/pattern/replacement/flags)
-    if (/^s[\/|@#,]/.test(content)) continue;
-
-    const ctx = quotedArgContext(command, match.index, options);
-    if (ctx.command && isPatternArgCommand(ctx.command)) continue;
-    if (ctx.precededByPatternFlag) continue;
-
-    // A quoted bare blocked dir name is a path wherever an unquoted one is:
-    // as a filesystem command's operand or a PowerShell -Path value.
-    const bare = content.trim();
-    if (isBlockedDirName(bare) && ((ctx.command && isFilesystemCommand(ctx.command)) || ctx.precededByPathParameter)) {
-      paths.push(normalizeExtractedPath(bare));
-      continue;
-    }
-
-    if (looksLikePath(content)) {
-      paths.push(normalizeExtractedPath(content));
+  // A command substitution runs as a command of its own. Past the nesting cap
+  // its text is checked whole, so deep nesting cannot overflow the stack.
+  const depth = options.substitutionDepth || 0;
+  for (const inner of substitutions) {
+    if (depth >= MAX_SUBSTITUTION_DEPTH) {
+      paths.push(normalizeExtractedPath(inner));
+    } else {
+      paths.push(...extractFromCommand(inner, { ...options, substitutionDepth: depth + 1 }));
     }
   }
-
-  // Remove quoted strings for unquoted path extraction
-  const withoutQuotes = command.replace(/["'][^"']*["']/g, ' ');
-
-  // Split on whitespace and extract path-like tokens
-  const tokens = withoutQuotes.split(/\s+/).filter(Boolean);
 
   // Track command context per pipe segment
   let commandName = null;
   let isFsCommand = false;
   let skipNextToken = false;
   let nextIsPathValue = false;
-  let heredocDelimiter = null;
-  let nextIsHeredocDelimiter = false;
+  let nextIsPattern = false;
+  let nextIsRedirectTarget = false;
+  const isTextFlag = flag => TEXT_FLAG_COMMANDS.includes(commandName) && TEXT_ARG_FLAGS.includes(flag);
 
-  for (const rawToken of tokens) {
+  const resetSegment = () => {
+    commandName = null;
+    isFsCommand = false;
+    skipNextToken = false;
+    nextIsPathValue = false;
+    nextIsPattern = false;
+    nextIsRedirectTarget = false;
+  };
+
+  for (const tok of tokens) {
+    if (tok.type === 'op') {
+      if (['<<<'].includes(tok.text)) {
+        skipNextToken = true; // a here-string is text fed on stdin
+      } else if (/^[<>]/.test(tok.text)) {
+        // A redirect target is a file the shell opens, whatever the command.
+        if (tok.text !== '<<' && tok.text !== '<<-') nextIsRedirectTarget = true;
+      } else {
+        resetSegment(); // command, pipe, and subshell boundaries
+      }
+      continue;
+    }
+
+    const rawToken = tok.text;
+    if (nextIsRedirectTarget) {
+      nextIsRedirectTarget = false;
+      if (isBlockedDirName(rawToken.trim()) || looksLikePath(rawToken)) {
+        paths.push(normalizeExtractedPath(rawToken));
+      }
+      continue;
+    }
+    const afterPatternFlag = nextIsPattern;
+    nextIsPattern = false;
+
     // `-Path:node_modules` names its path in the same token as the parameter.
     const colonParameter = powershell ? rawToken.match(POWERSHELL_COLON_PARAMETER) : null;
     const token = colonParameter ? colonParameter[2] : rawToken;
@@ -223,59 +579,73 @@ function extractFromCommand(command, options = {}) {
 
     // A PowerShell -Path/-LiteralPath value is a path for every cmdlet.
     if (isPathValue && !isSkippableToken(token)) {
-      if (isBlockedDirName(token) || looksLikePath(token)) {
+      const bare = token.trim();
+      if (isBlockedDirName(bare) || looksLikePath(token)) {
         paths.push(normalizeExtractedPath(token));
       }
       continue;
     }
+    if (colonParameter) continue;
 
-    // Heredoc delimiter capture (after << or <<-)
-    if (nextIsHeredocDelimiter) {
-      heredocDelimiter = token.replace(/^['"]/, '').replace(/['"]$/, '');
-      nextIsHeredocDelimiter = false;
-      continue;
-    }
-
-    // Skip heredoc body content until closing delimiter
-    if (heredocDelimiter) {
-      if (token === heredocDelimiter) {
-        heredocDelimiter = null;
-      }
-      continue;
-    }
-
-    // Detect heredoc start: <<EOF, <<'EOF', <<"EOF", <<-EOF
-    if (token.startsWith('<<') && token.length > 2) {
-      heredocDelimiter = token.replace(/^<<-?['"]?/, '').replace(/['"]?$/, '');
-      continue;
-    }
-    if (token === '<<' || token === '<<-') {
-      nextIsHeredocDelimiter = true;
-      continue;
-    }
-
-    // Skip value after exclude flags (--exclude node_modules format)
+    // Skip the value after exclude and free-text flags
     if (skipNextToken) {
       skipNextToken = false;
       continue;
     }
 
-    // Reset command context at command/pipe boundaries
-    if (token === '&&' || token === ';' || token.startsWith('|')) {
-      commandName = null;
-      isFsCommand = false;
-      continue;
-    }
-
-    // Skip flags and shell operators
-    if (isSkippableToken(token)) {
+    // Flags: `--exclude node_modules`, `-m "message"`, `--body=text`, ...
+    if (token.startsWith('-')) {
+      const { flag, value } = splitFlagValue(token);
+      if (value !== null) {
+        if (isTextFlag(flag) || isPatternFlag(flag)) continue;
+        // A quoted `--out="dist/x"` value is a path; an unquoted one stays a flag.
+        if (tok.quoted && looksLikePath(value)) paths.push(normalizeExtractedPath(value));
+        continue;
+      }
       if (isPowerShellPathParameter(token, powershell)) {
         nextIsPathValue = true;
-      } else if (isExcludeFlag(token, powershell)) {
+      } else if (isTextFlag(token) || isExcludeFlag(token, powershell)) {
         skipNextToken = true;
+      } else if (isPatternFlag(token)) {
+        nextIsPattern = true;
       }
       continue;
     }
+
+    // Environment assignments and wrappers (sudo, env, time, ...) come before the command.
+    if (commandName === null && /^\w+=/.test(token)) {
+      const value = token.slice(token.indexOf('=') + 1);
+      if (tok.quoted && looksLikePath(value)) paths.push(normalizeExtractedPath(value));
+      continue;
+    }
+    if (commandName === null && !tok.quoted && COMMAND_WRAPPERS.includes(token.toLowerCase())) continue;
+
+    if (tok.quoted) {
+      // Quoted words keep spaces in real paths. A quoted argument is only a
+      // path where the command takes a path: arguments to filter/pattern
+      // commands, pattern-flag values, and text to print are not.
+      if (commandName === null) {
+        commandName = token.toLowerCase();
+        isFsCommand = isFilesystemCommand(commandName);
+        if (isFsCommand) continue;
+      } else {
+        if (/^s[\/|@#,]/.test(token)) continue; // sed/awk substitution
+        if (isPatternArgCommand(commandName) || TEXT_ARG_COMMANDS.includes(commandName)) continue;
+        if (afterPatternFlag) continue;
+        const bare = token.trim();
+        if (isFsCommand && isBlockedDirName(bare)) {
+          paths.push(normalizeExtractedPath(bare));
+          continue;
+        }
+      }
+      if (looksLikePath(token)) {
+        paths.push(normalizeExtractedPath(token));
+      }
+      continue;
+    }
+
+    // Skip operators glued to words and numeric values
+    if (isSkippableToken(token)) continue;
 
     // Determine the command for this pipe segment (first non-flag token)
     if (commandName === null) {
@@ -297,18 +667,10 @@ function extractFromCommand(command, options = {}) {
     if (isCommandKeyword(token)) continue;
 
     // Unquoted sed/awk substitution or address expressions (s/pat/repl/,
-    // s|pat|repl|, /pattern/cmd, ...) are structurally never real paths —
-    // same skip already applied to the quoted form above. Note: unlike the
-    // quoted case, an unquoted argument to a filter command is NOT exempted
-    // in general, since (per the sed/file.txt test below) an unquoted
-    // trailing argument is usually the real target file, not a pattern —
-    // only this quoted-adjacent structural shape is unambiguous enough to
-    // skip.
-    if (
-      commandName &&
-      isPatternArgCommand(commandName) &&
-      /^s[\/|@#,]/.test(token)
-    ) {
+    // s|pat|repl|, ...) are structurally never real paths. An unquoted
+    // argument to a filter command is NOT exempted in general, since an
+    // unquoted trailing argument is usually the real target file.
+    if (commandName && isPatternArgCommand(commandName) && /^s[\/|@#,]/.test(token)) {
       continue;
     }
 
@@ -503,6 +865,7 @@ function normalizeExtractedPath(path) {
 module.exports = {
   extractFromToolInput,
   extractFromCommand,
+  tokenizeShell,
   quotedArgContext,
   looksLikePath,
   isSkippableToken,
@@ -514,6 +877,8 @@ module.exports = {
   FILESYSTEM_COMMANDS,
   PATTERN_ARG_COMMANDS,
   PATTERN_ARG_FLAGS,
+  TEXT_ARG_FLAGS,
+  TEXT_ARG_COMMANDS,
   POWERSHELL_FILESYSTEM_COMMANDS,
   POWERSHELL_PATTERN_ARG_COMMANDS
 };

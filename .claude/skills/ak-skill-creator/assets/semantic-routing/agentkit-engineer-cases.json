@@ -610,6 +610,27 @@
       "prompt": "Write a function that returns the larger of two integers.",
       "expected": "none",
       "class": "no-skill"
+    },
+    {
+      "id": "case-00088",
+      "split": "train",
+      "prompt": "Compress hero.mov for our landing page without losing the audio, and show me the before and after file sizes.",
+      "expected": "ak-media-processing",
+      "class": "positive"
+    },
+    {
+      "id": "case-00089",
+      "split": "holdout",
+      "prompt": "The background clips on our marketing site are huge; find which ones are encoded larger than the size they are displayed at.",
+      "expected": "ak-media-processing",
+      "class": "indirect"
+    },
+    {
+      "id": "case-00090",
+      "split": "train",
+      "prompt": "Add a sitemap route and Article JSON-LD to our Next.js App Router blog.",
+      "expected": "ak-web-frameworks",
+      "class": "near-miss"
     }
   ]
 }

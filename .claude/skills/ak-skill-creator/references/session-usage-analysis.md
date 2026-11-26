@@ -9,7 +9,7 @@ between runs and spends fewer tokens without lowering output quality.
 ## Collect
 
 ```bash
-python3 scripts/session_usage.py <skill-dir-or-name> --exclude-session <current-session-id> > <scratch-dir>/usage.json
+python scripts/session_usage.py <skill-dir-or-name> --exclude-session <current-session-id> > <scratch-dir>/usage.json
 ```
 
 Write the output outside the skill and repository; files left in a skill directory
@@ -41,7 +41,7 @@ Read `limitations` in the output before interpreting numbers.
 ### One session, every skill
 
 ```bash
-python3 scripts/session_usage.py --session latest
+python scripts/session_usage.py --session latest
 ```
 
 `--session` takes `latest` (the newest transcript of the project at the working
@@ -57,15 +57,19 @@ apply.
 ### Every session, every skill
 
 ```bash
-python3 scripts/session_usage.py --all [--since YYYY-MM-DD] [--exclude-session <current-id>]
+python scripts/session_usage.py --all [--since YYYY-MM-DD] [--exclude-session <current-id>]
 ```
 
 `--all` inventories every local transcript and ranks each invoked skill by
 `sessions`, with `sessions_with_errors`, `tool_errors`, `errors_by_tool`,
-`duplicate_calls`, `interrupted_sessions` and `compacted_sessions`. These counts
-belong to the whole session, so a session that used three skills counts toward
-all three. `leads` lists up to `--top` (default 5) sessions per skill, scored by
-tool errors + duplicate calls + 3 × interruptions, with each session's id and
+`duplicate_calls`, `interrupted_sessions` and `compacted_sessions`. Errors,
+duplicates and interruptions count only inside the skill's spans (trigger or
+`SKILL.md` load to the next human prompt); `session_totals` keeps the whole-session
+counts and `compacted_sessions` stays per session. A forked Codex session and the
+session it was forked from count once, while sibling forks count apart; `sessions_with_skills`
+counts kept sessions with an invoked skill. `leads` lists up to `--top` (default 5)
+sessions per skill, scored inside the spans by tool errors + duplicate calls +
+3 × interruptions (`session_score` is the whole-session score), with each session's id and
 `~/`-relative transcript path. Pass that path to `--session` to inventory the
 session, then read only the parts that explain the counts. Claude Code transcripts
 with no skill marker are skipped without parsing. `--jobs` sets the number of

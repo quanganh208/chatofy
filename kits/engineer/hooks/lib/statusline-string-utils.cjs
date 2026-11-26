@@ -112,7 +112,7 @@ function safeGetTime(dateValue) {
 /**
  * Format milliseconds remaining as a compact countdown string.
  * Returns empty string when msLeft <= 0 (already elapsed).
- * Examples: 45000 → "45m", 5400000 → "1h30m", 259200000 → "3d"
+ * Examples: 45000 → "45m", 5400000 → "1h30m", 252000000 → "2d22h", 259200000 → "3d"
  * @param {number} msLeft
  * @returns {string}
  */
@@ -125,7 +125,9 @@ function formatCountdown(msLeft) {
     const m = mins % 60;
     return m > 0 ? `${h}h${m}m` : `${h}h`;
   }
-  return `${Math.floor(mins / 1440)}d`;
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  return h > 0 ? `${d}d${h}h` : `${d}d`;
 }
 
 module.exports = { visibleLength, formatElapsed, getTerminalWidth, safeGetTime, formatCountdown };

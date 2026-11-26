@@ -14,10 +14,10 @@ When `--github` is passed, create or update a GitHub issue after plan validation
 
 ## AgentWiki Publishing (`--wiki`)
 
-When `--wiki` is passed, publish the reviewed plan to AgentWiki:
+When `--wiki` is passed, publish the reviewed plan to AgentWiki after the final plan gates (and after `plan.html` exists when `--html` is also present):
 
-1. **CLI / MCP Availability**: Check `command -v agentwiki && agentwiki whoami` or MCP tool availability.
-2. **Private-First Default**:
+1. **CLI / MCP Availability**: Use the CLI when `command -v agentwiki && agentwiki whoami` succeeds; otherwise use AgentWiki MCP document/upload/share/static-site tools when exposed. If neither is available or authenticated, skip publishing without failing plan creation and report the exact missing capability.
+2. **Private-First Default**: If phase details are split across files, first write `{plan-dir}/wiki-publish.md` as a concise combined document and upload that instead of `plan.md`.
    ```bash
    agentwiki doc upload "{plan-dir}/plan.md" \
      --title "{plan-title}" \
@@ -26,9 +26,10 @@ When `--wiki` is passed, publish the reviewed plan to AgentWiki:
      --json
    agentwiki doc share <id> --json
    ```
-3. **Public Publish**: Run `agentwiki doc publish <id>` ONLY when the user explicitly requests public visibility.
-4. **HTML Site Upload**: When combined with `--html`, upload as a static site only upon explicit request:
+3. **Public Publish**: Run `agentwiki doc publish <id>` only when the user explicitly requests public visibility.
+4. **HTML Site Upload**: When combined with `--html`, keep `plan.html` local and upload it as a static site only upon explicit request:
    ```bash
    agentwiki sites upload "{plan-dir}/plan.html" --title "{plan-title}" --json
    ```
-5. **Output**: Include the returned private share URL in the final handoff response.
+5. **Redaction**: Do not publish secrets, tokens, raw logs, private env values, customer data, or local-only absolute paths.
+6. **Output**: Include the returned URL in the final handoff response, record it in `plan.md`, and add it to the GitHub issue when `--github` is active.

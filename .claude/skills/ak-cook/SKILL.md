@@ -7,7 +7,7 @@ keywords: [implementation, workflow, feature, pipeline]
 argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.5.1"
+  version: "2.5.3"
   workflow:
     follows: [ak-plan]
     precedes: [ak-test]
@@ -19,9 +19,8 @@ Invoke `/ak-cook <task|plan-path> [flags]` in Claude Code; use the runtime's
 installed invocation form elsewhere.
 
 Implement the full authorized outcome through verification and review. Capture or reuse
-outcome, constraints, non-goals and acceptance criteria; inspect nearby code and tests.
-Ask only for a material missing decision or an action outside that authorization.
-Repair regressions caused by the change and rerun affected checks before finishing.
+outcome, constraints, non-goals and acceptance criteria. Ask only for a material missing
+decision or an action outside that authorization.
 
 ## Select a mode
 
@@ -40,6 +39,8 @@ Repair regressions caused by the change and rerun affected checks before finishi
 accepted plan's advice handover or Failure Protocol. Its failed-verification counsel
 checkpoint remains active in every mode. `--yagni` opts into scope cutting; otherwise
 deliver all requested scope and nothing extra. Pass selected flags to delegates.
+End each delegate (close or interrupt it) once its result is consumed, including
+advisory checkpoints; keep open only workers that still own unfinished work.
 
 Parse detailed signals with `references/intent-detection.md` only when necessary.
 For cross-skill sequence decisions use `references/workflow-routing.md`.
@@ -54,9 +55,9 @@ For cross-skill sequence decisions use `references/workflow-routing.md`.
    Reuse results only for unchanged source, inputs and environment. Do not weaken checks.
 4. Review acceptance, compatibility, security and regression risk. Use
    `references/review-cycle.md` and `references/required-subagents.md` to scale review.
-5. Continue repairing within scope. Pause for a changed product decision, destructive
-   action without authorization, or an evidenced blocker. Explicit interactive gates
-   are in `references/blocking-gates.md`.
+5. Repair regressions caused by the change within scope and rerun affected checks. Pause
+   for a changed product decision, destructive action without authorization, or an
+   evidenced blocker.
 6. Reconcile existing plan state, update impacted docs, and report result, evidence and
    unresolved limitations. Commit/publish only within the user's authorized scope.
 
@@ -64,7 +65,7 @@ For cross-skill sequence decisions use `references/workflow-routing.md`.
 
 Skip the automatic `/ak-journal` step when either applies:
 - The invocation includes the `--skip-journal` flag, OR
-- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+- `ak config prefs resolve --json | jq -r 'if [.prefs?.journal?.auto?] == [false] then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`).
 When skipped, print one line:

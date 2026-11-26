@@ -7,7 +7,7 @@ keywords: [routing, dispatch, skills, chaining, subagents, workflow, ak, cli, li
 argument-hint: "[task to route | ak goal or subcommand]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # AgentKit router
@@ -35,7 +35,7 @@ contract. Missing optional agents permits inline work with honest limitations.
 Headless cross-runtime work belongs to an installed orchestration capability. Missing owners
 fall back to native capabilities; report the gap instead of inventing an invocation. On a
 failed route, change approach from evidence and resume useful work. Ask only for a material
-missing decision or authorization beyond the current scope. Report outcome and verification.
+missing decision or authorization beyond the current scope.
 
 ## Operating the ak CLI
 

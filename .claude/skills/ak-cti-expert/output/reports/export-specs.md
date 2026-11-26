@@ -128,7 +128,7 @@ export-CASE-ID-YYYYMMDD/
 
 ```bash
 # Generate professional CTI Report DOCX with charts and diagrams
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/ak-cti-expert/scripts/generate-cti-docx.py \
+python ${CLAUDE_PLUGIN_ROOT}/skills/ak-cti-expert/scripts/generate-cti-docx.py \
   "${JSON_DATA_FILE}" \
   "${DOCX_FILE}"
 ```

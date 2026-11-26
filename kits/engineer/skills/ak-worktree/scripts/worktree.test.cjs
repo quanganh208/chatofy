@@ -10,13 +10,38 @@ const fs = require('fs');
 const os = require('os');
 
 const SCRIPT_PATH = path.join(__dirname, 'worktree.cjs');
-const STANDALONE_DIR = path.dirname(path.dirname(__dirname)); // worktree dir
+// Every test runs in a throwaway git repo, never the folder this suite is
+// installed in: some cases call `create` without --dry-run, and running them
+// against the host repository created real worktrees and branches there.
+const STANDALONE_DIR = (() => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-host-')));
+  const git = (args) => execSync(`git ${args}`, { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
+  git('init -q');
+  // Name the branch without `init -b` (git >= 2.28) so older git still works.
+  git('symbolic-ref HEAD refs/heads/main');
+  git('config user.email test@example.invalid');
+  git('config user.name worktree-test');
+  git('config commit.gpgsign false');
+  fs.writeFileSync(path.join(dir, 'README.md'), 'fixture\n');
+  git('add README.md');
+  git('commit -q -m init');
+  return dir;
+})();
+// A file (not a directory) owned by this suite, for "root is a file" cases.
+const FILE_AS_ROOT = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-file-')), 'not-a-dir');
+fs.writeFileSync(FILE_AS_ROOT, 'file\n');
+process.on('exit', () => {
+  for (const dir of [STANDALONE_DIR, path.dirname(FILE_AS_ROOT)]) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+});
 const MONOREPO_DIR = process.env.MONOREPO_DIR || '/path/to/claudekit';
-const CURRENT_GIT_ROOT = execSync('git rev-parse --show-toplevel', {
+// path.resolve: the CLI reports native separators (backslashes on Windows).
+const CURRENT_GIT_ROOT = path.resolve(execSync('git rev-parse --show-toplevel', {
   encoding: 'utf-8',
   cwd: STANDALONE_DIR,
   stdio: ['pipe', 'pipe', 'pipe']
-}).trim();
+}).trim());
 
 let passed = 0;
 let failed = 0;
@@ -475,7 +500,7 @@ test('create --worktree-root overrides default location', () => {
   const result = run(`create test-custom-root --prefix feat --dry-run --json --worktree-root "${customRoot}"`);
   assert(result.success, 'Should succeed with custom root');
   const json = assertJSON(result.output);
-  assert(json.wouldCreate.worktreePath.startsWith(customRoot), 'Path should use custom root');
+  assert(json.wouldCreate.worktreePath.startsWith(path.resolve(customRoot)), 'Path should use custom root');
   assert(json.wouldCreate.worktreeRootSource === '--worktree-root flag', 'Source should be flag');
 });
 
@@ -506,24 +531,22 @@ test('superproject detection in submodule', () => {
 
 test('WORKTREE_ROOT env var overrides detection', () => {
   const envRoot = '/tmp/env-worktrees';
-  try {
-    const output = execSync(`WORKTREE_ROOT="${envRoot}" node "${SCRIPT_PATH}" create test-env --prefix feat --dry-run --json`, {
+  {
+    const output = execSync(`node "${SCRIPT_PATH}" create test-env --prefix feat --dry-run --json`, { env: { ...process.env, WORKTREE_ROOT: envRoot },
       encoding: 'utf-8',
       cwd: STANDALONE_DIR,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     const json = JSON.parse(output.trim());
-    assert(json.wouldCreate.worktreePath.startsWith(envRoot), 'Should use env var root');
+    assert(json.wouldCreate.worktreePath.startsWith(path.resolve(envRoot)), 'Should use env var root');
     assert(json.wouldCreate.worktreeRootSource === 'WORKTREE_ROOT env', 'Source should be env');
-  } catch (error) {
-    // May fail if script path issue - skip
   }
 });
 
 test('invalid WORKTREE_ROOT env var fails safely', () => {
-  const invalidRoot = '/etc/passwd';
+  const invalidRoot = FILE_AS_ROOT;
   try {
-    execSync(`WORKTREE_ROOT="${invalidRoot}" node "${SCRIPT_PATH}" info --json`, {
+    execSync(`node "${SCRIPT_PATH}" info --json`, { env: { ...process.env, WORKTREE_ROOT: invalidRoot },
       encoding: 'utf-8',
       cwd: STANDALONE_DIR,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -720,7 +743,7 @@ test('error commands return exit code 1', () => {
 });
 
 test('non-git directory returns error', () => {
-  const result = run('info --json', { cwd: '/tmp' });
+  const result = run('info --json', { cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-nogit-')) });
   assert(!result.success, 'Should fail in non-git dir');
   const json = assertJSON(result.output);
   assert(json.error.code === 'NOT_GIT_REPO', 'Should have NOT_GIT_REPO error');
@@ -872,8 +895,8 @@ test('create handles home directory expansion', () => {
 });
 
 test('create validates file path as worktree root', () => {
-  // /etc/passwd exists but is a file, not directory
-  const result = run('create test-file --prefix feat --json --worktree-root "/etc/passwd"');
+  // A suite-owned temp file exists but is not a directory
+  const result = run(`create test-file --prefix feat --json --worktree-root "${FILE_AS_ROOT}"`);
   assert(!result.success, 'Should fail when path is file');
   const json = assertJSON(result.output);
   assert(json.error.code === 'INVALID_WORKTREE_ROOT', 'Should have INVALID_WORKTREE_ROOT');
@@ -1117,16 +1140,14 @@ test('scenario: user cleans up old worktrees', () => {
 
 test('scenario: user with WORKTREE_ROOT env var', () => {
   const customRoot = '/tmp/custom-worktrees';
-  try {
+  {
     const output = execSync(
-      `WORKTREE_ROOT="${customRoot}" node "${SCRIPT_PATH}" info --json`,
-      { encoding: 'utf-8', cwd: STANDALONE_DIR, stdio: ['pipe', 'pipe', 'pipe'] }
+      `node "${SCRIPT_PATH}" info --json`,
+      { env: { ...process.env, WORKTREE_ROOT: customRoot }, encoding: 'utf-8', cwd: STANDALONE_DIR, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     const json = JSON.parse(output.trim());
-    assert(json.worktreeRoot === customRoot, 'Should use env var');
+    assert(json.worktreeRoot === path.resolve(customRoot), 'Should use env var');
     assert(json.worktreeRootSource === 'WORKTREE_ROOT env', 'Should indicate env source');
-  } catch (error) {
-    // Skip if env var handling fails
   }
 });
 

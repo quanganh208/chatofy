@@ -18,9 +18,7 @@ gate once at the end.
   multi-reviewer strategy). Passing both is a hard-stop naming both, never a
   silent resolution.
 
-Full mechanics — evidence packet, anonymization, the five-usable-candidate gate
-with one bounded re-dispatch, the fail-closed runtime rule, reject-all, and the
-Stage mapping — are in `../../ak-brainstorm/references/ultra-verifier-mode.md`.
+Full mechanics are in `../../ak-brainstorm/references/ultra-verifier-mode.md`.
 `--ultra` composes with the `#PR` / `COMMIT` / `--pending` / non-parallel
 `codebase` input modes and with `--yagni`. It is a best-of-5 verifier mode
 inspired by LLM-as-a-Verifier, not the full framework; never claim its
@@ -30,8 +28,7 @@ logprob/tournament algorithm.
 
 When `--advice` is present, run this skill under `kongming` supervision.
 Load `../../ak-brainstorm/references/advisory-supervision.md` for supervisor
-identity, host detection, and model routing (Claude subscription → Fable 5;
-Codex → `gpt-6-astra` + low effort; Cursor → `claude-fable-5-high`).
+identity, host detection, and model routing.
 
 Spawn `kongming` at these checkpoints:
 

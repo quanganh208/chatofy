@@ -33,7 +33,14 @@ limits, shortcuts, environment settings, or storage paths in this skill.
 
 If a required capability is absent or fails, stop and report the observed
 error. Do not silently substitute ordinary subagents: `/ak-team` either uses a
-live team surface or aborts.
+live team surface or aborts. One exception: when Agent Teams are unavailable
+and an installed herdr-core (`hc`) route qualifies per the ak-orchestrate
+herdr-core route reference, run each teammate as an `hc`
+session in its own worktree. `hc` provides sessions, direct messages, state
+inspection and shutdown only; the lead keeps the shared task list, dependencies
+and ownership in its own run directory. Abort when the template needs plan
+approval or another capability the route lacks. Report teammate checks as
+harness-attested. Without a qualifying `hc` route, abort as before.
 
 ## Usage
 
@@ -69,7 +76,7 @@ Use this lifecycle for every template:
 8. **Shut down** teammates gracefully, wait for acknowledgements or concise
    handoffs, then invoke the live cleanup capability.
 9. **Close out** with the durable report and `/ak-journal` (unless the shared
-   "Journal step — opt-out" applies — see kits/core/skills/ak-journal/SKILL.md).
+   "Journal step — opt-out" applies — see the `ak-journal` skill).
 
 Do not poll a copied command name or fixed client interval. Wait through the
 live surface and re-inspect state after relevant messages, state changes, or a

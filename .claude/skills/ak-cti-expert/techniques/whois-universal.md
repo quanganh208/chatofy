@@ -26,10 +26,10 @@ Auto-detects TLD → correct WHOIS server via IANA. ~90% coverage, parsed struct
 pip3 install whoisdomain
 
 # Query
-python3 -c "import whoisdomain; print(whoisdomain.query('example.vn'))"
+python -c "import whoisdomain; print(whoisdomain.query('example.vn'))"
 
 # Structured fields
-python3 -c "
+python -c "
 import whoisdomain
 d = whoisdomain.query('example.com')
 print(f'Registrant: {d.registrant}')

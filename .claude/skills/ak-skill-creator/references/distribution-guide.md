@@ -81,3 +81,15 @@ For marketplace distribution, see:
 
 **Include MCP story (if applicable):**
 > "Our MCP server gives Claude access to your Linear projects. Our skills teach Claude your sprint planning workflow. Together: AI-powered project management."
+
+## SkillX
+
+Two separate routes; pick by audience:
+
+| Route | When | How |
+|---|---|---|
+| Personal kit private revision | The user's own skills synced across their devices | Opt-in lane in `personal-kit-and-skillx.md`: propose `ak skills kit publish <kit>`, run only after separate agreement |
+| Public listing from a repository | Sharing a skill hosted in a GitHub repository | `skillx publish` from that repository, following the steps above for repository layout |
+
+Neither route runs as part of `--apply`. A local publish refusal (for example
+`source.unsupported`) is reported as the current state.

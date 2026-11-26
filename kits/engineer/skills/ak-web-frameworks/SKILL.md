@@ -8,7 +8,7 @@ license: Proprietary
 argument-hint: "[framework] [feature]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Web Frameworks Skill Group
@@ -32,6 +32,8 @@ This skill group combines three powerful tools for web development:
 - Creating consistent UI with professional iconography
 - Managing workspace dependencies across multiple projects
 - Deploying production-ready applications with proper optimization
+
+SEO and GEO audits of these surfaces belong to the Marketing kit's SEO skill when it is installed; this skill builds them.
 
 ## Select the existing framework
 

@@ -1,8 +1,6 @@
 # Red Team Review
 
-Adversarially review an implementation plan by spawning parallel reviewer subagents that try to tear it apart. Each reviewer adopts a different hostile lens. You then adjudicate findings, and the user decides which to apply.
-
-**Mindset:** Like hiring someone who hates the implementer to destroy their work.
+Adversarially review an implementation plan with parallel reviewer subagents, each holding a different hostile lens and no view of this conversation. You adjudicate the findings; the user decides which to apply.
 
 ## Plan Resolution
 
@@ -10,72 +8,24 @@ Adversarially review an implementation plan by spawning parallel reviewer subage
 2. Else check `## Plan Context` section → Use active plan path
 3. If no plan found → Ask user to specify path or run `/ak-plan` first
 
-## Workflow
+## Workflow (in order)
 
-### Step 1: Read Plan Files
-Read the plan directory:
-- `plan.md` — Overview, phases, dependencies
-- `phase-*.md` — All phase files (full content)
+1. **Read** `plan.md` and every `phase-*.md` in full.
+2. **Scale reviewers** by phase count, using the lenses in `red-team-personas.md`:
 
-### Step 2: Scale Reviewer Count
+   | Phase Count | Reviewers | Lenses Selected |
+   |-------------|-----------|-----------------|
+   | 1-2 phases | 2 | Security Adversary + Assumption Destroyer |
+   | 3-5 phases | 3 | + Failure Mode Analyst |
+   | 6+ phases | 4 | + Scope & Complexity Critic (all lenses) |
 
-| Phase Count | Reviewers | Lenses Selected |
-|-------------|-----------|-----------------|
-| 1-2 phases | 2 | Security Adversary + Assumption Destroyer |
-| 3-5 phases | 3 | + Failure Mode Analyst |
-| 6+ phases | 4 | + Scope & Complexity Critic (all lenses) |
-
-### Step 3: Define Adversarial Lenses
-Load: `references/red-team-personas.md`
-
-### Step 4: Spawn Reviewers
-Launch reviewers simultaneously via delegate_agent capability with `subagent_type: "code-reviewer"`.
-Each reviewer prompt MUST include override, persona, plan file paths, and hostile instructions.
-Load: `references/red-team-personas.md` for reviewer prompt template.
-
-### Step 5: Collect, Deduplicate & Cap
-1. Collect all findings
-2. Deduplicate overlapping findings
-3. Sort by severity: Critical → High → Medium
-4. Cap at 15 findings
-
-### Step 5.5: Evidence Filter
-For each finding, check: does the `Evidence:` field contain at least one `file:line` citation (pattern `path/to/file.ext:NNN`)? If not, auto-set disposition to **Reject** with rationale "No codebase evidence." Do not evaluate merit for evidence-free findings.
-
-### Step 6: Adjudicate
-For each finding that passed the evidence filter, evaluate and propose: **Accept** or **Reject**.
-
-### Step 7: User Review
-Present via `ask_user capability`:
-- "Looks good, apply accepted findings"
-- "Let me review each one"
-- "Reject all, plan is fine"
-
-**If "Let me review each one":**
-For each finding marked Accept, ask via `ask_user capability`:
-- Options: "Yes, apply" | "No, reject" | "Modify suggestion"
-
-**If "Modify suggestion":**
-Ask via `ask_user capability`: "Describe your modification to this finding's suggested fix:"
-(user provides free text via "Other" option)
-Record the modified suggestion. Set disposition to "Accept (modified)" in the Red Team Review table.
-
-### Step 8: Apply to Plan
-For accepted findings, edit target phase files inline with marker.
-Add `## Red Team Review` section to `plan.md`.
-
-### Step 9: Whole-Plan Consistency Sweep
-Load: `references/verification-roles.md` → "Whole-Plan Consistency Sweep".
-
-After accepted findings are applied, re-read `plan.md` and every `phase-*.md` file. Red-team edits often change one local phase; this sweep prevents stale claims from surviving elsewhere.
-
-Required checks:
-- Convert accepted findings into a decision delta list.
-- Search all plan files for old terms, rejected assumptions, renamed files/APIs/fields, and superseded implementation details.
-- Reconcile `plan.md` summaries, dependencies, phase requirements, implementation steps, success criteria, and existing validation/red-team logs.
-- If a finding updates an embedded draft, pseudo-query, command, or API contract, update duplicate prose/draft copies too.
-- Append `### Whole-Plan Consistency Sweep` to `## Red Team Review`.
-- If contradictions remain, list them as unresolved and do not present the plan as ready for implementation.
+3. **Spawn reviewers** simultaneously via delegate_agent capability with `subagent_type: "code-reviewer"`, each built from the reviewer prompt template in `red-team-personas.md` with the plan file paths so they read the originals.
+4. **Collect**: deduplicate overlapping findings, sort by severity (Critical → High → Medium), and cap at 15.
+5. **Evidence filter**: a finding whose `Evidence:` field has no `file:line` citation (pattern `path/to/file.ext:NNN`) is set to **Reject** with rationale "No codebase evidence." without evaluating its merit.
+6. **Adjudicate** each remaining finding as **Accept** or **Reject**, with a specific evidence-based rationale.
+7. **User review** via `ask_user capability`: "Looks good, apply accepted findings" | "Let me review each one" | "Reject all, plan is fine". For "Let me review each one", ask per accepted finding: "Yes, apply" | "No, reject" | "Modify suggestion"; for a modification, record the user's free text and set the disposition to "Accept (modified)".
+8. **Apply** accepted findings to the target phase files inline with a marker, and add the `## Red Team Review` section to `plan.md`.
+9. **Sweep** with the Whole-Plan Consistency Sweep in `verification-roles.md`, appended to `## Red Team Review`.
 
 ## Output
 - Total findings by severity
@@ -88,10 +38,3 @@ Required checks:
 Remind user they can run `/ak-plan validate {plan-directory-path}` before implementation.
 When the user approves implementation, run `/ak-cook {ABSOLUTE_PATH_TO_PLAN_DIR}/plan.md`.
 Add `--auto` only when the user explicitly asks for autonomous implementation.
-
-## Important Notes
-- Reviewers must be HOSTILE, not helpful
-- Deduplicate aggressively
-- Adjudication must be evidence-based
-- Reviewers read plan files directly
-- Never recommend cooking until the whole-plan consistency sweep has no unresolved contradictions

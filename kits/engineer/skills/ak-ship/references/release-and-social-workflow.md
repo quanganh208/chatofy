@@ -26,7 +26,7 @@ Apply the shared **Journal step — opt-out** contract. Skip when
 `false`:
 
 ```bash
-ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'
+ak config prefs resolve --json | jq -r 'if [.prefs?.journal?.auto?] == [false] then "false" else "true" end'
 ```
 
 Command errors or any other output default to enabled. Precedence: flag,

@@ -179,7 +179,7 @@ curl -s "https://registry.faa.gov/AircraftInquiry/Search/NNumberInquiry?nNumber=
 # Get recent track data for aircraft by ICAO hex code
 # Replace ABCDEF with target ICAO hex
 curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
-  | python3 -m json.tool
+  | python -m json.tool
 ```
 
 **Expected output (abbreviated):**
@@ -227,7 +227,7 @@ curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
 # Position 11: Plant of manufacture
 # Positions 12-17: Sequential production number
 
-python3 -c "
+python -c "
 vin = 'JH4DA3340HS000001'
 model_year_map = {
     'A':'1980','B':'1981','C':'1982','D':'1983','E':'1984','F':'1985',

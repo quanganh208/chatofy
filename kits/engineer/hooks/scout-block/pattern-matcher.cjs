@@ -160,6 +160,10 @@ function matchPath(matcher, testPath) {
     normalized = normalized.slice(3);
   }
 
+  // Drop `.`, `..`, and other dot-only segments: the ignore lib throws on
+  // them, and none of them names a directory a pattern can block.
+  normalized = normalized.split('/').filter(segment => segment && !/^\.+$/.test(segment)).join('/');
+
   // Empty after normalization = not a blockable path
   if (!normalized) {
     return { blocked: false };

@@ -104,7 +104,7 @@ When two arrows have to cross, use jump-over arcs, because a plain crossing read
 
 **Python List Method** — build the SVG line by line:
 ```python
-python3 << 'EOF'
+python << 'EOF'
 lines = []
 lines.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700">')
 lines.append('  <defs>')

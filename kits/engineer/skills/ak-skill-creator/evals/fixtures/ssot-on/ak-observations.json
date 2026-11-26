@@ -1,0 +1,41 @@
+{
+  "ak_on_path": true,
+  "commands": {
+    "ak features list --json": {
+      "exit": 0,
+      "stdout": {
+        "features": [
+          {
+            "name": "skill_store",
+            "enabled": true
+          },
+          {
+            "name": "skill_overlays",
+            "enabled": true
+          },
+          {
+            "name": "skillx",
+            "enabled": false
+          }
+        ]
+      }
+    },
+    "ak skills kit status --json": {
+      "exit": 0,
+      "stdout": {
+        "kits": [
+          {
+            "name": "mine",
+            "packages": []
+          }
+        ]
+      }
+    },
+    "ak skills kit new-skill --help": {
+      "exit": 0
+    },
+    "ak skills improve --help": {
+      "exit": 0
+    }
+  }
+}

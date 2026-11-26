@@ -43,23 +43,23 @@ Result: 5 calls with the same `--style` produce 5 visibly distinct posters that 
 ### Search the knowledge base
 
 ```bash
-python3 scripts/poster/search.py --domain style --query "swiss editorial"
-python3 scripts/poster/search.py --domain palette --query "warm earthy"
-python3 scripts/poster/search.py --domain texture --query "risograph"
+python scripts/poster/search.py --domain style --query "swiss editorial"
+python scripts/poster/search.py --domain palette --query "warm earthy"
+python scripts/poster/search.py --domain texture --query "risograph"
 ```
 
 ### Build a design brief
 
 ```bash
-python3 scripts/poster/search.py --poster-brief --topic "AI Conference" --query "minimal grid"
+python scripts/poster/search.py --poster-brief --topic "AI Conference" --query "minimal grid"
 ```
 
 ### Generate a prompt for any image model
 
 ```bash
-python3 scripts/poster/generate.py --topic "AI Conference"
-python3 scripts/poster/generate.py --topic "AI Conference" --query "swiss" --aspect a2
-python3 scripts/poster/generate.py --topic "AI Conference" --style style-03-swiss-editorial --seed 42
+python scripts/poster/generate.py --topic "AI Conference"
+python scripts/poster/generate.py --topic "AI Conference" --query "swiss" --aspect a2
+python scripts/poster/generate.py --topic "AI Conference" --style style-03-swiss-editorial --seed 42
 ```
 
 Pipe the prompt into the image model of choice (Gemini Nano Banana 2, GPT Image, Imagen, Midjourney, etc.). The skill is model-agnostic — it emits text only.
@@ -77,10 +77,10 @@ If you add posters or want to refresh clusters:
 
 ```bash
 # 1. Run vision analysis (needs GEMINI_API_KEY)
-python3 scripts/poster/analyze.py --input-dir /path/to/posters
+python scripts/poster/analyze.py --input-dir /path/to/posters
 
 # 2. Re-cluster + regenerate CSVs
-python3 scripts/poster/cluster.py
+python scripts/poster/cluster.py
 ```
 
 `analyze.py` is resume-safe — re-running skips already-processed images unless `--force`.

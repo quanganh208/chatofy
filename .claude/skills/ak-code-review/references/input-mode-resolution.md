@@ -21,101 +21,24 @@ Parse arguments left-to-right. First match wins.
 | *(none + context)* | Default | recent changes |
 | *(none + no context)* | Prompt | ask user via `ask_user capability` |
 
-## Resolution Commands
+Input that could be a PR or a commit resolves as a PR; state the assumption.
 
-### PR Mode
+## Context per mode
 
-```bash
-# Extract PR number from argument
-PR_NUM=$(echo "$ARG" | grep -oE '[0-9]+$')
+Resolve the diff with `gh pr diff` (PR), `git show` (commit) or `git diff HEAD` (pending:
+staged plus unstaged). Pass reviewers the intent, the full diff and the changed-file list:
 
-# Fetch PR metadata
-gh pr view "$PR_NUM" --json title,body,files,additions,deletions,baseRefName,headRefName
+- PR: title, description and base branch.
+- Commit: commit message and parent.
+- Pending: there is no commit message yet, so ask the user for a one-line intent.
+- Default: recent changes already in the conversation; with none, fall back to Prompt.
+- Prompt: for a PR or commit choice, ask a second question for the number or hash.
 
-# Get the diff
-gh pr diff "$PR_NUM"
-
-# Get changed file list
-gh pr diff "$PR_NUM" --name-only
-```
-
-**Context passed to reviewers:**
-- PR title and description (intent)
-- Base branch (what it merges into)
-- Full diff
-- Changed file list for scout
-
-### Commit Mode
-
-```bash
-# Validate commit exists
-git cat-file -t "$COMMIT_HASH"
-
-# Get commit metadata
-git log -1 --format="%H%n%s%n%b" "$COMMIT_HASH"
-
-# Get the diff
-git show "$COMMIT_HASH" --stat
-git show "$COMMIT_HASH" -- # full diff
-
-# Changed files
-git show "$COMMIT_HASH" --name-only --format=""
-```
-
-**Context passed to reviewers:**
-- Commit message (intent)
-- Parent commit (what it changed from)
-- Full diff
-- Changed file list for scout
-
-### Pending Mode
-
-```bash
-# Staged changes
-git diff --cached
-
-# Unstaged changes
-git diff
-
-# Combined (staged + unstaged vs HEAD)
-git diff HEAD
-
-# Changed files
-git diff HEAD --name-only
-
-# Status overview
-git status --short
-```
-
-**Context passed to reviewers:**
-- No commit message yet — ask user for brief intent description
-- Combined diff (staged + unstaged)
-- Changed file list for scout
-
-### Default Mode
-
-Use recent changes already in conversation context. If no changes apparent, fall back to Prompt mode.
-
-### Prompt Mode
-
-When no arguments and no recent context, use `ask_user capability`:
-- Header: "Review Target"
-- Question: "What would you like to review?"
-- Options: Pending changes, Enter PR number, Enter commit hash, Full codebase scan, Parallel codebase audit
-
-For PR/commit options, follow up with second `ask_user capability` to get the number/hash.
-
-### Codebase Mode
-
-Codebase modes bypass diff resolution — they scan the full codebase instead.
-- `codebase` → hand off to `references/codebase-scan-workflow.md`
-- `codebase parallel` → hand off to `references/parallel-review-workflow.md`
-
-Both workflows include code quality review and final verification.
+Codebase modes skip diff resolution: `codebase` hands off to
+`references/codebase-scan-workflow.md`, `codebase parallel` to
+`references/parallel-review-workflow.md`.
 
 ## Pipeline Handoff
-
-After resolving the diff, pass to the review pipeline:
 
 ```
 Resolved diff
@@ -125,11 +48,5 @@ Resolved diff
   └─ Findings → Fix accepted issues and verify
 ```
 
-## Error Handling
-
-| Error | Action |
-|-------|--------|
-| PR not found | `gh pr view` fails → report "PR #N not found in this repo" |
-| Commit not found | `git cat-file` fails → report "Commit not found — is it pushed?" |
-| No pending changes | `git diff HEAD` empty → report "No pending changes to review" |
-| Ambiguous input | Could be PR or commit → prefer PR (more common), note assumption |
+Report a missing PR, an unknown commit (it may be unpushed) or an empty pending diff
+instead of reviewing nothing.

@@ -55,5 +55,19 @@ class GenerateTest(unittest.TestCase):
         self.assertNotIn("title: Intro", out)
 
 
+class ScanDocsPathTest(unittest.TestCase):
+    def test_rel_path_uses_forward_slashes_on_every_os(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            nested = Path(tmp) / "guide"
+            nested.mkdir()
+            (nested / "intro.md").write_text("# Intro\n", encoding="utf-8")
+            docs = gen.scan_docs(Path(tmp))
+        self.assertEqual([d["rel_path"] for d in docs], ["guide/intro.md"])
+        # Without a base URL the link is the source path; it must not carry "\\".
+        self.assertEqual(gen.build_url(docs[0]["rel_path"], ""), "guide/intro.md")
+
+
 if __name__ == "__main__":
     unittest.main()

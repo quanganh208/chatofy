@@ -29,7 +29,7 @@ chrome-profile list
 If real user Chrome state is not needed, use `agent-browser` state commands after manual login when available.
 
 ### Step 3: Run Tests
-After auth is available, run tests normally. If real user Chrome state is not needed:
+If real user Chrome state is not needed:
 ```bash
 agent-browser open https://example.com/dashboard
 agent-browser screenshot -o profile.png
@@ -69,12 +69,7 @@ charter and budget. It cannot replace mandatory assertions. For a confirmed bug,
 propose a durable regression test using `test-lifecycle.md`. An unfixed bug outside
 this task remains visible and follows existing release policy, not silent quarantine.
 
-## Output Requirements
-- Clear, structured Markdown with headers, lists, code blocks
-- Include test results summary, key findings, screenshot references
-- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
-
-**Do not** start implementing fixes.
+Do not start implementing fixes.
 
 ## Optional semantic regression experiment
 
@@ -99,13 +94,9 @@ and observed surfaces. Comparable completed observations also require the same
 assertion version, provider and model. Low probabilities and downward shifts
 are signals, not confirmed regressions.
 
-Example: `error-recovery` becomes an anomaly after a failed checkout request.
-Follow the report's hypothetical handoff: reproduce the checkout with the
-existing browser workflow, inspect visible retry controls and accessibility
-announcements, then inspect an existing screenshot with native vision or the
-installed multimodal capability when visual evidence is needed. Record whether
-that investigation confirms or rejects the signal. The command never launches
-these calls, skips screenshots, or changes the current UI test result.
+Follow an anomaly's hypothetical handoff with the existing browser workflow and
+record whether that investigation confirms or rejects the signal. The command
+never launches these calls, skips screenshots, or changes the current UI test result.
 
 Use `ak eval ui-benchmark corpus.json --json` for offline independently labeled
 journeys. Synthetic protocol fixtures test integration, not model effectiveness.

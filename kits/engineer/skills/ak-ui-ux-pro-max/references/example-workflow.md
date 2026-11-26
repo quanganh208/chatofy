@@ -11,7 +11,7 @@
 ## Step 2: Generate Design System (REQUIRED)
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "AI search tool modern minimal" --design-system -p "AI Search"
+python skills/ak-ui-ux-pro-max/scripts/search.py "AI search tool modern minimal" --design-system -p "AI Search"
 ```
 
 **Output:** Complete design system with pattern, style, colors, typography, effects, and anti-patterns.
@@ -20,16 +20,16 @@ python3 skills/ak-ui-ux-pro-max/scripts/search.py "AI search tool modern minimal
 
 ```bash
 # Get style options for a modern tool product
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "minimalism dark mode" --domain style
+python skills/ak-ui-ux-pro-max/scripts/search.py "minimalism dark mode" --domain style
 
 # Get UX best practices for search interaction and loading
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "search loading animation" --domain ux
+python skills/ak-ui-ux-pro-max/scripts/search.py "search loading animation" --domain ux
 ```
 
 ## Step 4: Stack Guidelines
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "list performance navigation" --stack react-native
+python skills/ak-ui-ux-pro-max/scripts/search.py "list performance navigation" --stack react-native
 ```
 
 **Then:** Synthesize design system + detailed searches and implement the design.

@@ -1,0 +1,12 @@
+{
+  "probes": {
+    "ak features list --json": {
+      "exit": 1,
+      "stderr": "Error: unknown command \"features\" for \"ak\""
+    },
+    "ak skills kit status --json": {
+      "exit": 1,
+      "stderr": "Error: unknown command \"kit\" for \"ak skills\""
+    }
+  }
+}

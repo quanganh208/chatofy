@@ -35,7 +35,14 @@ const AK_OPERATIONS = Object.freeze({
   'prefs-resolve': Object.freeze(['config', 'prefs', 'resolve', '--json']),
   // `--json` also keeps the call out of the auto-update trigger, so a hook can
   // never be the invocation that spawns a background update.
-  'update-status-ack': Object.freeze(['update', '--status', '--ack', '--json'])
+  'update-status-ack': Object.freeze(['update', '--status', '--ack', '--json']),
+  // The end-of-session recorder. The runtime is part of the frozen vector so a
+  // payload can never choose it.
+  'self-improve-record-claude-code': Object.freeze(['skills', 'self-improve', 'record', '--runtime', 'claude-code', '--json']),
+  'self-improve-record-codex': Object.freeze(['skills', 'self-improve', 'record', '--runtime', 'codex', '--json']),
+  // The next-session nudge, frozen per runtime like the recorder.
+  'self-improve-nudge-claude-code': Object.freeze(['skills', 'self-improve', 'nudge', '--runtime', 'claude-code', '--json']),
+  'self-improve-nudge-codex': Object.freeze(['skills', 'self-improve', 'nudge', '--runtime', 'codex', '--json'])
 });
 
 let cachedBinary;
@@ -57,11 +64,23 @@ const cachedPayloads = new Map();
 function resolveAkBinary() {
   if (cachedBinary !== undefined) return cachedBinary;
 
-  const candidates = [];
-
-  // An explicit override wins, and is how a sandboxed test points at a build.
+  // An explicit absolute override is authoritative: it is how a sandboxed test
+  // points at a build, or pins "no CLI" with a path that does not exist. A
+  // missing override therefore means no binary, never a fall through to the
+  // maintainer's own install or PATH.
   const override = process.env.AGENTKIT_BIN;
-  if (override && path.isAbsolute(override)) candidates.push(override);
+  if (override && path.isAbsolute(override)) {
+    let exists = false;
+    try {
+      exists = fs.existsSync(override);
+    } catch (e) {
+      // An unreadable override is simply not the binary.
+    }
+    cachedBinary = exists ? override : null;
+    return cachedBinary;
+  }
+
+  const candidates = [];
 
   const home = os.homedir();
   if (process.platform === 'win32') {

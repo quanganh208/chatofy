@@ -25,7 +25,7 @@ labels stay local and never enter the shared decision request. The public fixtur
 are protocol examples, not measured skill quality or an independent holdout.
 
 ```bash
-python3 scripts/semantic_routing_eval.py snapshot --export visible-catalog.json --output catalog.json
+python scripts/semantic_routing_eval.py snapshot --export visible-catalog.json --output catalog.json
 ```
 
 Each batch contains the complete 2–127-skill catalog plus `none`, and 1–8 cases.
@@ -37,9 +37,9 @@ fit even one case are unavailable. Case batches execute sequentially.
 ## Offline replay and comparison
 
 ```bash
-python3 scripts/semantic_routing_eval.py replay --catalog assets/semantic-routing/catalog-before.json --cases assets/semantic-routing/cases.json --responses assets/semantic-routing/replay-before.jsonl --output before.json
-python3 scripts/semantic_routing_eval.py replay --catalog assets/semantic-routing/catalog-after.json --cases assets/semantic-routing/cases.json --responses assets/semantic-routing/replay-after.jsonl --output after.json
-python3 scripts/semantic_routing_eval.py compare --baseline before.json --candidate after.json --output comparison.json
+python scripts/semantic_routing_eval.py replay --catalog assets/semantic-routing/catalog-before.json --cases assets/semantic-routing/cases.json --responses assets/semantic-routing/replay-before.jsonl --output before.json
+python scripts/semantic_routing_eval.py replay --catalog assets/semantic-routing/catalog-after.json --cases assets/semantic-routing/cases.json --responses assets/semantic-routing/replay-after.jsonl --output after.json
+python scripts/semantic_routing_eval.py compare --baseline before.json --candidate after.json --output comparison.json
 ```
 
 Replay starts no process/network and needs no key. JSONL envelopes bind catalog,
@@ -65,7 +65,7 @@ from the frozen kit snapshot (`docs/conformance/skill-catalog/<kit>.json` in the
 AgentKit repository; only model-invocable skills enter):
 
 ```bash
-python3 scripts/semantic_routing_eval.py catalog-from-snapshot --snapshot docs/conformance/skill-catalog/engineer.json --output engineer-catalog.json
+python scripts/semantic_routing_eval.py catalog-from-snapshot --snapshot docs/conformance/skill-catalog/engineer.json --output engineer-catalog.json
 ```
 
 That catalog is `source-derived-composition` with `complete: false`: it predicts the
@@ -83,8 +83,8 @@ hypothetical example, not a roster decision): each mapping names `from`, `to` an
 baseline skills must still exist in the candidate roster.
 
 ```bash
-python3 scripts/semantic_routing_eval.py remap --cases cases.json --identity-map identity.json --catalog catalog.json --candidate-catalog candidate.json --output candidate-cases.json
-python3 scripts/semantic_routing_eval.py compare-restructure --baseline before.json --candidate after.json --baseline-records before.json.records.jsonl --candidate-records after.json.records.jsonl --cases cases.json --identity-map identity.json --output restructure.json
+python scripts/semantic_routing_eval.py remap --cases cases.json --identity-map identity.json --catalog catalog.json --candidate-catalog candidate.json --output candidate-cases.json
+python scripts/semantic_routing_eval.py compare-restructure --baseline before.json --candidate after.json --baseline-records before.json.records.jsonl --candidate-records after.json.records.jsonl --cases cases.json --identity-map identity.json --output restructure.json
 ```
 
 Run the candidate with the remapped cases. The comparison is confounded unless the
@@ -106,8 +106,8 @@ through your existing secret mechanism, never in fixtures, commands or reports.
 Paid calls are possible. Disable the consumer or master preference to stop them.
 
 ```bash
-python3 scripts/semantic_routing_eval.py schedule --catalog catalog.json --candidate-catalog candidate.json --cases cases.json --output schedule.json --ak /absolute/ak
-python3 scripts/semantic_routing_eval.py run --live --catalog catalog.json --cases cases.json --batch-size 1 --output train-before.json --ak /absolute/ak
+python scripts/semantic_routing_eval.py schedule --catalog catalog.json --candidate-catalog candidate.json --cases cases.json --output schedule.json --ak /absolute/ak
+python scripts/semantic_routing_eval.py run --live --catalog catalog.json --cases cases.json --batch-size 1 --output train-before.json --ak /absolute/ak
 ```
 
 Use the schedule's common batch size for both variants. Scheduling invokes only
@@ -115,8 +115,8 @@ Use the schedule's common batch size for both variants. Scheduling invokes only
 Tune on train findings only. Once selected, freeze the final candidate:
 
 ```bash
-python3 scripts/semantic_routing_eval.py freeze --catalog candidate.json --cases cases.json --output frozen.json
-python3 scripts/semantic_routing_eval.py run --live --catalog candidate.json --cases cases.json --split holdout --freeze frozen.json --batch-size 1 --output holdout.json --ak /absolute/ak
+python scripts/semantic_routing_eval.py freeze --catalog candidate.json --cases cases.json --output frozen.json
+python scripts/semantic_routing_eval.py run --live --catalog candidate.json --cases cases.json --split holdout --freeze frozen.json --batch-size 1 --output holdout.json --ak /absolute/ak
 ```
 
 Freeze binds the candidate, full case set and holdout identity. This is a reproducible
@@ -144,7 +144,7 @@ original native trace and normalization provenance beside this normalized artifa
 the importer checks integrity/identity, not authenticity of an external producer.
 
 ```bash
-python3 scripts/semantic_routing_eval.py summarize --catalog catalog.json --records runtime-record.json --output runtime-summary.json
+python scripts/semantic_routing_eval.py summarize --catalog catalog.json --records runtime-record.json --output runtime-summary.json
 ```
 
 Summaries retain multiple activations and per-runtime counts. Missing Claude Code,

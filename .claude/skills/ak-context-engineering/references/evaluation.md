@@ -26,7 +26,7 @@ claim of savings or cross-model effectiveness. Unit fixtures test accounting, no
 
 ## Offline reducer input (schema version 1)
 
-`python3 scripts/benchmark_metrics.py runs.json` (or `-` for standard input) accepts:
+`python scripts/benchmark_metrics.py runs.json` (or `-` for standard input) accepts:
 
 ```json
 {

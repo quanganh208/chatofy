@@ -197,8 +197,6 @@ class TailwindConfigGenerator:
         """Generate TypeScript configuration."""
         plugins_str = self._format_plugins()
 
-        config_json = json.dumps(self.config, indent=2)
-
         # Remove plugin array from JSON (we'll add it with require())
         config_obj = self.config.copy()
         config_obj.pop("plugins", None)
@@ -240,11 +238,17 @@ module.exports = {{
         return ", ".join(plugin_requires)
 
     def _indent_json(self, json_str: str, level: int) -> str:
-        """Add indentation to JSON string."""
+        """Indent a JSON object's body for embedding before more properties.
+
+        The outer braces are dropped and the last property gets a trailing
+        comma, so the caller can append `plugins` and still emit valid JS/TS.
+        """
         indent = "  " * level
         lines = json_str.split("\n")
         # Skip first and last lines (braces)
         indented = [indent + line for line in lines[1:-1]]
+        if indented:
+            indented[-1] += ","
         return "\n".join(indented)
 
     def write_config(self) -> tuple[bool, str]:

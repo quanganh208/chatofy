@@ -7,8 +7,8 @@ commands. Run from this skill's root or use the script's absolute path from any 
 ## Cases and assertions
 
 ```bash
-python3 scripts/eval_skill.py validate assets/eval-cases.example.json
-python3 scripts/eval_skill.py validate /absolute/target-skill/evals/evals.json
+python scripts/eval_skill.py validate assets/eval-cases.example.json
+python scripts/eval_skill.py validate /absolute/target-skill/evals/evals.json
 ```
 
 Assertions have `id`, `text`, and optional `kind`:
@@ -18,6 +18,7 @@ Assertions have `id`, `text`, and optional `kind`:
 | `file-exists` | `path` | Contained file exists |
 | `json-equals` | `path`, `expected` | Parsed artifact matches expected JSON |
 | `text-contains` | `path`, `expected` string | Required contract fragment exists |
+| `text-absent` | `path`, `expected` string | Artifact exists and the forbidden literal (a decoy secret, leaked state) does not appear |
 | `rubric` (default) | `text` | Independent review with cited artifact evidence |
 
 Use exact equality for machine contracts, not wording preferences. Paths are
@@ -35,7 +36,7 @@ verification as blocked and continue structural work with that limitation stated
 After an actual consumer run:
 
 ```bash
-python3 scripts/eval_skill.py grade assets/eval-cases.example.json \
+python scripts/eval_skill.py grade assets/eval-cases.example.json \
   --case-id normalize-valid --outputs /absolute/run/outputs \
   --run-id unique-session-id --variant candidate \
   --model effective-model-id --runtime observed-runtime-version \
@@ -100,7 +101,7 @@ may fill rubric verdicts with concrete evidence, preserving the original record
 and reviewer identity separately.
 
 ```bash
-python3 scripts/eval_skill.py summarize /absolute/run-a/record.json \
+python scripts/eval_skill.py summarize /absolute/run-a/record.json \
   /absolute/run-b/record.json > /absolute/comparison.json
 ```
 

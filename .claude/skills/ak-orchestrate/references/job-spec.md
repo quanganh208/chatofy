@@ -156,9 +156,23 @@ reconciles execution attempts and returns newly dispatchable native jobs plus
 supervisor run IDs. A completed CLI attempt waits for explicit artifact
 acceptance. Invoke again after observed transitions;
 it does not run an autonomous model-selection loop. `accept` binds a native
-receipt to the exact attempt; inspect its installed help and receipt type for
-required fields. Native completion claims still require artifact and check
-verification. Never fabricate process exit codes for native work.
+receipt to the exact attempt. Native completion claims still require artifact
+and check verification. Never fabricate process exit codes for native work.
+
+The receipt is one strict JSON object with exact, case-sensitive keys;
+`ak orchestrate accept --help` is the authoritative schema. `success` (boolean)
+is required, `settled` must be `true`, and `artifacts` lists every declared
+output as `{path, sha256}` when `success` is `true`. Any unknown, duplicate or
+misspelled key (for example `status` or `outcome`), wrong type or invalid field
+value exits 2 with `error_code: validation_failed` and a `remediation.reason` of
+`receipt_*` before the run is read; fix the receipt and repeat `accept`. Checks
+that depend on the run, such as artifact hashes and settlement, run during
+acceptance and exit 1. A receipt with `success: false` settles the attempt
+failed and records the reason on it.
+
+```json
+{"settled": true, "success": true, "artifacts": [{"path": "native/report.md", "sha256": "<64 hex>"}]}
+```
 
 Declared verification commands run under a persisted supervisor run. Acceptance
 may report verification pending; retain the same receipt and repeat `accept`
@@ -169,7 +183,13 @@ a job whose user or supplied spec declares `verification:`, and never convert
 it to `checks:`. A coordinator-authored spec on such a host lists its check
 commands under descriptive `checks:`; the harness runs them with its own
 bounded timeout, and the report records each command, exit status and output
-as harness-attested, not supervisor-verified.
+as harness-attested, not supervisor-verified. `prepare` accepts `checks:`
+without `verification:`; a job that declares both needs one check per
+verification invocation. An accepted attempt records `checks: pass` when the
+engine ran `verification:`, `checks: harness-attested` for descriptive `checks:`
+alone (declared, run by the harness, not observed by the engine), and
+`checks: not-requested` when the job declares neither; a failed verification
+records `fail`.
 
 Record selected route separately from receipt `observed` identity and its
 evidence source. Unknown actual provider/model stays absent; executable names
@@ -178,8 +198,47 @@ and requested flags do not attest which model performed the work.
 State persists intended supervisor IDs before launch. Resume through `advance`
 instead of creating another run. A launch whose outcome cannot be proved keeps
 its ownership blocked. Successful results are reusable only while base revision,
-input fingerprints and output hashes remain valid; stale prerequisites invalidate
-dependent results and the arbiter. Do not edit the prepared spec in place.
+input fingerprints and output hashes remain valid; a stale prerequisite makes
+accepted dependents and the arbiter stale too. Do not edit the prepared spec in
+place.
+
+A job whose owned paths, artifacts or base revision changed after acceptance
+becomes `stale`, and plain `accept` refuses it with `error_code: "conflict"`.
+Restoring the accepted files restores the job. A commit changes the base
+revision of every job sharing that working directory, so each accepted job
+there turns stale; `git revert` makes another commit and does not restore
+them, while resetting to the accepted commit does. To keep an intended follow-up change (an edited report, one more
+commit), recover in place instead of preparing a new run:
+
+```bash
+ak orchestrate accept <run-dir> <job-id> --attempt <attempt-id> --result <receipt.json> --reaccept --json
+```
+
+The receipt reports `success: true` with the current artifact digests; only
+those digests and the new fingerprint are recorded. Re-acceptance needs the
+attempt that was accepted before, unchanged declared inputs and accepted
+dependencies, and it reruns declared `verification:` (repeat it while
+verification is pending; changed content starts a fresh run). Recover
+dependencies before dependents. A dependent leaves `stale` on its own only
+when its dependencies' evidence is exactly what it was accepted against;
+otherwise it needs its own `--reaccept` so its checks run against the new
+content. When declared inputs or a handed-off artifact changed, the job's work
+no longer matches its inputs: prepare a new run for it. Jobs not yet accepted
+never turn `stale`; they wait until their dependencies are accepted again. An
+attempt dispatched before a dependency was accepted again with different
+evidence is refused at acceptance; prepare a new run for it (a failed receipt
+retries only when the attempt left its owned paths untouched). Restoring the
+accepted files also abandons an unfinished `--reaccept`; while that run is
+still live, a later `--reaccept` waits for it to settle instead of starting a
+second run beside it. Plans saved by this build use `state.json` version 2;
+older `ak` builds refuse such a plan instead of dropping its recovery evidence.
+
+Owned-path fingerprints reuse per-file digests cached in
+`<run-dir>/.fingerprint-cache/` while a file's size, mtime, change time and file
+identity are unchanged (Linux, macOS and Windows; other platforms rehash), so a
+large owned worktree is fully read once. Deleting that directory costs one full
+rehash and never changes acceptance. Hashing that runs longer than a few seconds
+reports progress on stderr unless `--json` or `--quiet` is set.
 
 Create worktrees before preparation. Paths are relative to each job's cwd and
 must remain within its authorized root. A handoff names a dependency's declared

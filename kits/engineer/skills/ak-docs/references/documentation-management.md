@@ -52,4 +52,4 @@ another reconciliation layer.
   evergreen docs only when they remain useful.
 - `/ak-tech-graph`: use for publish-grade diagrams when a visual materially
   improves the document.
-- Any skill editing `docs/` applies `references/doc-content-rules.md`.
+- Any skill editing `docs/` applies `doc-content-rules.md`.

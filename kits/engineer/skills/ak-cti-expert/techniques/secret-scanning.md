@@ -91,7 +91,7 @@ gitleaks detect --source=/tmp/target-repo --log-opts="--all" --report-format=jso
 ### GitDorker — GitHub search API
 ```bash
 cd GitDorker
-python3 GitDorker.py -tf tokens.txt -q <domain.com> -d dorks/BHIS_toplevel_dorks.txt -o gitdorker-output.txt
+python GitDorker.py -tf tokens.txt -q <domain.com> -d dorks/BHIS_toplevel_dorks.txt -o gitdorker-output.txt
 ```
 **Requires:** Free GitHub token in `tokens.txt`
 

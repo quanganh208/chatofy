@@ -89,16 +89,28 @@ a write, so it is the user's choice: name the command rather than running it
 (`ak` refuses it from an agent with exit 6). `sync now --json` lists those writes under
 `sealed` by ID and outcome, never by name or value.
 
+With sync on, `set`, `rotate`, `annotate`, `rm` and `import-env` push their
+change in the background after the local write commits; the command never
+waits for it or fails because of it. A push that did not finish leaves the
+change queued and the next mutation prints a stderr warning. `--no-push` on one
+command, or `AGENTKIT_SECRETS_AUTO_PUSH=0`, turns it off; the file backend is
+never pushed in the background (its passphrase comes only from a terminal).
+
 ```bash
 ak secrets sync status --json     # local only: enabled, last push/pull, conflicts
-ak secrets sync now --json        # one cycle after a write
+ak secrets sync now --json        # push and pull now, or check a background push
 ```
+
+`sync now` paces itself under the server's per-device request budget and, when
+the server still answers `rate_limited`, waits out its `Retry-After` (up to 15
+minutes in all, announced on stderr) and keeps going, so a bulk import drains
+in one run. Do not add retry loops or schedulers around it.
 
 | `sync now` exit | Meaning and next step |
 |---|---|
 | 0 | Synced. |
 | 10 | Sync is not enabled here. Offer `ak secrets sync enable --recovery-kit-out <file>` for the user to run; it needs `ak login` (or an API key with vault sync on) and writes the recovery kit only to that file, never the terminal. |
-| 11 | Server busy or unreachable; retry later, the local write is safe. |
+| 11 | Server unreachable, or still rate limiting after 15 minutes of waiting; retry later, the local write is safe. |
 | 12 | Synced, but something needs attention; read the JSON and report it. |
 | 13 | Integrity alarm; sync halted. Stop and tell the user. |
 | 14 | Not signed in or device removed; the user runs `ak login`. |

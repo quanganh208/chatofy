@@ -66,25 +66,44 @@ def _probe_playwright() -> tuple[bool, str]:
         return False, f"playwright probe failed: {exc}"
 
 
+def _browser_roots() -> list[Path]:
+    """Playwright browser cache roots, most specific first.
+
+    Honours PLAYWRIGHT_BROWSERS_PATH, then Playwright's per-OS default cache,
+    then the legacy /opt/pw-browsers container path.
+    """
+    env = os.environ.get(PW_BROWSERS_HINT)
+    if env and env != "0":
+        return [Path(env)]
+    home = Path.home()
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or str(home / "AppData" / "Local")
+        default = Path(local) / "ms-playwright"
+    elif sys.platform == "darwin":
+        default = home / "Library" / "Caches" / "ms-playwright"
+    else:
+        default = Path(os.environ.get("XDG_CACHE_HOME") or home / ".cache") / "ms-playwright"
+    return [default, Path("/opt/pw-browsers")]
+
+
 def _probe_chromium() -> tuple[bool, str]:
-    root = os.environ.get(PW_BROWSERS_HINT, "/opt/pw-browsers")
-    candidates = [
-        Path(root) / "chromium",
-        Path(root) / "chromium_headless_shell-1194",
-        Path(root) / "chromium-1194",
-    ]
-    hits = [str(c) for c in candidates if c.exists()]
-    if hits:
-        return True, f"chromium found: {hits[0]}"
-    return False, f"chromium not found under {root} (set {PW_BROWSERS_HINT})"
+    if os.environ.get(PW_BROWSERS_HINT) == "0":
+        # Playwright keeps browsers inside its own package; the playwright probe covers it.
+        return True, f"{PW_BROWSERS_HINT}=0: browsers live inside the playwright package"
+    roots = _browser_roots()
+    for root in roots:
+        hits = sorted(c for c in root.glob("chromium*") if c.is_dir()) if root.is_dir() else []
+        if hits:
+            return True, f"chromium found: {hits[0]}"
+    searched = ", ".join(str(r) for r in roots)
+    return False, f"chromium not found under {searched} (set {PW_BROWSERS_HINT})"
 
 
 def _probe_ffmpeg() -> tuple[bool, str]:
     ffmpeg = _which("ffmpeg")
     if ffmpeg:
         return True, f"ffmpeg on PATH: {ffmpeg}"
-    root = os.environ.get(PW_BROWSERS_HINT, "/opt/pw-browsers")
-    candidates = list(Path(root).glob("ffmpeg*"))
+    candidates = [c for root in _browser_roots() if root.is_dir() for c in root.glob("ffmpeg*")]
     if candidates:
         return True, f"ffmpeg bundled: {candidates[0]}"
     return False, "ffmpeg missing (needed only for --video output)"

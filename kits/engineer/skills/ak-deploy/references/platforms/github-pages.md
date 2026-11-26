@@ -45,9 +45,9 @@ jobs:
 - `gh-pages` branch
 - `.github/workflows/` with `deploy-pages` or `pages` actions
 
-## Free Tier
-- Completely free for public repos
-- 1GB repo size, 100GB bandwidth/mo, 10 builds/hr
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits, and cite it. Do not quote figures from memory.
 
 ## Rollback
 Revert commit and push, or re-run previous workflow

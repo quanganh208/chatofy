@@ -1,8 +1,7 @@
 # Suite Audit Workflow (`audit`)
 
-Find tests that fail to establish the intended contract. LLM-authored code often optimizes for "done"
-at any cost, so suites accumulate tests written only to pass, disabled tests,
-unfinished tests, and stubs that assert nothing. The audit restores the suite's evidential value.
+Find tests that fail to establish the intended contract: tests written only to pass,
+disabled tests, unfinished tests, and stubs that assert nothing.
 
 ## 1. Inspect the affected suite
 
@@ -69,7 +68,7 @@ Audit is report-only by default. The following repair steps apply only when the 
 
 ## 5. Report
 
-Per `references/report-format.md`: findings by class and severity with
+Per `report-format.md`: findings by class and severity with
 evidence, repairs applied vs proposed (and why), protection and measured costs
 before/after, untested gaps and unresolved questions last. Hand measured execution
 opportunities to optimize without turning report-only audit into edit authority.

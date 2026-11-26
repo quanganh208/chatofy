@@ -8,7 +8,7 @@ argument-hint: "[input-file] [--format <svg|fragment|html>] [--preset <classic|s
 license: Proprietary; includes MIT- and ISC-licensed third-party material, see LICENSE.txt
 metadata:
   author: agentkit
-  version: "3.0.0"
+  version: "3.0.1"
   upstream_templates: cathrynlavery/diagram-design (MIT)
   design_reference: tt-a1i/archify (MIT; IR archetypes, presets and reader concepts only, no code vendored)
   vendored_pele_version: "1.6.0"
@@ -16,6 +16,8 @@ metadata:
 ---
 
 # ak-diagram - Unified System Map & Interactive Diagram Surface
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Compile typed JSON IR specifications into deterministic SVGs, embeddable fragments, and self-contained interactive HTML readers without browser dependencies. The compiler owns layout: it ranks the graph, orders columns to reduce crossings, routes orthogonal edges around unrelated nodes, and renders role-aware cards with a legend, so authors describe topology and never coordinates.
 
@@ -72,7 +74,7 @@ node scripts/compiler/compile.mjs --input diagram.json --format svg --out ./buil
 node scripts/compiler/compile.mjs --input diagram.json --format fragment --preset signal-flow --theme dark
 
 # Legacy Python wrapper (auto-detects typed IR vs Mermaid vs legacy template)
-python3 scripts/render.py --input diagram.json --out ./build/
+python scripts/render.py --input diagram.json --out ./build/
 ```
 
 ## AK Render Page Embedding

@@ -7,10 +7,12 @@ keywords: [webmcp, model-context, browser-agents, document-modelcontext, agentic
 argument-hint: "[page, form, or feature to expose as a tool]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.0.2"
 ---
 
 # WebMCP — Agent-Ready Web Tools
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Use this skill to expose a website's functionality as WebMCP **tools** — named
 JavaScript functions with a description and JSON Schema that in-browser AI agents
@@ -84,7 +86,7 @@ Run from the skill directory. Both are dependency-free (Python 3.8+ / Node 18+).
 
 - **Scaffold a tool:**
   ```
-  python3 scripts/scaffold_tool.py --name search_products \
+  python scripts/scaffold_tool.py --name search_products \
     --description "Search the product catalog by keyword." \
     --param query:string:"Search keyword" \
     --param category:string --enum category=books,music,film \

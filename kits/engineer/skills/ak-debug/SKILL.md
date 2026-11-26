@@ -8,131 +8,49 @@ languages: all
 argument-hint: "[error or issue description] [--ultra]"
 metadata:
   author: agentkit
-  version: "4.2.0"
+  version: "4.2.2"
 ---
 
 # Debugging & System Investigation
 
-Comprehensive framework combining systematic debugging, root cause tracing, defense-in-depth validation, verification protocols, and system-level investigation (logs, CI/CD, databases, performance).
+## Iron laws
 
-## Core Principle
+**No fixes without root cause investigation first.** Find the root cause, fix at the source,
+validate the failure path and affected boundaries.
 
-**NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST**
+**No completion claims without fresh verification evidence.** Run the command, read the
+output, then claim the result. For a completed repair, relevant evidence is enough; the full
+diagnostic workflow is for unresolved failures.
 
-Random fixes waste time and create new bugs. Find root cause, fix at source, validate the failure path and affected boundaries, verify before claiming success.
+## Routing
 
-## When to Use
+Load a reference only when the task needs its detail.
 
-**Code-level:** Test failures, bugs, unexpected behavior, build failures, integration problems
-**System-level:** Server errors, CI/CD pipeline failures, performance degradation, database issues, log analysis
-**At completion:** Verify the repaired behavior with relevant evidence; a full diagnostic workflow is needed only for unresolved failures.
+| Situation | Load |
+|---|---|
+| Bug needing investigation and fix (four phases) | `references/systematic-debugging.md` |
+| Bad value deep in a call stack; test pollution (`scripts/find-polluter.sh`) | `references/root-cause-tracing.md` |
+| Choosing validation layers once the cause is known | `references/defense-in-depth.md` |
+| About to claim fixed, passing or done | `references/verification.md` |
+| Server incident, system behavior, multi-component failure | `references/investigation-methodology.md` |
+| CI/CD pipeline, server or deployment log failures | `references/log-and-ci-analysis.md` |
+| Slow queries, latency, resource exhaustion | `references/performance-diagnostics.md` |
+| Reporting any measured speedup, regression, latency or resource number | `../ak-test/references/explain-the-number.md` |
+| Writing a diagnostic report | `references/reporting-standards.md` |
+| 3+ step investigation, parallel evidence collection, debugger subagents | `references/task-management-debugging.md` |
+| Frontend files touched (tsx/jsx/vue/svelte/html/css), UI bugs, visual regressions | `references/frontend-verification.md` |
 
-## Techniques
+## Tools and handoffs
 
-### 1. Systematic Debugging (`references/systematic-debugging.md`)
-
-Four-phase framework: Root Cause Investigation → Pattern Analysis → Hypothesis Testing → Implementation. Complete each phase before proceeding. No fixes without Phase 1.
-
-**Load when:** Any bug/issue requiring investigation and fix
-
-### 2. Root Cause Tracing (`references/root-cause-tracing.md`)
-
-Trace bugs backward through call stack to find original trigger. Fix at source, not symptom. Includes `scripts/find-polluter.sh` for bisecting test pollution.
-
-**Load when:** Error deep in call stack, unclear where invalid data originated
-
-### 3. Defense-in-Depth (`references/defense-in-depth.md`)
-
-Inspect relevant boundaries: entry validation, business logic, environment guards or instrumentation. Add a check only where it discriminates between plausible causes or protects the repaired contract.
-
-**Load when:** After finding root cause, need comprehensive validation
-
-### 4. Verification (`references/verification.md`)
-
-**Iron law:** NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE. Run command. Read output. Then claim result.
-
-**Load when:** About to claim work complete, fixed, or passing
-
-### 5. Investigation Methodology (`references/investigation-methodology.md`)
-
-Five-step structured investigation for system-level issues: Initial Assessment → Data Collection → Analysis → Root Cause ID → Solution Development
-
-**Load when:** Server incidents, system behavior analysis, multi-component failures
-
-### 6. Log & CI/CD Analysis (`references/log-and-ci-analysis.md`)
-
-Collect and analyze logs from servers, CI/CD pipelines (GitHub Actions), application layers. Tools: `gh` CLI, structured log queries, correlation across sources.
-
-**Load when:** CI/CD pipeline failures, server errors, deployment issues
-
-### 7. Performance Diagnostics (`references/performance-diagnostics.md`)
-
-Identify bottlenecks, analyze query performance, develop optimization strategies. Covers database queries, API response times, resource utilization.
-
-**Load when:** Performance degradation, slow queries, high latency, resource exhaustion
-
-### 8. Reporting Standards (`references/reporting-standards.md`)
-
-Structured diagnostic reports: Executive Summary → Technical Analysis → Recommendations → Evidence
-
-**Load when:** Need to produce investigation report or diagnostic summary
-
-### 9. Investigation Tracking (`references/task-management-debugging.md`)
-
-For multi-step investigations, discover the live task-management surface and
-use it to track dependencies, ownership, and parallel evidence collection when
-available. Otherwise, update the active plan. Plan files are the durable source of truth,
-so debugging never depends on a particular client's task API.
-
-**Load when:** Multi-component investigation (3+ steps), parallel log collection, coordinating debugger subagents
-
-### 10. Frontend Verification (`references/frontend-verification.md`)
-
-Visual verification of frontend implementations via `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests. Use `ak-chrome-profile` and its exact tab binding when real Chrome profile state matters; raw Chrome MCP navigation is only for generic/profile-independent inspection. Detect if frontend-related -> check browser tool availability -> screenshot + console error check -> report. Skip if not frontend.
-
-**Load when:** Implementation touches frontend files (tsx/jsx/vue/svelte/html/css), UI bugs, visual regressions
-
-## Quick Reference
-
-```
-Code bug       → systematic-debugging.md (Phase 1-4)
-  Deep in stack  → root-cause-tracing.md (trace backward)
-  Found cause    → defense-in-depth.md (add layers)
-  Claiming done  → verification.md (verify first)
-
-System issue   → investigation-methodology.md (5 steps)
-  CI/CD failure  → log-and-ci-analysis.md
-  Slow system    → performance-diagnostics.md
-  Need report    → reporting-standards.md
-
-Frontend fix   → frontend-verification.md (agent-browser/chrome-profile/Chrome MCP)
-```
-
-## Tools Integration
-
-- **Database:** `psql` for PostgreSQL queries and diagnostics
-- **CI/CD:** `gh` CLI for GitHub Actions logs and pipeline debugging
-- **Codebase:** `ak-docs-seeker` skill for package/plugin docs; `ak-repomix` skill for codebase summary
-- **Scouting:** `/ak-scout` or `/ak-scout ext` for finding relevant files
-- **Frontend:** `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests for visual verification. For real profile state, let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools.
-- **Skills:** Activate `ak-problem-solving` skill when stuck on complex issues
-
-## Red Flags
-
-Stop and follow process if thinking:
-- "Quick fix for now, investigate later"
-- "Just try changing X and see if it works"
-- "It's probably X, let me fix that"
-- "Should work now" / "Seems fixed"
-- "Tests pass, we're done"
-
-**All mean:** Return to systematic process.
-
-## Workflow Position
-
-**Typically follows:** `/ak-scout` (after locating relevant code)
-**Typically precedes:** `/ak-fix` (fix the diagnosed issue), `/ak-brainstorm` (explore solutions for complex problems)
-**Related:** `/ak-scout` (discover before debugging), `/ak-fix` (fix after diagnosing)
+- **Codebase:** `/ak-scout` or `/ak-scout ext` to find files; `ak-docs-seeker` for package
+  docs; `ak-repomix` for a codebase summary.
+- **Frontend:** `ak-agent-browser`, `ak-chrome-profile`, Chrome MCP / `chrome-devtools-mcp`,
+  or project-native browser tests. When real Chrome profile state matters, let
+  `chrome-profile open --json` create the tab and bind to its returned selector before using
+  MCP inspection tools; raw Chrome MCP navigation is only for profile-independent inspection.
+- **Stuck:** `ak-problem-solving` for complex issues.
+- **Position:** usually follows `/ak-scout`; hands off to `/ak-fix` to repair the diagnosed
+  issue, or `/ak-brainstorm` when several fixes are viable.
 
 ## Ultra Verifier Mode (`--ultra`)
 
@@ -154,27 +72,23 @@ parallel wave, then a single strongest-model verifier scores them.
   rejects all); the controller then verifies the winning root cause with fresh
   evidence (iron law) before any fix. On reject-all, hard-stop and report why.
 
-Full mechanics — evidence packet, anonymization, the five-usable-candidate gate,
-reject-all, and the fail-closed runtime rule — are in
-`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5 verifier
-mode inspired by LLM-as-a-Verifier, not the full framework.
+Full mechanics (evidence packet, anonymization, the five-usable-candidate gate,
+reject-all, and the fail-closed runtime rule) are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`.
 
 ## Optional workflow shadow experiment
 
 Only when explicitly requested, inspect `ak eval workflow --help` and prepare
-its bounded, reviewed request with workflow `debug`. Default `off`
-validates locally. `--mode shadow` additionally requires user-scope master and
-provider configuration, explicit `workflow-controller: true` consumer consent,
-and the provider credential; never enable or infer consent from an ambient key.
-The optional command may send sanitized facts externally and incur charges.
+its bounded, reviewed request with workflow `debug`. Default `off` validates locally.
+`--mode shadow` additionally requires user-scope master and provider configuration,
+explicit `workflow-controller: true` consumer consent, and the provider credential;
+never enable or infer consent from an ambient key. The command may send sanitized
+facts externally and incur charges. Ordinary skill startup makes no call.
 
 Supply the existing domain decision and complete policy facts first. Keep all
 `effective_*` decisions unchanged; record accepted `hypothetical_*` suggestions
-only for comparison. Errors, low confidence and unavailable provider evidence
-use the existing workflow. Never execute a recommendation or treat it as
-permission. Existing caps, user stops, three-failure human checkpoints and
-approval/R3 controls remain authoritative. Ordinary skill startup makes no call.
-
-This is a shadow prototype for retry/replan/escalation decisions, not a new loop
-or executor. At three failed repairs retain the required human architecture
-checkpoint; never reset counters or rename a retry to evade a cap.
+only for comparison. Errors, low confidence and unavailable provider evidence use
+the existing workflow. Never execute a recommendation or treat it as permission.
+Existing caps, user stops, the three-failure human architecture checkpoint and
+approval/R3 controls remain authoritative; never reset counters or rename a retry
+to evade a cap.

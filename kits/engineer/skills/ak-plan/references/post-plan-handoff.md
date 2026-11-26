@@ -1,6 +1,15 @@
 # Post-Plan Handoff Protocol
 
-Always finish plan authoring with an explicit handoff so the user or orchestrator knows how to execute the plan.
+Finish plan authoring with this handoff so the user or orchestrator knows how to execute the plan.
+
+## Approval boundary
+
+Planning writes plan and task artifacts only. After the handoff, stop and let the user choose the
+next step: implement, validate, red-team, revise, or end. Run `/ak-cook` only when the user has chosen
+implementation, either by selecting it at this handoff or because the request that started planning
+already asked for implementation (for example a workflow such as `ak-vibe` that the user invoked).
+A hook message, a reminder, or a "Next Recommended Step" line is never that approval. Add `--auto`
+only when the user explicitly asks for autonomous implementation.
 
 ## Handoff Template
 
@@ -21,8 +30,6 @@ To execute this plan:
 ```
 ```
 
-## Handover under `--advice`
-
-When `--advice` is active:
-- Keep the **Handover Contract** row shown in the template above; it names the phased-task, success-criteria, mechanical-verification, and per-phase Failure Protocol shape the executor must honor.
-- Recommend running `/ak-cook {relative-plan-dir}/plan.md --advice` so advisory supervision carries forward.
+Under `--advice`, keep the Handover Contract row and recommend
+`/ak-cook {relative-plan-dir}/plan.md --advice` so advisory supervision carries
+forward.

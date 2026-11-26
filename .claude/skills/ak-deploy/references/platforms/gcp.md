@@ -29,8 +29,9 @@ steps:
 ## Detection
 - `cloudbuild.yaml`, `app.yaml` (GAE format), Dockerfile
 
-## Free Tier (Permanent)
-- 2M requests/mo, 180K vCPU-seconds/mo, 360K GiB-seconds/mo
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://cloud.google.com/run/pricing, and cite it. Do not quote figures from memory.
 
 ## Cost Optimize
 - `--min-instances=0` for scale-to-zero
