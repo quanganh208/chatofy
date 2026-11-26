@@ -34,7 +34,7 @@ from file totals. Use a native tokenizer/counter when available; never invent pr
 ## Analyzer
 
 ```bash
-python3 scripts/context_analyzer.py analyze messages.json --limit 200000 \
+python scripts/context_analyzer.py analyze messages.json --limit 200000 \
   --used-tokens 120000 --next-step 30000 --output-reserve 8000 --checkpoint-reserve 4000
 ```
 
@@ -46,7 +46,7 @@ are diagnostics, not evidence of poisoning. `health_score`, `degradation_risk` a
 ## Two independent budgets
 
 ```bash
-python3 scripts/context_analyzer.py budget --system 2000 --tools 2000 \
+python scripts/context_analyzer.py budget --system 2000 --tools 2000 \
   --docs 4000 --history 12000 --window 100000 --next-step 10000 \
   --output-reserve 4000 --checkpoint-reserve 2000 \
   --task-limit 200000 --task-spent 70000 --agent-budget scan=20000 \

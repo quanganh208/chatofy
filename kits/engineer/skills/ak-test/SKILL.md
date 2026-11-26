@@ -4,20 +4,21 @@ description: "Run unit, integration, e2e and UI tests with coverage analysis, bu
 when_to_use: "Invoke for running or designing validation suites."
 category: workflow
 keywords: [test, unit, integration, e2e, coverage]
-argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
+argument-hint: "[context] OR run|exec [context] OR ui [url] OR create|update|optimize|audit|review [scope] [--report] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: "1.3.0"
+  version: "1.5.0"
   workflow:
     precedes: [ak-git]
 ---
 
 # Testing & Quality Assurance
 
-Help users ship faster with AI agents without increasing production-release risk.
-Choose useful verification, reuse valid work, and measure development time, CI
-cost, device load and token use before claiming efficiency gains. A shorter suite
-or prompt is not itself evidence of better delivery.
+Choose useful verification and reuse valid work without increasing release risk.
+Measure development time, CI cost, device load and token use before claiming
+efficiency gains; a shorter suite or prompt is not itself evidence of better delivery.
+Before any report states a measured speedup, regression, latency gate or saving,
+run `references/explain-the-number.md` and give its verdict with the named limiter.
 
 ## Default (No Arguments)
 
@@ -25,18 +26,16 @@ If invoked with context (test scope), proceed with testing. If invoked WITHOUT a
 
 | Operation | Description |
 |-----------|-------------|
-| `(default)` | Run unit/integration/e2e tests |
+| `(default)`, `run`, `exec` | Run unit/integration/e2e tests |
 | `ui` | Run UI tests on a website |
 | `create` | Scout the codebase + docs, then create a covering test suite |
+| `update` | Reconcile existing tests with an accepted behavior or contract change |
 | `optimize` | Inspect affected tests and CI, then reduce measured cost/time safely |
-| `audit` | Inspect the suite + CI and report evidence-backed findings |
+| `audit`, `review` | Inspect the suite + CI and report evidence-backed findings |
 
 Present as options via `ask_user capability` with header "Test Operation", question "What would you like to do?".
 
 ## Core Principle
-
-Investigate every observed failure. Preserve the repository's safety gates and
-expectations; do not weaken tests or policy to obtain a green result.
 
 `references/practical-principles-for-setting-up-and-running-tests.md` is the
 authority for scope, layer, environment, and execution choices. Every workflow
@@ -46,19 +45,15 @@ Before adding tests or launching broad checks, state the contract and its author
 affected risk, suitable existing check, and missing evidence. A short inline summary
 is enough for a small change. A covered refactor may need no new tests.
 
-## When to Use
-
-- **After implementation**: Validate new features or bug fixes
-- **Coverage checks**: Assess coverage against repository thresholds and critical behavior
-- **UI verification**: Visual regression, responsive layout, accessibility
-- **Build validation**: Verify build process, dependencies, CI/CD compatibility
-- **Pre-commit/push**: Final quality gate
+Investigate every observed failure; never weaken tests, assertions, or policy to obtain
+a green result.
 
 ## Workflows
 
 ### 1. Code Testing (`references/test-execution-workflow.md`)
 
-Execute test suites, analyze results, generate coverage. Supports JS/TS (Jest/Vitest/Mocha), Python (pytest), Go, Rust, Flutter. Includes working process, quality standards, and tool commands.
+Execute test suites, analyze results, generate coverage, verify builds. `run` and
+`exec` are explicit names for this default operation.
 
 **Load when:** Running unit/integration/e2e tests, checking coverage, validating builds
 
@@ -70,7 +65,7 @@ Browser-based visual testing via `ak-agent-browser`, `ak-chrome-profile`, `ak-we
 
 ### 3. Report Format (`references/report-format.md`)
 
-Structured QA report template: test results overview, coverage metrics, failed tests, performance, build status, recommendations.
+Compact evidence report template.
 
 **Load when:** Generating test summary reports
 
@@ -84,32 +79,25 @@ covers them.
 
 ### 5. Suite Optimization (`references/optimize-suite-workflow.md`)
 
-`optimize`: inspect affected CI/CD workflows, history, code and docs; delegate only
-independent areas when the resource budget justifies it. Reduce measured work at
-equal safety using the repository's existing execution policy. For repository-owned manifests, the same
-workflow uses `ak test optimize` for deterministic ranked selection and optional
-execution; external uncertainty broadens and mandatory policy checks remain.
-Explicitly consented semantic shadow/advisory modes can add observations or
-checks; they never remove the deterministic baseline. Never infer that consent
-from a key, and never change E2E scheduling from classification advice.
+`optimize`: inspect affected CI/CD workflows, history, code and docs, then reduce
+measured work at equal safety using the repository's existing execution policy. For
+repository-owned manifests it uses `ak test optimize` for deterministic ranked
+selection; explicitly consented semantic modes never remove that baseline.
 
 **Load when:** `optimize` argument — CI too slow/expensive, suite growth pains
 
 ### 6. Suite Audit (`references/audit-suite-workflow.md`)
 
-`audit`: inspect the affected suite and CI/CD workflows, detect deceptive or weak tests (tests written only to pass,
-commented-out/skipped tests, unfinished tests, redundant or outdated tests,
-security gaps), then report ranked findings and proposed repairs. Audit alone does not authorize edits.
+`audit`: inspect the affected suite and CI/CD workflows for deceptive or weak tests,
+then report ranked findings and proposed repairs. Audit alone does not authorize edits.
 
-**Load when:** `audit` argument — trust or quality concerns about the suite
+`review` is an alias of `audit`.
+
+**Load when:** `audit` or `review` argument — trust or quality concerns about the suite
 
 ### 7. Test Principles (`references/practical-principles-for-setting-up-and-running-tests.md`)
 
-The eleven governing rules for every operation: test what your system owns,
-scope by risk, test at the lowest reliable layer, isolate environments, run
-sequentially by default, run expensive tests with a purpose, keep concurrency
-tests deterministic, never game the green build, investigate failures with
-evidence, test the final code, and keep tests in sync with specifications.
+The eleven governing rules for every operation.
 
 **Load when:** choosing test scope, layer, or environment; deciding whether a
 slow, flaky, or parallel test earns its place; triaging a failure; or
@@ -122,27 +110,29 @@ audit proposal, or QA report must be consistent with these rules.
 assessing defect-detection value with bounded mutation and measured cost. This owns
 admission/retirement decisions shared by default, create, audit and optimize.
 
+### 9. Explain the Number (`references/explain-the-number.md`)
+
+Seven questions and four verdicts (`faster`, `slower`, `no measurable difference`,
+`inconclusive`) for any measured number. `inconclusive` is never a pass.
+
+**Load when:** a report, gate or claim contains a measured timing, throughput,
+latency percentile, resource or cost comparison.
+
+### 10. Suite Update (`references/update-suite-workflow.md`)
+
+`update`: map the tests a behavior or contract change affects, classify each
+failure, and change an assertion only where the accepted contract changed.
+
+**Load when:** `update` argument — behavior, API, schema or contract changed
+
+### 11. Process and Resource Management (`references/process-and-resource-management.md`)
+
+**Load when:** a run starts servers, watchers, browsers, containers or temporary
+roots, or runs beside other sessions or worktrees.
+
 The UI workflow routes to `references/agentic-e2e-workflow.md` only for a project
 already using that engine or a user-requested setup. Ordinary runs need neither it
 nor a model provider.
-
-## Quick Reference
-
-```
-Principles     → practical-principles-for-setting-up-and-running-tests.md
-  Scope, layer, environment, sequential vs parallel, expensive tests, failure triage
-
-Code tests     → test-execution-workflow.md
-  npm test / pytest / go test / cargo test / flutter test
-  Coverage: npm run test:coverage / pytest --cov
-
-UI tests       → ui-testing-workflow.md
-  Screenshots, responsive, a11y, forms, console errors
-  Auth: chrome-profile for real user login/cookies, or project-native test setup
-
-Reports        → report-format.md
-  Structured QA summary with metrics & recommendations
-```
 
 ## Working Process
 
@@ -155,21 +145,8 @@ Reports        → report-format.md
 
 ## Tools Integration
 
-- **Test runners**: Jest, Vitest, Mocha, pytest, go test, cargo test, flutter test
-- **Coverage**: Istanbul/c8/nyc, pytest-cov, go cover
-- **Browser**: `ak-agent-browser` for live browser interaction without real user cookies; `ak-chrome-profile` for the user's actual Chrome login state, opened with `chrome-profile open --json` and bound by the returned selector; `ak-web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
 - **Analysis**: `ak-ai-multimodal` skill for screenshot analysis
 - **Debugging**: `ak-debug` skill when tests reveal bugs requiring investigation
-- **Thinking**: `ak-fable-thinking` skill for complex test failure analysis
-
-## Quality Standards
-
-- All critical paths must have test coverage
-- Validate happy path AND error scenarios
-- Ensure test isolation — no interdependencies
-- Tests must be deterministic and reproducible
-- Clean up test data after execution
-- Never ignore failing tests to pass the build
 
 ## Report Output
 Use the repository report location when a durable report is needed; return concise results directly for a small run.
@@ -178,27 +155,25 @@ Use naming pattern from `## Naming` section injected by hooks.
 
 ## Team Mode
 
-When operating as teammate:
-1. Discover the live task-management surface and the live team-coordination surface
-2. Claim the assigned or next unblocked item when supported; otherwise read and update the active plan
-3. Read the full work description before starting and wait for implementation prerequisites
-4. Respect file ownership — only create/edit test files assigned
-5. When done, record completion and report results through the live team surface
-
-Plan files are the durable source of truth when runtime task tracking is absent
-or session-scoped.
+As a teammate, claim the assigned or next unblocked item on the live task and team
+surfaces (otherwise read and update the active plan), wait for implementation
+prerequisites, edit only the test files assigned to you, and report completion
+there. Plan files are the durable source of truth when runtime task tracking is
+absent or session-scoped.
 
 ## Workflow Position
 
 **Typically follows:** `/ak-cook` (test after implementation), `/ak-fix` (test after bug fix)
 **Typically precedes:** `ak-git` (commit once tests pass)
-**Related:** `/ak-cook` (implement then test), `/ak-fix` (fix then test)
 
-## Flags (create / optimize / audit)
+## Flags (create / update / optimize / audit)
 
-- `--advice` — run under `kongming` advisory supervision (see below).
-- `--ultra` — run the analysis/design step as a best-of-5 verifier pass (see
-  Ultra Verifier Mode).
+`--advice` and `--ultra` are described below.
+
+- `--report` — with `audit`, `review` or `optimize`: read-only. Write the findings
+  or the proposed optimization plan as a report and change no test, CI workflow or
+  configuration, even when repair would otherwise apply.
+
 - `--interview` — before applying any change, list every proposed change
   (tests added/removed/rewritten, CI workflow edits) with a one-line reason and
   interview the user via `ask_user capability` — one decision per change group;
@@ -219,7 +194,7 @@ stuck. Invoke with
 
 ## Ultra Verifier Mode (`--ultra`)
 
-When `--ultra` is present with `create`, `optimize`, or `audit`, run the
+When `--ultra` is present with `create`, `optimize`, or `audit`/`review`, run the
 analysis/design step as a best-of-5 verifier pass: one immutable evidence
 packet (scout reports, CI timings, git history summary), exactly five
 independent read-only candidates in one parallel wave, one strongest-model
@@ -233,6 +208,5 @@ verifier.
   candidates — a real deceptive test may be caught by only one candidate;
   repairs run once on the union.
 
-Full mechanics are in `../ak-brainstorm/references/ultra-verifier-mode.md`. It
-is a best-of-5 verifier mode inspired by LLM-as-a-Verifier, not the full
-framework. `--ultra` composes with `--advice` and `--interview`.
+Full mechanics are in `../ak-brainstorm/references/ultra-verifier-mode.md`.
+`--ultra` composes with `--advice` and `--interview`.

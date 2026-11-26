@@ -99,6 +99,11 @@
       {
         "hooks": [
           {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/self-improve-recorder.cjs\"",
+            "timeout": 3,
+            "type": "command"
+          },
+          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
@@ -109,6 +114,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/self-improve-nudge.cjs\"",
+            "timeout": 3,
+            "type": "command"
+          },
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"

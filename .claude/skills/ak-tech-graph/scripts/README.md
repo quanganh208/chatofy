@@ -73,12 +73,12 @@ SVG 图表生成脚本，提供自动验证和 PNG 导出。
 
 **用法：**
 ```bash
-python3 ./generate-from-template.py architecture ./output/arch.svg '{"style":1,"title":"My Diagram","containers":[],"nodes":[],"arrows":[]}'
+python ./generate-from-template.py architecture ./output/arch.svg '{"style":1,"title":"My Diagram","containers":[],"nodes":[],"arrows":[]}'
 ```
 
 **示例：**
 ```bash
-python3 ./generate-from-template.py memory ./output/mem0.svg '{
+python ./generate-from-template.py memory ./output/mem0.svg '{
   "style": 1,
   "title": "Mem0 Memory Architecture",
   "containers": [

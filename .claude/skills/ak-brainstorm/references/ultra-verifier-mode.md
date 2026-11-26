@@ -25,8 +25,8 @@ it.
 Verification scaling helps most when verifying is easier than generating — work
 with a checkable outcome (a plan against acceptance criteria, a review against
 evidence, a contract against constraints). For open-ended taste work with no
-ground truth it adds cost without reliable signal; say so and prefer the default
-path.
+ground truth, or routine work, five candidates plus a verifier cost several
+times a single run without reliable signal; say so and prefer the default path.
 
 ## Roles
 
@@ -38,9 +38,7 @@ path.
   otherwise they run on the runtime's single strongest available tier (see the
   model-tier degrade note below).
 - **Verifier** — one verifier subagent (Kongming). Model routing matches
-  `--advice`: Claude Code subscription → `fable` (Fable 5); Codex →
-  `gpt-6-astra` at low reasoning; see
-  `advisory-supervision.md`. It runs on the runtime's strongest available
+  `--advice` (see `advisory-supervision.md`). It runs on the runtime's strongest available
   model when tier routing exists; otherwise it shares the candidates' tier
   under the degrade note. Advisory: it scores and selects; it does not edit
   files.
@@ -128,7 +126,7 @@ so reject-all and evidence-backed rubric scores stay mandatory, not optional.
 
 ## Asymmetric finalizer
 
-The finalizer differs by skill and MUST NOT be collapsed to one behavior:
+The finalizer differs by skill; keep each skill's rule below rather than one shared behavior:
 
 - **`ak-brainstorm` and `ak-plan` select the single winning candidate.** The
   verifier picks one winner (or rejects all); the controller materializes that
@@ -181,9 +179,3 @@ of validated findings. Stage 1 and the final gate keep their existing
 single-pass semantics. `--ultra` hard-conflicts with `codebase parallel`
 (both own the multi-reviewer strategy) — a combination is a hard-stop naming
 both, never a silent resolution.
-
-## Cost note
-
-Five candidates plus one verifier costs several times a single run. Use `--ultra`
-when the decision is load-bearing enough to justify it; the default path stays
-the right choice for routine work.

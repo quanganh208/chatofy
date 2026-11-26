@@ -1,0 +1,9 @@
+{
+  "probes": {
+    "note": "ak is not on PATH; every ak call fails to start.",
+    "ak features list --json": {
+      "exit": 127,
+      "stderr": "ak: command not found"
+    }
+  }
+}

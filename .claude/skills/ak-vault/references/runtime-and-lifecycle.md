@@ -23,10 +23,18 @@ What blocks the call instead of running it:
   have the program read it from the vault-backed environment instead;
 - no grant covers this agent, project, and purpose (`resolve` exits 8). The
   request waits for the user: tell them to run `ak secrets approve` in their own
-  terminal, choosing once, a TTL, persist, or deny. Then retry the same call.
+  terminal (never through an agent shell or Claude Code's `!` prefix),
+  choosing once, a TTL, persist, or deny. Then retry the same call. Once covers
+  one run only; for a job with several runs, request every scope first, in
+  the same form (ordinary or exec) the job will use, and ask for a TTL, as in
+  the SKILL.md section on multi-step jobs. With sync on, the request also goes
+  to the user's other devices; the user may answer there with
+  `ak secrets approvals approve <id> [--ttl DURATION]` or
+  `ak secrets approvals deny <id>`. The first answer wins, and a retry picks up
+  a remote allow (exit 0) or deny (exit 6).
 
-An agent cannot grant or approve: `ak secrets grant` and `ak secrets approve`
-both exit 6 when a coding agent sits above the process. Do not retry them or
+An agent cannot grant or approve: `ak secrets grant`, `ak secrets approve` and
+`ak secrets approvals approve` exit 6 when a coding agent sits above the process. Do not retry them or
 look for another route.
 
 Never write a reference into text that a hook would resolve by accident, such
@@ -39,7 +47,9 @@ tools.
 |---|---|
 | `ak secrets grants --json` | List current allows and blocks. |
 | `ak secrets grant <REF> --agent sha256:<hex> [--ttl 30d \| --persist \| --block] [--allow-host <host>]` | Pre-authorize or block an agent. |
+| `ak secrets grant <REF> --agent sha256:<hex> --repo` (or `ak secrets approve --repo`) | Opt-in repository-wide grant: covers the same AK project in every git worktree of the repository, including unreviewed branches; an `--allow-host` list on either slot binds both, and an `--exec` program inside one worktree does not carry. Suggest it only when the user keeps approving the same request per worktree. |
 | `ak secrets revoke <REF> --agent sha256:<hex>` | Remove one grant. |
+| `ak secrets revoke <REF> --agent sha256:<hex> --repo` | Remove a repository-wide grant (a plain revoke names only this worktree). |
 | `ak secrets revoke --agent sha256:<hex> --all` | Panic button: revoke every grant that agent holds. |
 | `ak secrets trust <adapter> [--refresh]` | Show or re-pin a runtime binary after an upgrade. |
 

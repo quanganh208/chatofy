@@ -29,6 +29,7 @@ const {
 const { resolveLayout } = require('./hooks/lib/statusline-section-registry.cjs');
 const { render, renderCompact, renderMinimal } = require('./hooks/lib/statusline-render-modes.cjs');
 const { formatCountdown } = require('./hooks/lib/statusline-string-utils.cjs');
+const { computeContextPercent, resolveAutoCompactWindow } = require('./hooks/lib/context-window-usage.cjs');
 
 const AUTOCOMPACT_BUFFER = 40000;
 const USAGE_CACHE_RENDER_TTL_MS = 300000;
@@ -142,29 +143,30 @@ async function main() {
       }
     } catch {}
 
-    // Context window percentage
+    // Context window percentage, measured against the auto-compact window when
+    // CLAUDE_CODE_AUTO_COMPACT_WINDOW sets one below the model window
     const usage = data.context_window?.current_usage || {};
     const contextSize = data.context_window?.context_window_size || 0;
-    let contextPercent = 0;
-    let totalTokens = 0;
-    if (contextSize > 0) {
-      totalTokens = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
-      const preCalc = data.context_window?.used_percentage;
-      if (typeof preCalc === 'number' && preCalc >= 0) {
-        contextPercent = Math.round(preCalc);
-      } else if (contextSize > AUTOCOMPACT_BUFFER) {
-        contextPercent = Math.min(100, Math.round(((totalTokens + AUTOCOMPACT_BUFFER) / contextSize) * 100));
-      }
-    }
+    const contextUsage = computeContextPercent({
+      contextWindow: data.context_window,
+      autocompactBuffer: AUTOCOMPACT_BUFFER,
+      autoCompactWindow: contextSize > 0
+        ? resolveAutoCompactWindow({ projectDir: data.workspace?.project_dir || data.workspace?.current_dir || data.cwd || '' })
+        : null
+    });
+    const contextPercent = contextUsage.percent;
+    const totalTokens = contextUsage.totalTokens;
 
     // Persist context data for hooks
     if (sessionContext && contextSize > 0) {
       try {
         writeContextState(sessionContext, {
           percent: contextPercent,
-          remaining: data.context_window?.remaining_percentage ?? (100 - contextPercent),
+          remaining: contextUsage.compactWindowApplied
+            ? 100 - contextPercent
+            : (data.context_window?.remaining_percentage ?? (100 - contextPercent)),
           tokens: totalTokens,
-          size: contextSize,
+          size: contextUsage.windowSize,
           usage,
           timestamp: Date.now()
         });

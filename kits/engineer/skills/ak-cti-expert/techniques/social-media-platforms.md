@@ -409,7 +409,7 @@ instaloader <username> --no-video-thumbnails --geotags
 instaloader --no-pictures --no-videos --no-video-thumbnails <username>
 
 # Osintgram interactive shell
-cd Osintgram && python3 main.py <username>
+cd Osintgram && python main.py <username>
 # Commands: followers, following, fwersemail, fwingsemail, photos_location, comments
 ```
 

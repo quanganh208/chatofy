@@ -1,10 +1,9 @@
 ## Ultra Verifier Mode (`--ultra`)
 
-When `--ultra` is present, run the brainstorm as a best-of-5 verifier pass
-instead of a single draft. The controller builds one immutable evidence packet
-plus a rubric, dispatches exactly five independent read-only candidate
-brainstorms in one parallel wave, then a single strongest-model verifier scores
-and ranks them and selects the winning candidate (or rejects all).
+When `--ultra` is present, run the brainstorm through the shared best-of-5
+protocol in `ultra-verifier-mode.md` (evidence packet, five read-only
+candidates, anonymized verifier, usable-candidate gate, fail-closed runtime
+rule, reject-all), with:
 
 - **Candidate task:** each candidate produces a complete bounded contract —
   outcome, constraints, non-goals, acceptance criteria, plus Trade-offs and
@@ -17,9 +16,5 @@ and ranks them and selects the winning candidate (or rejects all).
   controller emits that winner unchanged (it does not blend candidates) and
   records a short ranking appendix. On reject-all, hard-stop and report why.
 
-Full mechanics — evidence packet, anonymization, the five-usable-candidate gate
-with one bounded re-dispatch, the fail-closed runtime rule, and reject-all — are
-in `ultra-verifier-mode.md`. `--ultra` composes with `--html`,
-`--report`, `--advice`, and `--yagni`, and adds no new conflicts. It is a best-of-5 verifier
-mode inspired by LLM-as-a-Verifier, not the full framework; never claim its
-logprob/tournament algorithm.
+`--ultra` composes with `--html`, `--report`, `--advice`, and `--yagni`, and
+adds no new conflicts.

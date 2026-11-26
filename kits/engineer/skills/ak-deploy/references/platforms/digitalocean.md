@@ -30,10 +30,9 @@ services:
 - `.do/app.yaml`, `spec.yaml`
 - Dockerfile, buildpack detection
 
-## Free Tier
-- 3 static sites free
-- Dynamic apps from $5/mo
-- Droplets (VPS) from $4/mo
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://www.digitalocean.com/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 ```bash

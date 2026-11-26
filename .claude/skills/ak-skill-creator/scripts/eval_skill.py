@@ -29,6 +29,8 @@ def grade(case, outputs):
                     passed = json.dumps(load_json(path), sort_keys=True) == json.dumps(assertion['expected'], sort_keys=True)
                 if passed and kind == 'text-contains':
                     passed = assertion['expected'] in path.read_text(encoding='utf-8')
+                if passed and kind == 'text-absent':
+                    passed = assertion['expected'] not in path.read_text(encoding='utf-8')
                 check.update(passed=passed, evidence=f'{kind}: {assertion["path"]}: {"pass" if passed else "fail"}')
             except (OSError, ValueError, RuntimeError) as exc:
                 check.update(passed=False, evidence=f'{kind}: {assertion["path"]}: {type(exc).__name__}')

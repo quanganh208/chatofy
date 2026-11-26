@@ -20,9 +20,9 @@ curl -X POST "https://your-coolify.com/api/v1/deploy" \
 - `docker-compose.yml` + Coolify dashboard reference
 - Dockerfile, buildpack detection
 
-## Free Tier
-- Free (self-hosted, open-source)
-- VPS cost only (~$5-6/mo on DO/Vultr, $2.50 on Vultr minimum)
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://coolify.io/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 Via dashboard: select previous deployment

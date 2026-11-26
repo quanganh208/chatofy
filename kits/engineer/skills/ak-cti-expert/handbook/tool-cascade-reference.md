@@ -198,7 +198,7 @@ Quick reference for all CLI tools used by Free OSINT Expert modules. Covers inst
 | Priority | Tool | Method | Notes |
 |----------|------|--------|-------|
 | 1 (Web) | DorkSearch | `https://dorksearch.com/` | Pre-built dork queries for OSINT |
-| 2 (GitHub) | GitDorker | `python3 GitDorker.py -t <token> -d dorks.txt -q <target>` | Automated GitHub secret dorking |
+| 2 (GitHub) | GitDorker | `python GitDorker.py -t <token> -d dorks.txt -q <target>` | Automated GitHub secret dorking |
 
 ### Unified / Meta OSINT Tools
 
@@ -212,7 +212,7 @@ Quick reference for all CLI tools used by Free OSINT Expert modules. Covers inst
 
 | Priority | Tool | Method | Notes |
 |----------|------|--------|-------|
-| 1 (Primary) | whoisdomain | `python3 -c "import whoisdomain; print(whoisdomain.query('<domain>'))"` | IANA auto-detect, ~90% TLDs |
+| 1 (Primary) | whoisdomain | `python -c "import whoisdomain; print(whoisdomain.query('<domain>'))"` | IANA auto-detect, ~90% TLDs |
 | 2 (Secondary) | CLI whois | `whois -h <tld-server> <domain>` | Direct ccTLD server query |
 | 3 (Tertiary) | Whoxy API | `curl "https://api.whoxy.com/?key=free&whois=<domain>"` | 1595+ TLDs, free |
 | 4 (Quaternary) | who.is web | `who.is/whois/<domain>` | Web UI, manual or scrape |

@@ -8,7 +8,7 @@ license: Proprietary
 argument-hint: "[requirements] [--auto|--full|--fast|--parallel] [--ask] [--ultra] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -185,7 +185,7 @@ Elite software engineering expert specializing in system architecture and techni
 
 Skip the automatic `/ak-journal` step when either applies:
 - The invocation includes the `--skip-journal` flag, OR
-- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+- `ak config prefs resolve --json | jq -r 'if [.prefs?.journal?.auto?] == [false] then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`).
 When skipped, print one line:

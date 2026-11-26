@@ -7,8 +7,10 @@
  *
  * The runnable copy lives beside the emitted hook tree (`.claude/scripts/` for a
  * native project install, `~/.claude/scripts/` for a native global install, and
- * `<plugin>/scripts/` under an explicit plugin install) so the require below
- * resolves. The `.agentkit/scripts/` sidecar leaf is a forwarder to it.
+ * `<plugin>/scripts/` under an explicit plugin install, `<cursorRoot>/scripts/`
+ * on Cursor) so the hook helpers resolve at ../hooks/lib. Grok's copy sits in
+ * `<grokRoot>/hooks/scripts/` and loads them from a sibling `hooks/<kit>/lib`.
+ * The `.agentkit/scripts/` sidecar leaf is a forwarder to it.
  *
  * This script updates the session temp file with the new active plan path,
  * allowing subagents to receive the latest plan context via SubagentStart hook.
@@ -28,14 +30,37 @@
 
 const fs = require('fs');
 const path = require('path');
+
+const HOOK_HELPERS = ['ck-config-utils.cjs', 'runtime-state-identity.cjs'];
+
+// Kit source and most installs keep scripts/ beside hooks/, so the shared hook
+// helpers live at ../hooks/lib. Grok emits this script to hooks/scripts/ while
+// each kit's helpers sit in hooks/<kit>/lib, a sibling of this directory. Pick
+// one directory that holds every helper so they always load as a set.
+function resolveHookLibDir() {
+  const primary = path.join(__dirname, '..', 'hooks', 'lib');
+  const holdsHelpers = (dir) => HOOK_HELPERS.every((name) => fs.existsSync(path.join(dir, name)));
+  if (holdsHelpers(primary)) return primary;
+  const parent = path.join(__dirname, '..');
+  let siblings = [];
+  try {
+    siblings = fs.readdirSync(parent, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(parent, entry.name, 'lib'))
+      .sort();
+  } catch (_) {}
+  return siblings.find(holdsHelpers) || primary;
+}
+
+const hookLibDir = resolveHookLibDir();
 const {
   describeSessionStateContext,
   readSessionState,
   updateSessionState,
   loadConfig,
   getReportsPath
-} = require('../hooks/lib/ck-config-utils.cjs');
-const { pathContains } = require('../hooks/lib/runtime-state-identity.cjs');
+} = require(path.join(hookLibDir, 'ck-config-utils.cjs'));
+const { pathContains } = require(path.join(hookLibDir, 'runtime-state-identity.cjs'));
 
 function usage() {
   console.log('Usage: node .claude/scripts/set-active-plan.cjs <plan-path>');

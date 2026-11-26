@@ -1,76 +1,16 @@
 # Complexity Assessment
 
-Classify issue complexity before routing to workflow. Assessment happens AFTER Step 1 (Scout) and Step 2 (Diagnose).
+Classify after scouting and diagnosis, so the route follows the confirmed cause, not the
+wording of the request.
 
-## Classification Criteria
+| Route | Indicators | Progress tracking |
+|---|---|---|
+| Simple (`workflow-quick.md`) | One file, clear error (type, syntax, lint), obvious fix location, root cause confirmed | None; under three steps |
+| Moderate (`workflow-standard.md`) | 2-5 files, cause known but the fix spans files, or diagnosis still needs confirming | Six phases in the active plan, mirrored to the live surface when available |
+| Complex (`workflow-deep.md`) | System-wide (5+ files), architecture decision, research needed, performance or security issue, cause spans layers | Nine phases with dependencies; scout, diagnose and research may run in parallel |
+| Parallel (`--parallel`) | The flag was passed, or 2+ independent issues in different areas with no dependencies between them | One dependency tree per issue (scout, diagnose, fix, verify), one non-overlapping scope per agent |
 
-### Simple (→ workflow-quick.md) — No Tasks
-
-**Indicators:**
-- Single file affected
-- Clear error message (type error, syntax, lint)
-- Keywords: `type`, `typescript`, `tsc`, `lint`, `eslint`, `syntax`
-- Obvious fix location
-- Root cause confirmed by diagnosis (not assumed)
-
-**Task usage:** Skip. < 3 steps, overhead exceeds benefit.
-
-**Examples:**
-- "Fix type error in auth.ts"
-- "ESLint errors after upgrade"
-- "Syntax error in config file"
-
-### Moderate (→ workflow-standard.md) — Use Tasks (6 phases)
-
-**Indicators:**
-- 2-5 files affected
-- Root cause identified but fix spans multiple files
-- Needs investigation to confirm diagnosis
-- Keywords: `bug`, `broken`, `not working`, `fails sometimes`
-- Test failures with root cause traced
-
-**Progress tracking:** Record the six phase dependencies in the active plan and mirror them into the live task-management surface when available.
-
-**Examples:**
-- "Login sometimes fails"
-- "API returns wrong data"
-- "Component not rendering correctly"
-
-### Complex (→ workflow-deep.md) — Use Tasks with Dependency Chains (9 phases)
-
-**Indicators:**
-- System-wide impact (5+ files)
-- Architecture decision needed
-- Research required for solution
-- Keywords: `architecture`, `refactor`, `system-wide`, `design issue`
-- Performance/security vulnerabilities
-- Multiple interacting components
-- Root cause spans multiple layers/modules
-
-**Progress tracking:** Record all nine phases and their dependencies. Steps 1+2+3 may run in parallel; mirror the plan into the live task-management surface when available.
-
-**Examples:**
-- "Memory leak in production"
-- "Database deadlocks under load"
-- "Security vulnerability in auth flow"
-
-### Parallel (→ multiple fullstack-developer agents) — Use Task Trees
-
-**Triggers:**
-- `--parallel` flag explicitly passed (activate parallel routing regardless of auto-classification)
-
-**Indicators:**
-- 2+ independent issues mentioned
-- Issues in different areas (frontend + backend, auth + payments)
-- No dependencies between issues
-- Keywords: list of issues, "and", "also", multiple error types
-
-**Progress tracking:** Keep a separate dependency tree per independent issue (scout+diagnose+fix+verify) and assign one non-overlapping scope per agent.
-
-**Examples:**
-- "Fix type errors AND update UI styling"
-- "Auth bug + payment integration issue"
-- "3 different test failures in unrelated modules"
+`--parallel` activates parallel routing regardless of the classification.
 
 ## Optional shadow comparison
 

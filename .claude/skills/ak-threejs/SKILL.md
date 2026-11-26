@@ -8,10 +8,12 @@ license: Proprietary
 argument-hint: "[3D scene or feature]"
 metadata:
   author: agentkit
-  version: "3.0.1"
+  version: "3.0.2"
 ---
 
 # Three.js Development
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Build high-performance 3D web applications using Three.js. Search the bundled data for available examples and API recipes.
 
@@ -28,7 +30,7 @@ Build high-performance 3D web applications using Three.js. Search the bundled da
 Use the search CLI to find relevant examples and API references:
 
 ```bash
-python3 scripts/search.py "<query>" [--domain <domain>] [-n <max_results>]
+python scripts/search.py "<query>" [--domain <domain>] [-n <max_results>]
 ```
 
 ### Search Domains
@@ -44,19 +46,19 @@ python3 scripts/search.py "<query>" [--domain <domain>] [-n <max_results>]
 
 ```bash
 # Find particle/compute examples
-python3 scripts/search.py "particle compute webgpu"
+python scripts/search.py "particle compute webgpu"
 
 # Search API for camera classes
-python3 scripts/search.py "camera" --domain api
+python scripts/search.py "camera" --domain api
 
 # Get examples for a use case
-python3 scripts/search.py "product configurator" --use-case
+python scripts/search.py "product configurator" --use-case
 
 # Filter by category
-python3 scripts/search.py --category webgpu -n 10
+python scripts/search.py --category webgpu -n 10
 
 # Filter by complexity
-python3 scripts/search.py --complexity high -n 5
+python scripts/search.py --complexity high -n 5
 ```
 
 ## Compatibility and completion

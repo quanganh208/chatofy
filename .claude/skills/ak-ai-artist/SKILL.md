@@ -7,11 +7,13 @@ keywords: [image, generation, prompts, styles]
 license: Proprietary; includes CC BY 4.0 third-party material, see NOTICE.txt
 metadata:
   author: agentkit
-  version: "3.1.2"
+  version: "3.1.3"
 argument-hint: "[concept] [--mode search|creative|wild|all] [--provider auto|google|openrouter] [--skip]"
 ---
 
 # AI Artist - Nano Banana Image Generation
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Generate images using 129 curated prompts from awesome-nano-banana-pro-prompts collection.
 Routes final rendering through `ai-multimodal`, so the same prompt workflow can use direct Google or OpenRouter-backed Google models.
@@ -25,7 +27,7 @@ Resolve concept, output size, and any reference/brand constraints from the reque
 ## Quick Start
 
 ```bash
-python3 scripts/generate.py "<concept>" -o <output.png> [--mode MODE] [--provider PROVIDER]
+python scripts/generate.py "<concept>" -o <output.png> [--mode MODE] [--provider PROVIDER]
 ```
 
 ### Generation Modes
@@ -41,19 +43,19 @@ python3 scripts/generate.py "<concept>" -o <output.png> [--mode MODE] [--provide
 
 ```bash
 # Default search mode
-python3 scripts/generate.py "tech conference banner" -o banner.png -ar 16:9
+python scripts/generate.py "tech conference banner" -o banner.png -ar 16:9
 
 # Route through OpenRouter while keeping Nano Banana prompt behavior
-python3 scripts/generate.py "tech conference banner" -o banner.png --provider openrouter
+python scripts/generate.py "tech conference banner" -o banner.png --provider openrouter
 
 # Creative remix (combines multiple prompts)
-python3 scripts/generate.py "AI workshop" -o workshop.png --mode creative
+python scripts/generate.py "AI workshop" -o workshop.png --mode creative
 
 # Wild/experimental (random artistic transformation)
-python3 scripts/generate.py "product showcase" -o product.png --mode wild
+python scripts/generate.py "product showcase" -o product.png --mode wild
 
 # Generate all 3 variations at once
-python3 scripts/generate.py "futuristic city" -o city.png --mode all -v
+python scripts/generate.py "futuristic city" -o city.png --mode all -v
 ```
 
 ### Options
@@ -79,7 +81,7 @@ python3 scripts/generate.py "futuristic city" -o city.png --mode all -v
 
 ```bash
 # Search prompts
-python3 scripts/search.py "<query>" --domain awesome
+python scripts/search.py "<query>" --domain awesome
 
 # View all prompts
 cat data/awesome-prompts.csv

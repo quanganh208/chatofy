@@ -19,28 +19,9 @@ Check in order (first match wins):
 | `mix.exs` | `mix test` |
 | `deno.json` | `deno test` |
 
-**Detection script:**
-```bash
-if [ -f package.json ] && grep -q '"test"' package.json 2>/dev/null; then
-  echo "npm test"
-elif [ -f Makefile ] && grep -q '^test:' Makefile 2>/dev/null; then
-  echo "make test"
-elif [ -f pytest.ini ] || ([ -f pyproject.toml ] && grep -q '\[tool.pytest' pyproject.toml 2>/dev/null); then
-  echo "pytest"
-elif [ -f Cargo.toml ]; then
-  echo "cargo test"
-elif [ -f go.mod ]; then
-  echo "go test ./..."
-else
-  echo "NONE"
-fi
-```
-
-**If NONE:** Use `ask_user capability` — "No test runner detected. Options: A) Skip tests, B) Provide test command"
-
 ## Version File Detection
 
-Check in order:
+Check in order; skip the version bump when none exists:
 
 | Check | Read Pattern |
 |-------|-------------|
@@ -50,54 +31,8 @@ Check in order:
 | `Cargo.toml` → `version` | grep `version = "..."` |
 | `mix.exs` → `@version` | grep `@version "..."` |
 
-**If none found:** Skip version bump silently. Not all projects use versioning.
-
-**Bump logic:**
-```
-Lines changed < 50  → patch (X.Y.Z → X.Y.Z+1)
-Lines changed >= 50 → patch (safe default)
-User explicitly says "breaking" or "major feature" → ask_user capability for minor/major
-```
-
 ## Changelog Detection
 
-| Check | Format |
-|-------|--------|
-| `CHANGELOG.md` | Keep-a-changelog format |
-| `CHANGES.md` | Same |
-| `HISTORY.md` | Same |
-
-**If none found:** Skip changelog silently.
-
-**Entry format:**
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New features from commits with `feat:` prefix
-
-### Changed
-- Changes from commits with `refactor:`, `perf:` prefix
-
-### Fixed
-- Bug fixes from commits with `fix:` prefix
-
-### Removed
-- Removals mentioned in commit messages
-```
-
-**Infer categories from:**
-1. Conventional commit prefixes in `git log main..HEAD --oneline`
-2. File types changed (test files → test improvements, docs → documentation)
-3. Diff content (new functions = Added, modified functions = Changed)
-
-## Main Branch Detection
-
-```bash
-git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'
-```
-
-Fallback: check if `main` or `master` exists:
-```bash
-git rev-parse --verify origin/main 2>/dev/null && echo "main" || echo "master"
-```
+Use `CHANGELOG.md`, `CHANGES.md`, or `HISTORY.md` in keep-a-changelog format
+(`## [X.Y.Z] - YYYY-MM-DD` with Added / Changed / Fixed / Removed); skip when
+none exists.

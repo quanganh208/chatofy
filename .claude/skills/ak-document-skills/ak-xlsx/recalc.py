@@ -6,6 +6,7 @@ Recalculates all formulas in an Excel file using LibreOffice
 
 import json
 import sys
+import shutil
 import subprocess
 import os
 import platform
@@ -30,6 +31,9 @@ def setup_libreoffice_macro():
     """Setup LibreOffice macro for recalculation if not already configured"""
     if platform.system() == 'Darwin':
         macro_dir = os.path.expanduser('~/Library/Application Support/LibreOffice/4/user/basic/Standard')
+    elif platform.system() == 'Windows':
+        appdata = os.environ.get('APPDATA') or os.path.expanduser('~/AppData/Roaming')
+        macro_dir = os.path.join(appdata, 'LibreOffice', '4', 'user', 'basic', 'Standard')
     else:
         macro_dir = os.path.expanduser('~/.config/libreoffice/4/user/basic/Standard')
     
@@ -78,7 +82,11 @@ def recalc(filename, timeout=30):
         return {'error': f'File {filename} does not exist'}
     
     abs_path = str(Path(filename).absolute())
-    
+
+    if not shutil.which('soffice'):
+        return {'error': 'LibreOffice not found: install it and put soffice on PATH '
+                         r'(Windows: C:\Program Files\LibreOffice\program), then re-run'}
+
     if not setup_libreoffice_macro():
         return {'error': 'Failed to setup LibreOffice macro'}
     

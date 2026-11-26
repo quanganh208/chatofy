@@ -11,8 +11,6 @@ divergent copy in another skill; link here instead.
   plan. Hand-editable Markdown, legacy-claudekit style. They are the
   deliverable of planning skills and the only thing implementation skills read
   to know what to build.
-- A project with no GitHub remote, no `gh` auth, and no network still has a
-  fully working plan — because the files are the plan.
 
 ## `ak plan` / `plans.db` = a rebuildable index, not canonical
 
@@ -63,8 +61,7 @@ divergent copy in another skill; link here instead.
 ### Publish-safety protocol
 
 When an agent does project a plan onto an issue, follow this so the projection is
-safe, idempotent, and recoverable. Run `ak plan --help` and each subcommand's
-`--help` for exact flags.
+safe, idempotent, and recoverable.
 
 1. **Gate every publish, not just the first.** Visibility can flip and new phase
    evidence appears, so on each write confirm the target repo/issue visibility is
@@ -169,16 +166,7 @@ Degrade honestly: if `ak` is unavailable or any step fails, report the exact
 plan-dir path and reason and complete the delivery with a warning — never
 hand-edit a status line and never delete plan files.
 
-## Rules for skills consuming this model
+## Exact flags
 
-1. Resolve the current plan via the current-plan pointer (`ak plan use`) first,
-   falling back to `ak plan resolve` — never assume a GitHub issue must exist.
-2. Read phase content via `ak plan show` (or the files directly), not via
-   issue comments.
-3. Mutate status via `ak plan` file-mutating commands so the files and index
-   stay in sync; do not hand-edit a phases table or a status cell.
-4. Treat `--github` (the agent publishing via `gh` / the GitHub API) as an
-   additive, opt-in visibility step that runs after the plan is already valid as
-   files — never as a prerequisite for planning or implementation to proceed.
-5. Before invoking any subcommand, run `ak plan --help` and the subcommand's
-   own `--help`; those live surfaces own exact flags, not this file.
+Before invoking any `ak plan` subcommand, run `ak plan --help` and the
+subcommand's own `--help`; those live surfaces own exact flags, not this file.

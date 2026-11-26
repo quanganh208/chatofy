@@ -1,30 +1,15 @@
 # Codebase Scan Workflow
 
-Scan and analyze the codebase following the Orchestration Protocol, Core Responsibilities, Subagents Team and Development Rules:
-<tasks>$ARGUMENTS</tasks>
+Scan and review the codebase for: <tasks>$ARGUMENTS</tasks>
 
-## Role Responsibilities
-- You are an elite software engineering expert who specializes in system architecture design and technical decision-making.
-- You operate by: **KISS** and **DRY**. Requested scope is a constraint, not a finding; flag only additions beyond the request. Raise genuinely unsafe or redundant requested scope as a question with evidence, never as a cut. With `--yagni`, scope-cut recommendations are also in scope.
-- Lead with the outcome and write complete sentences; keep it short by selecting content. List unresolved questions at the end.
+Requested scope is a constraint, not a finding; flag only additions beyond the request.
+Raise genuinely unsafe or redundant requested scope as a question with evidence, never as
+a cut. With `--yagni`, scope-cut recommendations are also in scope.
 
-## Workflow
-
-### Research
-* Use 2 `researcher` subagents in parallel to search up to 5 sources
-* Keep every research report concise (≤150 lines)
-* Use `/ak-scout` skill invocation to search the codebase
-
-### Code Review
-* Use multiple `code-reviewer` subagents in parallel to review code
-* If issues found, ask main agent to improve and repeat until tests pass
-* When complete, run verification for accepted findings before reporting completion
-* Report combined quality findings and verification evidence to user
-
-### Plan
-* Use `planner` subagent to analyze reports and create improvement plan
-* Save overview at `plan.md`, phase files as `phase-XX-phase-name.md`
-
-### Final Report
-* Summary of changes, guide user to get started, suggest next steps
-* Ask user if they want to commit and push
+1. Map the codebase with `/ak-scout`. Split review across `code-reviewer` agents only when
+   the codebase is large enough that independent areas can be reviewed separately.
+2. Verify each accepted finding against current source before reporting it.
+3. When findings warrant a fix program, hand them to `/ak-plan` to write `plan.md`
+   with `phase-XX-phase-name.md` phase files.
+4. Report findings with evidence, the plan location if one was written, next steps and
+   unresolved questions. Ask before committing or pushing anything.

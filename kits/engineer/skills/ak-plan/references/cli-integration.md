@@ -1,6 +1,6 @@
 # CLI Integration & Plan Scaffolding
 
-This skill orchestrates planning, while the AgentKit CLI (`ak`) owns plan file scaffolding and phase state mutations whenever available.
+The AgentKit CLI (`ak`) owns plan file scaffolding and phase state mutations.
 
 ## Files-First Architecture
 
@@ -10,18 +10,17 @@ This skill orchestrates planning, while the AgentKit CLI (`ak`) owns plan file s
 
 ## CLI Scaffolding Rules
 
-- Use `ak plan` scaffolding operations when available.
+- Run `ak plan --help`, then the selected scaffolding subcommand with `--help`. Live help owns syntax and flags; do not copy a command schema into the plan.
 - Default scope is project-local (`plans/` under current workspace root).
-- When `--html` is active, `plan.html` is the primary user-facing deliverable; `plan.md` acts as the concise index.
-- Use the live plan CLI's status operations for phase state toggles rather than hand-editing status tables when `ak` is installed.
+- Markdown plan creation goes through the CLI. If the selected scaffolding operation fails, report the error; do not fall back to direct Markdown file scaffolding.
+- Do not edit the Phases table directly when it is CLI-owned; the CLI rewrites it from its own state, so a hand edit is silently discarded. Use the status and structure operations exposed by live help.
+- In `--html` mode, write `plan.html` after the planning gates finish so it reflects the reviewed plan; `plan.md` stays the concise index.
 
 ## Mandatory Generated-File Read Pass
 
-After CLI scaffolding and before composing replacement content:
-1. Enumerate generated files: `plan.md` plus all `phase-*.md`.
-2. Read `plan.md`.
-3. Read every generated `phase-*.md` stub, including future phases.
-4. Write or edit the full content only after the read pass.
+After CLI scaffolding and before composing replacement content, read `plan.md`
+and every generated `phase-*.md` stub, including future phases. Write or edit
+the full content only after that read pass.
 
 ## Canonical Phase File Template
 

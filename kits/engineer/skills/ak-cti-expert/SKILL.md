@@ -7,12 +7,14 @@ keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breac
 argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: Proprietary; includes MIT-licensed third-party material, see LICENSE
 metadata:
-  version: "2.1.2"
+  version: "2.1.4"
   author: "Hieu Ngo - chongluadao.vn"
   source: "https://github.com/7onez/cti-expert"
 ---
 
 # CTI Expert (`ak-cti-expert`)
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Cyber threat intelligence and open-source intelligence analysis skill. Generates precision search queries, interprets public threat data, builds case timelines, and delivers structured intelligence products.
 

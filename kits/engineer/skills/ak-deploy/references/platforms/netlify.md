@@ -24,10 +24,9 @@ netlify deploy --dir=dist --prod  # specify build dir
 ## Detection
 - `netlify.toml`, `_redirects`, `_headers` files
 
-## Free Tier
-- 100GB bandwidth/mo, 300 build min/mo
-- 125K function invocations, 10GB storage
-- Site suspended if limits exceeded
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://www.netlify.com/pricing/, and cite it. Do not quote figures from memory.
 
 ## Rollback
 ```bash

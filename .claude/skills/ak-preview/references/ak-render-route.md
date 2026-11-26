@@ -25,8 +25,13 @@ npx -y @bestagentkits/render@0.3.0 validate <name>.page.yaml --json # fix each d
 npx -y @bestagentkits/render@0.3.0 <name>.page.yaml --out <name>.html --json
 ```
 
-- Exit 1 means fix the spec: edit only the field at the diagnostic `path`
-  (`details.allowed` lists valid props) and validate again.
+- `ak render validate|build` takes the same arguments (`build` is the compile
+  step) and runs the compiler version its `ak render --help` names. Use it only
+  when that version matches the one above; otherwise run the `npx` commands.
+- Exit 1 with diagnostics means fix the spec: edit only the field at the
+  diagnostic `path` (`details.allowed` lists valid props) and validate again.
+  Exit 1 with no diagnostics (empty stdout under `--json`) means npx or npm
+  failed; read stderr and leave the spec alone.
 - Exit 2 means the input could not be read or the output could not be written.
   An exit with a stack trace instead of a diagnostic is an internal failure, not
   a spec problem.
@@ -112,7 +117,7 @@ A `diagram-panel` holds a typed diagram spec (`title`, `spec`, `caption`).
 - **ak-diagram installed** (it appears in the live skill catalog): author the
   ak-diagram typed JSON IR as the panel `spec`, activate ak-diagram, and compile
   the page with its page wrapper instead of the bare CLI. The wrapper is
-  `scripts/render-page.mjs` in the ak-diagram skill directory:
+  `<ak-diagram-dir>/scripts/render-page.mjs`:
 
   ```bash
   npx -y -p @bestagentkits/render@0.3.0 node <ak-diagram-dir>/scripts/render-page.mjs <name>.page.yaml --out <name>.html --json

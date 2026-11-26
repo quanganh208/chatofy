@@ -18,6 +18,9 @@ Windows paths containing spaces. HTML generation belongs to `ak-preview --html`.
 1. Reuse a known owned server for this project; inspect its process/port before starting one.
 2. Verify Node and required `marked`, `highlight.js`, `gray-matter` dependencies. Run
    `npm install` in this skill directory only if dependencies are missing.
+   Reading works offline, but the page loads web fonts, highlight.js themes and Mermaid from
+   public CDNs: without internet access text renders with fallback fonts, code is unstyled and
+   Mermaid blocks stay as source. Say so when the user is offline.
 3. Run `node scripts/server.cjs --file "<absolute-path>" --open` or use `--dir` for a directory.
    Keep localhost binding unless remote access is explicitly requested. Return the actual URL
    printed by the server rather than assuming a port.

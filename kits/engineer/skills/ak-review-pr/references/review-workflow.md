@@ -8,7 +8,7 @@ Detected PRs and API mode (prelude — heavy metadata loads per-PR inside Instru
 
 ## Instructions
 
-Perform a thorough code review of **each PR listed in `PR_REFS`**, one at a time. For each `PR_REF`, run steps 0–4 below, then continue into Fix loop / Reply / Merge modes if their flags are set, then move to the next PR ref.
+Review **each PR listed in `PR_REFS`**, one at a time. For each `PR_REF`, run steps 0-4 below, then continue into Fix loop / Reply / Merge modes if their flags are set, then move to the next PR ref.
 
 ### 0. Resolve writing language and per-PR context
 
@@ -48,15 +48,12 @@ _ak_pr_checks "$OWNER" "$REPO" "$NUMBER"
 Missing required evidence sections or unsupported claims in the PR body →
 **Important** findings. Do not encourage content padding; prefer honest gaps.
 
-### 1. Understand the PR
-- Read the PR title, description, and linked issues
-- Understand the intent and scope of the changes
-- Compare stated scope vs `additions`/`deletions`/`changedFiles` — a wide gap is itself a signal (see anti-slop reference)
+### 1-2. Understand the PR and the diff
 
-### 2. Analyze the diff
-- Read every changed file carefully
-- For modified files, read the full file (not just the diff) to understand surrounding context
-- Check if the changes align with the stated PR purpose
+Read the title, description and linked issues, then the changed files with enough
+surrounding code to judge them. Compare stated scope with
+`additions`/`deletions`/`changedFiles`; a wide gap is itself a finding signal (see the
+anti-slop reference).
 
 ### 3. Check for issues
 
@@ -74,7 +71,7 @@ Present your review as:
 **Findings**: List issues found, categorized by severity:
 - **Critical**: Must fix before merge (bugs, security, data loss)
 - **Important**: Should fix (logic issues, missing validation, *structural* AI slop)
-- **Suggestion**: Nice to have (style, minor improvements, *micro* AI slop)
+- **Suggestion**: Nice to have (minor improvements, *micro* AI slop); skip pure style nits
 
 > Anti-slop severity rule: **structural** slop (new dumping-ground file, parallel reimpl, abstraction with one caller, schema change without migration, large file growth) → **Important**. **Micro** slop (over-comments, defensive paranoia, one-line wrappers) → **Suggestion**. This keeps `--fix` from churning the diff with cosmetic rewrites the original author won't recognize.
 

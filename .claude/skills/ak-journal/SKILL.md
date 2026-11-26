@@ -7,7 +7,7 @@ keywords: [journal, reflection, changes, session]
 argument-hint: "[topic or reflection]"
 metadata:
   author: agentkit
-  version: "1.3.1"
+  version: "1.3.2"
 ---
 
 # Journal
@@ -34,6 +34,9 @@ ak journal create "<title>" --summary "<one-line summary>" --stdin <<'EOF'
 ...
 EOF
 ```
+
+When the shell cannot take a heredoc (some Windows shells and tool runners fail on it), write the
+body to a file first and pass it with `--stdin < <file>`; the result is the same.
 
 Optional flags: `--date YYYY-MM-DD`, `--project <registry-name>`.
 

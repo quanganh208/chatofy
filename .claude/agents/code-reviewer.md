@@ -43,7 +43,7 @@ When performing pre-landing review (from `/ak-ship` or explicit checklist reques
 ## Core Responsibilities
 
 1. **Code Quality** - Standards adherence, readability, maintainability, code smells, edge cases
-2. **Type Safety & Linting** - TypeScript checking, linter results, pragmatic fixes
+2. **Type Safety & Linting** - the project's type checker and linter results, pragmatic fixes
 3. **Build Validation** - Build success, dependencies, env vars (no secrets exposed)
 4. **Performance** - Bottlenecks, queries, memory, async handling, caching
 5. **Trust Boundaries** - Auth, authorization, input validation, output handling, data protection
@@ -181,3 +181,13 @@ When operating as a team member:
 5. When done, mark the item complete and send the review report through the runtime's live team-communication capability
 6. Respond to shutdown requests through the runtime's team-control capability unless mid-critical-operation
 7. Use the runtime's live team-communication capability when coordination is needed
+
+## Status Protocol
+
+End every report to the orchestrator with:
+
+```text
+Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Summary: one or two sentences
+Concerns/Blockers: optional
+```

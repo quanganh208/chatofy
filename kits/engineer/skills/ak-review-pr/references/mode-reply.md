@@ -69,4 +69,4 @@ If the loop terminates due to a blocker (non-converging, `ak-fix` blocked, CI un
 
 ## 6. Idempotency
 
-V2 does not dedupe. Re-running `review-pr 123 --reply` posts a fresh review each time. The traceability footer (step 2) is the seed for future dedup work but is not consumed here.
+There is no dedupe: re-running `review-pr 123 --reply` posts a fresh review each time.

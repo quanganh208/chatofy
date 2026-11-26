@@ -957,6 +957,14 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// The approved path is the shell-unescaped value, while the command still holds
+// the raw text: `C:\Users\x\.env` in Bash unescapes to `C:Usersx.env`. Let an
+// escape character (POSIX backslash or PowerShell backtick) precede any
+// character so the marker is found in front of the raw spelling.
+function rawPathPattern(value) {
+  return Array.from(value, char => `[\\\\\`]?${escapeRegExp(char)}`).join('');
+}
+
 /**
  * Remove approval markers from the tool input so the tool receives the real
  * path. Only markers that directly precede one of the given approved paths are
@@ -975,7 +983,7 @@ function stripApprovalMarkers(toolInput, approvedPaths) {
     let command = updated.command;
     for (const approvedPath of new Set(approvedPaths)) {
       const marker = new RegExp(
-        `(^|[\\s'"‘-„=<>(|;&\`:])${escapeRegExp(APPROVED_PREFIX)}(?=["'‘-„]?${escapeRegExp(approvedPath)}(?:$|[\\s'"‘-„<>()|;&\`,]))`,
+        `(^|[\\s'"‘-„=<>(|;&\`:])${escapeRegExp(APPROVED_PREFIX)}(?=["'‘-„]?${rawPathPattern(approvedPath)}(?:$|[\\s'"‘-„<>()|;&\`,]))`,
         'gm'
       );
       command = command.replace(marker, '$1');

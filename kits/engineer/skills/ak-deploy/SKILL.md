@@ -8,7 +8,7 @@ license: Proprietary
 argument-hint: "[platform] [environment]"
 metadata:
   author: agentkit
-  version: "1.0.2"
+  version: "1.0.3"
 ---
 
 # Deploy Skill
@@ -30,7 +30,23 @@ provider configuration, project manifests, and the owning deployment docs.
 Record disagreements between docs and config; do not let first-match order select
 the wrong production account or environment. With multiple viable targets, ask
 only for a material unresolved destination decision. Mentioning a provider in a
-question is not deployment intent.
+question is not deployment intent: answer questions about a provider, its
+pricing or its features without running deploy, init, login or env commands.
+
+Target precedence:
+
+1. An explicit target in the request.
+2. An existing binding or provider configuration in the project (for example
+   `.vercel/`, `fly.toml`, `wrangler.toml`, `.tose.json`). Keep it; never move
+   an existing project to another provider unless the user asks for that move.
+3. For an app with no binding, TOSE.sh is the default candidate when the app
+   is a container or server workload (a `Dockerfile`, an API server, or SSR).
+   Static sites and SPAs go to a static host. Compare the remaining candidates
+   from section 3 (Project Type → Candidate Platforms).
+
+Ask before deploying when the production account, workspace, project or
+environment is ambiguous, for example when the binding names a workspace the
+user did not mention or two providers are configured.
 
 ### 2. Detection Signals
 
@@ -43,7 +59,7 @@ question is not deployment intent.
 | `railway.json`, `railway.toml` | Railway |
 | `render.yaml` | Render |
 | `Procfile` + `app.json` | Heroku |
-| `tose.yaml`, `tose.json` | TOSE.sh |
+| `.tose.json` (project binding, not a deploy spec) | TOSE.sh |
 | `docker-compose.yml` + `coolify` ref | Coolify |
 | `dokploy.yml` | Dokploy |
 | `.github/workflows/*pages*` | Github Pages |
@@ -57,10 +73,10 @@ question is not deployment intent.
 |---|---|---|
 | Static site (HTML/CSS/JS) | No server files | Github Pages → Cloudflare Pages |
 | SPA (React/Vue/Svelte) | Framework config, no SSR | Vercel → Netlify → Cloudflare Pages |
-| SSR/Full-stack (Next/Nuxt) | `next.config.*`, `nuxt.config.*` | Vercel → Netlify → Cloudflare |
-| Node.js API | `server.js/ts`, Express/Fastify | Railway → Render → Fly.io → TOSE.sh |
-| Python API | `requirements.txt` + Flask/Django | Railway → Render → Fly.io |
-| Docker app | `Dockerfile` | Fly.io → Railway → TOSE.sh → Coolify |
+| SSR/Full-stack (Next/Nuxt) | `next.config.*`, `nuxt.config.*` | TOSE.sh → Vercel → Netlify → Cloudflare |
+| Node.js API | `server.js/ts`, Express/Fastify | TOSE.sh → Railway → Render → Fly.io |
+| Python API | `requirements.txt` + Flask/Django | TOSE.sh → Railway → Render → Fly.io |
+| Docker app | `Dockerfile` | TOSE.sh → Fly.io → Railway → Coolify |
 | Monorepo | `turbo.json`, workspaces | Vercel → Netlify |
 
 ### 4. Compare viable targets
@@ -72,11 +88,29 @@ before making a cost recommendation; this skill does not maintain a price roster
 
 ### 5. Deploy Execution
 
-1. Check CLI installed → install if missing
-2. Check auth → login if needed
-3. Run the deploy command from the selected platform reference under `references/platforms/`
-4. Verify deployment URL, health and revision; repair in-scope failures
-5. Record rollback and update the owning deployment guidance if changed
+Plan, then approve, then execute, then verify:
+
+1. Engine first. When `ak deploy --help` lists the deployment engine, drive it
+   through its JSON output (`plan` before `apply`, then `status`) and report
+   its state; do not run the provider CLI around it. Otherwise use the selected
+   platform reference under `references/platforms/`, preferring its
+   machine-readable mode (`--json`, dry-run or plan) over parsing human output.
+2. Check the CLI and auth. Install a missing CLI through the reference's
+   documented path; log in only through its secret-safe path. A missing
+   credential, permission or capability is a blocker to report, not a step to
+   work around, unless the reference defines a fallback for it.
+3. Show the plan: target, account or workspace, environment, artifact or
+   revision, blockers, and a cost range only with its live source. Production
+   deploys and destructive steps need explicit approval.
+4. Deploy, then track the operation by its ID until it ends or times out.
+5. Verify URL, health and revision; repair in-scope failures.
+6. Record rollback and update the owning deployment guidance if changed.
+
+Report one state and never upgrade it without evidence: `queued`, `running`,
+`unverified` (deployed but no health evidence yet), `healthy`, or `failed`.
+A provider exit code `0`, an HTTP 201/202 or a "pending" response is not
+`healthy`. On a timeout or interruption, resume with the operation ID instead
+of deploying again.
 
 ### 6. Verify and record deployment
 
@@ -99,7 +133,8 @@ verified deployment completion.
 
 When no target detected, present options based on project type analysis:
 - Compare against the user’s target, runtime, budget, and operations constraints
-- Include pricing/limits only with current source evidence
+- Include pricing/limits only with current source evidence; never quote
+  prices, credits or discounts from a reference file or memory
 - Max 4 options (top recommendations + "Other")
 
 ## Reference Files (Progressive Disclosure)

@@ -1,6 +1,6 @@
 ---
 name: ak-copywriting
-description: "Write conversion copy with headline templates, email patterns, landing page structures, CTA optimization and style extraction."
+description: "Write conversion copy with headline templates, email patterns, landing page structures, CTA optimization, a CRO checklist and style extraction. Not for long-form website articles; those belong to the Marketing kit's SEO skill."
 when_to_use: "Invoke for high-converting copy or a style from assets/writing-styles/."
 category: marketing
 keywords: [copy, headlines, email, landing-page]
@@ -8,7 +8,7 @@ license: Proprietary
 argument-hint: "[copy-type] [context]"
 metadata:
   author: agentkit
-  version: "1.0.3"
+  version: "1.1.0"
 ---
 
 # Copywriting
@@ -24,6 +24,10 @@ sources. Do not invent customer proof. Preserve uncertainty and distinguish prop
 Deliver copy in the requested format/path, checking audience fit, factual support and CTA.
 Use existing output conventions; no Engineer-only organization skill is required.
 
+For a page that needs both search and conversion work, split it: search structure (title, meta,
+headings, schema) belongs to the Marketing kit's SEO skill, while headline, CTA and persuasion
+copy stay here, checked against the CRO checklist.
+
 ## References
 
 | File | Purpose |
@@ -34,6 +38,7 @@ Use existing output conventions; no Engineer-only organization skill is required
 | `references/email-copy.md` | Email copy patterns |
 | `references/landing-page-copy.md` | Landing page structure |
 | `references/cta-patterns.md` | CTA optimization |
+| `references/cro-checklist.md` | 25 conversion checks for copy and page review |
 | `references/power-words.md` | Power words by emotion |
 | `references/social-media-copy.md` | Platform-specific copy |
 | `scripts/extract-writing-styles.py` | Extract styles from multi-format files |

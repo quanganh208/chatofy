@@ -41,7 +41,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.6.1"
+  version: "2.6.2"
 ---
 
 # Review Pull Request
@@ -63,23 +63,18 @@ Flags compose: `review-pr 123 --fix --reply` runs the fix loop and posts the fin
 
 `$ARGUMENTS` may name multiple PRs at once (e.g. `123 456 https://github.com/o/r/pull/789`). Every non-flag token is one PR reference. Accepted forms per token: bare number (`123`), `#123`, or a full PR URL. Tokens may be whitespace- or comma-separated.
 
-Execution is **sequential per PR**. For each PR ref in `PR_REFS`, run the full flow (Instructions → Fix loop → Reply → Merge → Advice checkpoints) end-to-end before moving to the next. This keeps verdicts, commits, replies, and merge results deterministic and easy to attribute in the final report.
+Execution is **sequential per PR**: run the full flow (review, fix loop, reply, merge, advice checkpoints) for one PR ref before starting the next, so verdicts, commits, replies and merge results stay attributable in the final report.
 
-Fail-fast is off by default — a fatal error on one PR (e.g. PR not found, GraphQL+REST both denied, merge-readiness rejected) records the failure in the per-PR summary and continues with the next PR. Only stop the whole run when an unrecoverable environment failure occurs (`gh` not installed, no auth at all).
-
-Single-PR invocations continue to behave exactly as before; `PR_REFS` just contains one element.
+A fatal error on one PR (not found, GraphQL and REST both denied, merge-readiness rejected) is recorded in that PR's summary and the run continues with the next PR. Stop the whole run only for an unrecoverable environment failure (`gh` not installed, no auth at all).
 
 ## GitHub API compatibility
 
-Some hosted environments (notably Claude Cloud Environment) block the GitHub
-GraphQL API at the egress proxy, so `gh pr view`, `gh pr diff`, `gh pr checks`
-and `gh pr list` all fail with HTTP 403. Load
-`references/gh-api-compatibility.md` before the first per-PR bash block: it owns
-the `references/gh-api-helpers.sh` loader you must source, the adaptive helper
-functions (`_ak_probe_gh_api`, `_ak_split_pr`, `_ak_pr_meta`, `_ak_pr_diff`,
-`_ak_pr_files`, `_ak_pr_checks`, `_ak_pr_body`, `_ak_pr_review`,
-`_ak_pr_comment`), and the two write-op caveats — auto-merge enable is
-GraphQL-only, and self-PR approve returns 422 on both paths.
+Some hosted environments (notably Claude Cloud Environment) block the GitHub GraphQL
+API, so native `gh pr` reads fail with HTTP 403. Load
+`references/gh-api-compatibility.md` before the first per-PR bash block: it owns the
+`references/gh-api-helpers.sh` loader, the adaptive `_ak_pr_*` helpers and the
+write-op caveats.
+
 ## Argument parsing
 
 Strip mode flags, then tokenize the remainder into `PR_REFS`:
@@ -88,15 +83,7 @@ Strip mode flags, then tokenize the remainder into `PR_REFS`:
 !`ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice|ultra)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && PR_REFS="$ARGS_STRIPPED" && PR_COUNT="$(printf '%s\n' "$PR_REFS" | awk '{print NF}')" && printf 'PR_REFS=%s\nPR_COUNT=%s\n' "$PR_REFS" "$PR_COUNT"`
 ```
 
-Detect flags (the substring match below is intentional — flags may appear in any order):
-
-- `--fix` present → fix-loop mode active
-- `--reply` present → reply mode active
-- `--merge` present → merge mode active
-- `--advice` present → advisory supervision active
-- `--ultra` present → ultra verifier mode active for each PR's initial review
-
-Within the Instructions loop, `PR_REF` is the current iteration's ref; the singular name is preserved so this section's examples and the rest of the doc read the same in both single- and multi-PR modes.
+Each flag activates its mode from Modes when present anywhere in `$ARGUMENTS`. Within the per-PR loop, `PR_REF` is the current iteration's ref.
 
 ## Advanced modes
 
@@ -110,21 +97,14 @@ Use `references/gh-api-compatibility.md` when resolving API access. Reuse findin
 only for unchanged head SHA, inputs and environment; verify current head before reply/merge.
 Review-only never posts, edits or merges.
 
-## Fix loop mode (`--fix`)
+## Fix, reply and merge modes
 
-Load `references/mode-fix.md` when `$ARGUMENTS` contains `--fix`. It owns the
-decision to fix, the per-finding fix rules, the commit and push contract, and the
-re-review loop.
-## Reply mode (`--reply`)
+Load each mode's reference only when its flag is present:
 
-Load `references/mode-reply.md` when `$ARGUMENTS` contains `--reply`. It owns the
-pre-flight checks, the review body format, the verdict-to-`gh` flag mapping, the
-self-PR `COMMENT` fallback, composition with `--fix`, and idempotency.
-## Merge mode (`--merge`)
+- `--fix`: `references/mode-fix.md` (fix decision, commit and push contract, re-review loop).
+- `--reply`: `references/mode-reply.md` (pre-flight, review body, verdict mapping, self-PR fallback).
+- `--merge`: `references/mode-merge.md` (merge-readiness gate, `ak-git merge-pr` handoff, post-merge CI).
 
-Load `references/mode-merge.md` when `$ARGUMENTS` contains `--merge`. It owns the
-merge-readiness gate, the `ak-git merge-pr` handoff, post-merge CI watching, and
-failure handling.
 ## Final output
 
 After every PR has completed its flow, report to the chat:
@@ -139,7 +119,7 @@ After every PR has completed its flow, report to the chat:
 
 - Total PRs processed and totals per verdict
 - Environment: `AK_GH_REST=<0|1>` (native GraphQL vs REST fallback) and how many PRs actually hit the REST path
-- Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired across all PRs, whether each PR's MANDATORY post-CI-green comment was posted / skipped (with reason), and any advice-flagged risks that shaped verdicts or fix scope
+- Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired, whether each PR's post-CI-green comment was posted or skipped (with reason), and any advice-flagged risks that shaped verdicts or fix scope
 - Remaining findings or blockers per PR
 - Unresolved questions, if any
 

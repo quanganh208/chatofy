@@ -28,6 +28,8 @@ Coverage: {measured values, repo threshold and its source, or no configured thre
 Changes: {applied versus proposed; authorization; contract and remaining protection}.
 Costs: {observed time/resources/model usage, estimates explicitly labelled,
 and unknown metrics; no inferred zeroes}.
+Measured claims: {one `explain-the-number.md` verdict line per speedup,
+regression, latency gate or saving; `inconclusive` names its limiter}.
 Cleanup: {owned processes/ports/temp roots/data; verified cleanup or remaining owner}.
 Limitations: {source mismatch, partial execution, untested claims, live/provider gaps}.
 ```
@@ -59,13 +61,10 @@ test count and per-test/shared setup timing before/after where measured. For
 sampled mutation, identify the same valid faults and show killed/survived/invalid/
 equivalent/inconclusive counts; setup failure is not a killed regression.
 
-Compare planning and test-generation effort, runner/model calls, tokens, retries,
-CI minutes, device CPU/peak memory and human review effort when observable.
-Separate benchmark overhead from task execution. Report false positives and missed
-known/seeded regressions, including the denominator and untested classes. Unknown
-values stay unknown/null. Elapsed time is not billable CI minutes. Estimates and
-synthetic fixture results are not measured production savings; test count or prompt
-length reductions alone do not establish efficiency.
+Measure cost per `test-lifecycle.md` ("Measure the whole cost"). Report false
+positives and missed known/seeded regressions, including the denominator and
+untested classes. Estimates and synthetic fixture results are not measured
+production savings.
 
 ## UI and optional agentic execution
 

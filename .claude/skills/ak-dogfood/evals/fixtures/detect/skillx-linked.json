@@ -1,0 +1,49 @@
+{
+  "probes": {
+    "ak features list --json": {
+      "exit": 0,
+      "stdout": {
+        "features": [
+          {
+            "name": "skill_store",
+            "enabled": true
+          },
+          {
+            "name": "skill_overlays",
+            "enabled": true
+          },
+          {
+            "name": "skillx",
+            "enabled": true
+          }
+        ]
+      }
+    },
+    "ak skills link status --json": {
+      "exit": 0,
+      "stdout": {
+        "linked": true
+      }
+    },
+    "ak skills kit status --json": {
+      "exit": 0,
+      "stdout": {
+        "kits": [
+          {
+            "name": "mine",
+            "packages": [
+              {
+                "identity": "@local/release-notes",
+                "alias": "release-notes",
+                "kind": "skill"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "ak skills improve --help": {
+      "exit": 0
+    }
+  }
+}

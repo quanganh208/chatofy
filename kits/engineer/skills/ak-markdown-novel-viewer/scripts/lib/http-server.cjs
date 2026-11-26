@@ -47,7 +47,12 @@ function isPathSafe(filePath, allowedDirs = allowedBaseDirs) {
   }
 
   // Must be within one of the allowed directories
-  return allowedDirs.some(dir => resolved.startsWith(dir));
+  // Resolve each allowed dir too: on Windows `/tmp` resolves to `D:\tmp`, so a raw
+  // prefix check never matches. Require a separator boundary so `/tmpx` is not inside `/tmp`.
+  return allowedDirs.some(dir => {
+    const base = path.resolve(dir);
+    return resolved === base || resolved.startsWith(base.endsWith(path.sep) ? base : base + path.sep);
+  });
 }
 
 /**

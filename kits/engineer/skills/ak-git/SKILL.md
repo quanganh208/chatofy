@@ -7,7 +7,7 @@ keywords: [git, commits, staging, PR, merge, merge-pr, stack, stacked-prs, ci]
 argument-hint: "cm|cp|pr|merge|merge-pr|stack [args]"
 metadata:
   author: agentkit
-  version: "1.2.2"
+  version: "1.2.3"
 ---
 
 # Git Operations
@@ -33,7 +33,7 @@ only for an actual context/budget problem.
 
 **IMPORTANT:**
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
-- Pass these rules to subagents.
+- When you do delegate, put the resolved rules, paths and branch names in the brief.
 
 ## Arguments
 - `cm`: Stage files & create commits
@@ -75,15 +75,20 @@ git status --short
 git diff -- <authorized-paths>
 git add -- <authorized-paths>
 git diff --cached --stat
-git diff --cached --name-only
+git diff --cached --name-only --no-renames
 ```
 
 ### Step 2: Security Check
-Scan for secrets before commit:
+Scan the staged diff for value-shaped secrets, not bare keywords. Prefer an installed
+scanner (for example `gitleaks protect --staged --redact`); otherwise scan the staged files:
 ```bash
-git diff --cached | grep -iE "(api[_-]?key|token|password|secret|credential)"
+git diff --cached --name-only -z --diff-filter=ACMR \
+  | xargs -0 git grep --cached -nE '(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|(^|[^A-Za-z0-9])sk-(proj-|live_|test_)?[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{35}|[a-z][a-z0-9+.-]*://[^/[:space:]:@]+:[^/[:space:]@]+@)' -- \
+  | cut -d: -f1,2
 ```
-**If secrets found:** STOP, warn user, suggest `.gitignore`.
+Check each hit's context once. A keyword such as `token` or `password` alone is not a secret.
+**Only a real credential blocks the commit:** report `file:line` with the value redacted and
+suggest `.gitignore` or a secret store. See `references/safety-protocols.md`.
 
 ### Step 3: Split Decision
 
@@ -117,7 +122,7 @@ git commit -m "type(scope): description"
 
 | Error | Action |
 |-------|--------|
-| Secrets detected | Block commit, show files |
+| Real credential detected | Block commit, report `file:line` redacted |
 | No changes | Exit cleanly |
 | Push rejected | Suggest `git pull --rebase` |
 | Merge conflicts | Suggest manual resolution |

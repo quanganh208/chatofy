@@ -8,10 +8,12 @@ argument-hint: "[Goal/Metric description] or inline config block"
 metadata:
   author: agentkit
   attribution: "Core patterns adapted from autoresearch by Udit Goenka (MIT)"
-  version: "1.1.2"
+  version: "1.1.3"
 ---
 
 # ak-loop — Autonomous Optimization Loop
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 > Constraint + Mechanical Metric + Fast Verification = Autonomous Improvement
 

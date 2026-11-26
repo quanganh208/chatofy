@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import shutil
+import subprocess
+
 import pytest
 
 # Add parent directory to path for imports
@@ -334,3 +337,60 @@ class TestTailwindConfigGenerator:
         assert "module.exports" in content
         assert "primary" in content
         assert "@tailwindcss/forms" in content
+
+
+NODE = shutil.which("node")
+
+
+@pytest.mark.skipif(NODE is None, reason="node is required to parse generated configs")
+class TestGeneratedConfigParsesWithNode:
+    """The emitted config must be syntactically valid JS/TS, not just look right."""
+
+    @staticmethod
+    def _generator(typescript: bool) -> TailwindConfigGenerator:
+        gen = TailwindConfigGenerator(typescript=typescript, framework="react")
+        gen.add_colors({"brand": "#3b82f6"})
+        gen.add_fonts({"sans": ["Inter", "sans-serif"]})
+        gen.add_plugins(["@tailwindcss/typography", "@tailwindcss/forms"])
+        return gen
+
+    @pytest.mark.parametrize("plugins", [True, False])
+    def test_javascript_parses(self, tmp_path, plugins):
+        gen = self._generator(typescript=False)
+        if not plugins:
+            gen.config["plugins"] = []
+        out = tmp_path / "tailwind.config.js"
+        out.write_text(gen.generate_config_string(), encoding="utf-8")
+        result = subprocess.run([NODE, "--check", str(out)], capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.parametrize("plugins", [True, False])
+    def test_typescript_parses(self, tmp_path, plugins):
+        has_stripper = subprocess.run(
+            [NODE, "-e", "process.exit(typeof require('module').stripTypeScriptTypes === 'function' ? 0 : 1)"],
+            capture_output=True,
+        )
+        if has_stripper.returncode != 0:
+            pytest.skip("node lacks module.stripTypeScriptTypes (needs 22.13+)")
+        gen = self._generator(typescript=True)
+        if not plugins:
+            gen.config["plugins"] = []
+        out = tmp_path / "tailwind.config.ts"
+        out.write_text(gen.generate_config_string(), encoding="utf-8")
+        # `node --check` does not parse .ts files, so strip the types with
+        # Node's own TypeScript stripper and syntax-check the result as ESM.
+        strip_and_check = (
+            "const fs = require('fs');"
+            "const { stripTypeScriptTypes } = require('module');"
+            "const src = stripTypeScriptTypes(fs.readFileSync(process.argv[1], 'utf8'));"
+            "fs.writeFileSync(process.argv[2], src);"
+            "const r = require('child_process').spawnSync(process.execPath,"
+            " ['--check', process.argv[2]], { stdio: 'inherit' });"
+            "process.exit(r.status);"
+        )
+        result = subprocess.run(
+            [NODE, "-e", strip_and_check, str(out), str(tmp_path / "stripped.mjs")],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr

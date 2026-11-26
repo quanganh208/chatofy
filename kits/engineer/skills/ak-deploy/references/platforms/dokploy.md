@@ -17,9 +17,9 @@ dokploy app deploy <app-id>
 ## Detection
 - `dokploy.yml`, Dockerfile, `docker-compose.yml`
 
-## Free Tier
-- Free (self-hosted, open-source)
-- VPS cost only
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://dokploy.com/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 Via dashboard: select previous deployment

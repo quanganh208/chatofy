@@ -2,11 +2,8 @@
 
 Use this template when creating or updating PRs via `gh pr create` / `gh pr edit`.
 
-Resolve writing language first (the writing-language reference supplied by installed `ak-review-pr`,
-or `WL_BIN=.claude/hooks/lib/writing-language.cjs
-test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
-node "$WL_BIN" --json`). Render **headings and
-prose** in that language. Keep the PR **title** as English conventional commits.
+Render **headings and prose** in the writing language resolved in
+`ship-workflow.md` Step 12. Keep the PR **title** as English conventional commits.
 
 ## Template (English headings — localize when language ≠ en)
 
@@ -68,20 +65,8 @@ prose** in that language. Keep the PR **title** as English conventional commits.
 | Linked Issues | Issues liên quan |
 | Ship Mode | Chế độ ship |
 
-## PR Title Format
-
-```
-type(scope): brief description
-```
-
-Titles stay English for conventional-commit interoperability.
-
 ## Notes
 
-- Evidence-backed only — use `None` / `Not run` / `Unavailable` instead of inventing narrative
+- Evidence-backed only: use `None` / `Not run` / `Unavailable` instead of inventing narrative
 - Preserve `Closes #N` keywords exactly
 - UI/UX PRs need real screenshots or an explicit unavailable reason
-- If PR already exists, use `gh pr edit` with the same contract
-- Validate: `PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
-test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
-gh pr view --json body -q .body | node "$PR_BIN"`

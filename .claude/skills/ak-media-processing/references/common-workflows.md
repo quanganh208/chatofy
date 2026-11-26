@@ -3,6 +3,10 @@
 ## Video Optimization
 
 ### Optimize for Web
+
+For a verified, non-destructive encode with a before/after receipt, use
+`scripts/video_optimize.py`; see `web-video-optimization.md`. The raw command:
+
 ```bash
 # H.264 with good compression
 ffmpeg -i input.mp4 \

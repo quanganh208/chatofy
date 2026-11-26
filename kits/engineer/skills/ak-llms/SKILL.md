@@ -7,7 +7,7 @@ keywords: [llms-txt, llms-full-txt, markdown-mirror, documentation, AI-context]
 argument-hint: "[path|url] [--full] [--md-links] [--output path]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # llms.txt Generator
@@ -24,6 +24,8 @@ This skill generates `llms.txt` and `llms-full.txt` and defines the per-page `.m
 - Publishing docs site and want AI discoverability
 - Creating context files for AI assistants
 - User asks for "llms.txt", "LLM documentation", "AI-friendly docs"
+
+SEO and GEO audits belong to the Marketing kit's SEO skill when it is installed; this skill generates the files.
 
 ## Arguments
 

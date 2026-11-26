@@ -8,7 +8,7 @@ license: Proprietary
 argument-hint: "[query or schema task]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.0.2"
 ---
 
 # Databases Skill
@@ -40,6 +40,20 @@ unless changing it is requested. Classify effects before execution:
 | Performance change | Representative query plan/EXPLAIN and before/after workload evidence; ANALYZE executes queries |
 | Migration / write | Scoped preimage/backup, rollback or recovery path, fixture preservation and safe rerun |
 | Backup / restore / administration | Exact target, ownership, access and restore verification; explicit destructive authorization |
+
+### Before any migration or write
+
+1. Name the destination as host, port and database only. Never print env files, full
+   connection URLs, credentials or process lists.
+2. Run the tool's read-only status (for example `prisma migrate status`) as its own step.
+   Stop and report on drift or pending/failed migrations; never chain status into apply.
+3. Never run interactive dev generators or resets (for example `prisma migrate dev`,
+   `prisma migrate reset`, `prisma db push --force-reset`) against a shared, remote or
+   drifted database. Build the migration from a schema diff (for example
+   `prisma migrate diff`) and review the generated SQL before applying it. Any shadow
+   database the diff needs must be disposable, never the shared one; apply the reviewed
+   migration with the non-interactive path (for example `prisma migrate deploy`).
+4. Prefer the repository's own migration and backup scripts over raw tool commands.
 
 ## Reference Navigation
 

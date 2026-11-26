@@ -62,3 +62,6 @@ not render proof. Report any unverified audio/frame dimension.
   HyperFrames CLI. Prefer it over this skill when the composition is authored
   as plain HTML/CSS with `data-*` timing attributes rather than React
   components.
+- The ak-media-processing skill, when installed, for compressing a finished
+  render for web delivery or auditing how a site serves its videos. This skill
+  renders; it does not own delivery encoding.

@@ -8,7 +8,7 @@ license: Proprietary; includes MIT-licensed third-party material, see LICENSE
 argument-hint: "[diagram-type or system description]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "1.1.2"
   attribution: "Vendored from fireworks-tech-graph by yizhiyanhua-ai (MIT)"
   upstream: "github.com/yizhiyanhua-ai/fireworks-tech-graph"
   upstream_sha: "7b22cdd"
@@ -16,6 +16,8 @@ metadata:
 ---
 
 # Tech Graph
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Generate production-quality SVG technical diagrams exported as PNG via `rsvg-convert`.
 

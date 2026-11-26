@@ -61,7 +61,7 @@ refresh on model, price, benchmark or harness changes rather than every tool cal
 
 ## Offline records and use
 
-Run `python3 scripts/benchmark_metrics.py runs.json`. It reads records and computes
+Run `python scripts/benchmark_metrics.py runs.json`. It reads records and computes
 metrics; it does not call models, estimate missing prices or measure a live task.
 The input contract and a minimal example are in [evaluation](evaluation.md).
 A controlled local comparison should hold task corpus, harness, tools and limits fixed,

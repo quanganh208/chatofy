@@ -42,7 +42,7 @@ curl -s "https://viewdns.info/iphistory/?domain=<domain>"
 **Tertiary — Mnemonic PassiveDNS (free API, no key):**
 ```bash
 # Free passive DNS lookup — returns historical resolutions
-curl -s "https://api.mnemonic.no/pdns/v3/<domain>" | python3 -m json.tool
+curl -s "https://api.mnemonic.no/pdns/v3/<domain>" | python -m json.tool
 
 # Response includes: rrtype, rrname, rdata, first_seen, last_seen, count
 ```
@@ -122,10 +122,10 @@ Mnemonic API down?
 **Primary — crt.sh JSON API (free, no auth, comprehensive):**
 ```bash
 # Full certificate history — returns ALL certs ever issued for domain
-curl -s "https://crt.sh/?q=<domain>&output=json" | python3 -m json.tool
+curl -s "https://crt.sh/?q=<domain>&output=json" | python -m json.tool
 
 # Wildcard search — includes subdomains
-curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python3 -m json.tool
+curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python -m json.tool
 
 # Key fields: issuer_name, not_before, not_after, common_name, name_value (SANs)
 ```

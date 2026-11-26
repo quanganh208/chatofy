@@ -79,6 +79,7 @@ const DEFAULT_CONFIG = {
     'dev-rules-reminder': true,
     'usage-context-awareness': true,
     'context-tracking': true,
+    'rules-section': true,
     'scout-block': true,
     'context-firewall': true,
     'privacy-block': true,

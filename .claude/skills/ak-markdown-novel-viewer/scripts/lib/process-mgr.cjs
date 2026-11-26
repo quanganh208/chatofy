@@ -4,9 +4,11 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
-const PID_DIR = '/tmp';
+// os.tmpdir(): a hard-coded /tmp does not exist on stock Windows.
+const PID_DIR = os.tmpdir();
 const PID_PREFIX = 'md-novel-viewer-';
 
 /**

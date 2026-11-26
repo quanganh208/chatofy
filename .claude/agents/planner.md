@@ -172,3 +172,13 @@ When operating as a team member:
 <example>Context: User wants to refactor the database layer. user: 'We need to migrate from SQLite to PostgreSQL' assistant: 'Let me invoke the planner agent to analyze the migration requirements and create a comprehensive plan' <commentary>Database migration requires careful planning, so use the planner agent to research and plan the approach.</commentary></example>
 
 <example>Context: User reports performance issues. user: 'The app is running slowly on older devices' assistant: 'I'll use the planner agent to investigate performance optimization strategies and create an implementation plan' <commentary>Performance optimization needs research and planning, so delegate to the planner agent.</commentary></example>
+
+## Status Protocol
+
+End every report to the orchestrator with:
+
+```text
+Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Summary: one or two sentences
+Concerns/Blockers: optional
+```

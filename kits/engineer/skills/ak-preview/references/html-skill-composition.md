@@ -6,17 +6,17 @@ This document owns the canonical HTML generation, visual styling, and diagram or
 
 The unified HTML composition protocol activates whenever a skill produces an HTML artifact:
 
-| Logical Skill | Physical File | HTML Activation Trigger |
+| Logical Skill | Skill file (under the installed skills root) | HTML Activation Trigger |
 |---|---|---|
-| `ak-explain` | `kits/core/skills/ak-explain/SKILL.md` | `--html` |
-| `ak-brainstorm` | `kits/core/skills/ak-brainstorm/SKILL.md` | `--html` |
-| `ak-plan` | `kits/core/skills/ak-plan/SKILL.md` | `--html` |
-| `ak-preview` | `kits/core/skills/ak-preview/SKILL.md` | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
-| `ak-advise` | `kits/engineer/skills/ak-advise/SKILL.md` | `--html` |
-| `ak-show-off` | `kits/engineer/skills/ak-show-off/SKILL.md` | Every invocation (inherently HTML output) |
-| `ak-retro` | `kits/engineer/skills/ak-retro/SKILL.md` | `--format html` |
-| `ak-cti-expert` | `kits/engineer/skills/ak-cti-expert/SKILL.md` | `--format html` |
-| `ak-issue-to-plan` | `kits/engineer/skills/ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak-plan --html` delegation |
+| `ak-explain` | `ak-explain/SKILL.md` | `--html` |
+| `ak-brainstorm` | `ak-brainstorm/SKILL.md` | `--html` |
+| `ak-plan` | `ak-plan/SKILL.md` | `--html` |
+| `ak-preview` | `ak-preview/SKILL.md` | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
+| `ak-advise` | `ak-advise/SKILL.md` | `--html` |
+| `ak-show-off` | `ak-show-off/SKILL.md` | Every invocation (inherently HTML output) |
+| `ak-retro` | `ak-retro/SKILL.md` | `--format html` |
+| `ak-cti-expert` | `ak-cti-expert/SKILL.md` | `--format html` |
+| `ak-issue-to-plan` | `ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak-plan --html` delegation |
 
 Non-HTML modes (Markdown, terminal CLI) do NOT activate visual capabilities or load this protocol.
 

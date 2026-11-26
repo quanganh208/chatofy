@@ -1,9 +1,11 @@
 import io
 import json
+import os
 import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -318,6 +320,75 @@ class SessionUsageTests(unittest.TestCase):
         self.assertNotIn('MY_PRIVATE_codename', json.dumps(inv))
         self.assertEqual((inv['session'], inv['human_prompts'], inv['tool_errors']), ('codex-se', 1, 1))
 
+    def omp_fixture(self):
+        """omp transcript: user-run ak-demo-skill, a model skill:// load of ak-two, a failed read, an abort, a compaction and a subagent file."""
+        root = self.root / 'omp'
+        path = root / '-repo' / '2026-09-01T10-00-00-000Z_omp-sess-1.jsonl'
+
+        def msg(second, message):
+            return {'type': 'message', 'id': f'e{second}', 'timestamp': ts(second), 'message': message}
+
+        def call(call_id, name, args):
+            return {'type': 'toolCall', 'id': call_id, 'name': name, 'arguments': args}
+
+        usage = {'input': 1, 'output': 20, 'cacheRead': 100, 'cacheWrite': 5}
+        write_jsonl(path, [
+            {'type': 'session', 'id': 'omp-sess-1', 'cwd': str(self.root / 'repo'), 'timestamp': ts(0), 'version': 3},
+            {'type': 'custom_message', 'customType': 'skill-prompt', 'timestamp': ts(1),
+             'details': {'name': 'ak-demo-skill', 'path': '/home/u/.omp/agent/skills/ak-demo-skill/SKILL.md', 'args': 'audit it'}},
+            msg(2, {'role': 'assistant', 'responseId': 'r1', 'model': 'm', 'usage': usage, 'stopReason': 'toolUse', 'content': [
+                call('c1', 'read', {'path': 'skill://ak-two'}), call('c2', 'read', {'path': 'skill://ak-demo-skill/references/guide.md'})]}),
+            msg(3, {'role': 'toolResult', 'toolCallId': 'c1', 'toolName': 'read', 'isError': False, 'content': []}),
+            msg(4, {'role': 'toolResult', 'toolCallId': 'c2', 'toolName': 'read', 'isError': True, 'content': []}),
+            msg(5, {'role': 'assistant', 'responseId': 'r2', 'model': 'm', 'usage': usage, 'stopReason': 'aborted', 'content': []}),
+            {'type': 'compaction', 'id': 'e6', 'timestamp': ts(6)},
+            msg(7, {'role': 'user', 'attribution': 'user', 'content': [{'type': 'text', 'text': 'next request'}]}),
+        ])
+        write_jsonl(path.with_suffix('') / 'Scout.jsonl', [{'type': 'session', 'id': 'sub', 'cwd': str(self.root / 'repo')}])
+        return root, path
+
+    def test_omp_session_inventory_and_invocations(self):
+        root, path = self.omp_fixture()
+        self.assertEqual(session_usage.find_session({'omp': [root]}, 'latest', self.root / 'repo'), ('omp', path))
+        self.assertEqual(list(session_usage.transcripts({'omp': [root]}, None)), [('omp', path)])  # subagent file skipped
+        self.assertEqual(session_usage.runtime_of(path), 'omp')
+        newer_claude = self.root / 'claude' / re.sub(r'[^A-Za-z0-9]', '-', str(self.root / 'repo')) / 'later.jsonl'
+        write_jsonl(newer_claude, [user(9, 'hi')])
+        both = {'omp': [root], 'claude-code': [self.root / 'claude']}
+        self.assertEqual(session_usage.find_session(both, 'latest', self.root / 'repo')[0], 'claude-code')
+        with mock.patch.dict(os.environ, {'PI_SESSION_FILE': str(path)}):
+            self.assertEqual(session_usage.find_session(both, 'latest', self.root / 'repo'), ('omp', path))
+        inv = session_usage.session_inventory('omp', path)
+        by_name = {s['skill']: s for s in inv['skills']}
+        self.assertEqual((by_name['ak-demo-skill']['triggers'], by_name['ak-demo-skill']['files']),
+                         ({'user': 1}, {'SKILL.md': 1, 'references/guide.md': 1}))
+        self.assertEqual(by_name['ak-two']['triggers'], {'model': 1})
+        self.assertEqual((inv['session'], inv['human_prompts'], inv['turns']), ('omp-sess', 2, 2))
+        self.assertEqual((inv['tool_errors'], inv['interruptions'], inv['compactions']), (1, 1, 1))
+        [record] = session_usage.omp_invocations(path, self.sid)
+        self.assertEqual((record['runtime'], record['trigger'], record['subcommand']), ('omp', 'user', 'audit'))
+        self.assertEqual((record['tool_errors'], record['interruptions'], record['skill_files']), (1, 1, {'references/guide.md': 1}))
+
+    def test_omp_all_lists_omp_sessions_without_message_text(self):
+        root, path = self.omp_fixture()
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = session_usage.main(['--all', '--runtime', 'omp', '--root', f'omp={root}', '--jobs', '1'])
+        self.assertEqual(code, 0)
+        report = json.loads(out.getvalue())
+        self.assertEqual(report['transcripts_scanned'], 1)
+        self.assertEqual(sorted(s['skill'] for s in report['skills']), ['ak-demo-skill', 'ak-two'])
+        self.assertNotIn('next request', out.getvalue())
+        self.assertNotIn('audit it', out.getvalue())
+
+    def test_omp_assistant_attributed_user_message_is_not_a_human_prompt(self):
+        root, path = self.omp_fixture()
+        events = session_usage.load_jsonl(path)
+        events.append({'type': 'message', 'id': 'e8', 'timestamp': ts(8),
+                       'message': {'role': 'user', 'attribution': 'agent', 'content': [{'type': 'text', 'text': 'x'}]}})
+        write_jsonl(path, events)
+        self.assertEqual(session_usage.session_inventory('omp', path)['human_prompts'], 2)
+
     def test_latest_session_falls_back_to_the_nearest_project_ancestor(self):
         project = self.root / 'repo'
         sub = project / 'kits' / 'core'
@@ -374,6 +445,68 @@ class SessionUsageTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
                 session_usage.main(['--all', '--session', 'latest'])
+
+    def run_all(self, *roots):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            session_usage.main(['--all', '--jobs', '1', *[arg for root in roots for arg in ('--root', root)]])
+        return {s['skill']: s for s in json.loads(out.getvalue())['skills']}, json.loads(out.getvalue())
+
+    def test_all_charges_trouble_only_to_the_skill_whose_span_holds_it(self):
+        claude = self.root / 'claude'
+        base = 'Base directory for this skill: /home/u/.claude/skills/{}'
+        write_jsonl(claude / 'p' / 'chain.jsonl', [
+            user(0, '<command-name>/ak-first</command-name>'),
+            user(0, [{'type': 'text', 'text': base.format('ak-first')}], isMeta=True),
+            assistant(1, 'm1', [tool_use('t1', 'Read', {'file_path': 'a'})]),
+            user(2, result('t1')),
+            user(3, 'now the next request'),
+            user(4, '<command-name>/ak-second</command-name>'),
+            user(4, [{'type': 'text', 'text': base.format('ak-second')}], isMeta=True),
+            assistant(5, 'm2', [tool_use('t2', 'Bash', {'command': 'x'}), tool_use('t3', 'Bash', {'command': 'x'})]),
+            user(6, result('t2', is_error=True) + result('t3', is_error=True)),
+            user(7, [{'type': 'text', 'text': '[Request interrupted by user]'}]),
+        ])
+        by_name, _ = self.run_all(f'claude-code={claude}')
+        first, second = by_name['ak-first'], by_name['ak-second']
+        self.assertEqual((first['tool_errors'], first['duplicate_calls'], first['interrupted_sessions'], first['leads']),
+                         (0, 0, 0, []))
+        self.assertEqual(first['session_totals'], {'tool_errors': 2, 'duplicate_calls': 1, 'interruptions': 1})
+        self.assertEqual((second['tool_errors'], second['duplicate_calls'], second['interrupted_sessions']), (2, 1, 1))
+        self.assertEqual([(lead['score'], lead['session_score']) for lead in second['leads']], [(6, 6)])
+
+    def test_all_counts_a_forked_codex_session_once(self):
+        codex = self.root / 'codex'
+
+        def item(second, payload, kind='response_item'):
+            return {'timestamp': ts(second), 'type': kind, 'payload': payload}
+        history = [
+            item(1, {'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'run $ak-demo-skill'}]}),
+            item(2, {'type': 'function_call', 'name': 'exec_command', 'call_id': 'c0',
+                     'arguments': json.dumps({'cmd': 'cat ~/.agents/skills/ak-demo-skill/SKILL.md'})}),
+            item(3, {'type': 'function_call_output', 'call_id': 'c0', 'output': 'Exit code: 1'}),
+        ]
+        parent_meta = item(0, {'id': 'parent-0001', 'cwd': str(self.root)}, 'session_meta')
+        write_jsonl(codex / 'rollout-parent.jsonl', [parent_meta, *history])
+        # Fork marked with forked_from_id; it replays the parent's history and adds a second failure.
+        extra = [item(4, {'type': 'function_call', 'name': 'exec_command', 'call_id': 'c1', 'arguments': '{"cmd":"y"}'}),
+                 item(5, {'type': 'function_call_output', 'call_id': 'c1', 'output': 'Exit code: 2'})]
+        write_jsonl(codex / 'rollout-fork.jsonl', [item(0, {'id': 'fork-0002', 'forked_from_id': 'parent-0001'}, 'session_meta'),
+                                                   *history, *extra])
+        # Older fork format: no forked_from_id, but the parent's session_meta is replayed after its own; fork of the fork.
+        write_jsonl(codex / 'rollout-fork2.jsonl', [item(0, {'id': 'fork-0003'}, 'session_meta'),
+                                                    item(0, {'id': 'fork-0002'}, 'session_meta'), *history, *extra])
+        # A sibling fork of the parent does its own work, so it is a session of its own.
+        write_jsonl(codex / 'rollout-sibling.jsonl', [item(0, {'id': 'sibl-0005', 'forked_from_id': 'parent-0001'}, 'session_meta'),
+                                                      *history])
+        # A subagent names its parent thread but does its own work, so it stays a separate session.
+        write_jsonl(codex / 'rollout-sub.jsonl', [item(0, {'id': 'sub-0004', 'parent_thread_id': 'parent-0001'}, 'session_meta'),
+                                                  *history])
+        by_name, report = self.run_all(f'codex={codex}')
+        demo = by_name['ak-demo-skill']
+        self.assertEqual((report['sessions_with_skills'], demo['sessions'], demo['tool_errors']), (3, 3, 4))
+        self.assertEqual(sorted(lead['session'] for lead in demo['leads']), ['fork-000', 'sibl-000', 'sub-0004'])
+        self.assertEqual(session_usage.session_inventory('codex', codex / 'rollout-fork2.jsonl')['forked_from'], 'fork-0002')
 
 
 if __name__ == '__main__':

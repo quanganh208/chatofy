@@ -73,10 +73,26 @@ python batch_resize.py -i ./input -o ./output -w 800 -h 600
 ## Video Processing Scripts
 
 ### video_optimize.py
-Optimize videos for web with quality and size optimization.
+Compress a video for the web and verify it before it is kept. The source is never
+modified, the output defaults to a fresh `<name>.optimized.<ext>`, and an encode is
+promoted only after it decodes cleanly, matches the expected size, duration and
+tracks, and is smaller than the source.
 
 ```bash
-python video_optimize.py -i input.mp4 -o output.mp4 --preset slow --crf 23
+python video_optimize.py input.mov -w 1920              # H.264/MP4 default
+python video_optimize.py input.mov --codec vp9 --json   # WebM companion, JSON receipt
+python video_optimize.py input.mov -n                   # dry run: plan and commands only
+```
+
+Exit codes: 0 kept, 1 error, 3 rejected (not smaller than the source or, with `--replace-output`, the file it replaces; or failed verification).
+
+### video_web_audit.py and capture_rendered_videos.mjs
+Read-only inventory of the videos a project references, with target sizes from
+measured rendered sizes. See `../references/web-video-optimization.md#audit`.
+
+```bash
+node capture_rendered_videos.mjs http://localhost:3000/ > rendered.json
+python video_web_audit.py /path/to/project --rendered rendered.json
 ```
 
 ### media_convert.py
@@ -104,8 +120,7 @@ python media_convert.py -i input.mkv -o output.mp4 --codec h264
 
 ## Testing
 
-Run tests:
+Run the suites with pytest (FFmpeg integration tests skip when ffmpeg/ffprobe are missing):
 ```bash
-cd tests
-bash test_all.sh
+python -m pytest tests -q
 ```

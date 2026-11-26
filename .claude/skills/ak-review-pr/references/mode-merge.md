@@ -24,17 +24,11 @@ Activate `ak-git merge-pr` with the current PR reference:
 ak-git merge-pr <PR_REF>
 ```
 
-`ak-git merge-pr` (documented in the `ak-git` skill) owns the mechanics:
-
-- re-checks readiness with the same `gh-api-helpers.sh` loader (adaptive `_ak_pr_meta` / `_ak_pr_checks`), picks the repo's merge method, merges via `gh pr merge`; when GraphQL is blocked (`AK_GH_REST=1`) it polls checks to terminal-green and then falls back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=...` — REST has no auto-merge endpoint, so pending-checks mode degrades to poll-then-PUT
-- watches post-merge CI on the target branch until every run for the merge commit concludes
-- on deterministic CI failure, drives a follow-up fix (`ak-fix --auto` on a new branch) and repeats, up to 3 attempts
-- verifies follow-up: PR state `MERGED`, merge commit on the target branch, all watched runs green
-- closes the index row of a plan-backed change (matches the merged PR to its plan via `--linked-pr` or head branch, then `ak plan close`; skips silently when there is no plan) per the shared "Delivery finalization" protocol
+`ak-git merge-pr` (documented in the `ak-git` skill) owns the mechanics: it re-checks readiness, merges (polling checks then merging over REST when GraphQL is blocked), watches post-merge CI on the target branch, drives up to 3 follow-up fixes on deterministic CI failure, verifies the PR is `MERGED` with green runs, and closes a plan-backed change with `ak plan close`.
 
 Do not bypass its readiness gate or stop conditions. Do not advance to the next PR while the current PR's post-merge CI is still pending — a PR's run is complete only when its target-branch CI is green, an external blocker remains, or the fix attempts are exhausted.
 
-When `--advice` is originally set AND post-merge target-branch CI reaches terminal-green for the current PR, run the MANDATORY post-CI-green checkpoint from Advisory supervision: spawn `kongming` to review the whole implementation, then post its assessment plus concrete next steps as a comment on the PR via `_ak_pr_comment` (native first, REST fallback):
+When `--advice` is originally set AND post-merge target-branch CI reaches terminal-green for the current PR, run the post-CI-green checkpoint from Advisory supervision: spawn `kongming` to review the whole implementation, then post its assessment plus concrete next steps as a comment on the PR via `_ak_pr_comment` (native first, REST fallback):
 
 ```bash
 _ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh

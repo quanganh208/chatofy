@@ -1,10 +1,8 @@
 # Conditional skill integration: research, debug, test, docs
 
-These four skills join the pipeline **only when their trigger predicate holds**.
-Each step is skippable; record the skip reason in the run so it is auditable.
-Never run a step for ceremony, and never fabricate work to justify a step.
-Never prompt interactively to decide a conditional step: evaluate the predicate
-deterministically; if 50/50, skip and record why.
+These four skills join the pipeline only when their trigger predicate holds.
+Record the skip reason when a step is skipped. Do not prompt interactively to
+decide a conditional step; if the predicate is 50/50, skip and record why.
 
 ## Research (`/ak-research`) — technology present
 
@@ -17,11 +15,8 @@ dependency surface, or the technology is already well-understood and stable in
 this codebase.
 
 **Action:** before planning, run `/ak-research "<tech topics>"` for latest docs,
-recent updates/breaking changes, best practices, and common issues/pitfalls.
-Prefer a fresh-context subagent so findings are unbiased. Feed the research
-summary into `/ak-plan` and the issue body. Note: vibe deliberately scopes
-`--ultra` to plan and code-review only; do not forward `--ultra` or `--advice`
-to `/ak-research`.
+recent breaking changes, and known pitfalls. Feed the summary into `/ak-plan`
+and the issue body. Do not forward `--ultra` or `--advice` to `/ak-research`.
 
 ## Debug (`/ak-debug`) — bugfix route
 
@@ -32,11 +27,9 @@ behavior, failing test/CI, incident, error log, or explicit fix/repair).
 diagnose.
 
 **Action:** before planning or fixing, run `/ak-debug "<error/issue + evidence>"`
-to prove the **root cause with concrete evidence** (reproduction command,
-logs, traced call stack) — no guessing, no symptom-patching. Carry the
-confirmed root cause into `/ak-plan` and `/ak-fix`. Note: `/ak-debug` does not
-accept `--advice`; do not forward it there. Investigation proves root cause;
-the actual code fix stays with `/ak-fix`.
+to prove the root cause, and carry it into `/ak-plan` and `/ak-fix`. The code
+fix stays with `/ak-fix`. `/ak-debug` does not accept `--advice`; do not
+forward it there.
 
 ## Test (`/ak-test`) — coverage that earns its place
 
@@ -53,8 +46,7 @@ Choose the operation:
 --tdd` / `/ak-fix` already produced adequate, honest coverage. Do NOT add tests
 just so the change "has tests".
 
-**Anti-cheat:** never write pass-only, tautological, or implementation-echoing
-tests. Each test must fail on a plausible bug and assert consumer-observable
+Each test must fail on a plausible bug and assert consumer-observable
 behavior. Never forward `--interview` (prompts stall autonomy). Forward
 `--advice` when vibe ran with it (`/ak-test <op> --advice`).
 

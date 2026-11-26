@@ -1,0 +1,183 @@
+{
+  "skill_name": "ak-skill-creator",
+  "evals": [
+    {
+      "id": "no-ak",
+      "split": "train",
+      "prompt": "Plan (do not execute) creating a new skill named my-tool that turns meeting notes into action items, invoked as `create my-tool --personal`. Instead of running the ak CLI, use ak-observations.json in your input: it records whether ak is on PATH and the exit code and output each ak command returned. Write plan.md in your output directory naming the target, every command you would run in order, and any one-line notes for the user. Do not read evals.json.",
+      "expected_output": "Default project flow; one line that SSOT/SkillX was not detected because ak is not on PATH, naming ak update --ssot for --personal; no prompt.",
+      "files": [
+        "fixtures/no-ak/ak-observations.json"
+      ],
+      "assertions": [
+        {
+          "id": "plan-exists",
+          "text": "The plan was written.",
+          "kind": "file-exists",
+          "path": "plan.md"
+        },
+        {
+          "id": "project-target",
+          "text": "Targets the project skill directory, not a personal kit.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-prompt",
+          "text": "Does not ask the user a blocking question or request confirmation.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-new-skill",
+          "text": "Does not include ak skills kit new-skill, kit apply, kit publish, ak update --ssot or ak skills link as commands to run.",
+          "kind": "rubric"
+        },
+        {
+          "id": "names-ssot",
+          "text": "The one-line note names ak update --ssot.",
+          "kind": "text-contains",
+          "path": "plan.md",
+          "expected": "ak update --ssot"
+        }
+      ]
+    },
+    {
+      "id": "old-binary",
+      "split": "train",
+      "prompt": "Plan (do not execute) creating a new skill named my-tool that turns meeting notes into action items, invoked as `create my-tool --personal`. Instead of running the ak CLI, use ak-observations.json in your input: it records whether ak is on PATH and the exit code and output each ak command returned. Write plan.md in your output directory naming the target, every command you would run in order, and any one-line notes for the user. Do not read evals.json.",
+      "expected_output": "Unknown-command exits are treated as not detected; default project flow with one note line.",
+      "files": [
+        "fixtures/old-binary/ak-observations.json"
+      ],
+      "assertions": [
+        {
+          "id": "plan-exists",
+          "text": "The plan was written.",
+          "kind": "file-exists",
+          "path": "plan.md"
+        },
+        {
+          "id": "project-target",
+          "text": "Targets the project skill directory, not a personal kit.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-prompt",
+          "text": "Does not ask the user a blocking question or request confirmation.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-new-skill",
+          "text": "Does not include ak skills kit new-skill, kit apply, kit publish, ak update --ssot or ak skills link as commands to run.",
+          "kind": "rubric"
+        }
+      ]
+    },
+    {
+      "id": "features-off",
+      "split": "holdout",
+      "prompt": "Plan (do not execute) creating a new skill named my-tool that turns meeting notes into action items, invoked as `create my-tool --personal`. Instead of running the ak CLI, use ak-observations.json in your input: it records whether ak is on PATH and the exit code and output each ak command returned. Write plan.md in your output directory naming the target, every command you would run in order, and any one-line notes for the user. Do not read evals.json.",
+      "expected_output": "All features off: default project flow, one note line naming the missing skill_overlays signal; no SkillX or publish mention.",
+      "files": [
+        "fixtures/features-off/ak-observations.json"
+      ],
+      "assertions": [
+        {
+          "id": "plan-exists",
+          "text": "The plan was written.",
+          "kind": "file-exists",
+          "path": "plan.md"
+        },
+        {
+          "id": "project-target",
+          "text": "Targets the project skill directory, not a personal kit.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-prompt",
+          "text": "Does not ask the user a blocking question or request confirmation.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-new-skill",
+          "text": "Does not include ak skills kit new-skill, kit apply, kit publish, ak update --ssot or ak skills link as commands to run.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-skillx",
+          "text": "Does not mention SkillX publishing.",
+          "kind": "rubric"
+        }
+      ]
+    },
+    {
+      "id": "ssot-on",
+      "split": "train",
+      "prompt": "Plan (do not execute) creating a new skill named my-tool that turns meeting notes into action items, invoked as `create my-tool --personal`. Instead of running the ak CLI, use ak-observations.json in your input: it records whether ak is on PATH and the exit code and output each ak command returned. Write plan.md in your output directory naming the target, every command you would run in order, and any one-line notes for the user. Do not read evals.json.",
+      "expected_output": "Personal kit lane: init_skill.py --personal in a scratch dir, validate, ak skills kit new-skill mine my-tool --from-dir, kit apply mine; no publish because SkillX is off.",
+      "files": [
+        "fixtures/ssot-on/ak-observations.json"
+      ],
+      "assertions": [
+        {
+          "id": "plan-exists",
+          "text": "The plan was written.",
+          "kind": "file-exists",
+          "path": "plan.md"
+        },
+        {
+          "id": "new-skill",
+          "text": "Uses kit new-skill into the mine kit.",
+          "kind": "text-contains",
+          "path": "plan.md",
+          "expected": "ak skills kit new-skill mine my-tool"
+        },
+        {
+          "id": "validate-first",
+          "text": "Validates the scratch skill before handing it to the CLI and applies the kit afterwards.",
+          "kind": "rubric"
+        },
+        {
+          "id": "no-publish",
+          "text": "Does not propose kit publish or SkillX.",
+          "kind": "rubric"
+        }
+      ]
+    },
+    {
+      "id": "skillx-linked",
+      "split": "holdout",
+      "prompt": "Plan (do not execute) creating a new skill named my-tool that turns meeting notes into action items, invoked as `create my-tool --personal`. Instead of running the ak CLI, use ak-observations.json in your input: it records whether ak is on PATH and the exit code and output each ak command returned. Write plan.md in your output directory naming the target, every command you would run in order, and any one-line notes for the user. Do not read evals.json.",
+      "expected_output": "Personal kit lane as ssot-on, plus a publish proposal for ak skills kit publish mine that requires separate user agreement and is not executed.",
+      "files": [
+        "fixtures/skillx-linked/ak-observations.json"
+      ],
+      "assertions": [
+        {
+          "id": "plan-exists",
+          "text": "The plan was written.",
+          "kind": "file-exists",
+          "path": "plan.md"
+        },
+        {
+          "id": "new-skill",
+          "text": "Uses kit new-skill into the mine kit.",
+          "kind": "text-contains",
+          "path": "plan.md",
+          "expected": "ak skills kit new-skill mine my-tool"
+        },
+        {
+          "id": "publish-named",
+          "text": "The publish command is named.",
+          "kind": "text-contains",
+          "path": "plan.md",
+          "expected": "ak skills kit publish mine"
+        },
+        {
+          "id": "publish-proposal-only",
+          "text": "Publish is presented only as a proposal needing the user's separate agreement and is not in the commands to run.",
+          "kind": "rubric"
+        }
+      ]
+    }
+  ]
+}

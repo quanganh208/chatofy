@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Measure one skill's invocations in local agent transcripts; read-only, never prints message text.
 
-Scans Claude Code (`<config>/projects/**/*.jsonl`) and Codex (`<home>/sessions/**/*.jsonl`)
-transcripts, slices each invocation from its trigger to the next human prompt, and emits
+Scans Claude Code (`<config>/projects/**/*.jsonl`), Codex (`<home>/sessions/**/*.jsonl`) and omp
+(`$PI_CODING_AGENT_DIR/sessions/<project>/*.jsonl`, default `~/.omp/agent`) transcripts, slices
+each invocation from its trigger to the next human prompt, and emits
 JSON metrics (tokens, turns, tool calls, errors, latency, delegation, skill files read)
 plus heuristic signals. Signals are review leads, not verdicts.
 """
@@ -253,15 +254,15 @@ def claude_subagents(subagents, first, last, record):
             add_subagent(record, usage_by_id)
 
 
-def claude_invocations(path, sid):
-    events = load_jsonl(path)
+def claude_invocations(path, sid, events=None, runtime='claude-code'):
+    events = load_jsonl(path) if events is None else events
     session = next((e.get('sessionId') for e in events if e.get('sessionId')), path.stem)
     entrypoint = next((e.get('entrypoint') for e in events if e.get('entrypoint')), None)
     starts = [(i, hit) for i, e in enumerate(events) if (hit := claude_start(e, sid))]
     subagents = load_subagents(path) if starts else []
     for n, (start, (trigger, args)) in enumerate(starts):
         limit = starts[n + 1][0] if n + 1 < len(starts) else len(events)
-        record = new_record('claude-code', session, trigger, args, sid.modes, entrypoint)
+        record = new_record(runtime, session, trigger, args, sid.modes, entrypoint)
         usage_by_id, side_by_id, pending, seen, stamps = {}, {}, {}, set(), []
         for event in events[start:limit]:
             if event is not events[start] and claude_is_human(event):
@@ -420,12 +421,69 @@ def codex_invocations(path, sid):
         yield close()
 
 
+# ------------------------------------------------------------------------ omp
+
+# omp loads a skill by reading skill://<name>; a resource read is skill://<name>/references/... and stays a read.
+SKILL_URL = re.compile(r'^skill://([\w.:-]+)/?(?:SKILL\.md)?$')
+
+
+def omp_tool_use(block):
+    """One omp toolCall as a Claude tool_use; a skill:// load becomes the Skill tool the parsers recognize."""
+    data = block.get('arguments') or {}
+    load = block.get('name') == 'read' and isinstance(data, dict) and SKILL_URL.match(str(data.get('path') or ''))
+    if load:
+        return {'type': 'tool_use', 'id': block.get('id'), 'name': 'Skill',
+                'input': {'skill': load.group(1), 'path': f'skill://{load.group(1)}/SKILL.md'}}
+    return {'type': 'tool_use', 'id': block.get('id'), 'name': block.get('name', '?'), 'input': data}
+
+
+def omp_events(path):
+    """Translate an omp transcript into the Claude event shape so the Claude parsers measure it."""
+    events, session = [], None
+    for event in load_jsonl(path):
+        kind, message = event.get('type'), event.get('message') or {}
+        role = message.get('role') if kind == 'message' else None
+        if kind == 'session':
+            session = event.get('id')
+            continue
+        base = {'timestamp': event.get('timestamp'), 'sessionId': session}
+        if kind == 'compaction':
+            events.append({**base, 'type': 'user', 'isCompactSummary': True, 'message': {'content': ''}})
+        elif kind == 'custom_message' and event.get('customType') == 'skill-prompt':
+            details = event.get('details') or {}
+            text = f"<command-name>/{details.get('name')}</command-name>\n<command-args>{details.get('args') or ''}</command-args>"
+            if details.get('path'):
+                text += f"\nBase directory for this skill: {Path(details['path']).parent}"
+            events.append({**base, 'type': 'user', 'message': {'content': text}})
+        elif role == 'user':
+            events.append({**base, 'type': 'user', 'isMeta': message.get('attribution') not in (None, 'user'),
+                           'message': {'content': message.get('content')}})
+        elif role == 'toolResult':
+            events.append({**base, 'type': 'user', 'message': {'content': [
+                {'type': 'tool_result', 'tool_use_id': message.get('toolCallId'), 'is_error': bool(message.get('isError'))}]}})
+        elif role == 'assistant':
+            usage = message.get('usage') or {}
+            blocks = [omp_tool_use(b) for b in message.get('content') or [] if isinstance(b, dict) and b.get('type') == 'toolCall']
+            events.append({**base, 'type': 'assistant', 'message': {
+                'id': message.get('responseId') or event.get('id'), 'model': message.get('model'), 'content': blocks,
+                'usage': {'input_tokens': usage.get('input') or 0, 'cache_read_input_tokens': usage.get('cacheRead') or 0,
+                          'cache_creation_input_tokens': usage.get('cacheWrite') or 0, 'output_tokens': usage.get('output') or 0}}})
+            if message.get('stopReason') == 'aborted':
+                events.append({**base, 'type': 'user', 'message': {'content': INTERRUPT_PREFIX + ' by user]'}})
+    return events
+
+
+def omp_invocations(path, sid):
+    return claude_invocations(path, sid, omp_events(path), 'omp')
+
+
 # ------------------------------------------------------------------ discovery
 
 def default_roots():
     claude = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude') / 'projects'
     codex_home = Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex')
-    return {'claude-code': [claude], 'codex': [codex_home / 'sessions', codex_home / 'archived_sessions']}
+    return {'claude-code': [claude], 'codex': [codex_home / 'sessions', codex_home / 'archived_sessions'],
+            'omp': [Path(os.environ.get('PI_CODING_AGENT_DIR') or Path.home() / '.omp' / 'agent') / 'sessions']}
 
 
 def transcripts(roots, since):
@@ -435,7 +493,8 @@ def transcripts(roots, since):
             if not folder.is_dir():
                 continue
             for path in sorted(folder.rglob('*.jsonl')):
-                if path.parent.name == 'subagents' or path.name in seen:
+                # Subagent transcripts: Claude keeps them in subagents/, omp in a folder named after the session.
+                if path.parent.name == 'subagents' or (runtime == 'omp' and path.parent.parent != folder) or path.name in seen:
                     continue
                 seen.add(path.name)
                 try:
@@ -566,7 +625,7 @@ def aggregate(records, sid):
 # ----------------------------------------------------------- session inventory
 
 # Any file under a skills/<name>/ folder: SKILL.md or a resource below it.
-SKILL_FILE = re.compile(r'[/\\]skills[/\\]+([\w.:-]+)[/\\]+((?:references|scripts|assets)(?:[/\\]+[\w.\-]+)+|SKILL\.md)')
+SKILL_FILE = re.compile(r'(?:[/\\]skills[/\\]+|skill://)([\w.:-]+)[/\\]+((?:references|scripts|assets)(?:[/\\]+[\w.\-]+)+|SKILL\.md)')
 BASE_DIR = re.compile(r'Base directory for this skill:\s*\S*?[/\\]skills[/\\]+([\w.:-]+)')
 SLASH = re.compile(r'<command-name>/([\w.:-]+)</command-name>')
 
@@ -598,21 +657,38 @@ def project_transcripts_at(roots, cwd):
             for path in project.glob('*.jsonl'):
                 yield 'claude-code', path
     wanted = os.path.normcase(str(cwd))
-    for runtime, path in transcripts({'codex': roots.get('codex', [])}, None):
+    for runtime, path in transcripts({k: roots.get(k, []) for k in ('codex', 'omp')}, None):
         with open(path, encoding='utf-8', errors='replace') as handle:
             try:
-                meta = json.loads(handle.readline()).get('payload') or {}
+                first = json.loads(handle.readline())
             except json.JSONDecodeError:
                 continue
+        meta = (first.get('payload') or {}) if runtime == 'codex' else first  # omp: the session header line holds cwd
         if os.path.normcase(str(meta.get('cwd') or '')) == wanted:
             yield runtime, path
 
 
+def runtime_of(path):
+    if 'rollout-' in path.name:
+        return 'codex'
+    with open(path, encoding='utf-8', errors='replace') as handle:
+        try:
+            first = json.loads(handle.readline())
+        except json.JSONDecodeError:
+            return 'claude-code'
+    return 'omp' if isinstance(first, dict) and first.get('type') == 'session' and 'cwd' in first else 'claude-code'
+
+
 def find_session(roots, session, cwd):
-    """Resolve a transcript from a path, an id prefix, or latest (newest of the current project)."""
+    """Resolve a transcript from a path, an id prefix, or latest (the running omp session, else newest of the current project)."""
     given = Path(session).expanduser()  # --all prints lead transcripts as ~/...
     if given.is_file():
-        return ('codex' if 'rollout-' in given.name else 'claude-code'), given
+        return runtime_of(given), given
+    # Another runtime can write in the same project meanwhile, so inside omp "latest" means the session running this script.
+    current = Path(os.environ.get('PI_SESSION_FILE') or '.').resolve()
+    if session == 'latest' and current.is_file() and any(
+            current.is_relative_to(Path(f).resolve()) for f in roots.get('omp', [])):
+        return 'omp', current
     pool = project_transcripts(roots, cwd) if session == 'latest' else (
         (runtime, path) for runtime, path in transcripts(roots, None)
         if path.stem.startswith(session) or path.stem.endswith(session) or session in path.stem.split('-', 1)[-1])
@@ -629,12 +705,47 @@ def find_session(roots, session, cwd):
 
 
 def new_skill_entry():
-    return {'triggers': Counter(), 'files': Counter(), 'first_event': None}
+    return {'triggers': Counter(), 'files': Counter(), 'first_event': None, 'starts': []}
+
+
+def new_marks():
+    """Line indexes of trouble events and human prompts, used to charge trouble to the skill spans it falls in."""
+    return {'errors': [], 'duplicates': [], 'interruptions': [], 'prompts': []}
+
+
+def span_trouble(starts, marks):
+    """Errors, duplicates and interruptions inside a skill's spans; a span runs from a trigger or SKILL.md
+    load to the next human prompt."""
+    spans = []
+    for start in sorted(starts):
+        end = next((p for p in marks['prompts'] if p > start), float('inf'))
+        if spans and start < spans[-1][1]:
+            spans[-1][1] = max(spans[-1][1], end)
+        else:
+            spans.append([start, end])
+
+    def inside(index):
+        return any(lo <= index < hi for lo, hi in spans)
+    errors = Counter(name for index, name in marks['errors'] if inside(index))
+    return {'tool_errors': sum(errors.values()), 'errors_by_tool': dict(errors.most_common()),
+            'duplicate_calls': sum(1 for index, _ in marks['duplicates'] if inside(index)),
+            'interruptions': sum(1 for index in marks['interruptions'] if inside(index))}
+
+
+def codex_fork_parent(events, session):
+    """Id of the session a Codex rollout was forked from: forked_from_id in its session_meta, or the id of a
+    parent session_meta replayed into it. A subagent's parent_thread_id is not a fork; it does its own work."""
+    metas = [e.get('payload') or {} for e in events if e.get('type') == 'session_meta']
+    if metas and metas[0].get('forked_from_id'):
+        return metas[0]['forked_from_id']
+    return next((m['id'] for m in metas[1:] if m.get('id') and m['id'] != session), None)
 
 
 def note_skill(skills, key, index, trigger=None, rel=None):
     entry = skills[key]
     entry['first_event'] = index if entry['first_event'] is None else entry['first_event']
+    if trigger or rel == 'SKILL.md':
+        entry['starts'].append(index)
     if trigger:
         entry['triggers'][trigger] += 1
     if rel:
@@ -647,11 +758,11 @@ def note_files(skills, payload, index):
             note_skill(skills, skill_key(name), index, rel=rel)
 
 
-def inventory_claude(path):
-    events = load_jsonl(path)
+def inventory_claude(path, events=None):
+    events = load_jsonl(path) if events is None else events
     skills, tools, errors, pending, seen = defaultdict(new_skill_entry), Counter(), Counter(), {}, set()
     duplicates, totals = Counter(), {'turns': 0, 'human_prompts': 0, 'interruptions': 0, 'compactions': 0}
-    usage_by_id, stamps = {}, []
+    usage_by_id, stamps, marks = {}, [], new_marks()
     for index, event in enumerate(events):
         if event.get('isSidechain'):
             continue
@@ -668,13 +779,16 @@ def inventory_claude(path):
             if claude_is_human(event):
                 if text.lstrip().startswith(INTERRUPT_PREFIX):
                     totals['interruptions'] += 1
+                    marks['interruptions'].append(index)
                 else:
                     totals['human_prompts'] += 1
+                    marks['prompts'].append(index)
             for block in message.get('content') if isinstance(message.get('content'), list) else []:
                 if isinstance(block, dict) and block.get('type') == 'tool_result' and block.get('tool_use_id') in pending:
                     name = pending.pop(block['tool_use_id'])
                     if block.get('is_error'):
                         errors[name] += 1
+                        marks['errors'].append((index, name))
         elif event.get('type') == 'assistant':
             if message.get('usage'):
                 usage_by_id[message.get('id') or id(event)] = message['usage']
@@ -687,6 +801,7 @@ def inventory_claude(path):
                 key = (name, json.dumps(data, sort_keys=True))
                 if key in seen:
                     duplicates[name] += 1
+                    marks['duplicates'].append((index, name))
                 seen.add(key)
                 if name == 'Skill':
                     note_skill(skills, skill_key(data.get('skill')), index, trigger='model')
@@ -699,14 +814,14 @@ def inventory_claude(path):
     for usage in usage_by_id.values():
         add_usage(tokens, usage)
     session = next((e.get('sessionId') for e in events if e.get('sessionId')), path.stem)
-    return session, skills, tools, errors, duplicates, totals, tokens, [t for t in stamps if t]
+    return session, skills, tools, errors, duplicates, totals, tokens, [t for t in stamps if t], marks, None
 
 
 def inventory_codex(path):
     events = load_jsonl(path)
     skills, tools, errors, pending, seen = defaultdict(new_skill_entry), Counter(), Counter(), {}, set()
     duplicates, totals = Counter(), {'turns': 0, 'human_prompts': 0, 'interruptions': 0, 'compactions': 0}
-    tokens, stamps, in_response = dict.fromkeys(TOKEN_FIELDS, 0), [], False
+    tokens, stamps, in_response, marks = dict.fromkeys(TOKEN_FIELDS, 0), [], False, new_marks()
     meta = next(((e.get('payload') or {}) for e in events if e.get('type') == 'session_meta'), {})
     mention = re.compile(r'(?:^|\s)\$([\w.:-]+)')
     for index, event in enumerate(events):
@@ -716,6 +831,7 @@ def inventory_codex(path):
             tokens = codex_totals(payload['info'])
         elif kind == 'event_msg' and payload.get('type') == 'turn_aborted':
             totals['interruptions'] += 1
+            marks['interruptions'].append(index)
         elif kind == 'compacted':
             totals['compactions'] += 1
         if kind != 'response_item':
@@ -726,6 +842,7 @@ def inventory_codex(path):
         text = codex_user_text(payload)
         if text is not None and is_prompt(text) and not text.startswith('<'):
             totals['human_prompts'] += 1
+            marks['prompts'].append(index)
             for name in mention.findall(text):
                 note_skill(skills, skill_key(name), index, trigger='user')
             continue
@@ -738,12 +855,14 @@ def inventory_codex(path):
             key = (name, data if isinstance(data, str) else json.dumps(data, sort_keys=True))
             if key in seen:
                 duplicates[name] += 1
+                marks['duplicates'].append((index, name))
             seen.add(key)
             note_files(skills, data, index)
         elif call_type in ('function_call_output', 'custom_tool_call_output'):
             name = pending.pop(payload.get('call_id'), '?')
             if codex_failed(payload.get('output')):
                 errors[name] += 1
+                marks['errors'].append((index, name))
     # A $mention that touches no file of a skills/ folder is plain prompt text, not a skill; drop it so prompt words never reach the output.
     for key in [k for k, e in skills.items() if set(e['triggers']) == {'user'} and not e['files']]:
         del skills[key]
@@ -752,28 +871,33 @@ def inventory_codex(path):
         if entry['files'].get('SKILL.md') and not entry['triggers']:
             entry['triggers']['model'] += 1
     session = meta.get('id') or path.stem[-36:]
-    return session, skills, tools, errors, duplicates, totals, tokens, [t for t in stamps if t]
+    stamps = [t for t in stamps if t]
+    return session, skills, tools, errors, duplicates, totals, tokens, stamps, marks, codex_fork_parent(events, session)
 
 
 def session_inventory(runtime, path):
-    parse = inventory_claude if runtime == 'claude-code' else inventory_codex
-    session, skills, tools, errors, duplicates, totals, tokens, stamps = parse(path)
+    parse = {'claude-code': inventory_claude, 'omp': lambda p: inventory_claude(p, omp_events(p))}.get(runtime, inventory_codex)
+    session, skills, tools, errors, duplicates, totals, tokens, stamps, marks, forked_from = parse(path)
     ordered = sorted(skills.items(), key=lambda kv: kv[1]['first_event'])
     return {
-        'runtime': runtime, 'session': session[:8], 'transcript': display_path(path),
+        'runtime': runtime, 'session': session[:8], 'session_id': session, 'forked_from': forked_from,
+        'transcript': display_path(path),
         'duration_s': seconds(stamps[0], stamps[-1]) if stamps else None, **totals, 'tokens': tokens,
         'tool_calls': sum(tools.values()), 'tool_errors': sum(errors.values()),
         'duplicate_calls': sum(duplicates.values()),
         'tools': dict(tools.most_common()), 'errors_by_tool': dict(errors.most_common()),
         'duplicates_by_tool': dict(duplicates.most_common()),
         'skills': [{'skill': key, 'invoked': bool(entry['triggers']), 'triggers': dict(entry['triggers']),
-                    'files': dict(entry['files'].most_common()), 'first_event': entry['first_event']}
+                    'files': dict(entry['files'].most_common()), 'first_event': entry['first_event'],
+                    **({'in_span': span_trouble(entry['starts'], marks)} if entry['triggers'] else {})}
                    for key, entry in ordered if key],
         'limitations': [
             'Skills are detected from slash commands, skill tool calls, $mentions and file paths under a skills/ folder; '
             'a skill loaded another way is missed.',
             'invoked is false when a skill only appears in file paths, such as one being read or edited as source.',
             'first_event is the transcript line index; files counts mentions in tool arguments, not confirmed reads.',
+            'in_span counts trouble from each trigger or SKILL.md load to the next human prompt, so it includes work '
+            'of skills chained in the same request.',
             'An open session is measured up to its last written line.',
         ],
     }
@@ -781,14 +905,16 @@ def session_inventory(runtime, path):
 
 # ------------------------------------------------------------ machine inventory
 
-# Bytes that any Claude Code skill use leaves in a transcript; files without one are skipped unparsed.
+# Bytes that any Claude Code or omp skill use leaves in a transcript; files without one are skipped unparsed.
 CLAUDE_SKILL_MARKERS = (b'<command-name>/', b'"name":"Skill"', b'"name": "Skill"', b'skills/', b'skills\\\\')
+OMP_SKILL_MARKERS = (b'"skill-prompt"', b'skill://', b'skills/')
 
 
 def inventory_or_none(item):
     """Inventory one transcript for the machine-wide scan; None when it shows no skill or cannot be read."""
     runtime, path = item
-    if runtime == 'claude-code' and not contains_any(path, CLAUDE_SKILL_MARKERS):
+    markers = {'claude-code': CLAUDE_SKILL_MARKERS, 'omp': OMP_SKILL_MARKERS}.get(runtime)
+    if markers and not contains_any(path, markers):
         return None
     try:
         inventory = session_inventory(runtime, path)
@@ -802,7 +928,7 @@ def lead_score(inventory):
 
 
 def machine_inventory(roots, since, excluded, top, jobs):
-    """Every invoked skill across all local transcripts, with session-level trouble counts and the
+    """Every invoked skill across all local transcripts, with trouble counted inside its spans and the
     sessions most worth reading first."""
     items = list(transcripts(roots, since))
     if jobs > 1 and len(items) > 1:
@@ -813,47 +939,59 @@ def machine_inventory(roots, since, excluded, top, jobs):
         inventories = [inventory_or_none(item) for item in items]
     skills = defaultdict(lambda: {'sessions': 0, 'triggers': Counter(), 'files': Counter(), 'runtimes': Counter(),
                                   'sessions_with_errors': 0, 'tool_errors': 0, 'errors_by_tool': Counter(),
-                                  'duplicate_calls': 0, 'interrupted_sessions': 0, 'compacted_sessions': 0, 'leads': []})
-    used = 0
-    for inventory in inventories:
-        if not inventory or any(inventory['session'].startswith(e) or e.startswith(inventory['session']) for e in excluded):
-            continue
-        used += 1
+                                  'duplicate_calls': 0, 'interrupted_sessions': 0, 'compacted_sessions': 0,
+                                  'session_totals': Counter(), 'leads': []})
+    kept = [i for i in inventories
+            if i and not any(i['session'].startswith(e) or e.startswith(i['session']) for e in excluded)]
+    # A forked Codex rollout replays its parent's history, so a scanned parent is already inside its fork:
+    # keep only the leaves of each fork tree. Sibling forks stay separate because each adds its own work.
+    forked = {i['forked_from'] for i in kept if i['forked_from'] and i['forked_from'] != i['session_id']}
+    kept = [i for i in kept if i['session_id'] not in forked]
+    uses = [(inventory, skill) for inventory in kept for skill in inventory['skills'] if skill['invoked']]
+    for inventory, skill in uses:
+        span = skill['in_span']
+        entry = skills[skill['skill']]
+        entry['sessions'] += 1
+        entry['triggers'].update(skill['triggers'])
+        entry['files'].update(skill['files'].keys())
+        entry['runtimes'][inventory['runtime']] += 1
+        entry['sessions_with_errors'] += bool(span['tool_errors'])
+        entry['tool_errors'] += span['tool_errors']
+        entry['errors_by_tool'].update(span['errors_by_tool'])
+        entry['duplicate_calls'] += span['duplicate_calls']
+        entry['interrupted_sessions'] += bool(span['interruptions'])
+        entry['compacted_sessions'] += bool(inventory['compactions'])
+        entry['session_totals'].update({key: inventory[key] for key in ('tool_errors', 'duplicate_calls', 'interruptions')})
         lead = {'session': inventory['session'], 'runtime': inventory['runtime'], 'transcript': inventory['transcript'],
-                'tool_errors': inventory['tool_errors'], 'duplicate_calls': inventory['duplicate_calls'],
-                'interruptions': inventory['interruptions'], 'errors_by_tool': dict(Counter(inventory['errors_by_tool']).most_common(3)),
-                'score': lead_score(inventory)}
-        for skill in inventory['skills']:
-            if not skill['invoked']:
-                continue
-            entry = skills[skill['skill']]
-            entry['sessions'] += 1
-            entry['triggers'].update(skill['triggers'])
-            entry['files'].update(skill['files'].keys())
-            entry['runtimes'][inventory['runtime']] += 1
-            entry['sessions_with_errors'] += bool(inventory['tool_errors'])
-            entry['tool_errors'] += inventory['tool_errors']
-            entry['errors_by_tool'].update(inventory['errors_by_tool'])
-            entry['duplicate_calls'] += inventory['duplicate_calls']
-            entry['interrupted_sessions'] += bool(inventory['interruptions'])
-            entry['compacted_sessions'] += bool(inventory['compactions'])
-            if lead['score']:
-                entry['leads'].append(lead)
+                'tool_errors': span['tool_errors'], 'duplicate_calls': span['duplicate_calls'],
+                'interruptions': span['interruptions'], 'errors_by_tool': dict(Counter(span['errors_by_tool']).most_common(3)),
+                'score': lead_score(span), 'session_score': lead_score(inventory)}
+        if lead['score']:
+            entry['leads'].append(lead)
+    used = len({inventory['session_id'] for inventory, _ in uses})
     ranked = []
     for name, entry in skills.items():
         entry['leads'] = sorted(entry['leads'], key=lambda lead: -lead['score'])[:top]
         for key in ('triggers', 'files', 'runtimes'):
             entry[key] = dict(entry[key].most_common())
         entry['errors_by_tool'] = dict(entry['errors_by_tool'].most_common(5))
+        entry['session_totals'] = {key: entry['session_totals'][key] for key in ('tool_errors', 'duplicate_calls', 'interruptions')}
         ranked.append({'skill': name, **entry})
     ranked.sort(key=lambda s: (-s['sessions'], s['skill']))
     return {
         'scope': 'all', 'roots': {k: [display_path(p) for p in v] for k, v in roots.items()},
         'transcripts_scanned': len(items), 'sessions_with_skills': used, 'skills': ranked,
         'limitations': [
-            'Errors, duplicates, interruptions and compactions are counted per session, not per skill: a session that used '
-            'several skills counts toward each; confirm the owner by reading the lead session.',
-            'leads are the sessions with the highest score (tool errors + duplicate calls + 3 x interruptions), at most --top per skill.',
+            'Errors, duplicates and interruptions are counted inside the skill\'s spans (trigger or SKILL.md load to the '
+            'next human prompt), so a skill chained in the same request shares them; session_totals and each lead\'s '
+            'session_score keep the whole-session counts. compacted_sessions stays per session.',
+            'leads are the sessions with the highest in-span score (tool errors + duplicate calls + 3 x interruptions), '
+            'at most --top per skill.',
+            'A Codex session that a scanned fork replays is dropped, so a fork and its parent count once; sibling forks '
+            'and subagent sessions count on their own. --exclude-session does not drop forks of the excluded session.',
+            'sessions_with_skills counts kept sessions with at least one invoked skill.',
+            'A span also starts where a tool argument names a SKILL.md, such as editing it as source; duplicates are '
+            'detected session-wide and charged where the repeat happens.',
             'Claude Code transcripts without a skill marker are skipped unparsed; detection limits of --session apply.',
         ],
     }
@@ -869,9 +1007,9 @@ def main(argv=None):
                         help='inventory every local session instead: each used skill with session counts and lead sessions')
     parser.add_argument('--top', type=int, default=5, help='with --all: lead sessions kept per skill (default 5)')
     parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 1), help='with --all: parallel parse workers')
-    parser.add_argument('--runtime', choices=('all', 'claude-code', 'codex'), default='all')
+    parser.add_argument('--runtime', choices=('all', 'claude-code', 'codex', 'omp'), default='all')
     parser.add_argument('--root', action='append', default=[], metavar='RUNTIME=DIR',
-                        help='transcript root override, e.g. claude-code=/tmp/projects (repeatable)')
+                        help='transcript root override, e.g. claude-code=/tmp/projects or omp=<agent>/sessions (repeatable)')
     parser.add_argument('--since', type=lambda v: datetime.strptime(v, '%Y-%m-%d').date(), help='skip transcripts last modified before YYYY-MM-DD')
     parser.add_argument('--exclude-session', action='append', default=[], metavar='ID', help='session id or prefix to skip, such as the current session')
     parser.add_argument('--entrypoint', action='append', default=[], metavar='NAME',
@@ -886,8 +1024,8 @@ def main(argv=None):
         roots = defaultdict(list)
         for spec in args.root:
             runtime, _, folder = spec.partition('=')
-            if runtime not in ('claude-code', 'codex') or not folder:
-                parser.error(f'--root expects claude-code=DIR or codex=DIR, got {spec!r}')
+            if runtime not in ('claude-code', 'codex', 'omp') or not folder:
+                parser.error(f'--root expects claude-code=DIR, codex=DIR or omp=DIR, got {spec!r}')
             roots[runtime].append(Path(folder))
     if args.runtime != 'all':
         roots = {args.runtime: roots.get(args.runtime, [])}
@@ -915,7 +1053,7 @@ def main(argv=None):
         if not contains_any(path, sid.needles):
             continue
         matched += 1
-        parse = claude_invocations if runtime == 'claude-code' else codex_invocations
+        parse = {'claude-code': claude_invocations, 'omp': omp_invocations}.get(runtime, codex_invocations)
         try:
             for record in parse(path, sid):
                 if args.entrypoint and record['entrypoint'] not in args.entrypoint:

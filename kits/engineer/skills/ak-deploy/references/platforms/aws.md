@@ -28,24 +28,22 @@ frontend:
       - node_modules/**/*
 ```
 
-### Free Tier (12 months)
-1000 build min/mo, 15GB storage, 15GB bandwidth.
-After: $0.01/build min, $0.023/GB storage, $0.15/GB served.
-
 ## S3 Static Hosting
 ```bash
 aws s3 sync ./dist s3://BUCKET_NAME --delete
 aws s3 website s3://BUCKET_NAME --index-document index.html --error-document error.html
 ```
 
-### Free Tier (12 months)
-5GB storage, 20K GET, 2K PUT requests.
-
 ## ECS Fargate
 ```bash
 aws ecs update-service --cluster CLUSTER --service SERVICE --force-new-deployment
 ```
-Config: `task-definition.json`. No free tier.
+Config: `task-definition.json`.
+
+## Pricing and limits
+Read current pricing and free-tier terms from the product page and cite it:
+https://aws.amazon.com/amplify/pricing/, https://aws.amazon.com/s3/pricing/ or
+https://aws.amazon.com/fargate/pricing/. Do not quote figures from memory.
 
 ## Detection
 - `amplify.yml`, `buildspec.yml` → Amplify

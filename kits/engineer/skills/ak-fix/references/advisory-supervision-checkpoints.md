@@ -1,9 +1,8 @@
 # Advisory Supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
-identity, host detection, and model routing (Claude subscription → Fable 5;
-Codex → `gpt-6-astra` + low effort; Cursor → `claude-fable-5-high`).
+Supervisor identity, host detection and model routing live in
+`../../ak-brainstorm/references/advisory-supervision.md`.
 
 Spawn `kongming` at these checkpoints:
 
@@ -15,15 +14,14 @@ Spawn `kongming` at these checkpoints:
 - **On a failed verification** — any test, build, lint, type-check, repro, or a
   plan phase's own Verify step that misses its stated pass condition on a change
   you believed complete (not an expected-red step while iterating toward a known
-  remaining error list). This is an objective trigger: it fires on every failed
-  verification, including the first, whether or not you feel stuck. STOP before
-  editing anything else and spawn `kongming` with the exact command, its verbatim
-  output, the change you just made, what you already tried, and the phase/task
-  id. Counsel arrives before this skill's own failure branch runs — it informs
-  that branch, never replaces it. If `kongming` cannot be spawned, note once that
-  advisory supervision is unavailable and continue under this skill's authoritative
-  failure branch (the re-diagnose loop / `ask_user` gate); never treat missing
-  counsel as license to self-reason a fix past a red check.
+  remaining error list). It fires on every failed verification, including the
+  first. Before editing anything else, spawn `kongming` with the exact command,
+  its verbatim output, the change you just made, what you already tried, and the
+  phase/task id. Counsel informs this skill's own failure branch and never
+  replaces it. If `kongming` cannot be spawned, note once that advisory
+  supervision is unavailable and continue under that failure branch (the
+  re-diagnose loop / `ask_user` gate); missing counsel is not license to
+  self-reason a fix past a red check.
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 

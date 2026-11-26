@@ -119,7 +119,7 @@ changes need structural review. Repeat a passed check when new evidence justifie
 Good:
 
 ```markdown
-Run `python3 scripts/validate.py --input {filename}` to check the format. <!-- resource-link-example: illustrative validator -->
+Run `python scripts/validate.py --input {filename}` to check the format. <!-- resource-link-example: illustrative validator -->
 If validation fails, the usual causes are missing required fields or dates
 that are not in YYYY-MM-DD form.
 ```
