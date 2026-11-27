@@ -1050,6 +1050,42 @@ export const CREDIT_ERROR_CODES = [
 export const creditErrorCodeSchema = z.enum(CREDIT_ERROR_CODES);
 export type CreditErrorCode = z.infer<typeof creditErrorCodeSchema>;
 
+/**
+ * Every `code` the server sends on `server.error` today.
+ *
+ * The catalogue a client maps to its reader's words: `message` is English
+ * written for logs and for clients built before a code had copy, and must never
+ * be shown as-is. `code` on the wire stays `z.string()` all the same, so a code
+ * added here later still parses in every shipped client — which shows its
+ * generic sentence for a code it does not know.
+ */
+export const SERVER_ERROR_CODES = [
+  ...CREDIT_ERROR_CODES,
+  /** The start used a field this server removed; the page has to reload. */
+  'client_outdated',
+  /** A concurrency ceiling refused the start: per connection, account, meeting or server. */
+  'too_many_turns',
+  /** The language pair, or the voice for it, cannot be served; `detail` may say why. */
+  'language_unavailable',
+  /** A frame or an end arrived with no turn open for it. */
+  'no_active_session',
+  /** A frame named another turn, did not advance, or changed sample rate. */
+  'frame_rejected',
+  /** Audio or an end arrived for a turn already being translated. */
+  'session_busy',
+  /** Audio in, or speech out, in an encoding this path cannot carry. */
+  'unsupported_audio',
+  /** The turn passed the audio-length cap and was closed. */
+  'turn_too_long',
+  /** The turn ended without a single frame of audio. */
+  'no_audio',
+  /** The turn was closed after too long without audio. */
+  'turn_abandoned',
+  /** Recognition, translation or speech failed for the turn. */
+  'turn_failed',
+] as const;
+export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[number];
+
 const serverErrorSchema = z.object({
   type: z.literal('server.error'),
   code: z.string(),
