@@ -88,7 +88,13 @@ export class RelayFailureReporter {
    * would otherwise bring back a banner nothing could clear.
    */
   relayFailed(key: RelayFailureKey, detail: string, seq: number = this.nextSend()): void {
-    if (seq <= this.offSeq) return;
+    // Two fences against a failure that belongs to a capture already over. A
+    // send numbered at or before the last reset or outbound-off is from before
+    // it; and a failure while nothing is capturing — between a new capture's
+    // reset and its first status, where the old capture's commands can still
+    // land — has no capture to belong to. The second also covers a failure with
+    // no send behind it, whose fresh seq cannot be told apart by number.
+    if (seq <= this.offSeq || !this.deps.capturing()) return;
     this.lastFailureSeq = Math.max(this.lastFailureSeq, seq);
     if (this.relayFailure !== key) this.log(detail);
     this.relayFailure = key;
@@ -127,16 +133,21 @@ export class RelayFailureReporter {
       this.offSeq = this.sendSeq;
       this.relayFailure = undefined;
     }
-    this.prepareFailed = !prepared;
+    // Only a sync for outbound ON can fail to prepare a page. When removing the
+    // patch fails after outbound was turned off, there is no microphone path in
+    // use for the banner to describe.
+    this.prepareFailed = outbound && !prepared;
     this.sync();
   }
 
   /**
    * The capture ended, or a new one is starting, and the slot was emptied with
    * it. Forgets the relay failure only: the prepare failure belongs to the
-   * setting and stays. Publishes nothing.
+   * setting and stays. Sends made before this are fenced off, so one from the
+   * old capture failing late cannot set the failure again. Publishes nothing.
    */
   resetRelay(): void {
+    this.offSeq = this.sendSeq;
     this.relayFailure = undefined;
   }
 

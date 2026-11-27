@@ -225,7 +225,62 @@ describe('RelayFailureReporter', () => {
     });
   });
 
+  describe('fencing off the previous capture', () => {
+    it('drops a failure from a send made before the reset', () => {
+      const h = harness();
+      const oldSend = h.reporter.nextSend();
+      h.stop();
+      h.start();
+
+      h.reporter.relayFailed(UNREACHABLE, 'a', oldSend);
+
+      expect(h.banner()).toBeUndefined();
+      expect(h.logged).toHaveLength(0);
+    });
+
+    it('drops a failure landing between a new capture reset and its first status', () => {
+      // Covers the no-tab failure too: it has no send of its own, so its fresh
+      // number cannot place it before the reset.
+      const h = harness();
+      h.stop();
+
+      h.reporter.relayFailed(LOST, 'a');
+      h.start();
+
+      expect(h.banner()).toBeUndefined();
+    });
+
+    it('still reports a send made in the new capture', () => {
+      const h = harness();
+      h.reporter.nextSend();
+      h.stop();
+      h.start();
+
+      h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
+
+      expect(h.banner()).toBe(en[UNREACHABLE]);
+    });
+  });
+
   describe('settings runs', () => {
+    it('records no prepare failure when removing the patch fails with outbound off', () => {
+      const h = harness();
+
+      h.settle(false, false);
+
+      expect(h.banner()).toBeUndefined();
+      expect(h.published).toHaveLength(0);
+    });
+
+    it('clears a prepare failure once outbound is off, even if removing the patch fails', () => {
+      const h = harness();
+      h.settle(true, false);
+
+      h.settle(false, false);
+
+      expect(h.banner()).toBeUndefined();
+    });
+
     it('applies only the newest run when runs settle out of order', () => {
       const h = harness();
       const older = h.reporter.beginSettingsRun();
