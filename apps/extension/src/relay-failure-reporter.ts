@@ -1,5 +1,11 @@
 import type { MessageKey } from '@chatofy/i18n';
 
+/** The relay failures — the two ways a relayed command can fail to reach the page. */
+export type RelayFailureKey = Extract<
+  MessageKey,
+  'extension.error.relayTabLost' | 'extension.error.relayTabUnreachable'
+>;
+
 export interface RelayFailureReporterDeps {
   /** Put a message in the worker's `relay` slot. */
   publish: (message: string) => void;
@@ -12,55 +18,99 @@ export interface RelayFailureReporterDeps {
 }
 
 /**
- * Owns the overlay's `relay` slot: tells the reader about a failure on the way
- * from their microphone to the meeting page, in their language, and takes it down
- * again when that path recovers.
+ * Owns the overlay's `relay` slot: the path from the user's microphone into the
+ * meeting page, said in the reader's language.
  *
- * Failures arrive at the rate audio is produced, and a banner rewritten five times
- * a second is a flicker, so a failure whose sentence is already the banner is
- * dropped. The comparison is against what the overlay shows NOW rather than a
- * remembered last report: a stop, a capture error or a new capture clears the
- * banner without telling this class, and the same failure must then show again.
+ * Two independent things can be wrong on that path, and the slot shows one of
+ * them, so this class keeps them as two facts and DERIVES the text rather than
+ * letting either writer overwrite the other:
  *
- * Two different failures share the slot — the relay of audio commands into the
- * page, and preparing the page for the patched microphone — and each recovers on
- * its own path. A recovery clears the banner only when one of ITS keys put the
- * sentence there, so a relay frame going through cannot erase "the page could not
- * be prepared", which is still true. The key is remembered alongside the banner
- * for exactly that; it may outlive the banner (after a stop) and is then ignored,
- * because a clear first checks that something is showing at all — which also keeps
- * a healthy relay from publishing anything per frame.
+ * - `prepareFailed` — the page could not be prepared for the patched microphone.
+ *   Cleared only when preparing succeeds. Takes precedence: while it holds, no
+ *   relayed frame can help, and a relay success must not erase it.
+ * - `relayFailure` — a relayed command did not reach the meeting tab. Cleared when
+ *   a later command gets through, or when preparing succeeds with outbound off —
+ *   nothing is relayed then, so nothing would ever clear it otherwise.
  *
- * The caller passes a dictionary key, never English: the English `detail` goes to
+ * Every change recomputes the text and publishes only when it differs from what
+ * the overlay shows NOW. Failures arrive at the rate audio is produced, so that
+ * comparison is what keeps the banner from flickering and a healthy relay from
+ * publishing per frame. Comparing against the overlay rather than a remembered
+ * last publish matters too: a stop, a capture error or a new capture empties the
+ * slot without telling this class — the worker calls {@link reset} beside each.
+ *
+ * Relayed sends settle out of order. Each one takes a sequence number from
+ * {@link nextSend}, and a success clears the relay failure only when it was sent
+ * after the newest failure; otherwise frame N's late success would erase frame
+ * N+1's failure and the banner would republish once per frame while the path flaps.
+ *
+ * The caller passes dictionary keys, never English: the English `detail` goes to
  * the console for a developer and nowhere near the reader.
  */
 export class RelayFailureReporter {
-  private shownKey: MessageKey | undefined;
+  private prepareFailed = false;
+  private relayFailure: RelayFailureKey | undefined;
+  private sendSeq = 0;
+  private lastFailureSeq = 0;
   private readonly log: (detail: string) => void;
 
   constructor(private readonly deps: RelayFailureReporterDeps) {
     this.log = deps.log ?? ((detail) => console.warn('[chatofy] outbound relay failed:', detail));
   }
 
-  /**
-   * Show a failure, logging `detail` only when the banner actually changes.
-   *
-   * `detail` is optional for a caller that already logged its own error object,
-   * which carries more than a sentence would.
-   */
-  report(key: MessageKey, detail?: string): void {
-    const message = this.deps.translate(key);
-    if (this.deps.showing() === message) return;
-    if (detail !== undefined) this.log(detail);
-    this.shownKey = key;
-    this.deps.publish(message);
+  /** A sequence number for one relayed send, in the order the sends were made. */
+  nextSend(): number {
+    this.sendSeq += 1;
+    return this.sendSeq;
   }
 
-  /** The path behind `keys` works again: clear the banner if one of them set it. */
-  recover(keys: readonly MessageKey[]): void {
-    if (this.deps.showing() === undefined) return;
-    if (this.shownKey === undefined || !keys.includes(this.shownKey)) return;
-    this.shownKey = undefined;
-    this.deps.clear();
+  /**
+   * A relayed command did not arrive.
+   *
+   * `seq` is the send's number; a failure with no send behind it (no tab to send
+   * to) takes a fresh one, which orders it after every send already in flight.
+   * `detail` is logged only when the failure is news.
+   */
+  relayFailed(key: RelayFailureKey, detail: string, seq: number = this.nextSend()): void {
+    this.lastFailureSeq = Math.max(this.lastFailureSeq, seq);
+    if (this.relayFailure !== key) this.log(detail);
+    this.relayFailure = key;
+    this.sync();
+  }
+
+  /** A relayed command arrived. Ignored when a newer send has already failed. */
+  relayDelivered(seq: number): void {
+    if (seq <= this.lastFailureSeq) return;
+    this.relayFailure = undefined;
+    this.sync();
+  }
+
+  /** The page could not be prepared. The caller logs its own error object. */
+  preparePageFailed(): void {
+    this.prepareFailed = true;
+    this.sync();
+  }
+
+  /** Preparing succeeded; with outbound off, nothing is relayed any more either. */
+  preparedPage(outbound: boolean): void {
+    this.prepareFailed = false;
+    if (!outbound) this.relayFailure = undefined;
+    this.sync();
+  }
+
+  /** Forget both facts, beside a publish that empties the slot. Publishes nothing. */
+  reset(): void {
+    this.prepareFailed = false;
+    this.relayFailure = undefined;
+  }
+
+  private sync(): void {
+    const key: MessageKey | undefined = this.prepareFailed
+      ? 'extension.error.preparePageFailed'
+      : this.relayFailure;
+    const message = key === undefined ? undefined : this.deps.translate(key);
+    if (this.deps.showing() === message) return;
+    if (message === undefined) this.deps.clear();
+    else this.deps.publish(message);
   }
 }
