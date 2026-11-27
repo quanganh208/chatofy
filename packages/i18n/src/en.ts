@@ -763,7 +763,7 @@ export const en = {
   // move into Settings.
   'web.preferences.audioHint': 'Applies next time you start.',
   'web.preferences.audio.echoCancellationHint':
-    'Stops the microphone from picking up the translation playing from your speakers. When off, the microphone pauses while a translation plays.',
+    'Cuts down how much of the translation playing from your speakers the microphone picks up. When off, the microphone pauses while a translation plays.',
   'web.preferences.audio.noiseSuppressionHint': 'Filters out sound that isn’t speech.',
   'web.preferences.audio.autoGainControlHint': 'Keeps your microphone volume steady.',
   'web.preferences.audio.unsupported': 'This browser doesn’t support it.',
@@ -806,7 +806,7 @@ export const en = {
     'A few words, like “hotel check-in” or “cardiology consultation”. It helps the translator pick the right meaning when a sentence could go either way.',
   'web.preferences.aiContext.keywords': 'Names and terms to expect',
   'web.preferences.aiContext.keywordsHint':
-    'Names, jargon and product names. These are the words most often misheard.',
+    'Names of people and places, jargon, product names. These are the words most often misheard.',
   'web.preferences.aiContext.keywordTooLong':
     'One line is too long. Keep each line to {max} characters, or remove it.',
   'web.preferences.aiContext.keywordsTooMany':
@@ -815,7 +815,7 @@ export const en = {
   // Says what a pair IS and what it is not, because the second half is the part
   // people get wrong: a pair is not a find-and-replace.
   'web.preferences.aiContext.glossaryHint':
-    'How a term should be translated. Write it in at least two languages. The translator uses the two a conversation is in, in either direction, and only when the term is actually said.',
+    'How a term should be translated. Write it in at least two languages. The translator uses the two languages of the conversation, in either direction, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
     'Keep each one to a word or short phrase, up to {max} words. Shorten this pair, or remove it.',
   'web.preferences.aiContext.glossaryAdd': 'Add pair',
@@ -828,11 +828,11 @@ export const en = {
   'web.preferences.aiContext.limitReached':
     'You’ve reached the maximum number of contexts. Delete one to create another.',
   'web.preferences.aiContext.saveFailed':
-    'Couldn’t save this context. Your changes are still here, so try again.',
+    'Couldn’t save this context. Your changes are still here. Try again.',
   'web.preferences.aiContext.saveFailedElsewhere':
     '“{name}” wasn’t saved. Its draft is still in the library you opened it from.',
   'web.preferences.aiContext.loadFailed':
-    'Couldn’t load your contexts. You’re still signed in, so try again.',
+    'Couldn’t load your contexts. You’re still signed in. Check your connection and try again.',
 
   // ---- web.account ----
   //
@@ -844,7 +844,7 @@ export const en = {
   'web.account.memberSince': 'Member since',
   'web.account.nameUnset': 'Not set',
   'web.account.loadFailed':
-    'Couldn’t load your account details. You’re still signed in, so try again.',
+    'Couldn’t load your account details. You’re still signed in. Check your connection and try again.',
   'web.account.avatarChange': 'Change photo',
   'web.account.avatarRemove': 'Remove photo',
   'web.account.avatarHint':
@@ -1197,7 +1197,7 @@ export const en = {
   'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
   'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
   'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
-  'web.landing.mockTwoWayTargetTwo': 'Vâng, làm ơn — ra sân bay.',
+  'web.landing.mockTwoWayTargetTwo': 'Vâng, cho tôi ra sân bay.',
   'web.landing.mockTermOneSource': 'Phố cổ',
   'web.landing.mockTermOneTarget': 'Old Quarter',
   'web.landing.mockTermTwoSource': 'Bánh mì',
@@ -1281,9 +1281,9 @@ export const en = {
   'web.conference.joinDialogHint': 'Enter the meeting code, or paste the invite link.',
   'web.conference.codeInvalid': 'That isn’t a meeting code or invite link.',
   'web.conference.cancel': 'Cancel',
-  'web.conference.createFailedToast': 'Couldn’t start a meeting',
+  'web.conference.createFailedToast': 'Couldn’t start the meeting',
   'web.conference.minutesReady': 'Minutes are ready',
-  'web.conference.minutesFailedToast': 'Couldn’t generate the minutes',
+  'web.conference.minutesFailedToast': 'Couldn’t create the minutes',
   'web.meta.conference': 'Meetings · Chatofy',
   'web.meta.glossary': 'Glossary · Chatofy',
   'web.meta.invite': 'Team invite · Chatofy',
@@ -1308,7 +1308,7 @@ export const en = {
   'web.invite.expired': 'This invite has expired. Ask for a new one.',
   'web.invite.wrongAccount':
     'This invite was sent to a different email. Sign in with that email to accept it.',
-  'web.invite.invalid': 'This invite link isn’t valid.',
+  'web.invite.invalid': 'This invite link doesn’t work. Ask for a new one.',
   'web.invite.loadFailed': 'Couldn’t load this invite. Try again.',
   'web.invite.teamCap': 'You’re already in {max} teams. Leave one to join this team.',
   'web.invite.teamFull': 'This team is full. Ask the owner to make room.',
@@ -1316,10 +1316,10 @@ export const en = {
   'web.workspace.label': 'Workspace',
   'web.workspace.personal': 'Personal',
   'web.workspace.teamGlossaries': 'Team glossaries',
-  'web.workspace.teamContexts': 'Team contexts',
+  'web.workspace.teamContexts': 'Team AI Contexts',
   'web.workspace.sharedWith': 'Shared with {count} members of {name}',
   'web.workspace.sharedWithOnlyYou': 'Only you are in {name} so far',
-  'web.workspace.editOwn': 'you edit what you made',
+  'web.workspace.editOwn': 'you can edit what you made',
   'web.workspace.editAll': 'you can edit everything here',
   'web.workspace.switchTo': 'Switch workspace',
   'web.workspace.manageTeams': 'Manage teams',
@@ -1373,7 +1373,7 @@ export const en = {
     'You lose access to its glossaries and AI Contexts. What you created stays in the team.',
   'web.team.loadFailed': 'Couldn’t load this team. Try again.',
   'web.team.retry': 'Try again',
-  'web.team.actionFailed': 'Something went wrong. Try again.',
+  'web.team.actionFailed': 'That didn’t go through. Check your connection and try again.',
   'web.team.tabDescriptionPersonal':
     'Create a team or open one you’re in. A team shares its glossaries and AI Contexts.',
   'web.team.tabDescriptionTeam': 'Manage this team: its members, invites and name.',
@@ -1529,10 +1529,10 @@ export const en = {
   //
   // The manifest strings reach Chrome through generated `_locales/*/messages.json`
   // (see `apps/extension/wxt.config.ts`), so they are plain text: no placeholders.
-  'extension.manifest.name': 'Chatofy meeting translator',
+  'extension.manifest.name': 'Chatofy call translator',
   'extension.manifest.description':
-    'Translates browser meetings both ways: what others say, and what you say.',
-  'extension.manifest.toggleCommand': 'Start or stop Chatofy on this meeting tab',
+    'Translates your browser calls both ways: what others say, and what you say.',
+  'extension.manifest.toggleCommand': 'Start or stop Chatofy in this call’s tab',
   // The right-click menu item on a meeting page.
   'extension.menu.start': 'Chatofy: start translating',
   'extension.menu.stop': 'Chatofy: stop translating',
@@ -1552,7 +1552,8 @@ export const en = {
   'extension.capture.start': 'Start',
   'extension.capture.stop': 'Stop',
 
-  'extension.signIn.intro': 'Chatofy translates through your account. Sign in to start capturing.',
+  'extension.signIn.intro':
+    'Chatofy translates through your account. Sign in to start translating.',
 
   // The language pair picker's words; the language names are `common.languageName.*`.
   'extension.languagePair.label': 'Languages',
@@ -1578,7 +1579,7 @@ export const en = {
   'extension.settings.autoGainControlDetail': 'Evens out your microphone volume as you speak.',
   'extension.settings.appearance': 'Appearance',
   'extension.settings.runsOn': 'Runs on',
-  'extension.settings.enableOnMeetings': 'Enable Chatofy on meeting pages',
+  'extension.settings.enableOnMeetings': 'Enable Chatofy on call pages',
   // Beside the platform the popup was opened over.
   'extension.settings.thisTab': 'this tab',
   'extension.settings.zoomDetail': 'web client only, not the desktop app',
@@ -1591,10 +1592,10 @@ export const en = {
   'extension.credits.plan': '{plan} plan',
   'extension.credits.buyOnWeb': 'Buy credits on the Chatofy website, under Account.',
   'extension.credits.signInToSee': 'Sign in to see your credits',
-  'extension.credits.loadFailed': 'Couldn’t load your credits (HTTP {status})',
-  'extension.credits.usageLoadFailed': 'Couldn’t load your usage (HTTP {status})',
-  'extension.credits.unreadable': 'Couldn’t read your credits',
-  'extension.credits.usageUnreadable': 'Couldn’t read your usage',
+  'extension.credits.loadFailed': 'Couldn’t load your credits (HTTP {status}). Try again.',
+  'extension.credits.usageLoadFailed': 'Couldn’t load your usage (HTTP {status}). Try again.',
+  'extension.credits.unreadable': 'Couldn’t load your credits. Try again.',
+  'extension.credits.usageUnreadable': 'Couldn’t load your usage. Try again.',
   // Mid-meeting: unlike web, there is no history page to point at.
   'extension.credits.exhausted':
     'Your credits ran out, so translation stopped. Buy more on the Chatofy website.',
@@ -1621,18 +1622,19 @@ export const en = {
     'This looks like Zoom, but not its web client. The desktop app isn’t a browser tab, so Chatofy can’t capture its audio. Use “Join from your browser” instead.',
 
   // Failures a capture reports, shown in the popup and the overlay.
-  'extension.error.unreachable': 'Can’t reach {origin}',
-  'extension.error.signInFailed': 'Couldn’t sign in (HTTP {status})',
+  'extension.error.unreachable': 'Can’t reach {origin}. Check your connection and try again.',
+  'extension.error.signInFailed': 'Couldn’t sign in (HTTP {status}). Try again.',
   'extension.error.signInFirst': 'Sign in from the Chatofy popup first',
   'extension.error.tabClosed': 'The meeting tab was reloaded or closed. Start Chatofy on it again.',
-  'extension.error.microphoneFailed': 'Couldn’t translate your microphone',
-  'extension.error.captureFailed': 'Couldn’t start capturing',
-  'extension.error.tabCaptureFailed': 'Couldn’t capture this tab',
+  'extension.error.microphoneFailed': 'Couldn’t translate what you say. Try again.',
+  'extension.error.captureFailed': 'Couldn’t start translating. Try again.',
+  'extension.error.tabCaptureFailed': 'Couldn’t translate this tab. Try again.',
   'extension.error.preparePageFailed':
-    'Couldn’t get this page ready for your microphone ({reason})',
-  'extension.error.contextsSignIn': 'Sign in to use a saved context',
-  'extension.error.contextsLoadFailed': 'Couldn’t load your saved contexts (HTTP {status})',
-  'extension.error.contextsUnreadable': 'Couldn’t read your saved contexts',
+    'Couldn’t set up your microphone on this page ({reason}). Try again.',
+  'extension.error.contextsSignIn': 'Sign in to use an AI Context',
+  'extension.error.contextsLoadFailed':
+    'Couldn’t load your AI Contexts (HTTP {status}). Try again.',
+  'extension.error.contextsUnreadable': 'Couldn’t load your AI Contexts. Try again.',
   // {action} is `extension.settings.allowMicrophone`, quoted as the button reads.
   'extension.error.microphoneBlocked':
     'Chrome hasn’t given Chatofy your microphone. Open the Chatofy popup and choose “{action}”.',
@@ -1675,7 +1677,7 @@ export const en = {
     'First time here: press {shortcut}, or right-click → Chatofy',
   'extension.overlay.firstTimeMenu': 'First time here: right-click → Chatofy',
   'extension.overlay.listening': 'Listening…',
-  'extension.overlay.notCapturing': 'Not capturing.',
+  'extension.overlay.notCapturing': 'Not translating',
   // Marks the reader's own lines in the transcript.
   'extension.overlay.you': 'You',
   'extension.overlay.outboundSending': 'Your speech is being translated into the meeting.',

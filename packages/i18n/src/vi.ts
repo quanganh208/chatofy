@@ -940,7 +940,7 @@ export const vi: Messages = {
   'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
   'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
   'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
-  'web.landing.mockTwoWayTargetTwo': 'Vâng, làm ơn — ra sân bay.',
+  'web.landing.mockTwoWayTargetTwo': 'Vâng, cho tôi ra sân bay.',
   'web.landing.mockTermOneSource': 'Phố cổ',
   'web.landing.mockTermOneTarget': 'Old Quarter',
   'web.landing.mockTermTwoSource': 'Bánh mì',

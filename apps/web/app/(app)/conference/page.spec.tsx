@@ -168,7 +168,7 @@ describe('ConferenceLobbyPage — the landing', () => {
     expect(push).not.toHaveBeenCalled();
     expect(notify.error).toHaveBeenCalledTimes(1);
     const [message, options] = notify.error.mock.calls[0]!;
-    expect(message).toBe('Couldn’t start a meeting');
+    expect(message).toBe('Couldn’t start the meeting');
     expect(options?.id).toBe('conference-create-failed');
     // The button is usable again, so the reader is never stuck behind a spinner.
     expect(container.querySelector<HTMLButtonElement>('[data-new-meeting]')!.disabled).toBe(false);
