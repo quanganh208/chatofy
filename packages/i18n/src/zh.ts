@@ -1293,6 +1293,9 @@ export const zh: Messages = {
   'extension.error.microphoneFailed': '没能翻译你说的话，请重试。',
   'extension.error.tabCaptureFailed': '没能翻译这个标签页，请重试。',
   'extension.error.preparePageFailed': '没能在这个页面接入麦克风，请重试。',
+  'extension.error.relayTabLost': '你说的话传不到通话里了。请回到通话标签页，重新启动 Chatofy。',
+  'extension.error.relayTabUnreachable':
+    '你说的话传不到通话里了。请刷新通话标签页，重新启动 Chatofy。',
   'extension.error.contextsSignIn': '登录后才能使用 AI 语境',
   'extension.error.contextsLoadFailed': '没能加载 AI 语境（HTTP {status}），请重试。',
   'extension.error.contextsUnreadable': '没能加载 AI 语境，请重试。',

@@ -1651,6 +1651,10 @@ export const en = {
   'extension.error.microphoneFailed': 'Couldn’t translate what you say. Try again.',
   'extension.error.tabCaptureFailed': 'Couldn’t translate this tab. Try again.',
   'extension.error.preparePageFailed': 'Couldn’t set up your microphone on this page. Try again.',
+  'extension.error.relayTabLost':
+    'What you say isn’t reaching the call. Go back to the call tab and start Chatofy again.',
+  'extension.error.relayTabUnreachable':
+    'What you say isn’t reaching the call. Reload the call tab and start Chatofy again.',
   'extension.error.contextsSignIn': 'Sign in to use an AI Context',
   'extension.error.contextsLoadFailed':
     'Couldn’t load your AI Contexts (HTTP {status}). Try again.',
