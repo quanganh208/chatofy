@@ -9,6 +9,7 @@ import {
   type TranscriptSegment,
   type LanguagePair,
   type LanguageCode,
+  type ServerErrorCode,
   type TranslationHints,
   type VoiceGender,
 } from '@chatofy/types';
@@ -52,7 +53,10 @@ type TurnPhase = 'listening' | 'translating';
  * dropping the turn as well as reporting it.
  */
 export interface FrameRejection {
-  code: string;
+  code: Extract<
+    ServerErrorCode,
+    'session_busy' | 'frame_rejected' | 'unsupported_audio' | 'turn_too_long'
+  >;
   message: string;
   closesTurn?: boolean;
 }

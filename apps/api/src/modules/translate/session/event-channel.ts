@@ -1,5 +1,5 @@
 import type { Logger } from '@nestjs/common';
-import type { ServerEvent } from '@chatofy/types';
+import type { ServerErrorCode, ServerEvent } from '@chatofy/types';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -67,7 +67,12 @@ export class EventChannel {
     }
   }
 
-  fail(code: string, message: string): void {
+  /**
+   * Report a failure by its catalogued code. `message` is English for logs and
+   * for clients older than the code's copy; a current client words the failure
+   * from `code` alone.
+   */
+  fail(code: ServerErrorCode, message: string): void {
     this.emit({
       type: 'server.error',
       code,
