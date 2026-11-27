@@ -241,6 +241,17 @@ node guard-bound.mjs --stage heldout                 # N1, plus the post-hoc res
 
 The bars allow the app change: N1 passed and N3 is inconclusive.
 
+## Interface copy judge
+
+`copy-judge.mjs` scores the interface dictionaries rather than live translations: every string in `packages/i18n/src/{en,vi,zh}.ts`, plus any extra items (email copy) passed as JSON, on naturalness, meaning fidelity against the English at `--base`, register and terminology, each 1–5, against `docs/copy-voice-and-terminology.md`. A string's score is its lowest axis.
+
+```bash
+node benchmarks/translation-judge/copy-judge.mjs --base main --out <dir> \
+  [--locales en,vi,zh] [--only key1,key2] [--items extra.json] [--cap-usd 10]
+```
+
+It runs `claude-opus-5-5` at medium effort in batches of 50, with the key from `ANTHROPIC_API_KEY` or a repo-root `.env` (a worktree falls back to the main checkout's). The spend cap counts every batch already recorded in `<dir>`. A full pass of one locale (about 1,150 strings) cost about $2 on 2026-11-27. The judge cannot see the screen, so a low score on a compact tag, a menu item with "…", or a toast whose Retry button is the next step is worth reading before acting on.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). On 2026-11-14 the maintainer also approved sending the transcripts and translations to TypeSafe (Jev) and to Gemini Decision 1 on the free tier, which trains on what it receives. Nothing under `data/` or `results/` is committed: both are gitignored.
