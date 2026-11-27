@@ -64,6 +64,24 @@ describe('AuthField', () => {
     expect(input().type).toBe('password');
   });
 
+  it('hides a revealed password again when its form is submitted', () => {
+    render(
+      <form onSubmit={(event) => event.preventDefault()}>
+        <AuthField id="pw" label="Password" icon={LockIcon} type="password" revealable />
+      </form>,
+    );
+    act(() => revealButton().click());
+    expect(input().type).toBe('text');
+
+    act(() => {
+      container
+        .querySelector('form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(input().type).toBe('password');
+    expect(revealButton().getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('draws no reveal button unless asked, so the Settings fields stay as they are', () => {
     render(<AuthField id="pw" label="Password" type="password" />);
     expect(container.querySelector('button')).toBeNull();

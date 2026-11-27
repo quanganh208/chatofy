@@ -803,9 +803,10 @@ these routes — and fills the half of the screen that column left empty.
   `prose` (4.5:1+ on `muted` in both schemes). Right: the page's form, centred in
   a `max-w-md` column. The form's card stays the screen's one elevated surface, and its
   submit stays the one accent.
-- **Below `lg`, the form alone.** The panel is not rendered, so the illustration's
-  fixed gradient ids exist once per page and a phone never scrolls past a picture to
-  reach a field; the header's mark carries the brand.
+- **Below `lg`, the form alone.** The panel is hidden (`display: none`, still in the
+  HTML), so a phone never scrolls past a picture to reach a field; the header's mark
+  carries the brand. The illustration still appears once per page, so its fixed
+  gradient ids are never duplicated.
 - **Dawn only in the illustration**, which stands above the tagline and never behind it.
 - **Fields** are `AuthField` over `InputGroup`: a leading icon, and on a password
   field the screen opts into a show/hide button (`aria-pressed`, `aria-controls`) that

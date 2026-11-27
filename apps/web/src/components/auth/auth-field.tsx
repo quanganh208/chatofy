@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, EyeIcon, EyeOffIcon, type LucideIcon } from 'lucide-react';
 import {
   InputGroup,
@@ -85,6 +85,25 @@ export function AuthField({
   const isPassword = type === 'password' && revealable;
   const requirementId = requirement ? `${id}-requirement` : undefined;
   const describedBy = [errorId, requirementId].filter(Boolean).join(' ') || undefined;
+  const control = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const el = control.current;
+    if (!el) return;
+    // A password manager can fill the field before hydration, and no `input` event
+    // follows — so the requirement is read once from what is already there.
+    if (requirement && minLength !== undefined) {
+      setRequirementMet(el.value.length >= minLength);
+    }
+    // Submitting hides a revealed password again: some password managers only offer
+    // to save when the field is `type="password"` at submit time, and a rejected
+    // sign in should not leave the password on screen.
+    const form = el.form;
+    if (!form) return;
+    const hide = () => setRevealed(false);
+    form.addEventListener('submit', hide);
+    return () => form.removeEventListener('submit', hide);
+  }, [requirement, minLength]);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -96,6 +115,8 @@ export function AuthField({
           </InputGroupAddon>
         ) : null}
         <InputGroupInput
+          {...input}
+          ref={control}
           id={id}
           type={isPassword && revealed ? 'text' : type}
           minLength={minLength}
@@ -107,7 +128,6 @@ export function AuthField({
             }
             onInput?.(event);
           }}
-          {...input}
         />
         {isPassword ? (
           <InputGroupAddon align="inline-end">

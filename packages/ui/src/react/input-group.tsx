@@ -48,6 +48,12 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
         'has-[[data-slot=input-group-control][aria-invalid=true]]:inset-ring-destructive',
         'has-[[data-slot=input-group-control][aria-invalid=true]:focus-visible]:ring-[3px]',
         'has-[[data-slot=input-group-control][aria-invalid=true]:focus-visible]:ring-destructive/50',
+        // Both conditions at once, spelled out as `Input` does, so which edge colour
+        // wins is not decided by the generated stylesheet's order.
+        'has-[[data-slot=input-group-control][aria-invalid=true]:focus-visible]:inset-ring-destructive',
+        'has-[[data-slot=input-group-control][aria-invalid=true]]:hover:inset-ring-destructive',
+        'has-[[data-slot=input-group-control]:read-only]:hover:inset-ring-border',
+        'has-[[data-slot=input-group-control]:disabled]:pointer-events-none',
         'has-[[data-slot=input-group-control]:disabled]:opacity-45',
         className,
       )}
@@ -150,7 +156,11 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<'input'>)
         'placeholder:text-muted-foreground',
         'group-has-[>[data-align=inline-start]]/input-group:pl-2',
         'group-has-[>[data-align=inline-end]]/input-group:pr-1',
-        'disabled:cursor-not-allowed',
+        'disabled:cursor-not-allowed read-only:cursor-default',
+        // Autofill paints its own background on the control, which now sits inside the
+        // group's edge between the icon and the reveal button. Cover it with the
+        // group's fill so a saved login does not tint only the middle of the field.
+        'autofill:shadow-[inset_0_0_0_1000px_var(--card)] autofill:[-webkit-text-fill-color:var(--foreground)]',
         className,
       )}
       {...props}

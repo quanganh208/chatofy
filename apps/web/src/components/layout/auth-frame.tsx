@@ -29,9 +29,10 @@ const BENEFITS = [
  * must not be what a sentence is read against. The panel's text is `prose` on `muted`,
  * which clears 4.5:1 in both schemes.
  *
- * Below `lg` the panel is not rendered at all (`hidden`), so the illustration's fixed
- * gradient ids are never duplicated and a phone does not scroll past a picture to
- * reach the form; the header's mark carries the brand there.
+ * Below `lg` the panel is hidden (`display: none`; it is still in the HTML), so a phone
+ * does not scroll past a picture to reach the form; the header's mark carries the brand
+ * there. There is still one illustration per page, so its fixed gradient ids are never
+ * duplicated.
  */
 export async function AuthFrame({ children }: { children: React.ReactNode }) {
   const t = await getT();
