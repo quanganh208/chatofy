@@ -50,7 +50,7 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="conference"
-        options={{ title: t('mobile.tabs.conference'), tabBarIcon: tabIcon(Video) }}
+        options={{ title: t('common.nav.meetings'), tabBarIcon: tabIcon(Video) }}
       />
       <Tabs.Screen
         name="settings"

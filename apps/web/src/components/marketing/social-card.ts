@@ -14,5 +14,5 @@ export const SOCIAL_CARD = {
   width: 1200,
   height: 630,
   type: 'image/png',
-  alt: 'The chatofy wordmark and lotus over the headline "Speak your language. Be understood in theirs." on a dawn-coloured glow',
+  alt: 'The chatofy wordmark and lotus over the headline “Speak your language. Be understood in theirs.” on a dawn-colored glow',
 };

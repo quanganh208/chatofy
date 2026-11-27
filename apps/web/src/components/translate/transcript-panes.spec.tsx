@@ -115,14 +115,14 @@ describe('TranscriptPanes arrangements', () => {
 
   it('draws one region per side when split', () => {
     render({ displayMode: 'split', paneLayout: 'row' });
-    expect(labels()).toEqual(['Source transcript', 'Translation transcript']);
+    expect(labels()).toEqual(['Original', 'Translation']);
   });
 
   it('draws one region when only the translation is shown', () => {
     // Nothing to split: the arrangement collapses regardless of `displayMode`,
     // which is also why the panel drops the two controls in that state.
     render({ displayMode: 'split', translationOnly: true });
-    expect(labels()).toEqual(['Translation transcript']);
+    expect(labels()).toEqual(['Translation']);
   });
 
   it.each(['row', 'column'] as const)(

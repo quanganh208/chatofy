@@ -94,7 +94,7 @@ describe('ResetPasswordForm', () => {
 
     expect(container.querySelector('#reset-submit')).toBeNull();
     expect(container.querySelector('[role="alert"]')!.textContent).toContain(
-      'missing its reset code',
+      'reset link is incomplete',
     );
   });
 

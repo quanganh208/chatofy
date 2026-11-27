@@ -243,9 +243,9 @@ async function refreshSettingsHint(): Promise<void> {
     // which cannot help and costs them their capture.
     publisher.publishError(
       'outbound',
-      `Could not prepare this page for your microphone: ${
-        err instanceof Error ? err.message : 'unknown error'
-      }`,
+      t('extension.error.preparePageFailed', {
+        reason: err instanceof Error ? err.message : String(err),
+      }),
     );
   }
 }

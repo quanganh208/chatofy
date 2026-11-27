@@ -33,14 +33,14 @@
       <p>
         <span data-i18n="extension.microphone.whyBefore">This is what lets Chatofy translate </span><strong
           data-i18n="extension.microphone.whyEmphasis">what you say</strong><span
-          data-i18n="extension.microphone.whyAfter"> into the meeting. Translating what the others say does not need it.</span>
+          data-i18n="extension.microphone.whyAfter"> into the meeting. Translating what others say doesn’t need it.</span>
       </p>
       <!-- Said here because Chrome's prompt cannot say it. The grant is given to the
            extension once and reused by every meeting after this, which is a larger
            thing to agree to than a single page asking. -->
       <p data-i18n="extension.microphone.askOnce">
-        Chrome will ask once, and the answer is remembered for Chatofy — not for any
-        one meeting. The microphone is only opened while a capture is running.
+        Chrome asks once and remembers the answer for Chatofy, not for one meeting. The
+        microphone is only on while a capture is running.
       </p>
 
       <button id="ask" type="button" data-i18n="extension.settings.allowMicrophone">Allow microphone</button>
@@ -50,8 +50,8 @@
       <!-- Chrome refuses navigation to chrome:// from an extension page, and a link
            that does nothing when clicked is worse than a path to copy. -->
       <p id="recover" hidden>
-        <span data-i18n="extension.microphone.recoverBefore">Chrome is remembering an earlier refusal, so it will not ask again. Paste </span><code>chrome://settings/content/microphone</code><span
-          data-i18n="extension.microphone.recoverAfter"> into the address bar, find Chatofy under the blocked list, and remove it. Then reopen this page.</span>
+        <span data-i18n="extension.microphone.recoverBefore">Chrome remembers an earlier refusal, so it won’t ask again. Paste </span><code>chrome://settings/content/microphone</code><span
+          data-i18n="extension.microphone.recoverAfter"> into the address bar, find Chatofy in the blocked list, and remove it. Then reopen this page.</span>
       </p>
     </main>
 

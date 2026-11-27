@@ -33,7 +33,7 @@ export async function MarketingFooter() {
       title: t('web.landing.footerProduct'),
       links: [
         { kind: 'route', href: '/translate/one-way', label: t('common.nav.translate') },
-        { kind: 'route', href: '/conference', label: t('web.chrome.navConference') },
+        { kind: 'route', href: '/conference', label: t('common.nav.meetings') },
         { kind: 'route', href: '/pricing', label: t('web.pricing.title') },
       ],
     },

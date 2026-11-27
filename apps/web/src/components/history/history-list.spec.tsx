@@ -149,7 +149,7 @@ describe('HistoryList', () => {
 
   it('reports a failed load as a failure, not as an empty history', () => {
     const { container } = render({ error: true });
-    expect(container.textContent).toContain('Could not load your history');
+    expect(container.textContent).toContain('Couldn’t load your history');
     expect(container.textContent).not.toContain('No conversations yet');
   });
 
@@ -281,9 +281,9 @@ describe('HistoryList', () => {
     });
 
     expect(rows().length).toBe(1);
-    expect(container.textContent).toContain('Could not load more conversations.');
+    expect(container.textContent).toContain('Couldn’t load more conversations.');
     // The whole-screen failure belongs to a first page that never arrived.
-    expect(container.textContent).not.toContain('Could not load your history');
+    expect(container.textContent).not.toContain('Couldn’t load your history');
     expect(container.textContent).toContain('Load more');
   });
 

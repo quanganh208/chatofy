@@ -102,7 +102,7 @@ describe('VoiceSettingsPopover', () => {
     open(true);
 
     const speak = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="Speak the translation aloud"]',
+      'button[aria-label="Read the translation aloud"]',
     );
     expect(speak).not.toBeNull();
     expect(speak?.disabled).toBe(true);
@@ -115,7 +115,7 @@ describe('VoiceSettingsPopover', () => {
 
   it('says why the switch will not move rather than only refusing', () => {
     open(true);
-    expect(document.body.textContent).toContain('Set this before the conversation starts');
+    expect(document.body.textContent).toContain('Set this before you start');
   });
 
   it('holds nothing about the page layout', () => {

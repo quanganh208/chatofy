@@ -36,6 +36,7 @@ export const zh: Messages = {
   // Navigation labels both apps use for the same destination.
   'common.nav.translate': '翻译',
   'common.nav.settings': '设置',
+  'common.nav.meetings': '会议',
   'common.theme.light': '浅色',
   'common.theme.dark': '深色',
   'common.theme.system': '跟随系统',
@@ -212,7 +213,6 @@ export const zh: Messages = {
   // Two items, one per conversation mode: each is its own page.
   'web.chrome.navTranslate': '单向翻译',
   'web.chrome.navTranslateTwoWay': '双向翻译',
-  'web.chrome.navConference': '会议',
   'web.chrome.navHistory': '历史记录',
   'web.chrome.navGlossary': '术语表',
   // Its own key rather than reusing `accountMenu`: this one names a destination.
@@ -1108,7 +1108,6 @@ export const zh: Messages = {
   'mobile.conference.hideChat': '隐藏聊天',
   'mobile.conference.minutesGenerating': '正在总结会议…',
   'mobile.conference.minutesEmpty': '还没有纪要。参加过会议的任何人都可以生成。',
-  'mobile.tabs.conference': '会议',
   'mobile.auth.noAccountPrompt': '还没有账户？',
   'mobile.auth.linkExpired': '此链接已过期或已被使用，请重新获取一个。',
   'mobile.auth.fillAllFields': '请填写所有字段。',
@@ -1285,6 +1284,7 @@ export const zh: Messages = {
   'extension.error.microphoneFailed': '无法翻译你的麦克风',
   'extension.error.captureFailed': '无法开始录制',
   'extension.error.tabCaptureFailed': '无法录制此标签页',
+  'extension.error.preparePageFailed': '无法为麦克风准备此页面（{reason}）',
   'extension.error.contextsSignIn': '登录后才能使用已保存的语境',
   'extension.error.contextsLoadFailed': '没能加载已保存的语境（HTTP {status}）',
   'extension.error.contextsUnreadable': '无法读取已保存的语境',

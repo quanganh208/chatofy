@@ -185,7 +185,7 @@ describe('PanelHeaders', () => {
     // A bare verb with no object is unusable from a screen reader: "swap" what,
     // into what. The interpolated name is why the key takes two arguments.
     expect(swap()?.getAttribute('aria-label')).toBe(
-      'Swap languages — translate English into Vietnamese',
+      'Swap languages: translate English into Vietnamese',
     );
   });
 
@@ -238,7 +238,7 @@ describe('PanelHeaders', () => {
       // Not "translate English into Auto-detect": that names a direction that
       // does not exist.
       expect(swap()?.getAttribute('aria-label')).toBe(
-        'Swap languages — not available with Auto-detect',
+        'Swap languages: not available with Auto-detect',
       );
     });
 
@@ -277,7 +277,7 @@ describe('PanelHeaders', () => {
           (option) => option.textContent?.startsWith('Chinese'),
         );
         expect(chinese?.getAttribute('aria-disabled')).toBe('true');
-        expect(chinese?.textContent).toContain('not available two-way yet');
+        expect(chinese?.textContent).toContain('not in two-way yet');
         act(() => {
           document.activeElement?.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
@@ -294,11 +294,11 @@ describe('PanelHeaders', () => {
 
   it('says which way the server is running the newest turn, as words, not a switch', () => {
     render({ mode: 'two-way' });
-    expect(container.textContent).toContain('Both ways');
+    expect(container.textContent).toContain('Two-way');
     render({ mode: 'declared' });
-    expect(container.textContent).toContain('One way');
+    expect(container.textContent).toContain('One-way');
     render({ mode: 'detect' });
-    expect(container.textContent).toContain('One way');
+    expect(container.textContent).toContain('One-way');
     expect(container.querySelector('[role="switch"]')).toBeNull();
     expect(container.querySelector('.bg-primary')).toBeNull();
   });

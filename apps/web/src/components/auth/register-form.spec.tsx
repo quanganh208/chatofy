@@ -96,7 +96,7 @@ describe('RegisterForm', () => {
     const success = container.querySelector('#register-success')!;
     expect(success.getAttribute('role')).toBe('status');
     expect(success.textContent).toBe(
-      'Check your email for a link to finish creating your account.',
+      'Check your email. We sent a link to finish creating your account.',
     );
     expect(container.textContent).not.toContain('whatever the API happens to say');
     // No form left to submit a second time, and nothing that looks like a

@@ -72,7 +72,7 @@ describe('MinutesPanel', () => {
 
   it('prompts to converse first and disables generate when there is nothing to summarize', () => {
     render({ canGenerate: false });
-    expect(container.textContent).toContain('nothing to summarize');
+    expect(container.textContent).toContain('Nothing to summarize');
     expect(generateButton()?.disabled).toBe(true);
   });
 
@@ -92,12 +92,12 @@ describe('MinutesPanel', () => {
 
   it('shows a failure message on error', () => {
     render({ error: true });
-    expect(container.textContent).toContain('Could not generate minutes');
+    expect(container.textContent).toContain('Couldn’t generate minutes');
   });
 
   it('keeps the readable minutes on screen when a regenerate fails', () => {
     render({ minutes: ready, error: true });
-    expect(container.textContent).toContain('Could not generate minutes');
+    expect(container.textContent).toContain('Couldn’t generate minutes');
     expect(container.textContent).toContain('We agreed to ship.');
   });
 
@@ -195,7 +195,7 @@ describe('MinutesPanel', () => {
         await Promise.resolve();
       });
       expect(notify.success).not.toHaveBeenCalled();
-      expect(notify.error).toHaveBeenCalledWith('The minutes could not be copied.', {
+      expect(notify.error).toHaveBeenCalledWith('Couldn’t copy the minutes. Try again.', {
         id: 'minutes-copy',
       });
     });

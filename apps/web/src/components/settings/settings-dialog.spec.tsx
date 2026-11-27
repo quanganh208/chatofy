@@ -362,7 +362,7 @@ describe('the settings dialog', () => {
       });
       expect(view()).toBe('ai-context');
       expect(info).toHaveBeenCalledWith(
-        'Save or cancel the AI context you are writing first.',
+        'Save or cancel the AI Context you’re writing first.',
         expect.anything(),
       );
     });

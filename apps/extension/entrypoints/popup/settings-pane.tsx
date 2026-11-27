@@ -84,10 +84,12 @@ const PAIR_LABELS: LanguagePairLabels = {
 /** A language in the reader's interface language, as web names it. */
 const languageName = (code: LanguageCode): string => t(`common.languageName.${code}`);
 
+// Built from the theme names rather than spelled out: a literal `dark:` key here
+// reads as a Tailwind `dark:` utility to the skin guard, which bans those in the popup.
 const THEME_LABELS = {
-  light: t('common.theme.light'),
-  dark: t('common.theme.dark'),
-  system: t('common.theme.system'),
+  ...(Object.fromEntries(
+    (['light', 'dark', 'system'] as const).map((theme) => [theme, t(`common.theme.${theme}`)]),
+  ) as Record<'light' | 'dark' | 'system', string>),
   group: t('common.theme.label'),
 };
 

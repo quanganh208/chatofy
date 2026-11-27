@@ -102,15 +102,15 @@ const button = (label: string) =>
 describe('FullscreenStage', () => {
   it('keeps the page’s split, in the stage’s look', () => {
     render({ displayMode: 'split', paneLayout: 'row' });
-    expect(container.querySelector('[aria-label="Source transcript"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Translation transcript"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Original"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Translation"]')).not.toBeNull();
     const look = container.querySelector<HTMLElement>('[style*="--reading-scale"]')!;
     expect(look.style.getPropertyValue('--reading-bg')).toBe('#000000');
   });
 
   it('keeps a merged list when the page is a list', () => {
     render({ displayMode: 'list' });
-    expect(container.querySelector('[aria-label="Source transcript"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Original"]')).toBeNull();
     expect(container.textContent).toContain('Xin chào');
     expect(container.textContent).toContain('Hello');
   });
