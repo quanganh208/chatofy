@@ -3,7 +3,7 @@
  * the mapping is checked once and every state has a sentence.
  */
 
-import type { MessageKey } from '@chatofy/i18n';
+import { languageNameInSentence, type Locale, type MessageKey } from '@chatofy/i18n';
 import type { ConversationStatus } from '@chatofy/realtime-client';
 import {
   AUTO_DETECT,
@@ -38,6 +38,17 @@ const LANGUAGE_NAME_KEY: Record<LanguageCode, MessageKey> = {
 
 export function languageNameKey(code: LanguageCode): MessageKey {
   return LANGUAGE_NAME_KEY[code];
+}
+
+/** The app reads English only (`createTranslator(en)`); a locale switch changes this one value. */
+const APP_LOCALE: Locale = 'en';
+
+/**
+ * A language's name (from `languageNameKey`, already translated) for use inside a
+ * sentence rather than as a label: Vietnamese writes it in lower case there.
+ */
+export function sentenceLanguageName(name: string): string {
+  return languageNameInSentence(APP_LOCALE, name);
 }
 
 /** Whether a conversation is on (microphone open or winding down), as opposed to not started or finished. */

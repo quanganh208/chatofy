@@ -2,7 +2,7 @@
 
 import type { LanguageCode } from '@chatofy/types';
 import type { LanguagePairLabels } from '@chatofy/ui/react';
-import type { Translate } from '@chatofy/i18n';
+import { languageNameInSentence, type Locale, type Translate } from '@chatofy/i18n';
 
 /**
  * The words `LanguagePairPicker` says, in the reader's language — written once for the
@@ -24,11 +24,19 @@ export function languageNamer(t: Translate): (code: LanguageCode) => string {
   return (code) => t(`common.languageName.${code}`);
 }
 
-export function languagePairLabels(t: Translate): LanguagePairLabels {
+/**
+ * The swap label's `from` and `to` arrive as the picker's standalone names, so the
+ * sentence form is made here: Vietnamese writes them in lower case mid-sentence.
+ */
+export function languagePairLabels(t: Translate, locale: Locale): LanguagePairLabels {
   return {
     pair: t('web.translate.languagePair'),
     source: t('web.translate.languagePairSource'),
     translation: t('web.translate.languagePairTarget'),
-    swap: (from, to) => t('web.translate.languagePairSwap', { from, to }),
+    swap: (from, to) =>
+      t('web.translate.languagePairSwap', {
+        from: languageNameInSentence(locale, from),
+        to: languageNameInSentence(locale, to),
+      }),
   };
 }

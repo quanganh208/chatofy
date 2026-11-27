@@ -22,7 +22,8 @@ import {
   type MicProcessing,
   type VoiceGender,
 } from '@chatofy/types';
-import { t } from '../../src/i18n';
+import { languageNameInSentence } from '@chatofy/i18n';
+import { locale, t } from '../../src/i18n';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 
 /**
@@ -78,7 +79,12 @@ const PAIR_LABELS: LanguagePairLabels = {
   pair: t('extension.languagePair.label'),
   source: t('extension.languagePair.source'),
   translation: t('extension.languagePair.translation'),
-  swap: (from, to) => t('extension.languagePair.swap', { from, to }),
+  // The picker hands over its standalone names; mid-sentence Vietnamese writes them in lower case.
+  swap: (from, to) =>
+    t('extension.languagePair.swap', {
+      from: languageNameInSentence(locale, from),
+      to: languageNameInSentence(locale, to),
+    }),
 };
 
 /** A language in the reader's interface language, as web names it. */

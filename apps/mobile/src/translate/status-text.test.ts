@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { isRunning, languageNameKey, oneWayNotice, statusKey } from './status-text.ts';
+import {
+  isRunning,
+  languageNameKey,
+  oneWayNotice,
+  sentenceLanguageName,
+  statusKey,
+} from './status-text.ts';
 
 describe('statusKey', () => {
   it('has a sentence for the states a person sees', () => {
@@ -21,6 +27,12 @@ describe('isRunning', () => {
 describe('languageNameKey', () => {
   it('names each registry language', () => {
     assert.equal(languageNameKey('zh'), 'common.languageName.zh');
+  });
+});
+
+describe('sentenceLanguageName', () => {
+  it('leaves an English name as written', () => {
+    assert.equal(sentenceLanguageName('Vietnamese'), 'Vietnamese');
   });
 });
 

@@ -5,8 +5,8 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@chatofy/ui/rea
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import type { LanguageCode } from '@chatofy/types';
 import { languageVoice, type TranslateSettings } from '@/lib/translate-settings';
-import { useTranslate } from '@/i18n/provider';
-import { languageNamer } from '@/i18n/language-pair-labels';
+import { useLocale, useTranslate } from '@/i18n/provider';
+import { languageNameForSentence } from '@chatofy/i18n';
 
 /**
  * The voice, opened from the panel it speaks for.
@@ -77,9 +77,12 @@ export function VoiceSettingsPopover({
   onVolumeChange,
 }: VoiceSettingsPopoverProps) {
   const t = useTranslate();
+  const locale = useLocale();
   const { speak } = languageVoice(settings, language);
   const Speaker = speak ? Volume2 : VolumeX;
-  const label = t('web.translate.voiceSettingsFor', { language: languageNamer(t)(language) });
+  const label = t('web.translate.voiceSettingsFor', {
+    language: languageNameForSentence(t, locale, language),
+  });
   // The whole sentence the trigger used to print, now said only where it is still
   // needed. Without it the button announces as "Voice settings" and the state —
   // the one fact a reader opens this to check — is carried by a glyph they cannot

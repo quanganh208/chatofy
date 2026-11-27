@@ -4,8 +4,9 @@ import { LANGUAGE_CODES } from '@chatofy/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@chatofy/ui/react';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import type { UseTranslateSettings } from '@/hooks/use-translate-settings';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
+import { languageNameForSentence } from '@chatofy/i18n';
 import { languageVoice, type TranslateSettings } from '@/lib/translate-settings';
 import { SettingsSection } from './settings-section';
 import { useSettingSaver } from './use-setting-saver';
@@ -43,6 +44,7 @@ export function VoiceDefaultsSection({
   running,
 }: Pick<UseTranslateSettings, 'settings' | 'set' | 'current'> & { running: boolean }) {
   const t = useTranslate();
+  const locale = useLocale();
   const nameLanguage = languageNamer(t);
   const save = useSettingSaver<TranslateSettings>(set, current);
 
@@ -50,7 +52,7 @@ export function VoiceDefaultsSection({
     <SettingsSection title={t('web.settings.groupVoice')}>
       {LANGUAGE_CODES.map((language) => {
         const toastLabel = t('web.translate.voiceSettingsFor', {
-          language: nameLanguage(language),
+          language: languageNameForSentence(t, locale, language),
         });
         const speak = languageVoice(settings, language).speak;
         return (

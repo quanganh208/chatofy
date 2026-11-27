@@ -549,6 +549,21 @@ describe('in Vietnamese', () => {
     expect(document.documentElement.lang).toBe('vi');
   });
 
+  /**
+   * A language name is a capitalised label on its own ("Tiếng Việt") and lower case
+   * inside a sentence, so the swap button's name must carry the lower-case form.
+   */
+  it('writes language names in lower case inside the swap button name', async () => {
+    await mount({ languages: ['vi'] });
+    const swapPrefix = tvi('extension.languagePair.swap').split('{')[0]!;
+    const swap = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find(
+      (button) => button.getAttribute('aria-label')!.startsWith(swapPrefix),
+    );
+    const name = swap?.getAttribute('aria-label') ?? '';
+    expect(name).toMatch(/tiếng (Việt|Anh|Trung)/);
+    expect(name).not.toMatch(/Tiếng/);
+  });
+
   it('renders the sign-in form in the browser language', async () => {
     await mount({ languages: ['vi'], signedIn: false });
 

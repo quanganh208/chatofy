@@ -17,7 +17,7 @@ import {
 } from '@chatofy/types';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
-import { languageNameKey } from '@/translate/status-text';
+import { languageNameKey, sentenceLanguageName } from '@/translate/status-text';
 import {
   sourceChoices,
   swapPair,
@@ -74,8 +74,8 @@ export function LanguageBar({ pair, locked, onChange }: LanguageBarProps) {
         accessibilityLabel={
           swapped
             ? t('web.translate.languagePairSwap', {
-                from: t(languageNameKey(pair.target)),
-                to: sourceLabel(pair.source),
+                from: sentenceLanguageName(t(languageNameKey(pair.target))),
+                to: sentenceLanguageName(sourceLabel(pair.source)),
               })
             : t('web.translate.languagePairSwapDetect')
         }

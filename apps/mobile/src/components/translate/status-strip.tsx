@@ -11,7 +11,12 @@ import type { ConversationStatus } from '@chatofy/realtime-client';
 import { space, fontSize } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 import type { SaveState } from '@/translate/use-save-conversation';
-import { languageNameKey, oneWayNotice, statusKey } from '@/translate/status-text';
+import {
+  languageNameKey,
+  oneWayNotice,
+  sentenceLanguageName,
+  statusKey,
+} from '@/translate/status-text';
 import type {
   ConversationIdentity,
   LanguageModeAnswer,
@@ -83,8 +88,8 @@ export function StatusStrip({
       {notice ? (
         <InlineNotice
           message={t(notice.key, {
-            from: t(languageNameKey(notice.from)),
-            to: t(languageNameKey(notice.to)),
+            from: sentenceLanguageName(t(languageNameKey(notice.from))),
+            to: sentenceLanguageName(t(languageNameKey(notice.to))),
           })}
         />
       ) : null}
