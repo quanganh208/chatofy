@@ -262,8 +262,6 @@ async function startCapture(tabId: number): Promise<void> {
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
   publisher.reset();
-  // The banner it carried is gone, so the same failure must be able to show again.
-  relayFailures.reset();
 
   // Tell the tab we are leaving that it is no longer being captured, before
   // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
@@ -363,6 +361,7 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
  */
 const relayFailures = new RelayFailureReporter(
   (message) => publisher.publishError('outbound', message),
+  () => publisher.current.errors.outbound,
   (key) => t(key),
 );
 

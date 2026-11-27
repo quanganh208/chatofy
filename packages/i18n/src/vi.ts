@@ -1354,9 +1354,9 @@ export const vi: Messages = {
   'extension.error.tabCaptureFailed': 'Chưa dịch được tab này. Bạn thử lại nhé.',
   'extension.error.preparePageFailed': 'Chưa thiết lập được micro trên trang này. Bạn thử lại nhé.',
   'extension.error.relayTabLost':
-    'Chatofy không còn kết nối với tab cuộc gọi, nên lời bạn nói chưa tới được cuộc gọi. Bạn quay lại tab đó rồi bật lại Chatofy nhé.',
+    'Lời bạn nói không vào được cuộc gọi nữa. Bạn quay lại tab cuộc gọi rồi bật lại Chatofy nhé.',
   'extension.error.relayTabUnreachable':
-    'Tab cuộc gọi không nhận âm thanh của bạn nữa, nên lời bạn nói chưa tới được cuộc gọi. Bạn tải lại tab đó rồi bật lại Chatofy nhé.',
+    'Lời bạn nói không vào được cuộc gọi nữa. Bạn tải lại tab cuộc gọi rồi bật lại Chatofy nhé.',
   'extension.error.contextsSignIn': 'Đăng nhập để dùng Ngữ cảnh AI',
   'extension.error.contextsLoadFailed':
     'Chưa tải được Ngữ cảnh AI của bạn (HTTP {status}). Bạn thử lại nhé.',
