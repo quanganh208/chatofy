@@ -45,13 +45,13 @@ afterEach(() => {
   container.remove();
 });
 
-function render(running: boolean, voiceOutput = true) {
+function render(running: boolean, voiceOutput = true, locale?: 'vi') {
   act(() => {
     root = createRoot(container);
     root.render(
-      <LocaleProvider>
+      <LocaleProvider locale={locale}>
         <VoiceSettingsPopover
-          language="en"
+          language={locale === 'vi' ? 'vi' : 'en'}
           settings={{
             ...DEFAULT_TRANSLATE_SETTINGS,
             ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'en', { speak: voiceOutput }),
@@ -73,6 +73,13 @@ function open(running: boolean, voiceOutput = true) {
 }
 
 describe('VoiceSettingsPopover', () => {
+  it('names the language in lower case mid-sentence in Vietnamese', () => {
+    // "Tiếng Việt" is the standalone label; inside "Giọng đọc …" Vietnamese writes it
+    // in lower case.
+    const trigger = render(false, true, 'vi');
+    expect(trigger?.getAttribute('aria-label')).toContain('Giọng đọc tiếng Việt');
+  });
+
   it('says whether the translation is spoken without being opened', () => {
     // The reason the inert speaker mark existed at all, and the reason it was
     // worth keeping when it became a control: "why am I not hearing anything"

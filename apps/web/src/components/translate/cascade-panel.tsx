@@ -23,7 +23,7 @@ import {
   type ConversationMode,
   type TranslateSettings,
 } from '@/lib/translate-settings';
-import { languageNamer } from '@/i18n/language-pair-labels';
+import { languageNameForSentence } from '@chatofy/i18n';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { ContextPicker } from '@/components/translate/context-picker';
@@ -358,7 +358,6 @@ export function CascadePanel({
   // from it. The notice below is what says which case a reader is in.
   const canGenerate = save.saved && conversationTurns.length > 0;
 
-  const nameLanguage = languageNamer(t);
   // What a start from the current settings may speak, target first: both sides
   // of a two-way pair, the target of anything else.
   const spokenLanguages = spokenLanguagesOf(languagePair, conversationMode);
@@ -630,8 +629,8 @@ export function CascadePanel({
         {declinedPair ? (
           <p role="status" className="text-muted-foreground text-hint" data-two-way-unavailable>
             {t('web.translate.twoWayUnavailable', {
-              from: nameLanguage(declinedPair.source),
-              to: nameLanguage(declinedPair.target),
+              from: languageNameForSentence(t, locale, declinedPair.source),
+              to: languageNameForSentence(t, locale, declinedPair.target),
             })}
           </p>
         ) : null}

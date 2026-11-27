@@ -10,8 +10,9 @@ import {
   type SessionLanguageMode,
   type SessionLanguagePair,
 } from '@chatofy/types';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
+import { languageNameForSentence } from '@chatofy/i18n';
 import {
   canAutoDetectInto,
   representablePair,
@@ -391,8 +392,8 @@ export function LanguagePairSwap({
   iconClassName?: string;
 }) {
   const t = useTranslate();
+  const locale = useLocale();
   const { source, target } = languagePair;
-  const nameLanguage = languageNamer(t);
 
   return (
     <Button
@@ -409,8 +410,8 @@ export function LanguagePairSwap({
         source === AUTO_DETECT
           ? t('web.translate.languagePairSwapDetect')
           : t('web.translate.languagePairSwap', {
-              from: nameLanguage(target),
-              to: nameLanguage(source),
+              from: languageNameForSentence(t, locale, target),
+              to: languageNameForSentence(t, locale, source),
             })
       }
       className={cn(

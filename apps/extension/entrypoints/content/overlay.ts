@@ -7,9 +7,10 @@ import {
   type VoiceGender,
 } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
-import { intlLocale, t } from '../../src/i18n';
+import { intlLocale, locale, t } from '../../src/i18n';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
+import { languageNameForSentence } from '@chatofy/i18n';
 import { brandMark } from '@chatofy/ui';
 import { OVERLAY_STYLE } from './overlay-styles';
 
@@ -362,8 +363,8 @@ export class Overlay {
           [
             encodePairOption(pair),
             t('extension.overlay.pairOption', {
-              source: t(`common.languageName.${pair.source}`),
-              target: t(`common.languageName.${pair.target}`),
+              source: languageNameForSentence(t, locale, pair.source),
+              target: languageNameForSentence(t, locale, pair.target),
             }),
           ] as const,
       ),

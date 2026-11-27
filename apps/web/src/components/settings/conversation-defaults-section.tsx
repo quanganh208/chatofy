@@ -19,7 +19,7 @@ import {
   type TranslateSettings,
 } from '@/lib/translate-settings';
 import { useAvailableTranslationContexts } from '@/hooks/use-available-translation-contexts';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
 import { useSettingSaver } from './use-setting-saver';
 import { VoiceDefaultsSection } from './voice-defaults-section';
@@ -69,6 +69,7 @@ export function ConversationDefaultsSection({
   running?: boolean;
 }) {
   const t = useTranslate();
+  const locale = useLocale();
   const { groups: contextGroups, all: contexts, status } = useAvailableTranslationContexts();
   const nameLanguage = languageNamer(t);
   const save = useSettingSaver<TranslateSettings>(set, current);
@@ -105,7 +106,7 @@ export function ConversationDefaultsSection({
                 languagePair: representablePair(languagePair),
               })
             }
-            labels={{ ...languagePairLabels(t), pair: t('web.chrome.navTranslate') }}
+            labels={{ ...languagePairLabels(t, locale), pair: t('web.chrome.navTranslate') }}
             nameLanguage={nameLanguage}
             detectOption={
               canAutoDetectInto(settings.languagePair.target)
@@ -123,7 +124,7 @@ export function ConversationDefaultsSection({
             onChange={(pair) =>
               save('twoWayPair', t('web.settings.twoWayPair'), pairPatchFor('two-way', pair))
             }
-            labels={{ ...languagePairLabels(t), pair: t('web.chrome.navTranslateTwoWay') }}
+            labels={{ ...languagePairLabels(t, locale), pair: t('web.chrome.navTranslateTwoWay') }}
             nameLanguage={nameLanguage}
             unavailable={{
               codes: LANGUAGE_CODES.filter((code) => !IDENTIFIABLE_LANGUAGES.includes(code)),
