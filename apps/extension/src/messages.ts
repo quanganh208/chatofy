@@ -172,13 +172,22 @@ export type ExtensionMessage =
  * socket leaves the meeting perfectly translated INTO the user's language while
  * nothing they say reaches anyone, and a single string cannot say that.
  *
- * `capture` belongs to the worker — a tab that cannot be captured at all — and
- * the other two to the offscreen document.
+ * Each slot has exactly one writer, because a writer clears its own slot by
+ * replacing it, and two writers to one slot erase each other's message:
+ *
+ * - `capture` — the worker: a tab that cannot be captured at all.
+ * - `inbound`, `outbound` — the offscreen document, which reports both in every
+ *   status push (see `CaptureStatus.errors`).
+ * - `relay` — the worker: the outbound audio cannot be handed to the meeting
+ *   page, or the page could not be prepared for the patched microphone. Both
+ *   are about the user's microphone reaching the meeting, so it renders with the
+ *   same prefix as `outbound`, but it lives apart so a status push cannot wipe it.
  */
 interface LegErrors {
   capture?: string;
   inbound?: string;
   outbound?: string;
+  relay?: string;
 }
 
 /** What the capture side is doing, in the words the popup shows. */
@@ -193,7 +202,7 @@ export interface CaptureStatus {
    * carries nothing about the other, and overwriting would erase a live failure
    * every time the healthy leg said anything.
    */
-  errors: Omit<LegErrors, 'capture'>;
+  errors: Omit<LegErrors, 'capture' | 'relay'>;
   /** Turns waiting to be heard. Non-zero means the translation is behind. */
   backlogTurns: number;
   /**

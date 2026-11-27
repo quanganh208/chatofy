@@ -205,10 +205,10 @@ describe('OverlayPublisher', () => {
       h.publisher.setTarget(1);
       h.publisher.publishCaptureError('capture failed');
 
-      h.publisher.publishError('outbound', 'relay failed');
+      h.publisher.publishError('relay', 'relay failed');
 
       expect(h.last()!.errors.capture).toBe('capture failed');
-      expect(h.last()!.errors.outbound).toBe('relay failed');
+      expect(h.last()!.errors.relay).toBe('relay failed');
     });
 
     it('carries a server refusal message verbatim, not the wire code behind it', () => {
@@ -218,9 +218,113 @@ describe('OverlayPublisher', () => {
       const h = harness();
       h.publisher.setTarget(1);
 
-      h.publisher.publishError('outbound', 'This server cannot speak en right now');
+      h.publisher.applyStatus({
+        capturing: true,
+        outbound: 'on',
+        errors: { outbound: 'This server cannot speak en right now' },
+      } as never);
 
       expect(h.last()!.errors.outbound).toBe('This server cannot speak en right now');
+    });
+  });
+
+  describe('the relay slot', () => {
+    /**
+     * The worker's relay failures used to share `outbound` with the offscreen
+     * document, whose every status push replaced that slot — so a mute toggle
+     * wiped a relay banner that was still true, and the next failure brought it
+     * back: a blink, for as long as the relay stayed broken.
+     */
+    it('survives a status push, alongside the capture error', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.publishCaptureError('tab went away');
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      h.publisher.applyStatus({
+        capturing: true,
+        outbound: 'on',
+        errors: { outbound: 'mic refused' },
+      } as never);
+
+      expect(h.last()!.errors).toMatchObject({
+        capture: 'tab went away',
+        relay: 'meeting tab lost',
+        outbound: 'mic refused',
+      });
+    });
+
+    it('stays when a status push without errors clears outbound', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.applyStatus({
+        capturing: true,
+        outbound: 'on',
+        errors: { outbound: 'mic refused' },
+      } as never);
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      h.publisher.applyStatus({ capturing: true, outbound: 'on', errors: {} } as never);
+
+      expect(h.last()!.errors.outbound).toBeUndefined();
+      expect(h.last()!.errors.relay).toBe('meeting tab lost');
+    });
+
+    it('goes with the capture when a status says nothing is capturing', () => {
+      // A relay failure is about a running capture; it must not outlive it.
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.applyStatus({ capturing: true, outbound: 'sending', errors: {} } as never);
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      h.publisher.applyStatus({ capturing: false, outbound: 'off', errors: {} } as never);
+
+      expect(h.last()!.errors.relay).toBeUndefined();
+    });
+
+    it('clears on clearError, keeping the other slots', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.publishCaptureError('tab went away');
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      h.publisher.clearError('relay');
+
+      expect(h.last()!.errors.relay).toBeUndefined();
+      expect(h.last()!.errors.capture).toBe('tab went away');
+    });
+
+    it('publishes nothing when cleared while already empty', () => {
+      // Recovery is checked once per relayed audio frame; a healthy relay must
+      // not push a render for each one.
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.applyStatus({ capturing: true, outbound: 'on', errors: {} } as never);
+      const before = h.rendered.length;
+
+      h.publisher.clearError('relay');
+
+      expect(h.rendered).toHaveLength(before);
+    });
+
+    it.each([
+      ['a stop', (p: OverlayPublisher) => p.publishStopped()],
+      ['a capture error', (p: OverlayPublisher) => p.publishCaptureError('gone')],
+      [
+        'a new capture',
+        (p: OverlayPublisher) => {
+          p.reset();
+          p.republish();
+        },
+      ],
+    ])('is cleared by %s', (_, act) => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      act(h.publisher);
+
+      expect(h.last()!.errors.relay).toBeUndefined();
     });
   });
 

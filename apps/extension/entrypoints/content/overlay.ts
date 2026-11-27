@@ -505,8 +505,11 @@ export class Overlay {
     if (state.errors.inbound) {
       failures.push(t('extension.status.meetingAudioError', { error: state.errors.inbound }));
     }
-    if (state.errors.outbound) {
-      failures.push(t('extension.status.microphoneError', { error: state.errors.outbound }));
+    // Both of these are about the user's microphone, from two different writers:
+    // the offscreen document's leg, and the worker's relay into the page. Both
+    // lines show when both fail, because each clears on its own recovery.
+    for (const error of [state.errors.outbound, state.errors.relay]) {
+      if (error) failures.push(t('extension.status.microphoneError', { error }));
     }
     this.errorBox.hidden = failures.length === 0;
     this.errorBox.replaceChildren();

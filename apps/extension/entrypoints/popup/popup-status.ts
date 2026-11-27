@@ -19,6 +19,7 @@ export function firstFailure(overlay: OverlayState | undefined): string | undefi
   if (errors.capture) return errors.capture;
   if (errors.inbound) return t('extension.status.meetingAudioError', { error: errors.inbound });
   if (errors.outbound) return t('extension.status.microphoneError', { error: errors.outbound });
+  if (errors.relay) return t('extension.status.microphoneError', { error: errors.relay });
   return undefined;
 }
 
