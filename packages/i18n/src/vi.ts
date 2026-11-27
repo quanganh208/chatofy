@@ -153,23 +153,23 @@ export const vi: Messages = {
 
   // ---- common.realtime ----
   'common.realtime.unreachable':
-    'Chưa kết nối được tới dịch vụ dịch. Bạn kiểm tra kết nối rồi thử lại nhé.',
+    'Chưa kết nối được tới dịch vụ dịch. Bạn kiểm tra mạng rồi thử lại nhé.',
   'common.realtime.connectionLost':
     'Mất kết nối nên Chatofy ngừng dịch. Bạn bắt đầu lại để dịch tiếp nhé.',
   'common.realtime.startFailed': 'Chưa bắt đầu dịch được. Bạn thử lại nhé.',
-  'common.realtime.turnFailed': 'Chưa dịch được đoạn vừa nói. Chatofy vẫn dịch tiếp phần sau.',
+  'common.realtime.turnFailed': 'Không dịch được đoạn vừa nói. Chatofy vẫn dịch tiếp phần sau.',
   'common.realtime.turnTooLong':
-    'Đoạn vừa nói dài quá nên chưa dịch được. Bạn ngắt nghỉ giữa các câu nhé.',
-  'common.realtime.noSpeech': 'Chưa nghe thấy gì để dịch. Bạn cứ nói tiếp khi sẵn sàng nhé.',
+    'Đoạn vừa nói dài quá nên không dịch được. Bạn ngắt nghỉ giữa các câu nhé.',
+  'common.realtime.noSpeech': 'Chưa nghe thấy gì để dịch. Bạn cứ nói khi sẵn sàng nhé.',
   'common.realtime.busy': 'Dịch vụ dịch đang bận. Bạn thử lại sau giây lát nhé.',
   'common.realtime.languageUnavailable':
     'Ngôn ngữ này hiện chưa dùng được. Bạn chọn ngôn ngữ khác nhé.',
-  'common.realtime.outdated': 'Chatofy vừa có bản mới. Bạn tải lại để dịch tiếp nhé.',
-  'common.realtime.generic': 'Chatofy gặp trục trặc khi dịch. Bạn thử lại nhé.',
+  'common.realtime.outdated': 'Chatofy vừa có bản mới. Bạn tải lại trang để dịch tiếp nhé.',
+  'common.realtime.generic': 'Chatofy gặp sự cố khi dịch. Bạn thử lại nhé.',
 
   // ---- common.auth ----
   'common.auth.linkExpired': 'Liên kết này đã hết hạn hoặc đã dùng rồi. Bạn xin liên kết mới nhé.',
-  'common.auth.tooManyAttempts': 'Thử sai nhiều lần quá. Bạn đợi một phút rồi thử lại nhé.',
+  'common.auth.tooManyAttempts': 'Bạn thử nhiều lần quá. Đợi một phút rồi thử lại nhé.',
 
   // ---- common.billing ----
   'common.billing.title': 'Điểm và gói',

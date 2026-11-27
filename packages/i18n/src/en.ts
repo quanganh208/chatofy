@@ -170,7 +170,7 @@ export const en = {
   'common.realtime.turnFailed': 'Couldn’t translate the last part. Translation goes on from here.',
   'common.realtime.turnTooLong': 'That part ran too long to translate. Pause between sentences.',
   // A turn closed with no audio in it, or after too long without any.
-  'common.realtime.noSpeech': 'Didn’t hear anything to translate. Keep talking when you’re ready.',
+  'common.realtime.noSpeech': 'Didn’t hear anything to translate. Speak when you’re ready.',
   'common.realtime.busy': 'Translation is busy right now. Try again in a moment.',
   'common.realtime.languageUnavailable':
     'This language isn’t available right now. Choose another one.',

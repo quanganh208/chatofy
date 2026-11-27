@@ -25,6 +25,19 @@ describe('realtimeErrorKey', () => {
     );
   });
 
+  it('says a turn that heard nothing as nothing to translate, not as a failure', () => {
+    expect(realtimeErrorKey({ code: 'turn_failed', detail: 'no_speech' })).toBe(
+      'common.realtime.noSpeech',
+    );
+    // The detail means something only under the code it was sent with.
+    expect(realtimeErrorKey({ code: 'language_unavailable', detail: 'no_speech' })).toBe(
+      'common.realtime.languageUnavailable',
+    );
+    expect(realtimeErrorKey({ code: 'turn_failed', detail: 'lid_capacity' })).toBe(
+      'common.realtime.turnFailed',
+    );
+  });
+
   it('gives an unknown or missing code the generic sentence, never undefined', () => {
     expect(realtimeErrorKey({ code: 'a_code_added_later' })).toBe('common.realtime.generic');
     expect(realtimeErrorKey({ code: 'constructor' })).toBe('common.realtime.generic');

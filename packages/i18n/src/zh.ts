@@ -155,11 +155,11 @@ export const zh: Messages = {
   'common.realtime.connectionLost': '连接断开了，翻译已停止。请重新开始。',
   'common.realtime.startFailed': '没能开始翻译，请重试。',
   'common.realtime.turnFailed': '刚才那段没能翻译，后面的会继续翻译。',
-  'common.realtime.turnTooLong': '这段话太长，没能翻译。说话时请在句子之间停一下。',
-  'common.realtime.noSpeech': '没听到要翻译的内容，准备好后继续说就行。',
+  'common.realtime.turnTooLong': '刚才那段太长，没能翻译。请在句子之间停一下。',
+  'common.realtime.noSpeech': '没听到要翻译的内容，准备好了直接说就行。',
   'common.realtime.busy': '翻译服务正忙，请稍后再试。',
-  'common.realtime.languageUnavailable': '这个语言暂时用不了，请换一种语言。',
-  'common.realtime.outdated': 'Chatofy 已更新，请刷新后继续翻译。',
+  'common.realtime.languageUnavailable': '这种语言暂时用不了，请换一种。',
+  'common.realtime.outdated': 'Chatofy 已更新，请刷新页面后继续翻译。',
   'common.realtime.generic': '翻译出了点问题，请重试。',
 
   // ---- common.auth: account-flow failures web and mobile both show ----

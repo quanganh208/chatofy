@@ -42,12 +42,16 @@ const KEY_BY_CODE: ReadonlyMap<string, MessageKey> = new Map<string, MessageKey>
 );
 
 /**
- * Why Auto-detect could not run, under `language_unavailable`. Each names the
- * next step, where the bare code could only say the language is unavailable.
+ * A finer reason the server gave under a code, where it changes what the reader
+ * should do. Keyed `code:detail`, so a detail means something only under the code
+ * it was sent with; any other detail falls back to the code's own sentence.
  */
-const LANGUAGE_DETAIL_KEY: ReadonlyMap<string, MessageKey> = new Map<string, MessageKey>([
-  ['language_detection', 'web.translate.detectUnavailable'],
-  ['lid_capacity', 'web.translate.detectBusy'],
+const DETAIL_KEY: ReadonlyMap<string, MessageKey> = new Map<string, MessageKey>([
+  // Why Auto-detect could not run: each names the next step.
+  ['language_unavailable:language_detection', 'web.translate.detectUnavailable'],
+  ['language_unavailable:lid_capacity', 'web.translate.detectBusy'],
+  // The recognizer heard nothing: not a failure to translate.
+  ['turn_failed:no_speech', 'common.realtime.noSpeech'],
 ]);
 
 /** What `realtimeErrorKey` reads: the code, and the server's finer reason if any. */
@@ -62,8 +66,8 @@ export interface RealtimeErrorCodeRef {
  */
 export function realtimeErrorKey(cause: RealtimeErrorCodeRef | undefined): MessageKey {
   if (cause === undefined) return 'common.realtime.generic';
-  if (cause.code === 'language_unavailable' && cause.detail !== undefined) {
-    const detailed = LANGUAGE_DETAIL_KEY.get(cause.detail);
+  if (cause.detail !== undefined) {
+    const detailed = DETAIL_KEY.get(`${cause.code}:${cause.detail}`);
     if (detailed) return detailed;
   }
   return KEY_BY_CODE.get(cause.code) ?? 'common.realtime.generic';
