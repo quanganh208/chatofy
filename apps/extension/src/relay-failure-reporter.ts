@@ -63,7 +63,7 @@ export class RelayFailureReporter {
   private relayFailure: RelayFailureKey | undefined;
   private sendSeq = 0;
   private lastFailureSeq = 0;
-  /** The last send issued before outbound was turned off; its failures are stale. */
+  /** The last send issued before outbound was turned off or the relay was reset; its failures are stale. */
   private offSeq = 0;
   private settingsRun = 0;
   private readonly log: (detail: string) => void;
@@ -84,8 +84,8 @@ export class RelayFailureReporter {
    * `seq` is the send's number; a failure with no send behind it (no tab to send
    * to) takes a fresh one, which orders it after every send already in flight.
    * `detail` is logged only when the failure is news. Dropped when the send
-   * started before outbound was last turned off: it was in flight then, and
-   * would otherwise bring back a banner nothing could clear.
+   * started before outbound was last turned off or the relay was last reset: it
+   * was in flight then, and would otherwise bring back a banner nothing could clear.
    */
   relayFailed(key: RelayFailureKey, detail: string, seq: number = this.nextSend()): void {
     // Two fences against a failure that belongs to a capture already over. A
