@@ -18,11 +18,13 @@ import {
   IDENTIFIABLE_LANGUAGES,
   pairLanguages,
   type AudioFrame,
+  type CataloguedServerError,
   type ClientTurnMetrics,
   type LanguageCode,
   type LanguagePair,
   type LanguageTable,
   type SessionLanguageMode,
+  type ServerErrorDetail,
   type SessionOptions,
 } from '@chatofy/types';
 import {
@@ -39,6 +41,7 @@ import {
   foreignSpans,
 } from '@chatofy/ai-providers';
 import {
+  EmptyTranscriptException,
   NoSpeechDetectedException,
   BLOCK_RESTORE_BUDGET_MS,
   PipelineTranslatorService,
@@ -610,7 +613,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     socket: StreamSocket,
     turnId: string | undefined,
     message: string,
-    detail: string,
+    detail: ServerErrorDetail,
   ): void {
     this.channelFor(socket, { turnId }).emit({
       type: 'server.error',
@@ -618,7 +621,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       message,
       detail,
       turnId,
-    });
+    } satisfies CataloguedServerError);
   }
 
   /**
@@ -2680,7 +2683,14 @@ export class TranslationSessionService implements OnModuleDestroy {
     this.logger.error(
       `turn ${session.sessionId} failed: ${err instanceof Error ? err.message : String(err)}`,
     );
-    this.channelFor(socket, session).fail('turn_failed', message);
+    // An empty transcript is still a failed turn on the wire, so a client
+    // built before `detail` existed reads it exactly as before; a current one
+    // says "nothing to translate" from the detail.
+    this.channelFor(socket, session).fail(
+      'turn_failed',
+      message,
+      err instanceof EmptyTranscriptException ? 'no_speech' : undefined,
+    );
   }
 
   /**

@@ -94,6 +94,19 @@ export class NoSpeechDetectedException extends BadRequestException {
 }
 
 /**
+ * The recognizer returned nothing for a reason the speech gate did not decide —
+ * see {@link NoSpeechDetectedException}. Still a `BadRequestException`, so every
+ * path that already lets one through is unchanged; its own class lets the session
+ * service tell the client WHY the turn failed (`detail: 'no_speech'`), so the reader
+ * hears "nothing to translate" rather than "couldn't translate".
+ */
+export class EmptyTranscriptException extends BadRequestException {
+  constructor(message = 'No speech detected in the audio') {
+    super(message);
+  }
+}
+
+/**
  * Decoded input for one translation turn.
  *
  * Carries no language of its own: which language(s) to recognise, and which to
@@ -1252,7 +1265,7 @@ export class PipelineTranslatorService {
         );
         throw gated
           ? new NoSpeechDetectedException()
-          : new BadRequestException('No speech detected in the audio');
+          : new EmptyTranscriptException();
       }
 
       // Each target logs its own model and timing inside `translate`; nothing

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import {
   clientEventSchema,
+  type CataloguedServerError,
   type ClientEvent,
   type ServerEvent,
 } from '@chatofy/types';
@@ -242,7 +243,7 @@ export class TranslateGateway
       // waiting on it — but only an id the client schema would accept.
       turnId:
         typeof turnId === 'string' && turnId.length <= 64 ? turnId : undefined,
-    });
+    } satisfies CataloguedServerError);
     return true;
   }
 
@@ -352,7 +353,7 @@ export class TranslateGateway
           ...(admission.code === 'too_many_turns'
             ? {}
             : { remainingCreditSeconds: admission.remainingCreditSeconds }),
-        });
+        } satisfies CataloguedServerError);
         return;
       }
       const started = this.scoped(client, undefined, () =>
