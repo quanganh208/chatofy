@@ -180,7 +180,7 @@ describe('HistoryList', () => {
     expect(container.textContent).toContain('Vietnamese');
     expect(container.querySelector('svg.lucide-arrow-left-right')).not.toBeNull();
     expect(container.textContent).not.toMatch(/VI|EN|[→⇄]/);
-    expect(container.textContent).toContain('12 lines');
+    expect(container.textContent).toContain('12 turns');
   });
 
   it('names an auto-detected conversation by its translation language alone', () => {
@@ -362,7 +362,7 @@ describe('HistoryList', () => {
     });
     const meta = [...container.querySelectorAll('a[href^="/history/"] p')].at(-1);
     expect(meta?.className).toContain('truncate');
-    expect(meta?.textContent).toContain('12 lines');
+    expect(meta?.textContent).toContain('12 turns');
     expect(meta?.textContent).not.toContain('Lan');
     expect(meta?.textContent).not.toContain('Recording');
   });

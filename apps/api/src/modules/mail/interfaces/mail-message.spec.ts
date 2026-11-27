@@ -22,7 +22,7 @@ const TEXT_BEFORE_HTML: Record<string, { subject: string; text: string }> = {
   },
   'verify-email/vi': {
     subject: 'Xác minh email cho tài khoản Chatofy',
-    text: 'Chào mừng bạn đến với Chatofy! Xác minh email này là tạo xong tài khoản:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 24 giờ. Nếu bạn không đăng ký, cứ bỏ qua email này.',
+    text: 'Chào mừng bạn đến với Chatofy! Xác minh email này để tạo xong tài khoản:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 24 giờ. Nếu bạn không đăng ký, cứ bỏ qua email này.',
   },
   'verify-email/zh': {
     subject: '验证邮箱，完成 Chatofy 注册',

@@ -280,7 +280,7 @@ describe('ConversationDetail', () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
 
-    expect(container.textContent).toContain('15 lines');
+    expect(container.textContent).toContain('15 turns');
     expect(container.textContent).toContain('11 min');
     expect(container.textContent).toContain('One-way');
     expect(container.textContent).toContain('Vietnamese');

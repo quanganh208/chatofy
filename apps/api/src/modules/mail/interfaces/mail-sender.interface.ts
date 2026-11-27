@@ -168,7 +168,7 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       subject: 'Xác minh email cho tài khoản Chatofy',
       heading: 'Xác minh email của bạn',
       intro:
-        'Chào mừng bạn đến với Chatofy! Xác minh email này là tạo xong tài khoản:',
+        'Chào mừng bạn đến với Chatofy! Xác minh email này để tạo xong tài khoản:',
       action: 'Xác minh email',
       outro:
         'Liên kết có hiệu lực trong 24 giờ. Nếu bạn không đăng ký, cứ bỏ qua email này.',
@@ -318,7 +318,7 @@ const MAIL_CHROME: Record<Locale, MailChrome> = {
   vi: {
     fallback: 'Nút không bấm được? Dán liên kết này vào trình duyệt:',
     footer: [
-      'Chatofy: dịch giọng nói theo thời gian thực.',
+      'Chatofy: dịch giọng nói tức thì.',
       'Bạn nhận được thư này vì có người đã dùng email này trên Chatofy.',
     ],
   },

@@ -60,7 +60,7 @@ describe('GlossaryListPanel empty list', () => {
     const block = container.querySelector('[data-slot="glossary-empty"]');
     expect(block?.querySelector('svg')).not.toBeNull();
     expect(block?.querySelector('p.font-semibold')?.textContent).toBe('No glossaries yet');
-    expect(block?.textContent).toContain('Press New glossary to make one.');
+    expect(block?.textContent).toContain('Select “New glossary” to make one.');
   });
 });
 

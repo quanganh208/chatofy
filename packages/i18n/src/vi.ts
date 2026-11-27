@@ -182,7 +182,7 @@ export const vi: Messages = {
   'common.billing.usageKind.grant': 'Cộng điểm',
   'common.billing.usageKind.refund': 'Hoàn điểm',
   'common.billing.usageKind.expire': 'Hết hạn',
-  'common.billing.usageKind.void': 'Đã gỡ',
+  'common.billing.usageKind.void': 'Đã huỷ',
   'common.billing.usageOpenConversation': 'Mở cuộc trò chuyện',
 
   // ---- common.minutes ----
@@ -259,7 +259,7 @@ export const vi: Messages = {
   'web.auth.sendResetFailed': 'Chưa gửi được liên kết đặt lại mật khẩu. Bạn thử lại nhé.',
   'web.auth.verifyFailed': 'Chưa xác minh được liên kết này. Bạn thử lại nhé.',
   'web.auth.serverUnreachable': 'Chưa kết nối được tới máy chủ. Bạn kiểm tra mạng rồi thử lại nhé.',
-  'web.auth.tookTooLong': 'Máy chủ phản hồi chậm. Bạn thử lại nhé.',
+  'web.auth.tookTooLong': 'Mất nhiều thời gian quá. Bạn thử lại nhé.',
   'web.auth.unexpectedResponse': 'Có lỗi ở phía chúng tôi. Bạn thử lại nhé.',
   'web.auth.accountRequired':
     'Bạn cần có tài khoản để dịch. Chatofy lưu mọi cuộc trò chuyện và bản chép lời vào tài khoản của bạn.',
@@ -353,7 +353,7 @@ export const vi: Messages = {
   'web.translate.paneLayoutColumn': 'Dọc',
   'web.translate.transcriptOrder': 'Thứ tự bản chép lời',
   'web.translate.transcriptOrderOldest': 'Cũ trước',
-  'web.translate.transcriptOrderNewest': 'Mới trước',
+  'web.translate.transcriptOrderNewest': 'Mới nhất trước',
   'web.translate.displayGroupTranscript': 'Bản chép lời',
   'web.translate.displayGroupPresentation': 'Trình bày',
   'web.translate.voiceSettings': 'Cài đặt giọng đọc',
@@ -437,7 +437,7 @@ export const vi: Messages = {
   'web.translate.modeTwoWay': 'Hai chiều',
   'web.translate.modeOneWay': 'Một chiều',
   'web.translate.twoWayLanguageUnavailable': 'chưa có hai chiều',
-  'web.translate.turnLanguage': 'Nói bằng {language}',
+  'web.translate.turnLanguage': 'Ngôn ngữ nói: {language}',
   'web.translate.twoWayUnavailable':
     'Tạm thời chỉ dịch một chiều, từ {from} sang {to}. Chatofy sẽ không dịch lời nói bằng {to}.',
   'web.translate.detectUnavailable':
@@ -488,9 +488,9 @@ export const vi: Messages = {
   'web.translate.micPausedDuringPlayback': 'Micro tạm dừng khi đang phát bản dịch',
 
   'web.translate.saveFailedRetryable':
-    'Cuộc trò chuyện này chưa lưu xong. Lưu xong thì nó mới có trong Lịch sử.',
+    'Cuộc trò chuyện này chưa lưu xong. Lưu xong mới có trong Lịch sử.',
   'web.translate.saveFailedTerminal':
-    'Không lưu được cuộc trò chuyện này. Nó sẽ không có trong Lịch sử và không tạo được biên bản.',
+    'Không lưu được cuộc trò chuyện này, nên sẽ không có trong Lịch sử và không tạo được biên bản.',
   'web.translate.saveEditsFailed':
     'Chưa lưu được các thay đổi mới nhất. Cuộc trò chuyện vẫn có trong Lịch sử.',
   'web.translate.saveRetry': 'Lưu lần nữa',
@@ -571,8 +571,8 @@ export const vi: Messages = {
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(đã có)',
   'web.history.listWidth': 'Độ rộng danh sách cuộc trò chuyện',
-  'web.history.turnCount': '{count} dòng',
-  'web.history.turnCountOne': '1 dòng',
+  'web.history.turnCount': '{count} lượt',
+  'web.history.turnCountOne': '1 lượt',
   'web.history.duration': '{minutes} phút',
   'web.history.autoDetect': 'Tự nhận diện',
   'web.history.minutesReady': 'Có biên bản',
@@ -592,13 +592,13 @@ export const vi: Messages = {
   'web.history.deleteConfirm':
     'Xoá cuộc trò chuyện này cùng biên bản? Thao tác này không hoàn tác được.',
   'web.history.deleting': 'Đang xoá…',
-  'web.history.deleteFailed': 'Chưa xoá được cuộc trò chuyện này, nó vẫn còn đây. Bạn thử lại nhé.',
+  'web.history.deleteFailed': 'Chưa xoá được cuộc trò chuyện này. Bạn thử lại nhé.',
   'web.history.loading': 'Đang tải cuộc trò chuyện của bạn…',
   'web.history.loadFailed': 'Chưa tải được lịch sử. Bạn thử lại nhé.',
   'web.history.retry': 'Thử lại',
   'web.history.notFound': 'Cuộc trò chuyện này không còn nữa.',
   'web.history.notFoundBody':
-    'Có thể nó đã bị xoá, hoặc lúc này chúng tôi chưa kết nối được tới máy chủ.',
+    'Có thể cuộc trò chuyện đã bị xoá, hoặc Chatofy vừa không kết nối được tới máy chủ.',
   'web.history.speakerA': 'Người nói A',
   'web.history.speakerB': 'Người nói B',
   'web.history.playRecording': 'Phát bản ghi âm',
@@ -637,8 +637,7 @@ export const vi: Messages = {
   'web.preferences.aiContext.editTitle': 'Sửa ngữ cảnh',
   'web.preferences.aiContext.delete': 'Xoá',
   'web.preferences.aiContext.deleting': 'Đang xoá…',
-  'web.preferences.aiContext.deleteFailed':
-    'Chưa xoá được ngữ cảnh này, nó vẫn còn đây. Bạn thử lại nhé.',
+  'web.preferences.aiContext.deleteFailed': 'Chưa xoá được ngữ cảnh này. Bạn thử lại nhé.',
   'web.preferences.aiContext.save': 'Lưu ngữ cảnh',
   'web.preferences.aiContext.cancel': 'Huỷ',
   'web.preferences.aiContext.saving': 'Đang lưu…',
@@ -669,7 +668,7 @@ export const vi: Messages = {
   'web.preferences.aiContext.saveFailed':
     'Chưa lưu được ngữ cảnh này. Nội dung bạn nhập vẫn còn. Bạn thử lại nhé.',
   'web.preferences.aiContext.saveFailedElsewhere':
-    'Chưa lưu được “{name}”. Bản nháp vẫn nằm trong thư viện nơi bạn mở nó.',
+    'Chưa lưu được “{name}”. Bản nháp vẫn nằm trong thư viện bạn đã mở.',
   'web.preferences.aiContext.loadFailed':
     'Chưa tải được danh sách ngữ cảnh, nhưng bạn vẫn đang đăng nhập. Bạn kiểm tra kết nối rồi thử lại nhé.',
 
@@ -706,7 +705,7 @@ export const vi: Messages = {
     'Bạn đã bị đăng xuất. Đăng nhập lại rồi đổi mật khẩu nhé.',
   'web.account.changePasswordInvalid': 'Bạn kiểm tra lại mật khẩu mới rồi thử lại nhé.',
   'web.account.changePasswordFailed':
-    'Chưa đổi được mật khẩu, chưa có gì thay đổi. Bạn thử lại nhé.',
+    'Chưa đổi được mật khẩu, mật khẩu cũ vẫn dùng được. Bạn thử lại nhé.',
   'web.account.signOutHint':
     'Chỉ đăng xuất trình duyệt này. Các thiết bị khác vẫn đăng nhập tới khi hết hạn.',
   'web.account.buyTitle': 'Mua điểm',
@@ -750,7 +749,7 @@ export const vi: Messages = {
     'Giữ nguyên nội dung như trên. Chúng tôi dựa vào đó để khớp khoản chuyển với đơn của bạn.',
   'web.account.qrCopy': 'Sao chép',
   'web.account.qrCopied': 'Đã sao chép',
-  'web.account.qrWaiting': 'Đang chờ khoản chuyển của bạn…',
+  'web.account.qrWaiting': 'Đang chờ bạn chuyển khoản…',
   'web.account.qrPaid': 'Đã nhận thanh toán. Số điểm của bạn đã cập nhật.',
   'web.account.qrExpired':
     'Mã này đã hết hạn. Nếu bạn đã chuyển khoản, chúng tôi vẫn cộng điểm cho bạn. Nếu chưa, bạn bắt đầu lại nhé.',
@@ -785,7 +784,7 @@ export const vi: Messages = {
   'web.settings.groupMicrophone': 'Micro',
   'web.settings.groupDefaultContext': 'Ngữ cảnh AI mặc định',
   'web.settings.lockedWhileRunning':
-    'Ngôn ngữ, giọng đọc và Ngữ cảnh AI sẽ khoá tới khi cuộc trò chuyện hiện tại kết thúc.',
+    'Ngôn ngữ, giọng đọc và Ngữ cảnh AI không đổi được cho tới khi cuộc trò chuyện hiện tại kết thúc.',
   'web.settings.oneWayPair': 'Ngôn ngữ dịch một chiều',
   'web.settings.twoWayPair': 'Ngôn ngữ dịch hai chiều',
   'web.settings.saved': 'Đã lưu: {setting}',
@@ -798,15 +797,15 @@ export const vi: Messages = {
   'web.settings.signOutTitle': 'Đăng xuất khỏi trình duyệt này?',
   'web.settings.signOutFailed': 'Chưa đăng xuất được. Bạn thử lại nhé.',
 
-  'web.landing.heroTitle': 'Bạn cứ nói tiếng mình. Người nghe hiểu bằng tiếng của họ.',
+  'web.landing.heroTitle': 'Mỗi người một thứ tiếng, vẫn hiểu nhau.',
   'web.landing.heroBody':
-    'Dịch giọng nói tức thì giữa tiếng Việt, tiếng Anh và tiếng Trung. Dùng khi gặp mặt ngay trên trình duyệt, trong cuộc họp video, hay trong cuộc gọi Google Meet, Zoom, Facebook.',
+    'Dịch giọng nói tức thì giữa tiếng Việt, tiếng Anh và tiếng Trung. Dùng ngay trên trình duyệt khi trò chuyện trực tiếp, trong cuộc họp video, hay trong cuộc gọi Google Meet, Zoom, Facebook.',
   'web.landing.meetingsStart': 'Tạo cuộc họp',
   'web.landing.demoListening': 'Đang nghe',
   'web.landing.demoSourceOne': 'Chào anh, mình muốn hỏi về lịch họp chiều nay.',
   'web.landing.demoTargetOne': "Hi, I'd like to ask about this afternoon's meeting schedule.",
-  'web.landing.demoSourceTwo': "Sure — it's been moved to four o'clock.",
-  'web.landing.demoTargetTwo': 'Được thôi — cuộc họp đã dời sang bốn giờ.',
+  'web.landing.demoSourceTwo': 'Sure, it’s been moved to four o’clock.',
+  'web.landing.demoTargetTwo': 'Vâng, cuộc họp dời sang bốn giờ rồi.',
   'web.landing.howTitle': 'Cách hoạt động',
   'web.landing.howBody': 'Ba điều nên biết trước khi bạn bật micro.',
   'web.landing.howOneTitle': 'Bấm bắt đầu, rồi cứ nói',
@@ -817,7 +816,7 @@ export const vi: Messages = {
     'Chatofy tự phân biệt tiếng Việt và tiếng Anh ngay khi bạn nói. Với tiếng Trung, bạn chọn ngôn ngữ trước khi bắt đầu.',
   'web.landing.howThreeTitle': 'Nghe bản dịch, khỏi phải đọc',
   'web.landing.howThreeBody': 'Chatofy đọc to bản dịch, chữ vẫn hiện trên màn hình.',
-  'web.landing.meetingsTitle': 'Họp khác ngôn ngữ, dịch ngay khi nói',
+  'web.landing.meetingsTitle': 'Họp đa ngôn ngữ, dịch ngay khi nói',
   'web.landing.meetingsBody': 'Gửi một liên kết. Ai cũng theo dõi cuộc họp bằng tiếng của mình.',
   'web.landing.meetingsLinkTitle': 'Vào họp bằng liên kết',
   'web.landing.meetingsLinkBody':
@@ -825,7 +824,7 @@ export const vi: Messages = {
   'web.landing.meetingsHearTitle': 'Phụ đề và giọng đọc bằng tiếng của bạn',
   'web.landing.meetingsHearBody': 'Nghe và đọc lời từng người bằng ngôn ngữ bạn chọn.',
   'web.landing.meetingsChatTitle': 'Tin nhắn tự dịch',
-  'web.landing.meetingsChatBody': 'Tin nhắn đến tay ai cũng bằng tiếng của người đó.',
+  'web.landing.meetingsChatBody': 'Ai nhận tin nhắn cũng đọc bằng tiếng của mình.',
   'web.landing.meetingsMinutesTitle': 'Biên bản cuộc họp',
   'web.landing.meetingsMinutesBody':
     'Họp xong, bạn tạo biên bản gồm tóm tắt, quyết định và việc cần làm.',
@@ -838,7 +837,7 @@ export const vi: Messages = {
   'web.landing.localKeptHistory':
     'Cuộc trò chuyện kết thúc thì bản ghi âm và bản chép lời nằm trong Lịch sử để bạn nghe lại, đọc lại.',
   'web.landing.localKeptLink':
-    'Bản ghi âm nằm ở địa chỉ không ai đoán được. Ai có liên kết cũng mở được, nên chính liên kết giữ bản ghi âm riêng tư.',
+    'Bản ghi âm nằm ở địa chỉ không ai đoán được. Ai có liên kết cũng mở được, nên giữ kín liên kết chính là giữ kín bản ghi âm.',
   'web.landing.localKeptPause':
     'Tạm dừng cuộc trò chuyện thì bản ghi âm cũng dừng. Chatofy không ghi âm và không dịch lời nói trong lúc tạm dừng.',
   'web.landing.localKeptDelete': 'Xoá cuộc trò chuyện là xoá luôn bản ghi âm.',
@@ -857,7 +856,7 @@ export const vi: Messages = {
   'web.landing.navHow': 'Cách hoạt động',
   'web.landing.navLocal': 'Riêng tư',
   'web.landing.navSurfaces': 'Dùng ở đâu',
-  'web.landing.heroTitleEmphasis': 'Người nghe hiểu',
+  'web.landing.heroTitleEmphasis': 'vẫn hiểu nhau',
   'web.landing.navModes': 'Tính năng',
   'web.landing.navUseCases': 'Tình huống',
   'web.landing.navPricing': 'Bảng giá',
@@ -903,7 +902,7 @@ export const vi: Messages = {
   'web.landing.surfaceStatusPhone': 'Đang phát triển',
   'web.landing.pricingTitle': 'Bắt đầu với điểm miễn phí',
   'web.landing.pricingBody':
-    'Bạn trả bằng điểm: dịch bao nhiêu phút trừ bấy nhiêu, mỗi lần tạo biên bản trừ thêm một khoản nhỏ cố định. Tài khoản nào cũng có điểm miễn phí mỗi tháng.',
+    'Bạn trả bằng điểm: trừ theo phút trong lúc dịch, mỗi lần tạo biên bản trừ thêm một khoản nhỏ cố định. Tài khoản nào cũng có điểm miễn phí mỗi tháng.',
   'web.landing.pricingLink': 'Xem gói và điểm nạp thêm',
   'web.landing.faqTitle': 'Câu hỏi thường gặp',
   'web.landing.faqLanguagesQuestion': 'Chatofy dịch được những ngôn ngữ nào?',
@@ -920,7 +919,7 @@ export const vi: Messages = {
     'Dịch vụ dịch chỉ nhận chữ, không bao giờ nhận âm thanh của bạn. Cuộc trò chuyện đã kết thúc nằm trong Lịch sử cùng bản ghi âm. Xoá cuộc trò chuyện là xoá luôn bản ghi âm. Cuộc họp chỉ lưu chữ, không lưu âm thanh.',
   'web.landing.faqCostQuestion': 'Dùng Chatofy có tốn tiền không?',
   'web.landing.faqCostAnswer':
-    'Tài khoản nào cũng có điểm miễn phí mỗi tháng. Dịch bao nhiêu phút trừ bấy nhiêu, mỗi lần tạo biên bản trừ thêm một khoản nhỏ cố định. Gói trả phí và điểm nạp thêm có trên trang Bảng giá, nhưng chưa mở bán cho mọi người.',
+    'Tài khoản nào cũng có điểm miễn phí mỗi tháng. Điểm trừ theo phút trong lúc dịch, mỗi lần tạo biên bản trừ thêm một khoản nhỏ cố định. Gói trả phí và điểm nạp thêm có trên trang Bảng giá, nhưng chưa mở bán cho mọi người.',
   'web.landing.faqExtensionQuestion':
     'Có dùng được trong cuộc gọi Google Meet, Zoom hay Facebook không?',
   'web.landing.faqExtensionAnswer':
@@ -941,7 +940,7 @@ export const vi: Messages = {
   'web.landing.mockOneWayTarget': '今天我们将走访老城区，了解它的历史。',
   'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
   'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
-  'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
+  'web.landing.mockTwoWaySourceTwo': 'Yes, please. To the airport.',
   'web.landing.mockTwoWayTargetTwo': 'Vâng, cho tôi ra sân bay.',
   'web.landing.mockTermOneSource': 'Phố cổ',
   'web.landing.mockTermOneTarget': 'Old Quarter',
@@ -986,7 +985,7 @@ export const vi: Messages = {
   'web.conference.codeOrLinkPlaceholder': 'Dán liên kết hoặc nhập mã',
   'web.conference.joinAction': 'Vào họp',
   'web.conference.joiningAs': 'Vào họp với tên {name}',
-  'web.conference.landingLead': 'Họp khác ngôn ngữ, có giọng đọc và phụ đề dịch sẵn.',
+  'web.conference.landingLead': 'Họp đa ngôn ngữ, có giọng đọc và phụ đề dịch trực tiếp.',
   'web.conference.readyToJoin': 'Sẵn sàng vào họp?',
   'web.conference.joinNow': 'Vào ngay',
   'web.conference.microphone': 'Micro',
@@ -1043,7 +1042,7 @@ export const vi: Messages = {
   'web.invite.joined': 'Bạn đã tham gia nhóm.',
   'web.invite.openGlossary': 'Mở bảng thuật ngữ',
   'web.invite.alreadyMember': 'Bạn đã ở trong nhóm này.',
-  'web.invite.used': 'Lời mời này đã được dùng rồi.',
+  'web.invite.used': 'Lời mời này đã dùng rồi.',
   'web.invite.revoked': 'Lời mời này đã bị thu hồi.',
   'web.invite.expired': 'Lời mời này đã hết hạn. Bạn xin lời mời mới nhé.',
   'web.invite.wrongAccount':
@@ -1155,9 +1154,9 @@ export const vi: Messages = {
   'mobile.conference.minutesEmpty': 'Chưa có biên bản. Ai đã dự cuộc họp cũng tạo được biên bản.',
   'mobile.auth.noAccountPrompt': 'Chưa có tài khoản?',
   'mobile.auth.linkExpired': 'Liên kết này đã hết hạn hoặc đã dùng rồi. Bạn xin liên kết mới nhé.',
-  'mobile.auth.fillAllFields': 'Bạn điền đủ các ô nhé.',
+  'mobile.auth.fillAllFields': 'Điền đủ các ô.',
   'mobile.auth.nameTooLong': 'Tên này dài quá.',
-  'mobile.auth.invalidEmail': 'Bạn nhập email hợp lệ nhé.',
+  'mobile.auth.invalidEmail': 'Nhập email hợp lệ.',
   'mobile.auth.passwordTooLong': 'Mật khẩu này dài quá.',
   'mobile.auth.passwordMismatch': 'Hai mật khẩu chưa khớp.',
   'mobile.auth.confirmPassword': 'Nhập lại mật khẩu',
@@ -1169,7 +1168,7 @@ export const vi: Messages = {
   'mobile.translate.micInUse': 'Cuộc họp đang dùng micro. Bạn rời cuộc họp rồi bắt đầu dịch nhé.',
   'mobile.translate.unheard': 'Không đọc thành tiếng',
   'mobile.auth.signInTitle': 'Đăng nhập',
-  'mobile.auth.missingFields': 'Bạn nhập email và mật khẩu nhé.',
+  'mobile.auth.missingFields': 'Nhập email và mật khẩu.',
   'mobile.auth.invalidCredentials': 'Email hoặc mật khẩu chưa đúng.',
   'mobile.auth.tooManyAttempts': 'Thử sai nhiều lần quá. Bạn đợi một phút rồi thử lại nhé.',
   'mobile.auth.signInFailed': 'Chưa đăng nhập được. Bạn kiểm tra kết nối rồi thử lại nhé.',
@@ -1197,7 +1196,7 @@ export const vi: Messages = {
   'web.glossary.loadFailed': 'Chưa tải được bảng thuật ngữ. Bạn kiểm tra kết nối rồi thử lại nhé.',
   'web.glossary.emptyTitle': 'Chưa có bảng thuật ngữ nào',
   'web.glossary.emptyList':
-    'Bảng thuật ngữ giúp tên riêng và thuật ngữ của bạn được dịch đúng ý. Bấm Bảng thuật ngữ mới để tạo.',
+    'Bảng thuật ngữ giúp tên riêng và thuật ngữ của bạn được dịch đúng ý. Bấm “Bảng thuật ngữ mới” để tạo.',
   'web.glossary.termCount': '{count} thuật ngữ',
   'web.glossary.badgeInactive': 'Tắt',
   'web.glossary.delete': 'Xoá',
@@ -1230,7 +1229,7 @@ export const vi: Messages = {
   'web.glossary.deleting': 'Đang xoá…',
   'web.glossary.deleteFailed': 'Chưa xoá được bảng thuật ngữ, bảng vẫn còn đây. Bạn thử lại nhé.',
   'web.glossary.deleteConsequence':
-    'Mọi thuật ngữ trong bảng cũng bị xoá, và Chatofy sẽ không dùng chúng khi dịch nữa. Thao tác này không hoàn tác được.',
+    'Mọi thuật ngữ trong bảng cũng bị xoá, và Chatofy sẽ không còn dùng khi dịch. Thao tác này không hoàn tác được.',
   'web.glossary.activeLabel': 'Dùng khi dịch',
   'web.glossary.turnedOn': 'Từ giờ dùng “{name}” khi dịch',
   'web.glossary.turnedOff': 'Đã ngừng dùng “{name}” khi dịch',
@@ -1247,7 +1246,7 @@ export const vi: Messages = {
   'web.glossary.termAdded': 'Đã thêm “{term}”',
   'web.glossary.termUpdated': 'Đã lưu “{term}”',
   'web.glossary.termDeleted': 'Đã xoá “{term}”',
-  'web.glossary.termDeleteFailed': 'Chưa xoá được thuật ngữ, nó vẫn còn đây. Bạn thử lại nhé.',
+  'web.glossary.termDeleteFailed': 'Chưa xoá được thuật ngữ. Bạn thử lại nhé.',
   'web.glossary.oldTermKept': 'Đã lưu “{term}” mới, nhưng bản cũ vẫn còn trong danh sách.',
   // ---- extension ----
   'extension.manifest.name': 'Chatofy: dịch cuộc gọi',

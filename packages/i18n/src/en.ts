@@ -259,7 +259,7 @@ export const en = {
   'web.chrome.confirmIrreversible': 'You can’t undo this.',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.planAccountMenu': 'Account, {plan} plan',
-  'web.chrome.planOpenBilling': 'Plan: {plan}. Open billing',
+  'web.chrome.planOpenBilling': 'Plan: {plan}. Open Credits & plan',
   'web.chrome.signedInAs': 'Signed in as',
   'web.chrome.getStarted': 'Get started',
   'web.chrome.openApp': 'Open Chatofy',
@@ -606,7 +606,7 @@ export const en = {
   'web.translate.saveFailedRetryable':
     'This conversation isn’t saved yet. It won’t appear in History until it is.',
   'web.translate.saveFailedTerminal':
-    'This conversation couldn’t be saved. It won’t appear in History, and it can’t get minutes.',
+    'This conversation couldn’t be saved. It won’t appear in History, and you can’t generate minutes for it.',
   // A different fact from either of the two above: the conversation IS in the
   // history, and only what was changed after it was stored is missing.
   'web.translate.saveEditsFailed':
@@ -709,8 +709,8 @@ export const en = {
   // Read after the tab's name when minutes exist; the dot beside it is decoration.
   'web.history.tabMinutesReady': '(ready)',
   'web.history.listWidth': 'Conversation list width',
-  'web.history.turnCount': '{count} lines',
-  'web.history.turnCountOne': '1 line',
+  'web.history.turnCount': '{count} turns',
+  'web.history.turnCountOne': '1 turn',
   'web.history.duration': '{minutes} min',
   // Stands in for the source of a conversation whose turns were each recognised.
   'web.history.autoDetect': 'Auto-detect',
@@ -1013,8 +1013,8 @@ export const en = {
   'web.landing.demoListening': 'Listening',
   'web.landing.demoSourceOne': 'Chào anh, mình muốn hỏi về lịch họp chiều nay.',
   'web.landing.demoTargetOne': "Hi, I'd like to ask about this afternoon's meeting schedule.",
-  'web.landing.demoSourceTwo': "Sure — it's been moved to four o'clock.",
-  'web.landing.demoTargetTwo': 'Được thôi — cuộc họp đã dời sang bốn giờ.',
+  'web.landing.demoSourceTwo': 'Sure, it’s been moved to four o’clock.',
+  'web.landing.demoTargetTwo': 'Vâng, cuộc họp dời sang bốn giờ rồi.',
 
   'web.landing.howTitle': 'How it works',
   'web.landing.howBody': 'Three things to know before you turn on your microphone.',
@@ -1196,7 +1196,7 @@ export const en = {
   'web.landing.mockOneWayTarget': '今天我们将走访老城区，了解它的历史。',
   'web.landing.mockTwoWaySourceOne': 'Anh có cần tôi gọi taxi không?',
   'web.landing.mockTwoWayTargetOne': 'Would you like me to call you a taxi?',
-  'web.landing.mockTwoWaySourceTwo': 'Yes, please — to the airport.',
+  'web.landing.mockTwoWaySourceTwo': 'Yes, please. To the airport.',
   'web.landing.mockTwoWayTargetTwo': 'Vâng, cho tôi ra sân bay.',
   'web.landing.mockTermOneSource': 'Phố cổ',
   'web.landing.mockTermOneTarget': 'Old Quarter',
@@ -1468,7 +1468,7 @@ export const en = {
   'web.glossary.loadFailed': 'Couldn’t load your glossaries. Check your connection and try again.',
   'web.glossary.emptyTitle': 'No glossaries yet',
   'web.glossary.emptyList':
-    'A glossary makes sure your names and terms are translated the way you want. Press New glossary to make one.',
+    'A glossary makes sure your names and terms are translated the way you want. Select “New glossary” to make one.',
   'web.glossary.termCount': '{count} terms',
   'web.glossary.badgeInactive': 'Off',
   'web.glossary.delete': 'Delete',
