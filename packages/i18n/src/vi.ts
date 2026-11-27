@@ -1318,8 +1318,7 @@ export const vi: Messages = {
   'extension.status.noTab': 'Không có tab nào để thu.',
   'extension.status.capturing': 'Đang thu tab này.',
   'extension.status.capturingForYou': 'Đang thu tab này. Lời bạn nói chỉ dịch cho riêng bạn.',
-  'extension.status.capturingIntoMeeting':
-    'Đang dịch cuộc gọi này cả hai chiều: lời người khác và lời bạn.',
+  'extension.status.capturingIntoMeeting': 'Đang dịch hai chiều: lời người khác và lời bạn.',
   'extension.status.meetingAudioError': 'Âm thanh cuộc gọi: {error}',
   'extension.status.microphoneError': 'Micro của bạn: {error}',
 

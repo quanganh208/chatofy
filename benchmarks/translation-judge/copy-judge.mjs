@@ -20,10 +20,10 @@
 //
 // The spend cap is checked on a live counter before every batch of the run, and
 // the counter is seeded from the cost already recorded in <dir>. A batch is
-// skipped when the spend so far plus the previous batch's cost would pass the
-// cap, so a run stops a batch early rather than a batch late. The previous cost
-// is the last one in <dir>'s ledger, so only the very first batch into an empty
-// <dir> runs without an estimate.
+// skipped when the spend so far plus its expected cost (the last batch's cost
+// per string, times this batch's size) would pass the cap, so a run stops a
+// batch early rather than a batch late. The estimate comes from <dir>'s ledger,
+// so only the very first batch into an empty <dir> runs without one.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -166,12 +166,14 @@ async function main() {
   const ledger = join(out, 'judgements.jsonl');
 
   let spent = 0;
-  // What the next batch is expected to cost: the last batch's actual cost.
-  let lastCost = 0;
+  // What one string is expected to cost, from the last batch: a short tail batch
+  // would otherwise make the next full batch look far cheaper than it is.
+  let perItem = 0;
   if (existsSync(ledger)) {
     for (const line of readFileSync(ledger, 'utf8').split('\n').filter(Boolean)) {
-      lastCost = JSON.parse(line).costUsd ?? 0;
-      spent += lastCost;
+      const entry = JSON.parse(line);
+      spent += entry.costUsd ?? 0;
+      if (entry.n) perItem = (entry.costUsd ?? 0) / entry.n;
     }
   }
 
@@ -211,9 +213,11 @@ async function main() {
   for (const locale of locales) {
     const mine = items.filter((it) => it.locale === locale);
     for (let i = 0; i < mine.length; i += BATCH) {
-      if (spent + lastCost > cap) {
+      const size = Math.min(BATCH, mine.length - i);
+      const expected = perItem * size;
+      if (spent + expected > cap) {
         console.error(
-          `stopped: spend $${spent.toFixed(2)} plus the last batch's $${lastCost.toFixed(2)} would pass the $${cap} cap`,
+          `stopped: spend $${spent.toFixed(2)} plus about $${expected.toFixed(2)} for the next ${size} strings would pass the $${cap} cap`,
         );
         process.exitCode = 2;
         return finish(out, scores, spent);
@@ -233,7 +237,7 @@ async function main() {
       if (response.stop_reason === 'max_tokens') throw new Error('judge hit max_tokens');
       const cost = costOf(MODEL, response.usage);
       spent += cost;
-      lastCost = cost;
+      perItem = cost / batch.length;
       const text = response.content
         .filter((b) => b.type === 'text')
         .map((b) => b.text)
