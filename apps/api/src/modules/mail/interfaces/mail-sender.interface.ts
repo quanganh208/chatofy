@@ -286,7 +286,7 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
         'Liên kết có hiệu lực trong 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời nào, cứ bỏ qua email này.',
     },
     zh: {
-      subject: '有人邀请你加入 Chatofy 团队',
+      subject: '有人邀请你在 Chatofy 上加入团队',
       heading: '有人邀请你加入团队',
       intro:
         '有人邀请这个邮箱加入他们在 Chatofy 上的团队。用这个邮箱登录，就能看到邀请：',

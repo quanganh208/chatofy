@@ -73,7 +73,7 @@ const TEXT_BEFORE_HTML: Record<string, { subject: string; text: string }> = {
     text: 'Có người mời email này vào nhóm của họ trên Chatofy. Đăng nhập bằng email này để xem lời mời:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời nào, cứ bỏ qua email này.',
   },
   'team-invite/zh': {
-    subject: '有人邀请你加入 Chatofy 团队',
+    subject: '有人邀请你在 Chatofy 上加入团队',
     text: '有人邀请这个邮箱加入他们在 Chatofy 上的团队。用这个邮箱登录，就能看到邀请：\n\nhttps://app.example.com/x?token=abc\n\n链接 7 天内有效，只能用一次。如果你没在等这个邀请，忽略这封邮件就好。',
   },
 };
