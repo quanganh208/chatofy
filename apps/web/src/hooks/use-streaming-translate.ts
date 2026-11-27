@@ -90,7 +90,8 @@ interface CreditEvent {
  * The credit codes are worded here, with what only this page knows.
  * `credits_exhausted` says two different things: carrying a `turnId` it refused a
  * start (under one credit), and without one the balance ran out mid-conversation —
- * so the copy follows the turn id. `credits_low` carries the balance.
+ * so the copy follows the turn id. `credits_low` carries the balance when the
+ * server sent one, and says the balance is low in general when it did not.
  *
  * A failed start whose microphone could not be opened says why, in the sentence
  * `openMicrophone` already wrote; every other code takes the shared table, which
@@ -103,8 +104,10 @@ function failureMessage(
   credit: CreditEvent | null = null,
 ): string {
   if (cause?.code === 'credits_low') {
+    // Without a figure there is nothing to fill in, and "about 0 left" would be false.
+    if (cause.remainingCreditSeconds === undefined) return t('common.billing.lowUnknown');
     return t('common.billing.low', {
-      credits: formatCreditSeconds(t, locale, cause.remainingCreditSeconds ?? 0),
+      credits: formatCreditSeconds(t, locale, cause.remainingCreditSeconds),
     });
   }
   if (cause?.code === 'credits_exhausted') {
@@ -468,10 +471,11 @@ export function useStreamingTranslate(
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
     {
-      // Through the helper, which classifies the rejection and throws a sentence from
-      // the dictionary. `ConversationSession` reports a failed start as `err.message`
-      // and has no dictionary of its own — it is shared with the extension — so the
-      // message has to arrive already translated for `error` below to be readable.
+      // Through the helper, which classifies the rejection and throws a
+      // `MicrophoneOpenError` whose message is a sentence from the dictionary.
+      // `ConversationSession` has no dictionary of its own — it is shared with the
+      // extension — so it reports the failed start as `start_failed` and hands back
+      // what was thrown; `failureMessage` recognises this class there and shows it.
       //
       // The recorder taps the SAME stream and hands it straight back, so the
       // session receives exactly what it would have received and learns nothing

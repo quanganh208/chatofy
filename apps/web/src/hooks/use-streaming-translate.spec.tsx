@@ -485,7 +485,13 @@ describe('useStreamingTranslate credits', () => {
   ) =>
     act(() => {
       session.listeners.onServerEvent(event);
-      session.listeners.onError(event.message, { source: 'server', code: event.code });
+      session.listeners.onError(event.message, {
+        source: 'server',
+        code: event.code,
+        ...(event.remainingCreditSeconds === undefined
+          ? {}
+          : { remainingCreditSeconds: event.remainingCreditSeconds }),
+      });
     });
 
   it('names the conversation on every turn start through the runtime, a new id per start', async () => {
@@ -509,6 +515,17 @@ describe('useStreamingTranslate credits', () => {
     expect(latest.error).toBeNull();
     expect(latest.notice).toBe('common.billing.low');
     expect(latest.status).toBe('listening');
+  });
+
+  it('says running low in general when the notice carries no balance', async () => {
+    const session = await started();
+    creditError(session, {
+      type: 'server.error',
+      code: 'credits_low',
+      message: 'Your credits are running low',
+    });
+    expect(latest.error).toBeNull();
+    expect(latest.notice).toBe('common.billing.lowUnknown');
   });
 
   it('replaces the notice with the exhausted copy when the balance runs out mid-run', async () => {
