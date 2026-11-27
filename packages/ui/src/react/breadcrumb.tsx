@@ -5,8 +5,8 @@ import { Slot } from 'radix-ui';
 import { cn } from '../lib/utils.js';
 
 /**
- * `aria-label` defaults to English for the popup, which has no dictionary; a caller
- * with one passes the reader's word, as it does for every other string here.
+ * `aria-label` defaults to English so a caller without a translator still renders;
+ * every app passes the reader's word, as it does for every other string here.
  */
 function Breadcrumb({ 'aria-label': label = 'Breadcrumb', ...props }: React.ComponentProps<'nav'>) {
   return <nav aria-label={label} data-slot="breadcrumb" {...props} />;

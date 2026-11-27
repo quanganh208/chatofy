@@ -1,3 +1,4 @@
+import { localizeDocument } from '../../src/i18n';
 import { markRecordingNoticeSeen, recordingNoticeSeen } from '../../src/settings';
 
 /**
@@ -19,6 +20,10 @@ import { markRecordingNoticeSeen, recordingNoticeSeen } from '../../src/settings
  * `false`: rendering the app during that window would show the settings to someone
  * who has not seen the notice, which is the exact thing being prevented.
  */
+
+// The notice's words, in the reader's language, before it can be shown. Its English
+// in `index.html` stays as the fallback for a page whose script never ran.
+localizeDocument();
 
 let required: boolean | undefined;
 const listeners = new Set<() => void>();

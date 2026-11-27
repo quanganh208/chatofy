@@ -11,11 +11,11 @@ describe('pricingContent', () => {
     const content = pricingContent(t, 'en', SEEDED_PLANS);
     const [free, pro, topups] = content.bands;
 
-    expect(free?.summary).toBe('120 credits every month. Unused credits do not carry over.');
+    expect(free?.summary).toBe('120 credits every month. Unused credits don’t carry over.');
     expect(pro?.summary).toContain('600 credits each cycle');
     expect(pro?.lines).toEqual([
       '$9.99 a month by card, renews automatically',
-      '₫249,000 for 30 days by VietQR, does not renew',
+      '₫249,000 for 30 days by VietQR, doesn’t renew',
     ]);
     // A pack's rails do not hide its price: rails say where it can be bought NOW, the
     // page says what it costs.

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { en } from '@chatofy/i18n';
+import { t } from './i18n';
 import {
   MEETING_URL_PATTERNS,
   SUPPORTED_MEETINGS,
@@ -39,9 +41,11 @@ describe('SUPPORTED_MEETINGS', () => {
     }
     // The two that were buried in the sentence this replaced.
     const zoom = SUPPORTED_MEETINGS.find((m) => m.name === 'Zoom');
-    expect(zoom?.detail).toMatch(/web client/i);
+    expect(zoom?.detail).toBe(t('extension.settings.zoomDetail'));
+    expect(en['extension.settings.zoomDetail']).toMatch(/web client/i);
     const facebook = SUPPORTED_MEETINGS.find((m) => m.name === 'Facebook');
-    expect(facebook?.detail).toMatch(/messenger/i);
+    expect(facebook?.detail).toBe(t('extension.settings.facebookDetail'));
+    expect(en['extension.settings.facebookDetail']).toMatch(/messenger/i);
   });
 });
 

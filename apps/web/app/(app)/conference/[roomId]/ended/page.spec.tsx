@@ -142,7 +142,7 @@ describe('ConferenceEndedPage', () => {
     await pressGenerate();
     expect(notify.error).toHaveBeenCalledTimes(1);
     const [message, options] = notify.error.mock.calls[0]!;
-    expect(message).toBe('Could not generate the minutes');
+    expect(message).toBe('Couldn’t create the minutes');
     expect(options?.id).toBe('conference-minutes');
 
     act(() => {

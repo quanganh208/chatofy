@@ -156,29 +156,29 @@ interface MailCopy {
 const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
   [MailPurpose.VerifyEmail]: {
     en: {
-      subject: 'Verify your email address',
-      heading: 'Verify your email address',
+      subject: 'Verify your email for Chatofy',
+      heading: 'Verify your email',
       intro:
-        'Welcome to Chatofy! Confirm this address to finish creating your account:',
+        'Welcome to Chatofy! Verify this email to finish creating your account:',
       action: 'Verify email',
       outro:
-        'This link expires in 24 hours. If you did not request this, you can ignore this email.',
+        'This link expires in 24 hours. Didn’t sign up? You can ignore this email.',
     },
     vi: {
-      subject: 'Xác minh địa chỉ email của bạn',
-      heading: 'Xác minh địa chỉ email của bạn',
+      subject: 'Xác minh email cho tài khoản Chatofy',
+      heading: 'Xác minh email của bạn',
       intro:
-        'Chào mừng bạn đến với Chatofy! Xác nhận địa chỉ này để hoàn tất việc tạo tài khoản:',
+        'Chào mừng bạn đến với Chatofy! Xác minh email này để tạo xong tài khoản:',
       action: 'Xác minh email',
       outro:
-        'Liên kết này hết hạn sau 24 giờ. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+        'Liên kết có hiệu lực trong 24 giờ. Nếu bạn không đăng ký, cứ bỏ qua email này.',
     },
     zh: {
-      subject: '验证你的邮箱地址',
-      heading: '验证你的邮箱地址',
-      intro: '欢迎使用 Chatofy！请确认此邮箱地址，完成账户注册：',
+      subject: '验证邮箱，完成 Chatofy 注册',
+      heading: '验证你的邮箱',
+      intro: '欢迎来到 Chatofy！验证这个邮箱，就能完成注册：',
       action: '验证邮箱',
-      outro: '此链接将在 24 小时后失效。如果这不是你本人的操作，请忽略本邮件。',
+      outro: '链接 24 小时内有效。如果不是你注册的，忽略这封邮件就好。',
     },
   },
   [MailPurpose.AccountExistsNotice]: {
@@ -186,60 +186,58 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       subject: 'You already have a Chatofy account',
       heading: 'You already have an account',
       intro:
-        'An account already exists for this email address. Sign in, or if you ' +
-        'forgot your password, reset it here:',
+        'This email already has a Chatofy account, so just sign in. ' +
+        'Forgot your password? Reset it here:',
       action: 'Reset password',
-      outro: 'If you did not expect this email, you can ignore it.',
+      outro: 'Didn’t expect this email? You can ignore it.',
     },
     vi: {
-      subject: 'Bạn đã có tài khoản Chatofy',
-      heading: 'Bạn đã có tài khoản',
+      subject: 'Bạn đã có tài khoản Chatofy rồi',
+      heading: 'Bạn đã có tài khoản rồi',
       intro:
-        'Địa chỉ email này đã có một tài khoản. Bạn đăng nhập bình thường, hoặc nếu ' +
-        'quên mật khẩu thì đặt lại tại đây:',
+        'Email này đã có tài khoản Chatofy, bạn cứ đăng nhập như thường. ' +
+        'Nếu quên mật khẩu, đặt lại tại đây:',
       action: 'Đặt lại mật khẩu',
-      outro: 'Nếu bạn không chờ email này, cứ bỏ qua nó.',
+      outro: 'Nếu email này đến bất ngờ, bạn cứ bỏ qua.',
     },
     zh: {
-      subject: '你已经有 Chatofy 账户了',
-      heading: '你已经有账户了',
+      subject: '你已经有 Chatofy 账号了',
+      heading: '你已经有账号了',
       intro:
-        '此邮箱地址已经注册过账户。请直接登录；如果忘记了密码，可以在这里重置：',
+        '这个邮箱已经注册过 Chatofy，直接登录就行。忘记密码的话，可以在这里重置：',
       action: '重置密码',
-      outro: '如果你并未预料到这封邮件，忽略即可。',
+      outro: '没想到会收到这封邮件？忽略就好。',
     },
   },
   [MailPurpose.NoAccountNotice]: {
     en: {
-      subject: 'No Chatofy account for this address',
-      heading: 'No account uses this address',
+      subject: 'No Chatofy account uses this email',
+      heading: 'No account uses this email',
       intro:
-        'Someone asked to reset a Chatofy password for this email address, but no ' +
-        'account uses it. If that was you, you may have signed up with a different ' +
-        'address — or you can create an account here:',
-      action: 'Create an account',
-      outro:
-        'If it was not you, you can ignore this email. Nothing has changed.',
+        'Someone asked to reset a Chatofy password for this email, but no account ' +
+        'uses it. If that was you, you may have signed up with another email. ' +
+        'Or create an account here:',
+      action: 'Create account',
+      outro: 'Wasn’t you? You can ignore this email. Nothing has changed.',
     },
     vi: {
-      subject: 'Không có tài khoản Chatofy cho địa chỉ này',
-      heading: 'Chưa có tài khoản nào dùng địa chỉ này',
+      subject: 'Chưa có tài khoản Chatofy nào dùng email này',
+      heading: 'Chưa có tài khoản nào dùng email này',
       intro:
-        'Có người vừa yêu cầu đặt lại mật khẩu Chatofy cho địa chỉ email này, nhưng ' +
-        'không tài khoản nào đang dùng nó. Nếu đó là bạn, có thể bạn đã đăng ký bằng ' +
-        'một địa chỉ khác — hoặc bạn tạo tài khoản tại đây:',
+        'Có người vừa yêu cầu đặt lại mật khẩu Chatofy bằng email này, nhưng chưa có ' +
+        'tài khoản nào dùng email đó. Nếu đó là bạn, có thể bạn đã đăng ký bằng email ' +
+        'khác. Hoặc tạo tài khoản mới tại đây:',
       action: 'Tạo tài khoản',
-      outro:
-        'Nếu không phải bạn, cứ bỏ qua email này. Không có gì thay đổi cả.',
+      outro: 'Nếu không phải bạn, cứ bỏ qua email này. Mọi thứ vẫn như cũ.',
     },
     zh: {
-      subject: '此邮箱地址没有 Chatofy 账户',
-      heading: '没有账户使用此邮箱地址',
+      subject: '这个邮箱还没有 Chatofy 账号',
+      heading: '这个邮箱还没有账号',
       intro:
-        '有人请求为此邮箱地址重置 Chatofy 密码，但没有任何账户使用它。如果是你本人，' +
-        '你可能是用其他邮箱地址注册的——你也可以在这里创建账户：',
-      action: '创建账户',
-      outro: '如果不是你本人的操作，请忽略本邮件。你的账户信息不会有任何变化。',
+        '有人想用这个邮箱重置 Chatofy 密码，但它还没有注册账号。如果是你，' +
+        '可能当初注册用的是别的邮箱；也可以在这里注册：',
+      action: '注册账号',
+      outro: '如果不是你，忽略这封邮件就好，一切照旧。',
     },
   },
   [MailPurpose.PasswordReset]: {
@@ -247,54 +245,54 @@ const MAIL_CONTENT: Record<MailPurpose, Record<Locale, MailCopy>> = {
       subject: 'Reset your Chatofy password',
       heading: 'Reset your password',
       intro: 'Use this link to choose a new password:',
-      action: 'Choose a new password',
+      action: 'Set new password',
       outro:
-        'This link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
+        'This link expires in 30 minutes and works only once. Didn’t ask for this? You can ignore this email.',
     },
     vi: {
-      subject: 'Đặt lại mật khẩu Chatofy của bạn',
-      heading: 'Đặt lại mật khẩu của bạn',
-      intro: 'Dùng liên kết này để chọn mật khẩu mới:',
-      action: 'Chọn mật khẩu mới',
+      subject: 'Đặt lại mật khẩu Chatofy',
+      heading: 'Đặt lại mật khẩu',
+      intro: 'Dùng liên kết này để đặt mật khẩu mới:',
+      action: 'Đặt mật khẩu mới',
       outro:
-        'Liên kết hết hạn sau 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+        'Liên kết có hiệu lực trong 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
     },
     zh: {
       subject: '重置你的 Chatofy 密码',
-      heading: '重置你的密码',
-      intro: '请使用此链接设置新密码：',
+      heading: '重置密码',
+      intro: '用这个链接设置新密码：',
       action: '设置新密码',
       outro:
-        '此链接将在 30 分钟后失效，且只能使用一次。如果这不是你本人的操作，请忽略本邮件。',
+        '链接 30 分钟内有效，只能用一次。如果不是你本人操作，忽略这封邮件就好。',
     },
   },
   [MailPurpose.TeamInvite]: {
     en: {
-      subject: "You're invited to a team on Chatofy",
-      heading: "You're invited to a team",
+      subject: 'You’re invited to a team on Chatofy',
+      heading: 'You’re invited to a team',
       intro:
-        'Someone invited this email address to join their team on Chatofy. Sign in with this address to see the invitation:',
-      action: 'View invitation',
+        'Someone invited this email to join their team on Chatofy. Sign in with this email to see the invite:',
+      action: 'View invite',
       outro:
-        'This link expires in 7 days and works once. If you were not expecting it, you can ignore this email.',
+        'This link expires in 7 days and works only once. Not expecting an invite? You can ignore this email.',
     },
     vi: {
-      subject: 'Bạn được mời vào một nhóm trên Chatofy',
-      heading: 'Bạn được mời vào một nhóm',
+      subject: 'Bạn có lời mời vào nhóm trên Chatofy',
+      heading: 'Bạn có lời mời vào nhóm',
       intro:
-        'Có người đã mời địa chỉ email này tham gia nhóm của họ trên Chatofy. Đăng nhập bằng địa chỉ này để xem lời mời:',
+        'Có người mời email này vào nhóm của họ trên Chatofy. Đăng nhập bằng email này để xem lời mời:',
       action: 'Xem lời mời',
       outro:
-        'Liên kết này hết hạn sau 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời này, cứ bỏ qua email này.',
+        'Liên kết có hiệu lực trong 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời nào, cứ bỏ qua email này.',
     },
     zh: {
-      subject: '你受邀加入 Chatofy 上的一个团队',
-      heading: '你受邀加入一个团队',
+      subject: '有人邀请你在 Chatofy 上加入团队',
+      heading: '有人邀请你加入团队',
       intro:
-        '有人邀请此邮箱地址加入其在 Chatofy 上的团队。请用此地址登录查看邀请：',
+        '有人邀请这个邮箱加入他们在 Chatofy 上的团队。用这个邮箱登录，就能看到邀请：',
       action: '查看邀请',
       outro:
-        '此链接 7 天后失效，且只能使用一次。如果你并未期待此邀请，请忽略本邮件。',
+        '链接 7 天内有效，只能用一次。如果你没在等这个邀请，忽略这封邮件就好。',
     },
   },
 };
@@ -314,21 +312,21 @@ const MAIL_CHROME: Record<Locale, MailChrome> = {
     fallback: 'Button not working? Paste this link into your browser:',
     footer: [
       'Chatofy — real-time speech translation.',
-      'You got this email because someone used this address on Chatofy.',
+      'You’re getting this because someone used this email on Chatofy.',
     ],
   },
   vi: {
-    fallback: 'Nút không bấm được? Dán liên kết này vào trình duyệt của bạn:',
+    fallback: 'Nút không bấm được? Dán liên kết này vào trình duyệt:',
     footer: [
-      'Chatofy — dịch giọng nói theo thời gian thực.',
-      'Bạn nhận được email này vì có người đã dùng địa chỉ này trên Chatofy.',
+      'Chatofy: dịch giọng nói tức thì.',
+      'Bạn nhận được thư này vì có người đã dùng email này trên Chatofy.',
     ],
   },
   zh: {
-    fallback: '按钮无法点击？请将此链接粘贴到浏览器中打开：',
+    fallback: '按钮点不开？把这个链接粘贴到浏览器里打开：',
     footer: [
-      'Chatofy——实时语音翻译。',
-      '你收到这封邮件，是因为有人在 Chatofy 上使用了此邮箱地址。',
+      'Chatofy：实时语音翻译。',
+      '你收到这封邮件，是因为有人在 Chatofy 上用了这个邮箱。',
     ],
   },
 };

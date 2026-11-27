@@ -952,6 +952,9 @@ That is the whole principle. The paired live line —
 "Answers about three seconds behind and talks over pauses — wear headphones." —
 names a consequence the reader can act on.
 
+How copy sounds in each locale, and the one word each concept takes in en, vi and zh,
+is fixed in [copy-voice-and-terminology.md](./copy-voice-and-terminology.md).
+
 Backend names, measurement instruments and mechanism explanations are therefore
 not user-facing vocabulary. Identifiers are exempt: `CascadePanel` is a component
 name, not a word the product says. Only rendered strings are in scope.

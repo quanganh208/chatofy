@@ -10,6 +10,7 @@ import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
 import type { OutboundCommand } from '../../src/outbound-channel';
+import { t } from '../../src/i18n';
 
 /**
  * The offscreen document: the browser half of the audio graph.
@@ -93,7 +94,9 @@ chrome.runtime.onMessage.addListener((message) => {
     capture
       .begin(forOffscreen.streamId, forOffscreen.settings, forOffscreen.patched)
       .catch((err: unknown) => {
-        capture.noteStartFailure(err instanceof Error ? err.message : 'Could not start capture');
+        capture.noteStartFailure(
+          err instanceof Error ? err.message : t('extension.error.captureFailed'),
+        );
         void capture.end().then(() => capture.reportStatus());
       });
     return;

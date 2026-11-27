@@ -156,7 +156,7 @@ describe('ConversationDetail', () => {
     // the sentence is on screen, and focus waits on Cancel so a held key cannot
     // take both steps.
     expect(deleteConversation).not.toHaveBeenCalled();
-    expect(dialog()?.textContent).toContain('This cannot be undone');
+    expect(dialog()?.textContent).toContain('You can’t undo this');
     expect(dialog()?.textContent).toContain('Delete “xin chào”?');
     expect(document.activeElement?.textContent).toBe('Cancel');
   });
@@ -168,7 +168,7 @@ describe('ConversationDetail', () => {
 
     const describedBy = dialog()?.getAttribute('aria-describedby');
     expect(describedBy, 'announced with no consequence').toBeTruthy();
-    expect(document.getElementById(describedBy!)?.textContent).toContain('This cannot be undone');
+    expect(document.getElementById(describedBy!)?.textContent).toContain('You can’t undo this');
   });
 
   it('puts focus back on the menu when the reader cancels', async () => {
@@ -271,7 +271,7 @@ describe('ConversationDetail', () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
     const back = [...container.querySelectorAll('a')].find((a) =>
-      a.textContent?.includes('Back to history'),
+      a.textContent?.includes('Back to History'),
     );
     expect(back?.getAttribute('href')).toBe('/history');
   });
@@ -280,7 +280,7 @@ describe('ConversationDetail', () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
 
-    expect(container.textContent).toContain('15 lines');
+    expect(container.textContent).toContain('15 turns');
     expect(container.textContent).toContain('11 min');
     expect(container.textContent).toContain('One-way');
     expect(container.textContent).toContain('Vietnamese');
@@ -356,7 +356,7 @@ describe('ConversationDetail', () => {
     // The second line names what the screen can actually distinguish. The catch
     // swallows a transport failure too, so it must not claim the conversation was
     // deleted or the link was stale — those were only two of three.
-    expect(container.textContent).toContain('could not reach the server');
+    expect(container.textContent).toContain('couldn’t reach the server');
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
     expect(container.querySelector('button[aria-label="More actions"]')).toBeNull();
     // Nor a crumb naming something that is not there.

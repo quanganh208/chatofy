@@ -4,6 +4,7 @@ import {
   type TranslationHints,
 } from '@chatofy/types';
 import { getFreshAccessToken } from './access-token';
+import { t } from './i18n';
 
 /**
  * The extension's own read of a saved AI Context library.
@@ -37,7 +38,7 @@ export async function listTranslationContexts(
 ): Promise<TranslationContextsResult> {
   const accessToken = await getFreshAccessToken(apiBaseUrl);
   if (accessToken === null) {
-    return { contexts: [], message: 'Sign in to use a saved context' };
+    return { contexts: [], message: t('extension.error.contextsSignIn') };
   }
 
   let res: Response;
@@ -46,11 +47,14 @@ export async function listTranslationContexts(
       headers: { authorization: `Bearer ${accessToken}` },
     });
   } catch {
-    return { contexts: [], message: `Cannot reach ${apiBaseUrl}` };
+    return { contexts: [], message: t('extension.error.unreachable', { origin: apiBaseUrl }) };
   }
 
   if (!res.ok) {
-    return { contexts: [], message: `Could not load your saved contexts (HTTP ${res.status})` };
+    return {
+      contexts: [],
+      message: t('extension.error.contextsLoadFailed', { status: res.status }),
+    };
   }
 
   const body = (await res.json().catch(() => null)) as { data?: unknown } | null;
@@ -58,7 +62,7 @@ export async function listTranslationContexts(
   // key, not every saved context (see `readTranslationContextList`).
   const parsed = readableTranslationContextListSchema.safeParse(body?.data);
   if (!parsed.success) {
-    return { contexts: [], message: 'Could not read your saved contexts' };
+    return { contexts: [], message: t('extension.error.contextsUnreadable') };
   }
 
   return { contexts: parsed.data.contexts };

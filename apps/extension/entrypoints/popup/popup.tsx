@@ -2,6 +2,7 @@ import { BrandMark, BrandWordmark, Button, StatusIndicator } from '@chatofy/ui/r
 import { SettingsPane } from './settings-pane';
 import { SignInPane } from './sign-in-pane';
 import { usePopup } from './use-popup';
+import { t } from '../../src/i18n';
 
 /**
  * The popup: pick a language pair and a voice, start, stop.
@@ -43,7 +44,7 @@ export function Popup() {
         </div>
         <StatusIndicator
           tone={popup.capturing ? 'live' : 'idle'}
-          label={popup.capturing ? 'Recording' : 'Idle'}
+          label={popup.capturing ? t('extension.capture.recording') : t('extension.capture.idle')}
           className="border-hairline bg-secondary text-hint flex-none rounded-full border px-2.5 py-1"
         />
       </header>
@@ -70,7 +71,7 @@ export function Popup() {
           disabled={!ready || (!popup.capturing && !popup.captureable)}
           onClick={popup.actions.toggleCapture}
         >
-          {popup.capturing ? 'Stop' : 'Start'}
+          {popup.capturing ? t('extension.capture.stop') : t('extension.capture.start')}
         </Button>
         <p id="status" className="text-muted-foreground text-hint">
           {popup.status}

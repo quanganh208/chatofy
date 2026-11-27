@@ -11,70 +11,70 @@ const LINK = 'https://app.example.com/x?token=abc';
 const WEB = 'https://chatofy.example.com';
 
 /**
- * The plain-text part exactly as it was before the HTML part existed, captured
- * from the previous implementation. Byte-for-byte: a client that shows only the
- * text part must not notice the redesign.
+ * The plain-text part of every mail, byte-for-byte: intro, link, outro, and
+ * nothing else. The HTML part must not change what a client that shows only the
+ * text part reads; a copy edit updates these literals along with the table.
  */
 const TEXT_BEFORE_HTML: Record<string, { subject: string; text: string }> = {
   'verify-email/en': {
-    subject: 'Verify your email address',
-    text: 'Welcome to Chatofy! Confirm this address to finish creating your account:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 24 hours. If you did not request this, you can ignore this email.',
+    subject: 'Verify your email for Chatofy',
+    text: 'Welcome to Chatofy! Verify this email to finish creating your account:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 24 hours. Didn’t sign up? You can ignore this email.',
   },
   'verify-email/vi': {
-    subject: 'Xác minh địa chỉ email của bạn',
-    text: 'Chào mừng bạn đến với Chatofy! Xác nhận địa chỉ này để hoàn tất việc tạo tài khoản:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết này hết hạn sau 24 giờ. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+    subject: 'Xác minh email cho tài khoản Chatofy',
+    text: 'Chào mừng bạn đến với Chatofy! Xác minh email này để tạo xong tài khoản:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 24 giờ. Nếu bạn không đăng ký, cứ bỏ qua email này.',
   },
   'verify-email/zh': {
-    subject: '验证你的邮箱地址',
-    text: '欢迎使用 Chatofy！请确认此邮箱地址，完成账户注册：\n\nhttps://app.example.com/x?token=abc\n\n此链接将在 24 小时后失效。如果这不是你本人的操作，请忽略本邮件。',
+    subject: '验证邮箱，完成 Chatofy 注册',
+    text: '欢迎来到 Chatofy！验证这个邮箱，就能完成注册：\n\nhttps://app.example.com/x?token=abc\n\n链接 24 小时内有效。如果不是你注册的，忽略这封邮件就好。',
   },
   'account-exists-notice/en': {
     subject: 'You already have a Chatofy account',
-    text: 'An account already exists for this email address. Sign in, or if you forgot your password, reset it here:\n\nhttps://app.example.com/x?token=abc\n\nIf you did not expect this email, you can ignore it.',
+    text: 'This email already has a Chatofy account, so just sign in. Forgot your password? Reset it here:\n\nhttps://app.example.com/x?token=abc\n\nDidn’t expect this email? You can ignore it.',
   },
   'account-exists-notice/vi': {
-    subject: 'Bạn đã có tài khoản Chatofy',
-    text: 'Địa chỉ email này đã có một tài khoản. Bạn đăng nhập bình thường, hoặc nếu quên mật khẩu thì đặt lại tại đây:\n\nhttps://app.example.com/x?token=abc\n\nNếu bạn không chờ email này, cứ bỏ qua nó.',
+    subject: 'Bạn đã có tài khoản Chatofy rồi',
+    text: 'Email này đã có tài khoản Chatofy, bạn cứ đăng nhập như thường. Nếu quên mật khẩu, đặt lại tại đây:\n\nhttps://app.example.com/x?token=abc\n\nNếu email này đến bất ngờ, bạn cứ bỏ qua.',
   },
   'account-exists-notice/zh': {
-    subject: '你已经有 Chatofy 账户了',
-    text: '此邮箱地址已经注册过账户。请直接登录；如果忘记了密码，可以在这里重置：\n\nhttps://app.example.com/x?token=abc\n\n如果你并未预料到这封邮件，忽略即可。',
+    subject: '你已经有 Chatofy 账号了',
+    text: '这个邮箱已经注册过 Chatofy，直接登录就行。忘记密码的话，可以在这里重置：\n\nhttps://app.example.com/x?token=abc\n\n没想到会收到这封邮件？忽略就好。',
   },
   'no-account-notice/en': {
-    subject: 'No Chatofy account for this address',
-    text: 'Someone asked to reset a Chatofy password for this email address, but no account uses it. If that was you, you may have signed up with a different address — or you can create an account here:\n\nhttps://app.example.com/x?token=abc\n\nIf it was not you, you can ignore this email. Nothing has changed.',
+    subject: 'No Chatofy account uses this email',
+    text: 'Someone asked to reset a Chatofy password for this email, but no account uses it. If that was you, you may have signed up with another email. Or create an account here:\n\nhttps://app.example.com/x?token=abc\n\nWasn’t you? You can ignore this email. Nothing has changed.',
   },
   'no-account-notice/vi': {
-    subject: 'Không có tài khoản Chatofy cho địa chỉ này',
-    text: 'Có người vừa yêu cầu đặt lại mật khẩu Chatofy cho địa chỉ email này, nhưng không tài khoản nào đang dùng nó. Nếu đó là bạn, có thể bạn đã đăng ký bằng một địa chỉ khác — hoặc bạn tạo tài khoản tại đây:\n\nhttps://app.example.com/x?token=abc\n\nNếu không phải bạn, cứ bỏ qua email này. Không có gì thay đổi cả.',
+    subject: 'Chưa có tài khoản Chatofy nào dùng email này',
+    text: 'Có người vừa yêu cầu đặt lại mật khẩu Chatofy bằng email này, nhưng chưa có tài khoản nào dùng email đó. Nếu đó là bạn, có thể bạn đã đăng ký bằng email khác. Hoặc tạo tài khoản mới tại đây:\n\nhttps://app.example.com/x?token=abc\n\nNếu không phải bạn, cứ bỏ qua email này. Mọi thứ vẫn như cũ.',
   },
   'no-account-notice/zh': {
-    subject: '此邮箱地址没有 Chatofy 账户',
-    text: '有人请求为此邮箱地址重置 Chatofy 密码，但没有任何账户使用它。如果是你本人，你可能是用其他邮箱地址注册的——你也可以在这里创建账户：\n\nhttps://app.example.com/x?token=abc\n\n如果不是你本人的操作，请忽略本邮件。你的账户信息不会有任何变化。',
+    subject: '这个邮箱还没有 Chatofy 账号',
+    text: '有人想用这个邮箱重置 Chatofy 密码，但它还没有注册账号。如果是你，可能当初注册用的是别的邮箱；也可以在这里注册：\n\nhttps://app.example.com/x?token=abc\n\n如果不是你，忽略这封邮件就好，一切照旧。',
   },
   'password-reset/en': {
     subject: 'Reset your Chatofy password',
-    text: 'Use this link to choose a new password:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
+    text: 'Use this link to choose a new password:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 30 minutes and works only once. Didn’t ask for this? You can ignore this email.',
   },
   'password-reset/vi': {
-    subject: 'Đặt lại mật khẩu Chatofy của bạn',
-    text: 'Dùng liên kết này để chọn mật khẩu mới:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết hết hạn sau 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+    subject: 'Đặt lại mật khẩu Chatofy',
+    text: 'Dùng liên kết này để đặt mật khẩu mới:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
   },
   'password-reset/zh': {
     subject: '重置你的 Chatofy 密码',
-    text: '请使用此链接设置新密码：\n\nhttps://app.example.com/x?token=abc\n\n此链接将在 30 分钟后失效，且只能使用一次。如果这不是你本人的操作，请忽略本邮件。',
+    text: '用这个链接设置新密码：\n\nhttps://app.example.com/x?token=abc\n\n链接 30 分钟内有效，只能用一次。如果不是你本人操作，忽略这封邮件就好。',
   },
   'team-invite/en': {
-    subject: "You're invited to a team on Chatofy",
-    text: 'Someone invited this email address to join their team on Chatofy. Sign in with this address to see the invitation:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 7 days and works once. If you were not expecting it, you can ignore this email.',
+    subject: 'You’re invited to a team on Chatofy',
+    text: 'Someone invited this email to join their team on Chatofy. Sign in with this email to see the invite:\n\nhttps://app.example.com/x?token=abc\n\nThis link expires in 7 days and works only once. Not expecting an invite? You can ignore this email.',
   },
   'team-invite/vi': {
-    subject: 'Bạn được mời vào một nhóm trên Chatofy',
-    text: 'Có người đã mời địa chỉ email này tham gia nhóm của họ trên Chatofy. Đăng nhập bằng địa chỉ này để xem lời mời:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết này hết hạn sau 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời này, cứ bỏ qua email này.',
+    subject: 'Bạn có lời mời vào nhóm trên Chatofy',
+    text: 'Có người mời email này vào nhóm của họ trên Chatofy. Đăng nhập bằng email này để xem lời mời:\n\nhttps://app.example.com/x?token=abc\n\nLiên kết có hiệu lực trong 7 ngày và chỉ dùng được một lần. Nếu bạn không chờ lời mời nào, cứ bỏ qua email này.',
   },
   'team-invite/zh': {
-    subject: '你受邀加入 Chatofy 上的一个团队',
-    text: '有人邀请此邮箱地址加入其在 Chatofy 上的团队。请用此地址登录查看邀请：\n\nhttps://app.example.com/x?token=abc\n\n此链接 7 天后失效，且只能使用一次。如果你并未期待此邀请，请忽略本邮件。',
+    subject: '有人邀请你在 Chatofy 上加入团队',
+    text: '有人邀请这个邮箱加入他们在 Chatofy 上的团队。用这个邮箱登录，就能看到邀请：\n\nhttps://app.example.com/x?token=abc\n\n链接 7 天内有效，只能用一次。如果你没在等这个邀请，忽略这封邮件就好。',
   },
 };
 
@@ -122,6 +122,22 @@ describe('buildMailMessage', () => {
       expect(html).not.toContain(escapeHtml(intro));
     },
   );
+
+  // The footer names the thing the bodies name: the reader's email, not an
+  // "address", which reads as a postal one in all three languages.
+  it.each([
+    ['en', 'You’re getting this because someone used this email on Chatofy.'],
+    ['vi', 'Bạn nhận được thư này vì có người đã dùng email này trên Chatofy.'],
+    ['zh', '你收到这封邮件，是因为有人在 Chatofy 上用了这个邮箱。'],
+  ] as const)('%s footer says why the mail came', (locale, line) => {
+    const { html } = buildMailMessage(
+      MailPurpose.VerifyEmail,
+      LINK,
+      locale,
+      WEB,
+    );
+    expect(html).toContain(escapeHtml(line));
+  });
 
   it('loads the logo from the configured web origin, not from the link', () => {
     const { html } = buildMailMessage(

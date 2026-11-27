@@ -211,7 +211,7 @@ describe('ConversationTranscript keeps the recognizer text reachable', () => {
     // Marked in words, not only in styling. Two similar Vietnamese sentences on
     // screen with nothing but a shade of grey between them is worse than not
     // offering the comparison at all.
-    expect(container.textContent).toContain('Recognized:');
+    expect(container.textContent).toContain('Heard:');
     expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
     expect(rawToggle()!.getAttribute('aria-expanded')).toBe('true');
   });
@@ -283,7 +283,7 @@ describe('ConversationTranscript as one side of a split', () => {
     expect(container.querySelector('button')).toBeNull();
     expect(container.querySelector('[data-slot="lotus-illustration"]')).toBeNull();
     expect(container.querySelectorAll('p')).toHaveLength(1);
-    expect(container.textContent).toBe('What you say appears here.');
+    expect(container.textContent).toBe('What you say shows up here.');
   });
 
   it('says what its own pane is for, not what the other one is for', () => {
@@ -291,14 +291,14 @@ describe('ConversationTranscript as one side of a split', () => {
     // screen apart, and the empty state is the one frame with no content to work
     // out which is which from.
     render({ turns: [], liveTurns: [], side: 'source', running: false });
-    expect(container.textContent).toContain('What you say appears here.');
-    expect(container.textContent).not.toContain('The translation appears here.');
+    expect(container.textContent).toContain('What you say shows up here.');
+    expect(container.textContent).not.toContain('The translation shows up here.');
 
     act(() => root.unmount());
     root = createRoot(container);
     render({ turns: [], liveTurns: [], side: 'target', running: false });
-    expect(container.textContent).toContain('The translation appears here.');
-    expect(container.textContent).not.toContain('What you say appears here.');
+    expect(container.textContent).toContain('The translation shows up here.');
+    expect(container.textContent).not.toContain('What you say shows up here.');
   });
 
   it('lists nothing settled rather than an empty list', () => {
@@ -400,7 +400,7 @@ describe('ConversationTranscript with a turn it cannot show', () => {
 
   it('keeps saying what the pane is for until it has something to put there', () => {
     render({ turns: [], liveTurns: speaking, side: 'target', running: true });
-    expect(container.textContent).toContain('The translation appears here.');
+    expect(container.textContent).toContain('The translation shows up here.');
   });
 
   it('shows the guess the moment it arrives', () => {
@@ -411,7 +411,7 @@ describe('ConversationTranscript with a turn it cannot show', () => {
       running: true,
     });
     expect(container.textContent).toContain('speaking…');
-    expect(container.textContent).not.toContain('The translation appears here.');
+    expect(container.textContent).not.toContain('The translation shows up here.');
   });
 
   it('draws no empty wrapper for it either', () => {
@@ -425,7 +425,7 @@ describe('ConversationTranscript with a turn it cannot show', () => {
   it('still counts as content on the pane that CAN show it', () => {
     render({ turns: [], liveTurns: speaking, side: 'source', running: true });
     expect(container.textContent).toContain('đang nói…');
-    expect(container.textContent).not.toContain('What you say appears here.');
+    expect(container.textContent).not.toContain('What you say shows up here.');
   });
 });
 

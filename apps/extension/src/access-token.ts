@@ -1,6 +1,7 @@
 import type { AuthSession, AuthToken } from '@chatofy/types';
 import { PENDING_PREFERENCES_KEY, PREFERENCES_KEY } from './preferences-cache';
 import { clearTokens, loadAccessToken, loadRefreshToken, saveTokens } from './token-storage';
+import { t } from './i18n';
 
 /**
  * What this machine's captures authenticate with, and how it is renewed.
@@ -184,7 +185,7 @@ export async function signIn(
       body: JSON.stringify({ email, password }),
     });
   } catch {
-    return { ok: false, message: `Cannot reach ${apiBaseUrl}` };
+    return { ok: false, message: t('extension.error.unreachable', { origin: apiBaseUrl }) };
   }
 
   const body = (await res.json().catch(() => null)) as {
@@ -196,7 +197,7 @@ export async function signIn(
   if (!res.ok || !body?.data?.token?.accessToken) {
     return {
       ok: false,
-      message: body?.error?.message ?? `Sign in failed (HTTP ${res.status})`,
+      message: body?.error?.message ?? t('extension.error.signInFailed', { status: res.status }),
     };
   }
 

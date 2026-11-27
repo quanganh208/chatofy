@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { en } from '@chatofy/i18n';
 
 /**
  * The popup's non-negotiables, kept after the pane became components.
@@ -95,7 +96,10 @@ describe('the popup surface', () => {
   it('keeps the recording notice in static markup', () => {
     const html = FILES.find((f) => f.name === 'index.html')?.source ?? '';
     expect(html).toContain('id="consent"');
-    expect(html).toContain('records the meeting');
+    // The English fallback, which renders when no script does; `consent-gate`
+    // swaps in the reader's language from the same key.
+    expect(html).toContain(en['extension.consent.recordsAudio']);
+    expect(html).toContain('data-i18n="extension.consent.recordsAudio"');
   });
 
   /**

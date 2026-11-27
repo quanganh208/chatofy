@@ -343,15 +343,13 @@ describe('renaming', () => {
 
     type('   ');
     await submit();
-    expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toBe(
-      'A title cannot be empty.',
-    );
+    expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toBe('Enter a title.');
     expect(titleField()?.getAttribute('aria-invalid')).toBe('true');
 
     type('a'.repeat(121));
     await submit();
     expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toBe(
-      'Keep the title to 120 characters.',
+      'Use 120 characters or fewer.',
     );
     expect(api.renameConversation).not.toHaveBeenCalled();
   });
@@ -366,7 +364,7 @@ describe('renaming', () => {
     expect(titleField()?.value).toBe('New name');
     expect(titleField()?.readOnly).toBe(false);
     expect(renameDialog()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Could not rename',
+      'Couldn’t rename',
     );
     expect(rowTitle('c-1')).toBe('Đặt bàn nhà hàng');
     expect(notify.success).not.toHaveBeenCalled();
@@ -489,7 +487,7 @@ describe('copy and downloads', () => {
     await choose('download-md');
 
     expect(saved).toEqual([]);
-    expect(notify.error).toHaveBeenCalledWith('Could not download it. Try again.', {
+    expect(notify.error).toHaveBeenCalledWith('Couldn’t download it. Try again.', {
       id: 'conversation-file-c-1',
       retry: anyFunction,
     });
@@ -522,7 +520,7 @@ describe('copy and downloads', () => {
     await open(headerDownload());
     const srt = item('download-srt');
     expect(srt?.getAttribute('aria-disabled')).toBe('true');
-    expect(srt?.textContent).toContain('Needs a time on every line');
+    expect(srt?.textContent).toContain('Every line needs a time');
   });
 
   it('fetches a row conversation only when an item is chosen, and once', async () => {
@@ -593,7 +591,7 @@ describe('copy and downloads', () => {
     await open(headerDownload());
     await choose('download-recording');
     expect(saved).toEqual([]);
-    expect(notify.error).toHaveBeenCalledWith('Could not download it. Try again.', {
+    expect(notify.error).toHaveBeenCalledWith('Couldn’t download it. Try again.', {
       id: 'conversation-file-c-1',
       retry: anyFunction,
     });
@@ -651,7 +649,7 @@ describe('deleting from a row', () => {
     await confirmRowDelete('Hỏi đường');
     expect(container.querySelector('a[href^="/history/c-2"]')).not.toBeNull();
     expect(confirmDialog()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Could not delete',
+      'Couldn’t delete',
     );
     expect(notify.success).not.toHaveBeenCalled();
   });

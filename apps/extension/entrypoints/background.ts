@@ -18,6 +18,7 @@ import {
   meetingSiteOf,
   supportOf,
 } from '../src/supported-meeting-url';
+import { t } from '../src/i18n';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -242,9 +243,9 @@ async function refreshSettingsHint(): Promise<void> {
     // which cannot help and costs them their capture.
     publisher.publishError(
       'outbound',
-      `Could not prepare this page for your microphone: ${
-        err instanceof Error ? err.message : 'unknown error'
-      }`,
+      t('extension.error.preparePageFailed', {
+        reason: err instanceof Error ? err.message : String(err),
+      }),
     );
   }
 }
@@ -367,7 +368,9 @@ function reportRelayFailure(reason: string): void {
 
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
-  publisher.publishCaptureError(err instanceof Error ? err.message : 'Could not capture this tab');
+  publisher.publishCaptureError(
+    err instanceof Error ? err.message : t('extension.error.tabCaptureFailed'),
+  );
 }
 
 /**
@@ -384,7 +387,7 @@ async function refreshMenuTitle(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const stops = publisher.capturing && activeTabId !== null && tab?.id === activeTabId;
   await chrome.contextMenus.update(TOGGLE_MENU_ID, {
-    title: stops ? 'Chatofy: stop translating' : 'Chatofy: start translating',
+    title: stops ? t('extension.menu.stop') : t('extension.menu.start'),
     // Withheld from platforms Chatofy is off for. In a call window with no
     // toolbar this menu is the only way in, so leaving it there would offer an
     // action the worker has already decided to refuse — and on Facebook, where
@@ -488,7 +491,7 @@ export default defineBackground(() => {
         id: TOGGLE_MENU_ID,
         // Nothing is being captured at install time; `refreshMenuTitle` owns it
         // from here on.
-        title: 'Chatofy: start translating',
+        title: t('extension.menu.start'),
         // Not `['page']`. A call window is almost entirely video, and a right-click
         // on a video element is not a page context — the item would be missing
         // exactly where it is the only way in.

@@ -134,7 +134,7 @@ describe('the profile rows', () => {
 
   it('says the details did not load rather than drawing a date that never came', async () => {
     await render(null, null, null);
-    expect(container.textContent).toContain('Could not load your account details');
+    expect(container.textContent).toContain('Couldn’t load your account details');
   });
 
   it('falls back to initials rather than a broken image', async () => {
@@ -221,7 +221,7 @@ describe('the Change photo dialog', () => {
     await openDialog();
     await pickFile();
 
-    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('not an image');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('isn’t an image');
     expect(notify.error).not.toHaveBeenCalled();
   });
 
@@ -246,7 +246,7 @@ describe('the Change photo dialog', () => {
     await openDialog();
     await pickFile();
 
-    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('nothing was changed');
+    expect(dialog()?.querySelector('[role=alert]')?.textContent).toContain('nothing changed');
     expect(notify.error).not.toHaveBeenCalled();
   });
 });

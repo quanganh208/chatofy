@@ -110,7 +110,7 @@ describe('SmtpMailSender', () => {
     });
     const calls = sendMail.mock.calls as unknown[][];
     const call = calls.at(0)?.at(0) as { subject: string; text: string };
-    expect(call.subject).toBe('Verify your email address');
+    expect(call.subject).toBe('Verify your email for Chatofy');
     expect(call.text).toContain(link);
   });
 

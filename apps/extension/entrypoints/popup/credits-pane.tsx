@@ -6,6 +6,7 @@ import {
   loadCredits,
   type CreditsResult,
 } from '../../src/credits';
+import { intlLocale, t } from '../../src/i18n';
 
 /**
  * The account's credits inside the settings pane: what is left and where it
@@ -17,7 +18,11 @@ import {
  * shown signed in — a popup lives seconds, so there is nothing to keep fresh.
  */
 
-const DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const DAY = new Intl.DateTimeFormat(intlLocale, {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
 
 function day(iso: string): string {
   const at = Date.parse(iso);
@@ -47,10 +52,12 @@ export function CreditsPane({ apiBaseUrl, active }: { apiBaseUrl?: string; activ
       className="border-hairline flex min-w-0 flex-col gap-2 border-0 border-t pt-3"
     >
       <legend className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        Credits
+        {t('common.billing.title')}
       </legend>
 
-      {result === undefined ? <p className="text-muted-foreground text-hint">Loading…</p> : null}
+      {result === undefined ? (
+        <p className="text-muted-foreground text-hint">{t('extension.credits.loading')}</p>
+      ) : null}
       {result?.message ? (
         <p role="status" className="text-muted-foreground text-hint">
           {result.message}
@@ -60,32 +67,40 @@ export function CreditsPane({ apiBaseUrl, active }: { apiBaseUrl?: string; activ
       {balance ? (
         <>
           <Line
-            label="Credits left"
+            label={t('common.billing.totalCredits')}
             value={formatCredits(balance.totalCredits)}
-            detail={`Plan ${balance.plan === 'pro' ? 'Pro' : 'Free'}`}
+            detail={t('extension.credits.plan', {
+              plan: t(
+                balance.plan === 'pro' ? 'common.billing.planPro' : 'common.billing.planFree',
+              ),
+            })}
             strong
           />
           <Line
-            label="Plan credits"
+            label={t('common.billing.planCredits')}
             value={formatCredits(balance.planCredits)}
-            detail={balance.planResetsAt ? `Reset on ${day(balance.planResetsAt)}` : undefined}
+            detail={
+              balance.planResetsAt
+                ? t('common.billing.planResetsOn', { date: day(balance.planResetsAt) })
+                : undefined
+            }
           />
           <Line
-            label="Top-up credits"
+            label={t('common.billing.topupCredits')}
             value={formatCredits(balance.topupCredits)}
-            detail="Never expire"
+            detail={t('common.billing.topupNeverExpire')}
           />
           <p className="text-muted-foreground text-hint">
             {balance.checkoutAllowed
-              ? 'Buy credits on the Chatofy website, under Account.'
-              : 'Buying credits is not open to the public. Chatofy is a non-commercial thesis project, and only its owner can check out.'}
+              ? t('extension.credits.buyOnWeb')
+              : t('common.billing.checkoutClosed')}
           </p>
         </>
       ) : null}
 
       {result && balance ? (
         result.usage.length === 0 ? (
-          <p className="text-muted-foreground text-hint">Nothing used yet.</p>
+          <p className="text-muted-foreground text-hint">{t('common.billing.usageEmpty')}</p>
         ) : (
           <ul id="credit-usage" className="flex flex-col">
             {result.usage.map((entry) => (

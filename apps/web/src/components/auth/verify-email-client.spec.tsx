@@ -80,7 +80,7 @@ describe('VerifyEmailClient', () => {
 
     expect(container.querySelector('#verify-submit')).toBeNull();
     expect(container.querySelector('[role="alert"]')!.textContent).toContain(
-      'missing its verification code',
+      'verification link is incomplete',
     );
   });
 

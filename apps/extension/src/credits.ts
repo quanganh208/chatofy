@@ -8,14 +8,16 @@ import {
   type ServerEvent,
 } from '@chatofy/types';
 import type { ServerErrorCause } from '@chatofy/realtime-client';
+import type { MessageKey } from '@chatofy/i18n';
 import { getFreshAccessToken } from './access-token';
+import { intlLocale, t } from './i18n';
 
 /**
  * The extension's read of the account's AI credits, and the words for the
  * credit codes a capture can be sent.
  *
- * English literals, like the rest of the popup: the extension carries no
- * message catalogue. Buying is never offered here — it happens on the web.
+ * Words from `@chatofy/i18n`, in the browser's language (`./i18n.ts`). Buying is
+ * never offered here — it happens on the web.
  */
 
 /** Usage rows the popup lists. The popup is 600px tall and already scrolls. */
@@ -31,25 +33,45 @@ export interface CreditsResult {
 
 type Read<T> = { ok: true; data: T } | { ok: false; message: string };
 
+/** What to say when one of the two reads fails, by which read it was. */
+interface ReadFailures {
+  /** Takes `{status}`. */
+  loadFailed: MessageKey;
+  unreadable: MessageKey;
+}
+
+const BALANCE_FAILURES: ReadFailures = {
+  loadFailed: 'extension.credits.loadFailed',
+  unreadable: 'extension.credits.unreadable',
+};
+
+const USAGE_FAILURES: ReadFailures = {
+  loadFailed: 'extension.credits.usageLoadFailed',
+  unreadable: 'extension.credits.usageUnreadable',
+};
+
 /** One enveloped GET, parsed. Never throws. */
 async function readEnveloped<T>(
   url: string,
   accessToken: string,
   parse: (data: unknown) => { success: true; data: T } | { success: false },
-  what: string,
+  failures: ReadFailures,
 ): Promise<Read<T>> {
   let res: Response;
   try {
     res = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
   } catch {
-    return { ok: false, message: `Cannot reach ${new URL(url).origin}` };
+    return {
+      ok: false,
+      message: t('extension.error.unreachable', { origin: new URL(url).origin }),
+    };
   }
-  if (!res.ok) return { ok: false, message: `Could not load your ${what} (HTTP ${res.status})` };
+  if (!res.ok) return { ok: false, message: t(failures.loadFailed, { status: res.status }) };
   const body = (await res.json().catch(() => null)) as { data?: unknown } | null;
   const parsed = parse(body?.data);
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, message: `Could not read your ${what}` };
+    : { ok: false, message: t(failures.unreadable) };
 }
 
 /**
@@ -63,7 +85,7 @@ async function readEnveloped<T>(
 export async function loadCredits(apiBaseUrl: string): Promise<CreditsResult> {
   const accessToken = await getFreshAccessToken(apiBaseUrl);
   if (accessToken === null) {
-    return { balance: null, usage: [], message: 'Sign in to see your credits' };
+    return { balance: null, usage: [], message: t('extension.credits.signInToSee') };
   }
 
   const [balance, usage] = await Promise.all([
@@ -71,13 +93,13 @@ export async function loadCredits(apiBaseUrl: string): Promise<CreditsResult> {
       `${apiBaseUrl}/billing/me`,
       accessToken,
       (data) => creditBalanceSchema.safeParse(data),
-      'credits',
+      BALANCE_FAILURES,
     ),
     readEnveloped(
       `${apiBaseUrl}/billing/usage`,
       accessToken,
       (data) => creditUsageListReadSchema.safeParse(data),
-      'usage',
+      USAGE_FAILURES,
     ),
   ]);
 
@@ -89,12 +111,14 @@ export async function loadCredits(apiBaseUrl: string): Promise<CreditsResult> {
   return message === undefined ? result : { ...result, message };
 }
 
-const NUMBER = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const NUMBER = new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 });
 
 /** "1 credit", "2.5 credits"; the sign is dropped, a caller that shows one adds it. */
 export function formatCredits(credits: number): string {
   const magnitude = Math.abs(credits);
-  return magnitude === 1 ? '1 credit' : `${NUMBER.format(magnitude)} credits`;
+  return magnitude === 1
+    ? t('common.billing.creditAmountOne')
+    : t('common.billing.creditAmount', { credits: NUMBER.format(magnitude) });
 }
 
 /** A usage row's amount with its direction: "−1.5 credits", "+600 credits". */
@@ -104,12 +128,12 @@ export function formatSignedCredits(credits: number): string {
 }
 
 export const USAGE_KIND_LABEL: Record<CreditUsageKind, string> = {
-  translate: 'Translation',
-  minutes: 'Meeting minutes',
-  grant: 'Credits added',
-  refund: 'Refund',
-  expire: 'Expired',
-  void: 'Removed',
+  translate: t('common.billing.usageKind.translate'),
+  minutes: t('common.billing.usageKind.minutes'),
+  grant: t('common.billing.usageKind.grant'),
+  refund: t('common.billing.usageKind.refund'),
+  expire: t('common.billing.usageKind.expire'),
+  void: t('common.billing.usageKind.void'),
 };
 
 /**
@@ -145,17 +169,16 @@ export function creditErrorMessage(
   switch (cause?.code) {
     case 'credits_exhausted':
       return context.turnOpened
-        ? 'Your credits ran out, so translation stopped. Buy more on the Chatofy website.'
-        : 'You need at least 1 credit to start translating.';
+        ? t('extension.credits.exhausted')
+        : t('common.billing.startRefused');
     case 'credits_unavailable':
-      return 'Your credits could not be checked just now, so translation did not start. Try again in a moment.';
-    case 'credits_low': {
-      const left =
-        cause.remainingCreditSeconds === undefined
-          ? 'Your credits are running low.'
-          : `About ${formatCredits(creditsFromSeconds(cause.remainingCreditSeconds))} left.`;
-      return `${left} Translation keeps going until they run out.`;
-    }
+      return t('common.billing.unavailable');
+    case 'credits_low':
+      return cause.remainingCreditSeconds === undefined
+        ? t('extension.credits.lowUnknown')
+        : t('common.billing.low', {
+            credits: formatCredits(creditsFromSeconds(cause.remainingCreditSeconds)),
+          });
     default:
       return null;
   }

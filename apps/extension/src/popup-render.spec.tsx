@@ -8,6 +8,7 @@ import {
   type UserPreferences,
   type UserPreferencesPatch,
 } from '@chatofy/types';
+import { createTranslator, en, vi as viMessages } from '@chatofy/i18n';
 
 /**
  * Scoped to this file, because the cost it covers is this file's alone.
@@ -49,6 +50,8 @@ vi.setConfig({ testTimeout: 20_000 });
  */
 
 interface Stubs {
+  /** `navigator.languages`. Pinned to English unless a case says otherwise. */
+  languages?: string[];
   consentSeen?: boolean;
   /** A stored access token. Defaulted on, so the capture UI is what renders. */
   signedIn?: boolean;
@@ -73,7 +76,15 @@ const patches: { method: string; patch: unknown }[] = [];
 const written: Record<string, unknown> = {};
 let root: Root | undefined;
 
+/**
+ * The words the English popup says, read from the dictionary rather than pinned
+ * here, so a copy edit changes the dictionary and not this file. The browser
+ * language is pinned per mount because happy-dom's default is not a promise.
+ */
+const t = createTranslator(en);
+
 function installChrome({
+  languages = ['en-US'],
   consentSeen = true,
   signedIn = true,
   permission = 'granted',
@@ -125,6 +136,9 @@ function installChrome({
       getURL: (path: string) => `chrome-extension://test/${path}`,
     },
   };
+
+  Object.defineProperty(navigator, 'languages', { configurable: true, value: languages });
+  Object.defineProperty(navigator, 'language', { configurable: true, value: languages[0] });
 
   Object.defineProperty(navigator, 'permissions', {
     configurable: true,
@@ -184,7 +198,7 @@ function markup() {
   const consent = document.createElement('div');
   consent.id = 'consent';
   consent.hidden = true;
-  consent.textContent = 'This records the meeting’s audio.';
+  consent.textContent = en['extension.consent.recordsAudio'];
   const ok = document.createElement('button');
   ok.id = 'consent-ok';
   consent.append(ok);
@@ -240,9 +254,9 @@ afterEach(() => {
 describe('the popup', () => {
   it('renders its primary action', async () => {
     await mount();
-    expect(toggle()?.textContent).toBe('Start');
+    expect(toggle()?.textContent).toBe(t('extension.capture.start'));
     expect(toggle()?.disabled).toBe(false);
-    expect(document.getElementById('status')?.textContent).toBe('Ready.');
+    expect(document.getElementById('status')?.textContent).toBe(t('extension.status.ready'));
   });
 
   /**
@@ -288,7 +302,7 @@ describe('the popup', () => {
   it('refuses a tab that is not a meeting, and says why', async () => {
     await mount({ tabUrl: 'https://example.com/' });
     expect(toggle()?.disabled).toBe(true);
-    expect(document.getElementById('status')?.textContent).toBe('Not available on this tab.');
+    expect(document.getElementById('status')?.textContent).toBe(t('extension.status.unavailable'));
   });
 
   /** Stop stays available on a tab Start would be refused on. */
@@ -297,7 +311,7 @@ describe('the popup', () => {
       tabUrl: 'https://example.com/',
       overlay: { capturing: true, lines: [], outbound: 'off', errors: {} },
     });
-    expect(toggle()?.textContent).toBe('Stop');
+    expect(toggle()?.textContent).toBe(t('extension.capture.stop'));
     expect(toggle()?.disabled).toBe(false);
   });
 
@@ -308,8 +322,12 @@ describe('the popup', () => {
    */
   it('sends a language pair change to the worker rather than writing it', async () => {
     await mount();
-    const swap = document.querySelector<HTMLButtonElement>('[aria-label^="Swap languages"]');
-    expect(swap).not.toBeNull();
+    // The swap button's name starts with the dictionary's words for it.
+    const swapPrefix = t('extension.languagePair.swap').split('{')[0]!;
+    const swap = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find(
+      (button) => button.getAttribute('aria-label')!.startsWith(swapPrefix),
+    );
+    expect(swap).toBeDefined();
     await settle(() => swap?.click());
 
     const settings = sent.filter((m) => (m as { type: string }).type === 'settings');
@@ -446,7 +464,7 @@ describe('the popup', () => {
 
       const trigger = document.getElementById('context');
       expect(trigger).not.toBeNull();
-      expect(trigger?.textContent).toBe('No context');
+      expect(trigger?.textContent).toBe(t('extension.settings.noContext'));
     });
   });
 });
@@ -476,14 +494,17 @@ describe('the credits block', () => {
       })),
     });
     const credits = document.getElementById('credits');
-    expect(credits?.textContent).toContain('Credits left');
-    expect(credits?.textContent).toContain('2.5 credits');
-    expect(credits?.textContent).toContain('Plan Pro');
-    expect(credits?.textContent).toContain('Buy credits on the Chatofy website');
+    const amount = (credits: string) => t('common.billing.creditAmount', { credits });
+    expect(credits?.textContent).toContain(t('common.billing.totalCredits'));
+    expect(credits?.textContent).toContain(amount('2.5'));
+    expect(credits?.textContent).toContain(
+      t('extension.credits.plan', { plan: t('common.billing.planPro') }),
+    );
+    expect(credits?.textContent).toContain(t('extension.credits.buyOnWeb'));
     const rows = document.querySelectorAll('#credit-usage li');
     expect(rows.length).toBe(5);
-    expect(rows[0]?.textContent).toContain('+250 credits');
-    expect(rows[1]?.textContent).toContain('\u22121 credit');
+    expect(rows[0]?.textContent).toContain(`+${amount('250')}`);
+    expect(rows[1]?.textContent).toContain(`\u2212${t('common.billing.creditAmountOne')}`);
     // A readout: nothing in it is a control to press.
     expect(credits?.querySelector('button, a, input')).toBeNull();
   });
@@ -491,15 +512,48 @@ describe('the credits block', () => {
   it('says why buying is closed for an account not let in to checkout', async () => {
     await mount({ balance: { ...balance, checkoutAllowed: false } });
     expect(document.getElementById('credits')?.textContent).toContain(
-      'Buying credits is not open to the public',
+      t('common.billing.checkoutClosed'),
     );
   });
 
   it('reports a balance that failed to load and still renders the popup', async () => {
     await mount();
     expect(document.getElementById('credits')?.textContent).toContain(
-      'Could not load your credits (HTTP 503)',
+      t('extension.credits.loadFailed', { status: 503 }),
     );
-    expect(toggle()?.textContent).toBe('Start');
+    expect(toggle()?.textContent).toBe(t('extension.capture.start'));
+  });
+});
+
+/**
+ * The popup in the reader's language. Vietnamese is the case worth proving: it is
+ * the product's first audience, and every string here used to be English
+ * whatever the browser said.
+ */
+describe('in Vietnamese', () => {
+  const tvi = createTranslator(viMessages);
+
+  it('renders the popup in the browser language', async () => {
+    await mount({ languages: ['vi-VN', 'en-US'] });
+
+    expect(toggle()?.textContent).toBe(tvi('extension.capture.start'));
+    expect(document.getElementById('status')?.textContent).toBe(tvi('extension.status.ready'));
+    const settings = document.getElementById('settings')?.textContent ?? '';
+    expect(settings).toContain(tvi('common.audio.echoCancellation'));
+    expect(settings).toContain(tvi('extension.settings.outbound'));
+    expect(settings).toContain(tvi('extension.settings.runsOn'));
+    expect(settings).toContain(tvi('common.auth.signOut'));
+    // Nothing English left where Vietnamese was asked for.
+    expect(settings).not.toContain(en['common.audio.echoCancellation']);
+    expect(settings).not.toContain(en['extension.settings.outbound']);
+    expect(document.documentElement.lang).toBe('vi');
+  });
+
+  it('renders the sign-in form in the browser language', async () => {
+    await mount({ languages: ['vi'], signedIn: false });
+
+    const signIn = document.getElementById('sign-in')?.textContent ?? '';
+    expect(signIn).toContain(tvi('extension.signIn.intro'));
+    expect(signIn).toContain(tvi('common.auth.password'));
   });
 });

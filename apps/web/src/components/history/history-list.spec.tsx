@@ -149,7 +149,7 @@ describe('HistoryList', () => {
 
   it('reports a failed load as a failure, not as an empty history', () => {
     const { container } = render({ error: true });
-    expect(container.textContent).toContain('Could not load your history');
+    expect(container.textContent).toContain('Couldn’t load your history');
     expect(container.textContent).not.toContain('No conversations yet');
   });
 
@@ -180,7 +180,7 @@ describe('HistoryList', () => {
     expect(container.textContent).toContain('Vietnamese');
     expect(container.querySelector('svg.lucide-arrow-left-right')).not.toBeNull();
     expect(container.textContent).not.toMatch(/VI|EN|[→⇄]/);
-    expect(container.textContent).toContain('12 lines');
+    expect(container.textContent).toContain('12 turns');
   });
 
   it('names an auto-detected conversation by its translation language alone', () => {
@@ -281,9 +281,9 @@ describe('HistoryList', () => {
     });
 
     expect(rows().length).toBe(1);
-    expect(container.textContent).toContain('Could not load more conversations.');
+    expect(container.textContent).toContain('Couldn’t load more conversations.');
     // The whole-screen failure belongs to a first page that never arrived.
-    expect(container.textContent).not.toContain('Could not load your history');
+    expect(container.textContent).not.toContain('Couldn’t load your history');
     expect(container.textContent).toContain('Load more');
   });
 
@@ -362,7 +362,7 @@ describe('HistoryList', () => {
     });
     const meta = [...container.querySelectorAll('a[href^="/history/"] p')].at(-1);
     expect(meta?.className).toContain('truncate');
-    expect(meta?.textContent).toContain('12 lines');
+    expect(meta?.textContent).toContain('12 turns');
     expect(meta?.textContent).not.toContain('Lan');
     expect(meta?.textContent).not.toContain('Recording');
   });

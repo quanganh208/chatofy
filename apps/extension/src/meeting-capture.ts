@@ -14,6 +14,7 @@ import type { GatedMicrophone } from './outbound-mic';
 import type { VoiceHold } from './outbound-voice-lease';
 import type { TabAudioSource } from './tab-audio-source';
 import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } from './messages';
+import { t } from './i18n';
 
 /**
  * Both legs of one meeting: what to open, what to release, and in which
@@ -280,7 +281,7 @@ export class MeetingCapture {
     // connection error.
     const accessToken = await this.deps.loadAccessToken();
     if (!accessToken) {
-      throw new Error('Sign in from the Chatofy popup before starting a capture');
+      throw new Error(t('extension.error.signInFirst'));
     }
 
     // Resolved once, here, and never again for this run — both legs below
@@ -426,7 +427,7 @@ export class MeetingCapture {
   private endCaptureIfTabGoesAway(stream: MediaStream): void {
     for (const track of stream.getAudioTracks()) {
       track.addEventListener('ended', () => {
-        this.errors.inbound = 'The meeting tab was reloaded or closed. Start Chatofy on it again.';
+        this.errors.inbound = t('extension.error.tabClosed');
         void this.end().then(() => this.reportStatus());
       });
     }
@@ -474,7 +475,7 @@ export class MeetingCapture {
       });
     } catch (err) {
       this.errors.outbound =
-        err instanceof Error ? err.message : 'Could not translate your microphone';
+        err instanceof Error ? err.message : t('extension.error.microphoneFailed');
       microphone?.stop();
       if (this.shared) this.shared.microphone = undefined;
       this.endOutbound();

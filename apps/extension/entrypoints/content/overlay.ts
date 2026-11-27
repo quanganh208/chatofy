@@ -1,5 +1,4 @@
 import {
-  LANGUAGES,
   LANGUAGE_CODES,
   allLanguagePairs,
   languagePairSchema,
@@ -8,6 +7,7 @@ import {
   type VoiceGender,
 } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
+import { intlLocale, t } from '../../src/i18n';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
@@ -59,16 +59,14 @@ import { OVERLAY_STYLE } from './overlay-styles';
  * "reload" would walk them into that.
  */
 function outboundMessage(state: OverlayState): string {
-  if (state.outbound === 'sending') return 'Your speech is being translated into the meeting.';
-  if (state.outbound === 'muted') {
-    return 'You are muted in the meeting, so nothing you say is being captured or translated.';
-  }
+  if (state.outbound === 'sending') return t('extension.overlay.outboundSending');
+  if (state.outbound === 'muted') return t('extension.overlay.outboundMuted');
   if (state.patched === false) {
     return state.shortcut
-      ? `Your speech is translated for you only. To send it to the meeting, reload this page, then press ${state.shortcut} to start again.`
-      : 'Your speech is translated for you only. To send it to the meeting, reload this page, then right-click → Chatofy to start again.';
+      ? t('extension.overlay.outboundUnpatchedShortcut', { shortcut: state.shortcut })
+      : t('extension.overlay.outboundUnpatchedMenu');
   }
-  return 'Your speech is translated for you only — the others hear your own voice.';
+  return t('extension.overlay.outboundForYou');
 }
 
 /**
@@ -264,6 +262,11 @@ export class Overlay {
 
     this.container = document.createElement('div');
     this.container.className = 'root';
+    // The overlay speaks the extension's language, not the page's: without its own
+    // `lang` a screen reader voices Vietnamese lines with the page's voice and CJK
+    // text takes the page's glyph choice. Set here rather than on the host, which
+    // sits in the page's DOM where an attribute is something the site can query.
+    this.container.lang = intlLocale;
 
     // The collapsed surface. A button rather than a styled div so it is reachable
     // by keyboard on a page whose own tab order we do not control.
@@ -296,8 +299,8 @@ export class Overlay {
     collapse.className = 'collapse';
     collapse.type = 'button';
     collapse.textContent = '▾';
-    collapse.title = 'Collapse';
-    collapse.setAttribute('aria-label', 'Collapse Chatofy');
+    collapse.title = t('extension.overlay.collapse');
+    collapse.setAttribute('aria-label', t('extension.overlay.collapseLabel'));
     collapse.addEventListener('click', () => this.setExpanded(false));
     header.append(title, collapse);
 
@@ -311,7 +314,7 @@ export class Overlay {
     const dot = document.createElement('span');
     dot.className = 'dot';
     const label = document.createElement('span');
-    label.textContent = 'Chatofy is capturing this meeting’s audio';
+    label.textContent = t('extension.overlay.capturingIndicator');
     this.indicator.append(dot, label);
 
     this.errorBox = document.createElement('div');
@@ -346,7 +349,7 @@ export class Overlay {
     // a second stacked row would take that back. A select states both languages in
     // one line and stays reachable from a keyboard.
     this.languagePair = select(
-      'Translate',
+      t('extension.overlay.languagePair'),
       // The default first, then the registry's order for the rest: the option
       // a fresh capture already runs (`DEFAULT_CAPTURE_PAIR`) is the one a
       // reader expects to see first. Named rather than got by reversing the
@@ -358,13 +361,16 @@ export class Overlay {
         (pair) =>
           [
             encodePairOption(pair),
-            `${LANGUAGES[pair.source].englishName} into ${LANGUAGES[pair.target].englishName}`,
+            t('extension.overlay.pairOption', {
+              source: t(`common.languageName.${pair.source}`),
+              target: t(`common.languageName.${pair.target}`),
+            }),
           ] as const,
       ),
     );
-    this.voice = select('Voice', [
-      ['female', 'Female voice'],
-      ['male', 'Male voice'],
+    this.voice = select(t('extension.overlay.voice'), [
+      ['female', t('extension.overlay.voiceFemale')],
+      ['male', t('extension.overlay.voiceMale')],
     ]);
 
     // Translating the user's own speech is a separate choice from translating
@@ -374,7 +380,7 @@ export class Overlay {
     this.outbound = document.createElement('input');
     this.outbound.type = 'checkbox';
     const outboundText = document.createElement('span');
-    outboundText.textContent = 'Also translate what I say';
+    outboundText.textContent = t('extension.settings.outbound');
     outboundLabel.append(this.outbound, outboundText);
 
     // The two settings share a row of their own, under the button rather than
@@ -452,10 +458,8 @@ export class Overlay {
     this.pill.classList.toggle('live', capturing);
     this.pillMark.hidden = capturing;
     this.pillDot.hidden = !capturing;
-    this.pillLabel.textContent = capturing ? 'Recording' : 'Chatofy';
-    this.pill.title = capturing
-      ? 'Chatofy is capturing this meeting’s audio — open to stop'
-      : 'Open Chatofy';
+    this.pillLabel.textContent = capturing ? t('extension.capture.recording') : 'Chatofy';
+    this.pill.title = capturing ? t('extension.overlay.pillLive') : t('extension.overlay.pillIdle');
   }
 
   render(state: OverlayState): void {
@@ -496,8 +500,12 @@ export class Overlay {
   private renderErrors(state: OverlayState): void {
     const failures: string[] = [];
     if (state.errors.capture) failures.push(state.errors.capture);
-    if (state.errors.inbound) failures.push(`Meeting audio: ${state.errors.inbound}`);
-    if (state.errors.outbound) failures.push(`Your microphone: ${state.errors.outbound}`);
+    if (state.errors.inbound) {
+      failures.push(t('extension.status.meetingAudioError', { error: state.errors.inbound }));
+    }
+    if (state.errors.outbound) {
+      failures.push(t('extension.status.microphoneError', { error: state.errors.outbound }));
+    }
     this.errorBox.hidden = failures.length === 0;
     this.errorBox.replaceChildren();
     for (const failure of failures) {
@@ -508,7 +516,9 @@ export class Overlay {
   }
 
   private renderControls(state: OverlayState): void {
-    this.toggle.textContent = state.capturing ? 'Stop' : 'Start';
+    this.toggle.textContent = state.capturing
+      ? t('extension.capture.stop')
+      : t('extension.capture.start');
     this.toggle.classList.toggle('stop', state.capturing);
     this.hint.hidden = state.capturing;
     // The first start in a window like this one cannot come from the button: Chrome
@@ -516,8 +526,8 @@ export class Overlay {
     // So the hint names the ways that work, using the shortcut actually assigned —
     // there may be none, and printing the suggested one anyway would be a lie.
     this.hint.textContent = state.shortcut
-      ? `First time here: press ${state.shortcut}, or right-click → Chatofy`
-      : 'First time here: right-click → Chatofy';
+      ? t('extension.overlay.firstTimeShortcut', { shortcut: state.shortcut })
+      : t('extension.overlay.firstTimeMenu');
   }
 
   private renderLines(state: OverlayState): void {
@@ -525,7 +535,9 @@ export class Overlay {
     if (state.lines.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'empty';
-      empty.textContent = state.capturing ? 'Listening…' : 'Not capturing.';
+      empty.textContent = state.capturing
+        ? t('extension.overlay.listening')
+        : t('extension.overlay.notCapturing');
       this.list.append(empty);
       return;
     }
@@ -537,7 +549,7 @@ export class Overlay {
         item.classList.add('mine');
         const who = document.createElement('span');
         who.className = 'who';
-        who.textContent = 'You';
+        who.textContent = t('extension.overlay.you');
         item.append(who);
       }
 

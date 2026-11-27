@@ -136,6 +136,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 │   ├── video-network-path.md
 │   └── video-translation-audio-path.md
 ├── design-guidelines.md
+├── copy-voice-and-terminology.md   # voice rules per locale, one term per concept
 ├── ux-ax-review-checklist.md       # UX/AX review pass for public pages
 ├── brand-mark.md
 ├── deployment-guide.md

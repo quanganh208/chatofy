@@ -143,7 +143,7 @@ describe('choosing who spoke', () => {
     const handlers = render();
 
     click(buttons()[0]);
-    click(buttonNamed('Add a person'));
+    click(buttonNamed('Add person'));
 
     expect(handlers.onAddSpeaker).toHaveBeenCalledOnce();
   });
@@ -283,7 +283,7 @@ describe('renaming and removing', () => {
     const handlers = render({ speakers: [] });
 
     click(buttons()[0]);
-    click(buttonNamed('Add a person'));
+    click(buttonNamed('Add person'));
 
     expect(handlers.onAddSpeaker).toHaveBeenCalled();
   });
@@ -453,7 +453,7 @@ describe('the manage face as a per-turn control', () => {
     const handlers = render({ speakers: many });
 
     click(buttons()[0]);
-    const add = buttons().find((button) => /Limit is/.test(button.textContent ?? ''));
+    const add = buttons().find((button) => /Up to/.test(button.textContent ?? ''));
     expect(add?.disabled).toBe(true);
     expect(handlers.onAddSpeaker).not.toHaveBeenCalled();
   });

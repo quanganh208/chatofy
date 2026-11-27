@@ -188,7 +188,7 @@ describe('HistoryTranscript', () => {
         audioOffsetMs: 1_400,
         onSeek: () => {},
       }).querySelector('button');
-      expect(vi?.getAttribute('aria-label')).toBe('Nghe từ 0:04');
+      expect(vi?.getAttribute('aria-label')).toBe('Phát từ 0:04');
     });
 
     it('marks the time as a real duration', () => {
