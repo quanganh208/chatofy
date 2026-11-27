@@ -242,12 +242,10 @@ async function refreshSettingsHint(): Promise<void> {
     // Reported, not swallowed. Silence here means the setting says on, no page
     // ever gets patched, and the only thing the user is ever told is to reload —
     // which cannot help and costs them their capture.
-    publisher.publishError(
-      'outbound',
-      t('extension.error.preparePageFailed', {
-        reason: err instanceof Error ? err.message : String(err),
-      }),
-    );
+    // The browser's own wording is English whatever the reader's language is, so
+    // it goes to the console and the overlay gets the dictionary sentence only.
+    console.warn('[chatofy] could not prepare the page for the outbound microphone', err);
+    publisher.publishError('outbound', t('extension.error.preparePageFailed'));
   }
 }
 

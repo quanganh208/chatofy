@@ -1650,8 +1650,7 @@ export const en = {
   'extension.error.tabClosed': 'The call tab was reloaded or closed. Start Chatofy on it again.',
   'extension.error.microphoneFailed': 'Couldn’t translate what you say. Try again.',
   'extension.error.tabCaptureFailed': 'Couldn’t translate this tab. Try again.',
-  'extension.error.preparePageFailed':
-    'Couldn’t set up your microphone on this page ({reason}). Try again.',
+  'extension.error.preparePageFailed': 'Couldn’t set up your microphone on this page. Try again.',
   'extension.error.contextsSignIn': 'Sign in to use an AI Context',
   'extension.error.contextsLoadFailed':
     'Couldn’t load your AI Contexts (HTTP {status}). Try again.',
@@ -1672,8 +1671,10 @@ export const en = {
   'extension.microphone.granted':
     'Microphone allowed. You can close this tab and start translating.',
   'extension.microphone.refused': 'Chrome blocked the microphone.',
-  'extension.microphone.openFailed': 'Couldn’t open the microphone: {error}',
-  'extension.microphone.unknownError': 'unknown error',
+  'extension.microphone.openFailed': 'Couldn’t open the microphone. Try again.',
+  'extension.microphone.notFound': 'No microphone found. Plug one in, then try again.',
+  'extension.microphone.inUse':
+    'The microphone is in use by another app or can’t start. Close that app, then try again.',
   'extension.microphone.alreadyGranted': 'Chatofy already has your microphone. You’re all set.',
   // Around a chrome:// address, which stays as written.
   'extension.microphone.recoverBefore':
