@@ -50,7 +50,7 @@ describe('ConsoleMailSender', () => {
         'vi',
       ).subject,
     );
-    expect(printed).not.toContain('Verify your email address');
+    expect(printed).not.toContain('Verify your email for Chatofy');
     logSpy.mockRestore();
   });
 
