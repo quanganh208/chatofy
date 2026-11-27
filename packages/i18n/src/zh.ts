@@ -1263,7 +1263,7 @@ export const zh: Messages = {
   'extension.status.noTab': '没有可录制的标签页。',
   'extension.status.capturing': '正在录制这个标签页。',
   'extension.status.capturingForYou': '正在录制这个标签页。你说的话只翻译给你自己听。',
-  'extension.status.capturingIntoMeeting': '正在录制这个标签页，并把你说的话翻译到通话里。',
+  'extension.status.capturingIntoMeeting': '正在双向翻译通话：别人说的和你说的。',
   'extension.status.meetingAudioError': '通话声音：{error}',
   'extension.status.microphoneError': '你的麦克风：{error}',
 

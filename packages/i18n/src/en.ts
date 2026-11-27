@@ -1608,8 +1608,7 @@ export const en = {
   'extension.status.noTab': 'No tab to capture.',
   'extension.status.capturing': 'Capturing this tab.',
   'extension.status.capturingForYou': 'Capturing this tab. Your speech is translated for you only.',
-  'extension.status.capturingIntoMeeting':
-    'Capturing this tab, and translating your speech into the call.',
+  'extension.status.capturingIntoMeeting': 'Translating others to you, and you to them.',
   // A failure, named by which side of the call it belongs to.
   'extension.status.meetingAudioError': 'Call audio: {error}',
   'extension.status.microphoneError': 'Your microphone: {error}',

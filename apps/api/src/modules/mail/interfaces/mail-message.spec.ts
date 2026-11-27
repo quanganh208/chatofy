@@ -126,10 +126,7 @@ describe('buildMailMessage', () => {
   // The footer names the thing the bodies name: the reader's email, not an
   // "address", which reads as a postal one in all three languages.
   it.each([
-    [
-      'en',
-      'You’re getting this email because someone used this email on Chatofy.',
-    ],
+    ['en', 'You’re getting this because someone used this email on Chatofy.'],
     ['vi', 'Bạn nhận được thư này vì có người đã dùng email này trên Chatofy.'],
     ['zh', '你收到这封邮件，是因为有人在 Chatofy 上用了这个邮箱。'],
   ] as const)('%s footer says why the mail came', (locale, line) => {
