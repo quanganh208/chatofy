@@ -11,13 +11,11 @@
  * know which dictionary it is bound to.
  */
 import { en, type MessageKey } from './en.js';
+import type { Locale } from './index.js';
 import type { Translate } from './t.js';
 
-/** Locales are plain strings here so this module keeps no import cycle with the barrel. */
-type LocaleTag = 'en' | 'vi' | 'zh';
-
 /** Lower-cases the first letter of an already-named language when `locale` is Vietnamese. */
-export function languageNameInSentence(locale: LocaleTag, name: string): string {
+export function languageNameInSentence(locale: Locale, name: string): string {
   if (locale !== 'vi' || name === '') return name;
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
@@ -26,7 +24,7 @@ export function languageNameInSentence(locale: LocaleTag, name: string): string 
  * The name of the registry language `code` for use inside a sentence. A code with
  * no `common.languageName` entry comes back as written, like a missing key does.
  */
-export function languageNameForSentence(t: Translate, locale: LocaleTag, code: string): string {
+export function languageNameForSentence(t: Translate, locale: Locale, code: string): string {
   const key = `common.languageName.${code}`;
   if (!Object.hasOwn(en, key)) return code;
   return languageNameInSentence(locale, t(key as MessageKey));

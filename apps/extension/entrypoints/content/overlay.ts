@@ -362,8 +362,9 @@ export class Overlay {
         (pair) =>
           [
             encodePairOption(pair),
+            // The option opens on the source name, so only the target sits mid-sentence.
             t('extension.overlay.pairOption', {
-              source: languageNameForSentence(t, locale, pair.source),
+              source: t(`common.languageName.${pair.source}`),
               target: languageNameForSentence(t, locale, pair.target),
             }),
           ] as const,
