@@ -8,7 +8,7 @@ describe('authFlowFailure', () => {
     for (const flow of ['signUp', 'forgotPassword', 'verifyEmail', 'resetPassword'] as const) {
       assert.equal(
         authFlowFailure(flow, new AuthRequestError('/x', 429)),
-        'mobile.auth.tooManyAttempts',
+        'common.auth.tooManyAttempts',
       );
     }
   });
@@ -16,11 +16,11 @@ describe('authFlowFailure', () => {
   it('reads a refused mailed token as an expired link', () => {
     assert.equal(
       authFlowFailure('verifyEmail', new AuthRequestError('/auth/verify-email', 401)),
-      'mobile.auth.linkExpired',
+      'common.auth.linkExpired',
     );
     assert.equal(
       authFlowFailure('resetPassword', new AuthRequestError('/auth/reset-password', 401)),
-      'mobile.auth.linkExpired',
+      'common.auth.linkExpired',
     );
   });
 
