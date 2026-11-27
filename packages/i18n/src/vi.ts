@@ -1353,6 +1353,10 @@ export const vi: Messages = {
   'extension.error.microphoneFailed': 'Chưa dịch được lời bạn nói. Bạn thử lại nhé.',
   'extension.error.tabCaptureFailed': 'Chưa dịch được tab này. Bạn thử lại nhé.',
   'extension.error.preparePageFailed': 'Chưa thiết lập được micro trên trang này. Bạn thử lại nhé.',
+  'extension.error.relayTabLost':
+    'Chatofy không còn kết nối với tab cuộc gọi, nên lời bạn nói chưa tới được cuộc gọi. Bạn quay lại tab đó rồi bật lại Chatofy nhé.',
+  'extension.error.relayTabUnreachable':
+    'Tab cuộc gọi không nhận âm thanh của bạn nữa, nên lời bạn nói chưa tới được cuộc gọi. Bạn tải lại tab đó rồi bật lại Chatofy nhé.',
   'extension.error.contextsSignIn': 'Đăng nhập để dùng Ngữ cảnh AI',
   'extension.error.contextsLoadFailed':
     'Chưa tải được Ngữ cảnh AI của bạn (HTTP {status}). Bạn thử lại nhé.',

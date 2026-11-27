@@ -20,6 +20,7 @@ import {
 } from '../src/supported-meeting-url';
 import { t } from '../src/i18n';
 import { readerMessage } from '../src/reader-facing-error';
+import { RelayFailureReporter } from '../src/relay-failure-reporter';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -261,6 +262,8 @@ async function startCapture(tabId: number): Promise<void> {
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
   publisher.reset();
+  // The banner it carried is gone, so the same failure must be able to show again.
+  relayFailures.reset();
 
   // Tell the tab we are leaving that it is no longer being captured, before
   // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
@@ -358,12 +361,10 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
  * Reported once per state change rather than per frame: this fires at the rate
  * audio is produced, and a banner rewritten five times a second is a flicker.
  */
-let relayFailure: string | undefined;
-function reportRelayFailure(reason: string): void {
-  if (relayFailure === reason) return;
-  relayFailure = reason;
-  publisher.publishError('outbound', reason);
-}
+const relayFailures = new RelayFailureReporter(
+  (message) => publisher.publishError('outbound', message),
+  (key) => t(key),
+);
 
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
@@ -651,7 +652,10 @@ export default defineBackground(() => {
         // the only context that can reach a tab from the offscreen document.
         const target = activeTabId;
         if (target === null) {
-          reportRelayFailure('the meeting tab is no longer being tracked');
+          relayFailures.report(
+            'extension.error.relayTabLost',
+            'the meeting tab is no longer being tracked',
+          );
           return undefined;
         }
         void chrome.tabs
@@ -663,7 +667,12 @@ export default defineBackground(() => {
           // Reported rather than dropped. Silence here is the user talking into
           // a meeting that stopped receiving them, with nothing on screen saying
           // so.
-          .catch(() => reportRelayFailure('the meeting tab stopped accepting audio'));
+          .catch(() =>
+            relayFailures.report(
+              'extension.error.relayTabUnreachable',
+              'the meeting tab stopped accepting audio',
+            ),
+          );
         return undefined;
       }
 
