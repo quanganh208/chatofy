@@ -19,10 +19,10 @@ import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
  * sentence for a person; what a developer needs in the console is the exception the
  * browser actually threw, and only one of those two can be the message.
  *
- * Throwing a plain `Error` whose `message` is ALREADY the translated sentence is what
- * lets this work through `realtime-client` unchanged: `ConversationSession` reports a
- * failed start as `err.message`, and it has no dictionary and should not grow one — it
- * is shared with the extension.
+ * Thrown as a {@link MicrophoneOpenError} whose `message` is ALREADY the translated
+ * sentence. `realtime-client` has no dictionary and should not grow one — it is shared
+ * with the extension — so it reports a failed start by code and hands back what was
+ * thrown; the page recognises this class there and shows its message.
  */
 
 /**
@@ -59,6 +59,19 @@ const FAULT_KEY: Record<string, MessageKey> = {
  */
 export const CONVERSATION_AUDIO: MediaTrackConstraints = DEFAULT_MIC_PROCESSING;
 
+/**
+ * The rejection {@link openMicrophone} throws: its `message` is already a sentence in
+ * the reader's language. `ConversationSession` hands what a failed start threw back on
+ * its error cause, and this class is how the page tells that sentence from an English
+ * message it must not show.
+ */
+export class MicrophoneOpenError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'MicrophoneOpenError';
+  }
+}
+
 export async function openMicrophone(
   t: Translate,
   audio: MediaStreamConstraints['audio'] = CONVERSATION_AUDIO,
@@ -69,6 +82,6 @@ export async function openMicrophone(
     const key = err instanceof DOMException ? FAULT_KEY[err.name] : undefined;
     // The fallback is not a guess dressed as a diagnosis: an unrecognised name says
     // the microphone did not open and nothing more, which is all this knows.
-    throw new Error(t(key ?? 'web.translate.micFailed'), { cause: err });
+    throw new MicrophoneOpenError(t(key ?? 'web.translate.micFailed'), { cause: err });
   }
 }

@@ -4,7 +4,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MicProcessing, ServerEvent } from '@chatofy/types';
-import type { ConversationSessionListeners } from '@chatofy/realtime-client';
+import type { ConversationSessionListeners, RealtimeErrorCause } from '@chatofy/realtime-client';
+import { MicrophoneOpenError } from '@/lib/open-microphone';
 import {
   useStreamingTranslate,
   type StartOptions,
@@ -408,16 +409,64 @@ describe('useStreamingTranslate languages', () => {
     const { listeners } = FakeConversationSession.last!;
     act(() =>
       listeners.onError('Language detection is unavailable', {
+        source: 'server',
         code: 'language_unavailable',
         detail: 'language_detection',
       }),
     );
     expect(latest.error).toBe('web.translate.detectUnavailable');
-    act(() => listeners.onError('busy', { code: 'language_unavailable', detail: 'lid_capacity' }));
+    act(() =>
+      listeners.onError('busy', {
+        source: 'server',
+        code: 'language_unavailable',
+        detail: 'lid_capacity',
+      }),
+    );
     expect(latest.error).toBe('web.translate.detectBusy');
-    // Anything else keeps the server's own words.
-    act(() => listeners.onError('Something else', { code: 'internal' }));
-    expect(latest.error).toBe('Something else');
+  });
+
+  it('never shows the English message a failure arrives with', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    const { listeners } = FakeConversationSession.last!;
+    const shown = (message: string, cause: RealtimeErrorCause) => {
+      act(() => listeners.onError(message, cause));
+      return latest.error;
+    };
+
+    expect(shown('Translation failed', { source: 'server', code: 'turn_failed' })).toBe(
+      'common.realtime.turnFailed',
+    );
+    expect(
+      shown('Cannot reach the translator', { source: 'client', code: 'connection_failed' }),
+    ).toBe('common.realtime.unreachable');
+    expect(
+      shown('Connection to the translator dropped', { source: 'client', code: 'connection_lost' }),
+    ).toBe('common.realtime.connectionLost');
+    // A code this build has never heard of still reads as a sentence.
+    expect(shown('Something else', { source: 'server', code: 'a_code_added_later' })).toBe(
+      'common.realtime.generic',
+    );
+  });
+
+  it('shows the microphone sentence a failed start already carries, and nothing else it threw', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    const { listeners } = FakeConversationSession.last!;
+
+    const micError = new MicrophoneOpenError('web.translate.micDenied');
+    act(() =>
+      listeners.onError(micError.message, {
+        source: 'client',
+        code: 'start_failed',
+        thrown: micError,
+      }),
+    );
+    expect(latest.error).toBe('web.translate.micDenied');
+
+    const other = new Error('AudioContext was not allowed to start');
+    act(() =>
+      listeners.onError(other.message, { source: 'client', code: 'start_failed', thrown: other }),
+    );
+    expect(latest.error).toBe('common.realtime.startFailed');
   });
 });
 
@@ -436,7 +485,7 @@ describe('useStreamingTranslate credits', () => {
   ) =>
     act(() => {
       session.listeners.onServerEvent(event);
-      session.listeners.onError(event.message, { code: event.code });
+      session.listeners.onError(event.message, { source: 'server', code: event.code });
     });
 
   it('names the conversation on every turn start through the runtime, a new id per start', async () => {

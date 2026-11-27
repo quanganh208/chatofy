@@ -141,7 +141,7 @@ describe('VerifyEmailClient', () => {
 
     const error = container.querySelector('#verify-error')!;
     expect(error.getAttribute('role')).toBe('alert');
-    expect(error.textContent).toBe('That link is invalid or has expired');
+    expect(error.textContent).toBe(en['common.auth.linkExpired']);
     expect(container.querySelector('#verify-already-exists')).toBeNull();
     expect(push).not.toHaveBeenCalled();
   });

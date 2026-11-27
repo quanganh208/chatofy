@@ -113,7 +113,7 @@ describe('ForgotPasswordForm', () => {
     expect(container.querySelector('#forgot-error')).not.toBeNull();
   });
 
-  it('renders the API error message when the request genuinely fails', async () => {
+  it('says a rate limit in the reader’s words, not the API’s', async () => {
     render();
     forgotPassword.mockRejectedValueOnce(
       new ApiClientError({ code: 'RATE_LIMITED', message: 'Too many requests' }, 429),
@@ -122,6 +122,6 @@ describe('ForgotPasswordForm', () => {
 
     const error = container.querySelector('#forgot-error')!;
     expect(error.getAttribute('role')).toBe('alert');
-    expect(error.textContent).toBe('Too many requests');
+    expect(error.textContent).toBe(en['common.auth.tooManyAttempts']);
   });
 });

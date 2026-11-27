@@ -31,7 +31,7 @@ import {
   type ConversationStatus,
   type LiveTurn,
   type PauseInterval,
-  type ServerErrorCause,
+  type RealtimeErrorCause,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
@@ -42,10 +42,10 @@ import {
 } from '@/hooks/use-conversation-recording';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { formatCreditSeconds } from '@/lib/credit-format';
-import { openMicrophone } from '@/lib/open-microphone';
+import { MicrophoneOpenError, openMicrophone } from '@/lib/open-microphone';
 import { asksTwoWay, type ConversationMode } from '@/lib/translate-settings';
 import { env } from '@/config/env';
-import type { Locale, Translate } from '@chatofy/i18n';
+import { realtimeErrorKey, type Locale, type Translate } from '@chatofy/i18n';
 import type { ServerEvent } from '@chatofy/types';
 
 /**
@@ -84,24 +84,24 @@ interface CreditEvent {
 }
 
 /**
- * A refusal said in the reader's language, where its code is one this page
- * knows; null hands the server's own message through.
+ * A failure said in the reader's language, chosen by its code. Never the message
+ * the session reported: that is English, written for logs.
  *
- * `language_unavailable` with a `detail` is named: it is the answer to an
- * "Auto-detect" start, and the server's English names the mechanism where the
- * reader needs the next step.
+ * The credit codes are worded here, with what only this page knows.
+ * `credits_exhausted` says two different things: carrying a `turnId` it refused a
+ * start (under one credit), and without one the balance ran out mid-conversation —
+ * so the copy follows the turn id. `credits_low` carries the balance.
  *
- * The credit codes are named too. `credits_exhausted` says two different
- * things: carrying a `turnId` it refused a start (under one credit), and
- * without one the balance ran out mid-conversation — so the copy follows the
- * turn id.
+ * A failed start whose microphone could not be opened says why, in the sentence
+ * `openMicrophone` already wrote; every other code takes the shared table, which
+ * names the Auto-detect refusals and gives an unknown code a generic sentence.
  */
-function refusalMessage(
+function failureMessage(
   t: Translate,
   locale: Locale,
-  cause: ServerErrorCause | undefined,
+  cause: RealtimeErrorCause | undefined,
   credit: CreditEvent | null = null,
-): string | null {
+): string {
   if (cause?.code === 'credits_low') {
     return t('common.billing.low', {
       credits: formatCreditSeconds(t, locale, cause.remainingCreditSeconds ?? 0),
@@ -110,11 +110,10 @@ function refusalMessage(
   if (cause?.code === 'credits_exhausted') {
     return credit?.turnId ? t('common.billing.startRefused') : t('common.billing.exhausted');
   }
-  if (cause?.code === 'credits_unavailable') return t('common.billing.unavailable');
-  if (cause?.code !== 'language_unavailable') return null;
-  if (cause.detail === 'language_detection') return t('web.translate.detectUnavailable');
-  if (cause.detail === 'lid_capacity') return t('web.translate.detectBusy');
-  return null;
+  if (cause?.code === 'start_failed' && cause.thrown instanceof MicrophoneOpenError) {
+    return cause.thrown.message;
+  }
+  return t(realtimeErrorKey(cause));
 }
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -554,21 +553,17 @@ export function useStreamingTranslate(
         // the other two end the run (the session stops itself, gracefully, so
         // what was said is still saved) and are said as its error.
         if (message !== null && cause && CREDIT_CODES.has(cause.code)) {
-          const text = refusalMessage(tRef.current, localeRef.current, cause, creditEvent.current);
+          const text = failureMessage(tRef.current, localeRef.current, cause, creditEvent.current);
           if (cause.code === 'credits_low') {
             setNotice(text);
           } else {
             setNotice(null);
-            setError(text ?? message);
+            setError(text);
           }
           return;
         }
         if (message === null) setNotice(null);
-        setError(
-          message === null
-            ? null
-            : (refusalMessage(tRef.current, localeRef.current, cause) ?? message),
-        );
+        setError(message === null ? null : failureMessage(tRef.current, localeRef.current, cause));
         void recovery.handleConnectionFailure();
       },
       onLanguageMode: (mode, reason) =>
