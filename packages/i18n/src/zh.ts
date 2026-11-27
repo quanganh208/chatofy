@@ -150,6 +150,22 @@ export const zh: Messages = {
   'common.conference.chatRateLimited': '发得太快了，等几秒再发吧。',
   'common.conference.chatNotSent': '消息没发出去，请重试。',
 
+  // ---- common.realtime: live translation failures, keyed by error code ----
+  'common.realtime.unreachable': '连不上翻译服务，请检查网络后重试。',
+  'common.realtime.connectionLost': '连接断开了，翻译已停止。请重新开始。',
+  'common.realtime.startFailed': '没能开始翻译，请重试。',
+  'common.realtime.turnFailed': '刚才那段没能翻译，后面的会继续翻译。',
+  'common.realtime.turnTooLong': '刚才那段太长，没能翻译。请在句子之间停一下。',
+  'common.realtime.noSpeech': '没听到要翻译的内容，准备好了直接说就行。',
+  'common.realtime.busy': '翻译服务正忙，请稍后再试。',
+  'common.realtime.languageUnavailable': '这种语言暂时用不了，请换一种。',
+  'common.realtime.outdated': 'Chatofy 已更新，请刷新后继续翻译。',
+  'common.realtime.generic': '翻译出了点问题，请重试。',
+
+  // ---- common.auth: account-flow failures web and mobile both show ----
+  'common.auth.linkExpired': '这个链接已过期或已用过，请重新获取。',
+  'common.auth.tooManyAttempts': '尝试次数太多，请等一分钟再试。',
+
   // ---- common.billing: the credits words web and mobile both show ----
   // The section and block title on web Settings › Billing and mobile settings.
   'common.billing.title': '点数与套餐',
@@ -174,6 +190,7 @@ export const zh: Messages = {
   // A notice, not a failure: the conversation keeps going. {credits} is a
   // formatted `common.billing.creditAmount` string, e.g. "2 点".
   'common.billing.low': '还剩大约 {credits}，用完之前翻译会继续。',
+  'common.billing.lowUnknown': '点数快用完了，用完之前翻译会继续。',
   'common.billing.unavailable': '暂时查不到你的点数，翻译没有开始。请稍后再试。',
   // Why buying is disabled for everyone but the owner.
   'common.billing.checkoutClosed':
@@ -1105,7 +1122,6 @@ export const zh: Messages = {
   'mobile.conference.minutesGenerating': '正在总结会议…',
   'mobile.conference.minutesEmpty': '还没有纪要。参加过会议的人都可以生成。',
   'mobile.auth.noAccountPrompt': '还没有账号？',
-  'mobile.auth.linkExpired': '这个链接已过期或已用过，请重新获取。',
   'mobile.auth.fillAllFields': '请把每一项都填上。',
   'mobile.auth.nameTooLong': '名字太长了。',
   'mobile.auth.invalidEmail': '请输入有效的邮箱。',
@@ -1121,7 +1137,6 @@ export const zh: Messages = {
   'mobile.auth.signInTitle': '登录',
   'mobile.auth.missingFields': '请输入邮箱和密码。',
   'mobile.auth.invalidCredentials': '邮箱或密码不对。',
-  'mobile.auth.tooManyAttempts': '尝试次数太多，请等一分钟再试。',
   'mobile.auth.signInFailed': '没能登录，请检查网络后重试。',
   'mobile.settings.signedInAs': '已登录：{email}',
   'mobile.settings.signedOut': '你还没有登录。',
@@ -1255,7 +1270,6 @@ export const zh: Messages = {
   'extension.credits.unreadable': '没能加载点数，请重试。',
   'extension.credits.usageUnreadable': '没能加载点数明细，请重试。',
   'extension.credits.exhausted': '点数用完了，翻译已停止。请到 Chatofy 网站购买更多点数。',
-  'extension.credits.lowUnknown': '点数快用完了，用完之前翻译会继续。',
 
   'extension.status.ready': '已就绪。',
   'extension.status.offOn': 'Chatofy 已在 {site} 上关闭。',
@@ -1277,7 +1291,6 @@ export const zh: Messages = {
   'extension.error.signInFirst': '请先在 Chatofy 弹出窗口里登录',
   'extension.error.tabClosed': '通话标签页已刷新或关闭，请在这个标签页上重新启动 Chatofy。',
   'extension.error.microphoneFailed': '没能翻译你说的话，请重试。',
-  'extension.error.captureFailed': '没能开始翻译，请重试。',
   'extension.error.tabCaptureFailed': '没能翻译这个标签页，请重试。',
   'extension.error.preparePageFailed': '没能在这个页面接入麦克风（{reason}），请重试。',
   'extension.error.contextsSignIn': '登录后才能使用 AI 语境',

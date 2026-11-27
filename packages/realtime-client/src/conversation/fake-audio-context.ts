@@ -231,7 +231,7 @@ export class FakeTranslateSocket {
    */
   /** Report a transport error, as a browser does just before an abnormal close. */
   error(message = 'Connection error'): void {
-    this.handlers.onError?.(message);
+    this.handlers.onError?.(message, 'connection_error');
   }
 
   drop(code = 1006, reason = ''): void {

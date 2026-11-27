@@ -24,6 +24,7 @@ export { zh } from './zh.js';
 export { createTranslator, type Translate, type Vars } from './t.js';
 export { languageNameForSentence, languageNameInSentence } from './language-name.js';
 export { meetingDuration, meetingLanguages, meetingParticipants } from './meeting-summary.js';
+export { realtimeErrorKey, type RealtimeErrorCodeRef } from './realtime-error-key.js';
 
 /** The locales this product ships. The switcher and the cookie both read from this. */
 export const LOCALES = ['en', 'vi', 'zh'] as const;

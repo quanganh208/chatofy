@@ -3,9 +3,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthMessage } from '@chatofy/types';
-// No dictionary import: every string this file asserts is minted by the API and
-// passes through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
+import { en } from '@chatofy/i18n';
 
 const register = vi.fn<(body: unknown) => Promise<AuthMessage>>();
 
@@ -152,7 +151,7 @@ describe('RegisterForm', () => {
     expect(container.querySelector('#register-error')).not.toBeNull();
   });
 
-  it('renders the API error message and announces it', async () => {
+  it('announces a refusal in the reader’s words, not the API’s', async () => {
     render();
     register.mockRejectedValueOnce(
       new ApiClientError({ code: 'VALIDATION_FAILED', message: 'Password is too short' }, 400),
@@ -161,7 +160,7 @@ describe('RegisterForm', () => {
 
     const error = container.querySelector('#register-error')!;
     expect(error.getAttribute('role')).toBe('alert');
-    expect(error.textContent).toBe('Password is too short');
+    expect(error.textContent).toBe(en['web.auth.createFailed']);
     // The form survives a failed submit — nothing was created.
     expect(container.querySelector('#register-submit')).not.toBeNull();
   });

@@ -29,7 +29,6 @@ const t = createTranslator(en);
 
 /** The error's words; a credit amount is translated first, then filled into its sentence. */
 function errorText(error: TranslateError): string {
-  if (!('key' in error)) return error.text;
   if (!error.amount) return t(error.key);
   return t(error.key, { credits: t(error.amount.key, error.amount.vars) });
 }

@@ -151,6 +151,26 @@ export const vi: Messages = {
   'common.conference.chatRateLimited': 'Bạn gửi nhanh quá. Đợi vài giây nhé.',
   'common.conference.chatNotSent': 'Chưa gửi được tin nhắn. Bạn thử lại nhé.',
 
+  // ---- common.realtime ----
+  'common.realtime.unreachable':
+    'Chưa kết nối được tới dịch vụ dịch. Bạn kiểm tra mạng rồi thử lại nhé.',
+  'common.realtime.connectionLost':
+    'Mất kết nối nên Chatofy ngừng dịch. Bạn bắt đầu lại để dịch tiếp nhé.',
+  'common.realtime.startFailed': 'Chưa bắt đầu dịch được. Bạn thử lại nhé.',
+  'common.realtime.turnFailed': 'Không dịch được đoạn vừa nói. Chatofy vẫn dịch tiếp phần sau.',
+  'common.realtime.turnTooLong':
+    'Đoạn vừa nói dài quá nên không dịch được. Bạn ngắt nghỉ giữa các câu nhé.',
+  'common.realtime.noSpeech': 'Chưa nghe thấy gì để dịch. Bạn cứ nói khi sẵn sàng nhé.',
+  'common.realtime.busy': 'Dịch vụ dịch đang bận. Bạn thử lại sau giây lát nhé.',
+  'common.realtime.languageUnavailable':
+    'Ngôn ngữ này hiện chưa dùng được. Bạn chọn ngôn ngữ khác nhé.',
+  'common.realtime.outdated': 'Chatofy vừa có bản mới. Bạn tải lại để dịch tiếp nhé.',
+  'common.realtime.generic': 'Chatofy gặp sự cố khi dịch. Bạn thử lại nhé.',
+
+  // ---- common.auth ----
+  'common.auth.linkExpired': 'Liên kết này đã hết hạn hoặc đã dùng rồi. Bạn xin liên kết mới nhé.',
+  'common.auth.tooManyAttempts': 'Bạn thử nhiều lần quá. Đợi một phút rồi thử lại nhé.',
+
   // ---- common.billing ----
   'common.billing.title': 'Điểm và gói',
   'common.billing.creditAmount': '{credits} điểm',
@@ -170,6 +190,7 @@ export const vi: Messages = {
   'common.billing.exhausted':
     'Bạn đã hết điểm nên Chatofy ngừng dịch. Những gì đã nói vẫn có trong Lịch sử.',
   'common.billing.low': 'Còn khoảng {credits}. Bạn vẫn dịch được tới khi hết điểm.',
+  'common.billing.lowUnknown': 'Điểm của bạn sắp hết. Bạn vẫn dịch được tới khi hết.',
   'common.billing.unavailable':
     'Chưa kiểm tra được số điểm của bạn nên chưa bắt đầu dịch. Bạn thử lại sau giây lát nhé.',
   'common.billing.checkoutClosed':
@@ -1153,7 +1174,6 @@ export const vi: Messages = {
   'mobile.conference.minutesGenerating': 'Đang tóm tắt cuộc họp…',
   'mobile.conference.minutesEmpty': 'Chưa có biên bản. Ai đã dự cuộc họp cũng tạo được biên bản.',
   'mobile.auth.noAccountPrompt': 'Chưa có tài khoản?',
-  'mobile.auth.linkExpired': 'Liên kết này đã hết hạn hoặc đã dùng rồi. Bạn xin liên kết mới nhé.',
   'mobile.auth.fillAllFields': 'Điền đủ các ô.',
   'mobile.auth.nameTooLong': 'Tên này dài quá.',
   'mobile.auth.invalidEmail': 'Nhập email hợp lệ.',
@@ -1170,7 +1190,6 @@ export const vi: Messages = {
   'mobile.auth.signInTitle': 'Đăng nhập',
   'mobile.auth.missingFields': 'Nhập email và mật khẩu.',
   'mobile.auth.invalidCredentials': 'Email hoặc mật khẩu chưa đúng.',
-  'mobile.auth.tooManyAttempts': 'Thử sai nhiều lần quá. Bạn đợi một phút rồi thử lại nhé.',
   'mobile.auth.signInFailed': 'Chưa đăng nhập được. Bạn kiểm tra kết nối rồi thử lại nhé.',
   'mobile.settings.signedInAs': 'Đang đăng nhập: {email}',
   'mobile.settings.signedOut': 'Bạn chưa đăng nhập.',
@@ -1309,7 +1328,6 @@ export const vi: Messages = {
   'extension.credits.usageUnreadable': 'Chưa tải được biến động điểm. Bạn thử lại nhé.',
   'extension.credits.exhausted':
     'Bạn đã hết điểm nên Chatofy ngừng dịch. Bạn mua thêm trên trang web Chatofy nhé.',
-  'extension.credits.lowUnknown': 'Điểm của bạn sắp hết. Bạn vẫn dịch được tới khi hết.',
 
   'extension.status.ready': 'Sẵn sàng.',
   'extension.status.offOn': 'Chatofy đang tắt trên {site}.',
@@ -1333,7 +1351,6 @@ export const vi: Messages = {
   'extension.error.tabClosed':
     'Tab cuộc gọi đã tải lại hoặc đã đóng. Bạn bật lại Chatofy trên tab đó nhé.',
   'extension.error.microphoneFailed': 'Chưa dịch được lời bạn nói. Bạn thử lại nhé.',
-  'extension.error.captureFailed': 'Chưa bắt đầu dịch được. Bạn thử lại nhé.',
   'extension.error.tabCaptureFailed': 'Chưa dịch được tab này. Bạn thử lại nhé.',
   'extension.error.preparePageFailed':
     'Chưa thiết lập được micro trên trang này ({reason}). Bạn thử lại nhé.',

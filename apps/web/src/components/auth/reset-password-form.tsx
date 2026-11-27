@@ -67,7 +67,7 @@ export function ResetPasswordForm() {
           })
           .catch((err: unknown) => {
             setSubmitting(false);
-            setError(authErrorMessage(err, t, 'web.auth.resetFailed'));
+            setError(authErrorMessage(err, t, 'web.auth.resetFailed', { redeemsLink: true }));
           });
       }}
     >

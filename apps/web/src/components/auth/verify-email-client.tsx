@@ -90,7 +90,7 @@ export function VerifyEmailClient() {
             })
             .catch((err: unknown) => {
               setSubmitting(false);
-              setError(authErrorMessage(err, t, 'web.auth.verifyFailed'));
+              setError(authErrorMessage(err, t, 'web.auth.verifyFailed', { redeemsLink: true }));
             });
         }}
       >

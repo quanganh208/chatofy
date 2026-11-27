@@ -108,7 +108,7 @@ describe('googleFailureMessage', () => {
     );
     assert.equal(
       googleFailureMessage(new AuthRequestError('/auth/google', 429)),
-      'mobile.auth.tooManyAttempts',
+      'common.auth.tooManyAttempts',
     );
     assert.equal(
       googleFailureMessage(new AuthRequestError('/auth/google', 501)),

@@ -158,6 +158,31 @@ export const en = {
   'common.conference.chatRateLimited': 'You’re sending too fast. Wait a few seconds.',
   'common.conference.chatNotSent': 'Message not sent. Try again.',
 
+  // ---- common.realtime: live translation failures, keyed by error code ----
+  // Chosen by `realtimeErrorKey` from the code the server or the realtime
+  // client reports. The English message on the wire is for logs only.
+  'common.realtime.unreachable':
+    'Can’t reach the translation service. Check your connection and try again.',
+  'common.realtime.connectionLost':
+    'The connection dropped, so translation stopped. Start again to continue.',
+  'common.realtime.startFailed': 'Couldn’t start translating. Try again.',
+  // One turn failed; the conversation keeps translating what comes next.
+  'common.realtime.turnFailed': 'Couldn’t translate the last part. Translation goes on from here.',
+  'common.realtime.turnTooLong': 'That part ran too long to translate. Pause between sentences.',
+  // A turn closed with no audio in it, or after too long without any.
+  'common.realtime.noSpeech': 'Didn’t hear anything to translate. Speak when you’re ready.',
+  'common.realtime.busy': 'Translation is busy right now. Try again in a moment.',
+  'common.realtime.languageUnavailable':
+    'This language isn’t available right now. Choose another one.',
+  // The page was built for an older server and has to reload.
+  'common.realtime.outdated': 'Chatofy has been updated. Reload to keep translating.',
+  // Any code without its own sentence, including ones added after this build.
+  'common.realtime.generic': 'Translation ran into a problem. Try again.',
+
+  // ---- common.auth: account-flow failures web and mobile both show ----
+  'common.auth.linkExpired': 'This link has expired or was already used. Ask for a new one.',
+  'common.auth.tooManyAttempts': 'Too many attempts. Wait a minute and try again.',
+
   // ---- common.billing: the credits words web and mobile both show ----
   // The section and block title on web Settings › Billing and mobile settings.
   'common.billing.title': 'Credits & plan',
@@ -183,6 +208,9 @@ export const en = {
   // A notice, not a failure: the conversation keeps going. {credits} is a
   // formatted `common.billing.creditAmount` string, e.g. "2 credits".
   'common.billing.low': 'About {credits} left. Translation keeps going until they run out.',
+  // A low-balance notice that came without a figure.
+  'common.billing.lowUnknown':
+    'Your credits are running low. Translation keeps going until they run out.',
   'common.billing.unavailable':
     'We couldn’t check your credits, so translation didn’t start. Try again in a moment.',
   // Why buying is disabled for everyone but the owner.
@@ -1421,7 +1449,6 @@ export const en = {
   'mobile.conference.minutesEmpty':
     'No minutes yet. Anyone who was in the meeting can generate them.',
   'mobile.auth.noAccountPrompt': 'No account yet?',
-  'mobile.auth.linkExpired': 'This link has expired or was already used. Ask for a new one.',
   'mobile.auth.fillAllFields': 'Fill in every field.',
   'mobile.auth.nameTooLong': 'That name is too long.',
   'mobile.auth.invalidEmail': 'Enter a valid email address.',
@@ -1439,7 +1466,6 @@ export const en = {
   'mobile.auth.signInTitle': 'Sign in',
   'mobile.auth.missingFields': 'Enter your email and password.',
   'mobile.auth.invalidCredentials': 'Wrong email or password.',
-  'mobile.auth.tooManyAttempts': 'Too many attempts. Wait a minute and try again.',
   'mobile.auth.signInFailed': 'Couldn’t sign in. Check your connection and try again.',
   'mobile.settings.signedInAs': 'Signed in as {email}',
   'mobile.settings.signedOut': 'You’re not signed in.',
@@ -1598,8 +1624,6 @@ export const en = {
   // Mid-call: unlike web, there is no history page to point at.
   'extension.credits.exhausted':
     'Your credits ran out, so translation stopped. Buy more on the Chatofy website.',
-  'extension.credits.lowUnknown':
-    'Your credits are running low. Translation keeps going until they run out.',
 
   // The popup footer's one line about this tab.
   'extension.status.ready': 'Ready.',
@@ -1625,7 +1649,6 @@ export const en = {
   'extension.error.signInFirst': 'Sign in from the Chatofy popup first',
   'extension.error.tabClosed': 'The call tab was reloaded or closed. Start Chatofy on it again.',
   'extension.error.microphoneFailed': 'Couldn’t translate what you say. Try again.',
-  'extension.error.captureFailed': 'Couldn’t start translating. Try again.',
   'extension.error.tabCaptureFailed': 'Couldn’t translate this tab. Try again.',
   'extension.error.preparePageFailed':
     'Couldn’t set up your microphone on this page ({reason}). Try again.',

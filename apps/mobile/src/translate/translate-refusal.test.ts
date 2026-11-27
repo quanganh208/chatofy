@@ -1,30 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  creditErrorCopy,
-  ranOneWayInstead,
-  refusalMessageKey,
-  startFailureKey,
-} from './translate-refusal.ts';
-
-describe('refusalMessageKey', () => {
-  it('names the two Auto-detect refusals', () => {
-    assert.equal(
-      refusalMessageKey({ code: 'language_unavailable', detail: 'language_detection' }),
-      'web.translate.detectUnavailable',
-    );
-    assert.equal(
-      refusalMessageKey({ code: 'language_unavailable', detail: 'lid_capacity' }),
-      'web.translate.detectBusy',
-    );
-  });
-
-  it('leaves every other cause to the server message', () => {
-    assert.equal(refusalMessageKey({ code: 'language_unavailable' }), null);
-    assert.equal(refusalMessageKey({ code: 'rate_limited' }), null);
-    assert.equal(refusalMessageKey(undefined), null);
-  });
-});
+import { creditErrorCopy, ranOneWayInstead, startFailureKey } from './translate-refusal.ts';
 
 describe('ranOneWayInstead', () => {
   it('is true only when two-way was asked and the server ran it declared', () => {
@@ -36,23 +12,60 @@ describe('ranOneWayInstead', () => {
 });
 
 describe('startFailureKey', () => {
+  const failedStart = (thrown: unknown) => ({
+    source: 'client' as const,
+    code: 'start_failed',
+    thrown,
+  });
+
   it('recognises a refused microphone permission by the recorder message', () => {
+    const message = 'microphone permission not granted (Denied)';
     assert.equal(
-      startFailureKey('microphone permission not granted (Denied)', undefined),
+      startFailureKey(message, failedStart(new Error(message))),
       'mobile.translate.micDenied',
     );
   });
 
-  it('prefers the server refusal and otherwise defers to the raw message', () => {
+  it('names the two Auto-detect refusals', () => {
     assert.equal(
-      startFailureKey('Language unavailable', {
+      startFailureKey('Language detection is unavailable', {
+        source: 'server',
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      }),
+      'web.translate.detectUnavailable',
+    );
+    assert.equal(
+      startFailureKey('busy', {
+        source: 'server',
         code: 'language_unavailable',
         detail: 'lid_capacity',
       }),
       'web.translate.detectBusy',
     );
-    assert.equal(startFailureKey('socket closed', undefined), null);
-    assert.equal(startFailureKey(null, undefined), null);
+  });
+
+  it('words every other failure by its code, never by its English message', () => {
+    assert.equal(
+      startFailureKey('Translation failed', { source: 'server', code: 'turn_failed' }),
+      'common.realtime.turnFailed',
+    );
+    assert.equal(
+      startFailureKey('Cannot reach the translator', {
+        source: 'client',
+        code: 'connection_failed',
+      }),
+      'common.realtime.unreachable',
+    );
+    assert.equal(
+      startFailureKey('AudioContext refused', failedStart(new Error('AudioContext refused'))),
+      'common.realtime.startFailed',
+    );
+    assert.equal(
+      startFailureKey('Something new', { source: 'server', code: 'a_code_added_later' }),
+      'common.realtime.generic',
+    );
+    assert.equal(startFailureKey('socket closed', undefined), 'common.realtime.generic');
   });
 });
 
@@ -61,18 +74,21 @@ describe('creditErrorCopy', () => {
   const refusedAtStart = { turnOpened: false };
 
   it('says a refused start apart from a conversation that ran out', () => {
-    assert.deepEqual(creditErrorCopy({ code: 'credits_exhausted' }, refusedAtStart), {
-      key: 'common.billing.startRefused',
-      notice: false,
-    });
-    assert.deepEqual(creditErrorCopy({ code: 'credits_exhausted' }, opened), {
+    assert.deepEqual(
+      creditErrorCopy({ source: 'server', code: 'credits_exhausted' }, refusedAtStart),
+      {
+        key: 'common.billing.startRefused',
+        notice: false,
+      },
+    );
+    assert.deepEqual(creditErrorCopy({ source: 'server', code: 'credits_exhausted' }, opened), {
       key: 'common.billing.exhausted',
       notice: false,
     });
   });
 
   it('names a balance that could not be checked as a failure', () => {
-    assert.deepEqual(creditErrorCopy({ code: 'credits_unavailable' }, opened), {
+    assert.deepEqual(creditErrorCopy({ source: 'server', code: 'credits_unavailable' }, opened), {
       key: 'common.billing.unavailable',
       notice: false,
     });
@@ -80,7 +96,10 @@ describe('creditErrorCopy', () => {
 
   it('turns a low balance into a notice carrying the amount in credits', () => {
     assert.deepEqual(
-      creditErrorCopy({ code: 'credits_low', remainingCreditSeconds: 120 }, opened),
+      creditErrorCopy(
+        { source: 'server', code: 'credits_low', remainingCreditSeconds: 120 },
+        opened,
+      ),
       {
         key: 'common.billing.low',
         amount: { key: 'common.billing.creditAmount', vars: { credits: '2' } },
@@ -88,14 +107,21 @@ describe('creditErrorCopy', () => {
       },
     );
     assert.deepEqual(
-      creditErrorCopy({ code: 'credits_low', remainingCreditSeconds: 60 }, opened)?.amount,
+      creditErrorCopy({ source: 'server', code: 'credits_low', remainingCreditSeconds: 60 }, opened)
+        ?.amount,
       { key: 'common.billing.creditAmountOne' },
     );
   });
 
-  it('leaves a low balance with no figure, and every other cause, to the caller', () => {
-    assert.equal(creditErrorCopy({ code: 'credits_low' }, opened), null);
-    assert.equal(creditErrorCopy({ code: 'rate_limited' }, opened), null);
+  it('still says a low balance with no figure, as a notice', () => {
+    assert.deepEqual(creditErrorCopy({ source: 'server', code: 'credits_low' }, opened), {
+      key: 'common.billing.lowUnknown',
+      notice: true,
+    });
+  });
+
+  it('leaves every other cause to the caller', () => {
+    assert.equal(creditErrorCopy({ source: 'server', code: 'rate_limited' }, opened), null);
     assert.equal(creditErrorCopy(undefined, opened), null);
   });
 });

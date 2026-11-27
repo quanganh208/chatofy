@@ -7,6 +7,7 @@ import {
 } from '@chatofy/types';
 
 import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event-socket.js';
+import type { RealtimeClientErrorCode } from '../realtime-error.js';
 
 /**
  * What a turn start carries: its translation settings, plus the conversation
@@ -74,7 +75,8 @@ export interface TranslateSocketHandlers {
    * rather than from anything read here.
    */
   onClosed?: (code: number, reason: string, wasClean?: boolean) => void;
-  onError?: (message: string) => void;
+  /** `message` is English for logs; `code` is what a reader is told about. */
+  onError?: (message: string, code: RealtimeClientErrorCode) => void;
 }
 
 export class TranslateSocket {

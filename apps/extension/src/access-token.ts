@@ -161,6 +161,13 @@ export async function getFreshAccessToken(apiBaseUrl: string): Promise<string | 
 /** What a sign-in attempt produced: a token, or something to show the user. */
 export type SignInResult = { ok: true; token: string } | { ok: false; message: string };
 
+/** A refused sign-in in the reader's words, chosen by the HTTP status. */
+export function signInFailureMessage(status: number): string {
+  if (status === 401) return t('web.auth.credentialsRejected');
+  if (status === 429) return t('common.auth.tooManyAttempts');
+  return t('extension.error.signInFailed', { status });
+}
+
 /**
  * Exchange an email and password for a token, and remember it.
  *
@@ -168,9 +175,9 @@ export type SignInResult = { ok: true; token: string } | { ok: false; message: s
  * extension does not depend on that package, and this is one POST whose only
  * consumer is the popup.
  *
- * The API's own message is surfaced when it sent one — it answers a wrong
- * password and an unknown email identically on purpose, and rewording it here
- * would only risk saying more than the API chose to.
+ * A refusal is said from its status, never from the API's message, which is
+ * English for logs. The API answers a wrong password and an unknown email with
+ * the same 401 on purpose, and one sentence covers both.
  */
 export async function signIn(
   apiBaseUrl: string,
@@ -191,14 +198,10 @@ export async function signIn(
   const body = (await res.json().catch(() => null)) as {
     success?: boolean;
     data?: AuthSession;
-    error?: { message?: string };
   } | null;
 
   if (!res.ok || !body?.data?.token?.accessToken) {
-    return {
-      ok: false,
-      message: body?.error?.message ?? t('extension.error.signInFailed', { status: res.status }),
-    };
+    return { ok: false, message: signInFailureMessage(res.status) };
   }
 
   // Both halves, from the one response that carries them. A sign-in that stored

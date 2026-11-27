@@ -230,6 +230,13 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      recordings and turns these lines into per-stage tables.
 5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
    the turn actually ended for, and a metrics row flagged `completed: false`:
+   - a reader is told the failure from its `code`, never its `message`. Every
+     code the server sends is listed in `SERVER_ERROR_CODES` (`packages/types`);
+     the realtime client adds its own for the socket and a failed start
+     (`REALTIME_CLIENT_ERROR_CODES`). The English `message` is for logs and for
+     clients older than a code's copy. Web, mobile and the extension word a code
+     through `realtimeErrorKey` (`packages/i18n`), and a code they do not know
+     gets a generic sentence
    - a pipeline fault (STT, translation, synthesis) closes with reason `error`,
      including a stream that breaks part-way or ends mid-sample
    - a busy speech engine is not a fault: see `engine_busy` above

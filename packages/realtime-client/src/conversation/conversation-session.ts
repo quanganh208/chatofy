@@ -18,6 +18,11 @@ import { base64ToPcm16, downsampleToPcm16, TARGET_SAMPLE_RATE } from '../audio/p
 import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline, type CapturedTurnMetrics } from './turn-pipeline.js';
 import { blockKey } from '../state/turn-keyed-transcript.js';
 import type { ConversationStatus } from './conversation-status.js';
+import {
+  clientErrorCause,
+  RealtimeClientError,
+  type RealtimeErrorCause,
+} from '../realtime-error.js';
 import { pausedMsBefore, type PauseInterval } from './pause-intervals.js';
 import {
   AWAITING_ANSWER_WATCHDOG_MS,
@@ -227,28 +232,11 @@ const CREDIT_STOP_CODES: ReadonlySet<string> = new Set([
   'credits_unavailable',
 ]);
 
-/**
- * The server's own code for an error it sent, beside the message it wrote.
- *
- * Handed to `onError` so a caller can say a refusal in its reader's language
- * where it knows the code — `language_unavailable` with a `detail` says WHY a
- * source could not be identified — and fall back to the server's English where
- * it does not.
- */
-export interface ServerErrorCause {
-  code: string;
-  detail?: string;
-  /**
-   * Credit-seconds the account had left when the server sent a credit code
-   * (`credits_low`, `credits_exhausted`); absent on every other error. A client
-   * fills its "about N credits left" copy from this.
-   */
-  remainingCreditSeconds?: number;
-}
-
-/** The cause `onError` carries, holding only the optional fields the server sent. */
-function serverErrorCause(event: Extract<ServerEvent, { type: 'server.error' }>): ServerErrorCause {
-  const cause: ServerErrorCause = { code: event.code };
+/** The cause `onError` carries for a server error, holding only the optional fields it sent. */
+function serverErrorCause(
+  event: Extract<ServerEvent, { type: 'server.error' }>,
+): RealtimeErrorCause {
+  const cause: RealtimeErrorCause = { source: 'server', code: event.code };
   if (event.detail !== undefined) cause.detail = event.detail;
   if (event.remainingCreditSeconds !== undefined) {
     cause.remainingCreditSeconds = event.remainingCreditSeconds;
@@ -260,8 +248,14 @@ export interface ConversationSessionListeners {
   onStatus: (status: ConversationStatus) => void;
   onLevel: (level: number) => void;
   onMuted: (muted: boolean) => void;
-  /** `cause` is present only for an error the server sent. */
-  onError: (message: string | null, cause?: ServerErrorCause) => void;
+  /**
+   * A failure, or `null` to clear the last one.
+   *
+   * `message` is English for logs and is never for a reader: say the failure
+   * from `cause.code`, which comes with every message (see `RealtimeErrorCause`).
+   * Optional in the type only so a clearing call can omit it.
+   */
+  onError: (message: string | null, cause?: RealtimeErrorCause) => void;
   onEchoHeard: () => void;
   /** Straight to the reducer that owns the transcript. */
   onServerEvent: (event: ServerEvent) => void;
@@ -1060,8 +1054,13 @@ export class ConversationSession {
       if (isStale()) return;
 
       this.stop();
+      // A connection failure keeps its own code; everything else is a failed
+      // start, carrying what was thrown so an app can recognise its own error.
       this.listeners.onError(
         err instanceof Error ? err.message : 'Could not start the conversation',
+        err instanceof RealtimeClientError
+          ? clientErrorCause(err.code)
+          : clientErrorCause('start_failed', err),
       );
     }
   }
@@ -1327,12 +1326,12 @@ export class ConversationSession {
         // can reconnect, the close decides what the reader is told: a banner
         // for a drop that was recovered from would stay up over a working
         // conversation.
-        onError: (message) => {
+        onError: (message, code) => {
           if (this.reconnectOnDrop && this.live === local) {
             this.listeners.onLog?.(`socket error: ${message}`);
             return;
           }
-          this.listeners.onError(message);
+          this.listeners.onError(message, clientErrorCause(code));
         },
         onClosed: (code, reason, wasClean) => {
           if (local.socket !== socket) return;
@@ -1356,11 +1355,17 @@ export class ConversationSession {
           // The code is reported rather than swallowed so a deliberate
           // server-side close (4000-4999) is distinguishable from a network
           // drop.
-          this.listeners.onError(
-            code >= 4000
-              ? `Connection closed by the translator (${code}${reason ? `: ${reason}` : ''})`
-              : 'Connection to the translator dropped',
-          );
+          if (code >= 4000) {
+            this.listeners.onError(
+              `Connection closed by the translator (${code}${reason ? `: ${reason}` : ''})`,
+              clientErrorCause('connection_closed'),
+            );
+          } else {
+            this.listeners.onError(
+              'Connection to the translator dropped',
+              clientErrorCause('connection_lost'),
+            );
+          }
           this.stop();
         },
       },
@@ -1483,7 +1488,10 @@ export class ConversationSession {
     }
 
     if (stale()) return;
-    this.listeners.onError('Connection to the translator dropped');
+    this.listeners.onError(
+      'Connection to the translator dropped',
+      clientErrorCause('connection_lost'),
+    );
     this.stop();
   }
 

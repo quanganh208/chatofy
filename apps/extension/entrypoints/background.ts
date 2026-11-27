@@ -19,6 +19,7 @@ import {
   supportOf,
 } from '../src/supported-meeting-url';
 import { t } from '../src/i18n';
+import { readerMessage } from '../src/reader-facing-error';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -368,9 +369,10 @@ function reportRelayFailure(reason: string): void {
 
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
-  publisher.publishCaptureError(
-    err instanceof Error ? err.message : t('extension.error.tabCaptureFailed'),
-  );
+  // Chrome's and the offscreen document's errors are English for a developer:
+  // logged here, and the reader is told in their own language.
+  console.warn('[chatofy] capture toggle failed', err);
+  publisher.publishCaptureError(readerMessage(err, 'extension.error.tabCaptureFailed'));
 }
 
 /**
