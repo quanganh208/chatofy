@@ -1,3 +1,4 @@
+import type { MessageKey } from '@chatofy/i18n';
 import { languagePairSchema, micProcessingSchema, voiceGenderSchema } from '@chatofy/types';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
@@ -239,6 +240,7 @@ async function refreshSettingsHint(): Promise<void> {
   publisher.setSettings(settingsHint);
   try {
     await patch.sync(outbound);
+    relayFailures.recover(PREPARE_PAGE_FAILURES);
   } catch (err) {
     // Reported, not swallowed. Silence here means the setting says on, no page
     // ever gets patched, and the only thing the user is ever told is to reload —
@@ -246,7 +248,7 @@ async function refreshSettingsHint(): Promise<void> {
     // The browser's own wording is English whatever the reader's language is, so
     // it goes to the console and the overlay gets the dictionary sentence only.
     console.warn('[chatofy] could not prepare the page for the outbound microphone', err);
-    publisher.publishError('outbound', t('extension.error.preparePageFailed'));
+    relayFailures.report('extension.error.preparePageFailed');
   }
 }
 
@@ -354,16 +356,33 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
 }
 
 /**
- * The relay into the meeting page stopped working.
+ * The path from the user's microphone into the meeting page stopped working.
  *
  * Reported once per state change rather than per frame: this fires at the rate
  * audio is produced, and a banner rewritten five times a second is a flicker.
+ * Written to the worker's own `relay` slot, never `outbound`: the offscreen
+ * document replaces `outbound` on every status push, which would wipe this.
  */
-const relayFailures = new RelayFailureReporter(
-  (message) => publisher.publishError('outbound', message),
-  () => publisher.current.errors.outbound,
-  (key) => t(key),
-);
+const relayFailures = new RelayFailureReporter({
+  publish: (message) => publisher.publishError('relay', message),
+  clear: () => publisher.clearError('relay'),
+  showing: () => publisher.current.errors.relay,
+  translate: (key) => t(key),
+});
+
+/** Failures a relayed command reaching the meeting tab proves are over. */
+const RELAY_FAILURES: readonly MessageKey[] = [
+  'extension.error.relayTabLost',
+  'extension.error.relayTabUnreachable',
+];
+
+/**
+ * The failure a successful `patch.sync` proves is over.
+ *
+ * Kept apart from {@link RELAY_FAILURES}: a relayed frame getting through says
+ * nothing about whether pages can be prepared, so it must not clear this one.
+ */
+const PREPARE_PAGE_FAILURES: readonly MessageKey[] = ['extension.error.preparePageFailed'];
 
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
@@ -663,6 +682,9 @@ export default defineBackground(() => {
             type: 'outbound.command',
             command: forWorker.command,
           })
+          // Delivered, so whatever relay failure is showing is over. A no-op when
+          // nothing is, which is every frame of a healthy relay.
+          .then(() => relayFailures.recover(RELAY_FAILURES))
           // Reported rather than dropped. Silence here is the user talking into
           // a meeting that stopped receiving them, with nothing on screen saying
           // so.
