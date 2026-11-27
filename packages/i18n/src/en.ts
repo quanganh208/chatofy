@@ -1674,7 +1674,7 @@ export const en = {
   'extension.microphone.openFailed': 'Couldn’t open the microphone. Try again.',
   'extension.microphone.notFound': 'No microphone found. Plug one in, then try again.',
   'extension.microphone.inUse':
-    'The microphone is in use by another app or can’t start. Close that app, then try again.',
+    'Couldn’t start the microphone. Close other apps using it, then try again.',
   'extension.microphone.alreadyGranted': 'Chatofy already has your microphone. You’re all set.',
   // Around a chrome:// address, which stays as written.
   'extension.microphone.recoverBefore':

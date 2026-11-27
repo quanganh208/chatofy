@@ -1371,9 +1371,9 @@ export const vi: Messages = {
     'Đã cho phép dùng micro. Bạn có thể đóng tab này và bắt đầu dịch.',
   'extension.microphone.refused': 'Chrome đã chặn micro.',
   'extension.microphone.openFailed': 'Chưa mở được micro. Bạn thử lại nhé.',
-  'extension.microphone.notFound': 'Không tìm thấy micro nào. Bạn cắm micro vào rồi thử lại nhé.',
+  'extension.microphone.notFound': 'Không tìm thấy micro. Bạn cắm micro vào rồi thử lại nhé.',
   'extension.microphone.inUse':
-    'Micro đang được ứng dụng khác dùng hoặc chưa khởi động được. Bạn đóng ứng dụng đó rồi thử lại nhé.',
+    'Chưa khởi động được micro. Bạn đóng ứng dụng khác đang dùng micro rồi thử lại nhé.',
   'extension.microphone.alreadyGranted':
     'Chatofy đã có quyền dùng micro. Bạn không cần làm gì thêm.',
   'extension.microphone.recoverBefore':

@@ -1309,8 +1309,8 @@ export const zh: Messages = {
   'extension.microphone.granted': '麦克风已允许。你可以关掉这个标签页，开始翻译了。',
   'extension.microphone.refused': 'Chrome 阻止了麦克风。',
   'extension.microphone.openFailed': '没能打开麦克风，请重试。',
-  'extension.microphone.notFound': '没有找到麦克风。请接上麦克风后重试。',
-  'extension.microphone.inUse': '麦克风正被其他应用占用，或无法启动。请关闭那个应用后重试。',
+  'extension.microphone.notFound': '没找到麦克风，请接上后重试。',
+  'extension.microphone.inUse': '没能启动麦克风。请关闭正在使用麦克风的其他应用后重试。',
   'extension.microphone.alreadyGranted': 'Chatofy 已经可以使用你的麦克风，不用再做什么。',
   'extension.microphone.recoverBefore': 'Chrome 记住了之前的拒绝，不会再问。请把 ',
   'extension.microphone.recoverAfter':
