@@ -164,7 +164,7 @@ export const vi: Messages = {
   'common.realtime.busy': 'Dịch vụ dịch đang bận. Bạn thử lại sau giây lát nhé.',
   'common.realtime.languageUnavailable':
     'Ngôn ngữ này hiện chưa dùng được. Bạn chọn ngôn ngữ khác nhé.',
-  'common.realtime.outdated': 'Chatofy vừa có bản mới. Bạn tải lại trang để dịch tiếp nhé.',
+  'common.realtime.outdated': 'Chatofy vừa có bản mới. Bạn tải lại để dịch tiếp nhé.',
   'common.realtime.generic': 'Chatofy gặp sự cố khi dịch. Bạn thử lại nhé.',
 
   // ---- common.auth ----

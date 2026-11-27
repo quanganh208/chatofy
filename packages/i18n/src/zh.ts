@@ -159,7 +159,7 @@ export const zh: Messages = {
   'common.realtime.noSpeech': '没听到要翻译的内容，准备好了直接说就行。',
   'common.realtime.busy': '翻译服务正忙，请稍后再试。',
   'common.realtime.languageUnavailable': '这种语言暂时用不了，请换一种。',
-  'common.realtime.outdated': 'Chatofy 已更新，请刷新页面后继续翻译。',
+  'common.realtime.outdated': 'Chatofy 已更新，请刷新后继续翻译。',
   'common.realtime.generic': '翻译出了点问题，请重试。',
 
   // ---- common.auth: account-flow failures web and mobile both show ----
