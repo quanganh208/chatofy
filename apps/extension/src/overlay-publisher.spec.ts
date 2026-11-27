@@ -270,6 +270,18 @@ describe('OverlayPublisher', () => {
       expect(h.last()!.errors.relay).toBe('meeting tab lost');
     });
 
+    it('goes with the capture when a status says nothing is capturing', () => {
+      // A relay failure is about a running capture; it must not outlive it.
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.applyStatus({ capturing: true, outbound: 'sending', errors: {} } as never);
+      h.publisher.publishError('relay', 'meeting tab lost');
+
+      h.publisher.applyStatus({ capturing: false, outbound: 'off', errors: {} } as never);
+
+      expect(h.last()!.errors.relay).toBeUndefined();
+    });
+
     it('clears on clearError, keeping the other slots', () => {
       const h = harness();
       h.publisher.setTarget(1);

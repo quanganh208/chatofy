@@ -8,6 +8,7 @@ function harness(dictionary: Record<string, string> = en) {
   const logged: string[] = [];
   let banner: string | undefined;
   let clears = 0;
+  let capturing = true;
   const reporter = new RelayFailureReporter({
     publish: (message) => {
       banner = message;
@@ -18,6 +19,7 @@ function harness(dictionary: Record<string, string> = en) {
       clears += 1;
     },
     showing: () => banner,
+    capturing: () => capturing,
     translate: (key) => dictionary[key] as string,
     log: (detail) => logged.push(detail),
   });
@@ -27,11 +29,20 @@ function harness(dictionary: Record<string, string> = en) {
     logged,
     banner: () => banner,
     clears: () => clears,
-    /** Something else emptied the slot — a stop, a capture error, a new capture. */
-    wipe: () => {
+    /** A stop or a capture error: the publisher emptied the slot, the worker resets. */
+    stop: () => {
       banner = undefined;
-      reporter.reset();
+      capturing = false;
+      reporter.resetRelay();
     },
+    /** A new capture's first status. */
+    start: () => {
+      capturing = true;
+      reporter.refresh();
+    },
+    /** Apply the outbound setting the way `refreshSettingsHint` does. */
+    settle: (outbound: boolean, prepared: boolean) =>
+      reporter.settingsSettled(reporter.beginSettingsRun(), outbound, prepared),
   };
 }
 
@@ -71,7 +82,8 @@ describe('RelayFailureReporter', () => {
     const h = harness();
 
     h.reporter.relayFailed(UNREACHABLE, 'a');
-    h.wipe();
+    h.stop();
+    h.start();
     h.reporter.relayFailed(UNREACHABLE, 'a');
 
     expect(h.published).toHaveLength(2);
@@ -80,9 +92,10 @@ describe('RelayFailureReporter', () => {
   it('does not re-derive a wiped failure on the next unrelated change', () => {
     const h = harness();
     h.reporter.relayFailed(UNREACHABLE, 'a');
-    h.wipe();
+    h.stop();
+    h.start();
 
-    h.reporter.preparedPage(true);
+    h.settle(true, true);
 
     expect(h.banner()).toBeUndefined();
     expect(h.published).toHaveLength(1);
@@ -104,7 +117,7 @@ describe('RelayFailureReporter', () => {
 
       h.reporter.relayDelivered(h.reporter.nextSend());
       h.reporter.relayDelivered(h.reporter.nextSend());
-      h.reporter.preparedPage(true);
+      h.settle(true, true);
 
       expect(h.published).toHaveLength(0);
       expect(h.clears()).toBe(0);
@@ -150,7 +163,7 @@ describe('RelayFailureReporter', () => {
       const h = harness();
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
 
-      h.reporter.preparedPage(false);
+      h.settle(false, true);
 
       expect(h.banner()).toBeUndefined();
     });
@@ -159,9 +172,104 @@ describe('RelayFailureReporter', () => {
       const h = harness();
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
 
-      h.reporter.preparedPage(true);
+      h.settle(true, true);
 
       expect(h.banner()).toBe(en[UNREACHABLE]);
+    });
+  });
+
+  describe('capture lifecycle', () => {
+    it('shows nothing while no capture is running', () => {
+      const h = harness();
+      h.stop();
+
+      h.reporter.relayFailed(UNREACHABLE, 'a');
+      h.settle(true, false);
+
+      expect(h.published).toHaveLength(0);
+      expect(h.banner()).toBeUndefined();
+    });
+
+    it('keeps a prepare failure across a stop and shows it again in the next capture', () => {
+      // The failure belongs to the outbound setting, not to the capture it was
+      // first shown in.
+      const h = harness();
+      h.settle(true, false);
+      h.stop();
+      expect(h.banner()).toBeUndefined();
+
+      h.start();
+
+      expect(h.banner()).toBe(en['extension.error.preparePageFailed']);
+    });
+
+    it('drops a relay failure with the capture it belonged to', () => {
+      const h = harness();
+      h.reporter.relayFailed(UNREACHABLE, 'a');
+      h.stop();
+
+      h.start();
+
+      expect(h.banner()).toBeUndefined();
+    });
+
+    it('publishes nothing on a status that changes nothing', () => {
+      const h = harness();
+      h.reporter.relayFailed(UNREACHABLE, 'a');
+
+      h.reporter.refresh();
+      h.reporter.refresh();
+
+      expect(h.published).toHaveLength(1);
+      expect(h.clears()).toBe(0);
+    });
+  });
+
+  describe('settings runs', () => {
+    it('applies only the newest run when runs settle out of order', () => {
+      const h = harness();
+      const older = h.reporter.beginSettingsRun();
+      const newer = h.reporter.beginSettingsRun();
+
+      h.reporter.settingsSettled(newer, true, true);
+      h.reporter.settingsSettled(older, true, false);
+
+      expect(h.banner()).toBeUndefined();
+      expect(h.published).toHaveLength(0);
+    });
+
+    it('drops a failure from a send that was in flight when outbound went off', () => {
+      const h = harness();
+      const inFlight = h.reporter.nextSend();
+      h.settle(false, true);
+
+      h.reporter.relayFailed(UNREACHABLE, 'a', inFlight);
+
+      expect(h.banner()).toBeUndefined();
+    });
+
+    it('still reports a failure from a send made after outbound came back', () => {
+      const h = harness();
+      h.reporter.nextSend();
+      h.settle(false, true);
+      h.settle(true, true);
+
+      h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
+
+      expect(h.banner()).toBe(en[UNREACHABLE]);
+    });
+
+    it('clears both failures at once when outbound goes off and preparing succeeds', () => {
+      // One publish, not a relay banner surfacing between the two clears.
+      const h = harness();
+      h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
+      h.settle(true, false);
+
+      h.settle(false, true);
+
+      expect(h.banner()).toBeUndefined();
+      expect(h.published).toHaveLength(2);
+      expect(h.clears()).toBe(1);
     });
   });
 
@@ -169,7 +277,7 @@ describe('RelayFailureReporter', () => {
     it('logs nothing itself; the caller logs its own error', () => {
       const h = harness();
 
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
 
       expect(h.logged).toHaveLength(0);
       expect(h.published).toEqual([en['extension.error.preparePageFailed']]);
@@ -177,16 +285,16 @@ describe('RelayFailureReporter', () => {
 
     it('clears when preparing succeeds', () => {
       const h = harness();
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
 
-      h.reporter.preparedPage(true);
+      h.settle(true, true);
 
       expect(h.banner()).toBeUndefined();
     });
 
     it('takes precedence over a relay failure, without republishing', () => {
       const h = harness();
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
 
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
 
@@ -196,7 +304,7 @@ describe('RelayFailureReporter', () => {
 
     it('is not erased by a relay success while it is still true', () => {
       const h = harness();
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
 
       h.reporter.relayDelivered(h.reporter.nextSend());
@@ -209,7 +317,7 @@ describe('RelayFailureReporter', () => {
       // then takes precedence, and the relay recovering leaves it showing.
       const h = harness();
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
 
       h.reporter.relayDelivered(h.reporter.nextSend());
 
@@ -219,9 +327,9 @@ describe('RelayFailureReporter', () => {
     it('hands the slot back to a relay failure that is still true', () => {
       const h = harness();
       h.reporter.relayFailed(UNREACHABLE, 'a', h.reporter.nextSend());
-      h.reporter.preparePageFailed();
+      h.settle(true, false);
 
-      h.reporter.preparedPage(true);
+      h.settle(true, true);
 
       expect(h.banner()).toBe(en[UNREACHABLE]);
     });

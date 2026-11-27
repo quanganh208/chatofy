@@ -206,10 +206,11 @@ export class OverlayPublisher {
       // The offscreen document owns both leg errors and reports them
       // together, so they replace their own slots wholesale — that is how it
       // clears one on recovery. `capture` and `relay` are the worker's and
-      // survive untouched.
+      // survive — except that a relay failure is about a running capture, so
+      // a status saying nothing is capturing takes it down with the capture.
       errors: {
         capture: this.state.errors.capture,
-        relay: this.state.errors.relay,
+        relay: status.capturing ? this.state.errors.relay : undefined,
         ...status.errors,
       },
     });

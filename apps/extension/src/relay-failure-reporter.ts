@@ -14,6 +14,11 @@ export interface RelayFailureReporterDeps {
   /** What the `relay` slot shows right now, if anything. */
   showing: () => string | undefined;
   translate: (key: MessageKey) => string;
+  /**
+   * Whether a capture is running. The slot shows nothing while one is not: a
+   * stopped overlay has no microphone path to report on.
+   */
+  capturing: () => boolean;
   log?: (detail: string) => void;
 }
 
@@ -26,18 +31,24 @@ export interface RelayFailureReporterDeps {
  * letting either writer overwrite the other:
  *
  * - `prepareFailed` — the page could not be prepared for the patched microphone.
- *   Cleared only when preparing succeeds. Takes precedence: while it holds, no
- *   relayed frame can help, and a relay success must not erase it.
- * - `relayFailure` — a relayed command did not reach the meeting tab. Cleared when
- *   a later command gets through, or when preparing succeeds with outbound off —
- *   nothing is relayed then, so nothing would ever clear it otherwise.
+ *   A fact about the outbound SETTING, not about one capture, so it outlives a
+ *   stop and is cleared only when preparing succeeds. Takes precedence: while it
+ *   holds, no relayed frame can help, and a relay success must not erase it.
+ * - `relayFailure` — a relayed command did not reach the meeting tab. A fact about
+ *   one capture: cleared when a later command gets through, when outbound is
+ *   turned off (nothing is relayed then, so nothing else would ever clear it), and
+ *   when the capture ends ({@link resetRelay}).
+ *
+ * The text is derived only while a capture is running; otherwise the slot is
+ * empty. So a stop hides a prepare failure that is still true, and the next
+ * capture's first status brings it back through {@link refresh}.
  *
  * Every change recomputes the text and publishes only when it differs from what
  * the overlay shows NOW. Failures arrive at the rate audio is produced, so that
  * comparison is what keeps the banner from flickering and a healthy relay from
  * publishing per frame. Comparing against the overlay rather than a remembered
  * last publish matters too: a stop, a capture error or a new capture empties the
- * slot without telling this class — the worker calls {@link reset} beside each.
+ * slot without telling this class.
  *
  * Relayed sends settle out of order. Each one takes a sequence number from
  * {@link nextSend}, and a success clears the relay failure only when it was sent
@@ -52,6 +63,9 @@ export class RelayFailureReporter {
   private relayFailure: RelayFailureKey | undefined;
   private sendSeq = 0;
   private lastFailureSeq = 0;
+  /** The last send issued before outbound was turned off; its failures are stale. */
+  private offSeq = 0;
+  private settingsRun = 0;
   private readonly log: (detail: string) => void;
 
   constructor(private readonly deps: RelayFailureReporterDeps) {
@@ -69,9 +83,12 @@ export class RelayFailureReporter {
    *
    * `seq` is the send's number; a failure with no send behind it (no tab to send
    * to) takes a fresh one, which orders it after every send already in flight.
-   * `detail` is logged only when the failure is news.
+   * `detail` is logged only when the failure is news. Dropped when the send
+   * started before outbound was last turned off: it was in flight then, and
+   * would otherwise bring back a banner nothing could clear.
    */
   relayFailed(key: RelayFailureKey, detail: string, seq: number = this.nextSend()): void {
+    if (seq <= this.offSeq) return;
     this.lastFailureSeq = Math.max(this.lastFailureSeq, seq);
     if (this.relayFailure !== key) this.log(detail);
     this.relayFailure = key;
@@ -85,29 +102,55 @@ export class RelayFailureReporter {
     this.sync();
   }
 
-  /** The page could not be prepared. The caller logs its own error object. */
-  preparePageFailed(): void {
-    this.prepareFailed = true;
+  /**
+   * A number for one run of applying the outbound setting to the pages.
+   *
+   * Runs overlap — every storage write starts one — and settle out of order, so
+   * only the newest run's outcome is applied; an older one describes a setting
+   * that is no longer current.
+   */
+  beginSettingsRun(): number {
+    this.settingsRun += 1;
+    return this.settingsRun;
+  }
+
+  /**
+   * A settings run finished: the pages were prepared for `outbound`, or not.
+   *
+   * With outbound off nothing is relayed any more, so no relay failure is true —
+   * including one from a send still in flight, which {@link relayFailed} then
+   * drops. The caller logs its own error object when preparing failed.
+   */
+  settingsSettled(run: number, outbound: boolean, prepared: boolean): void {
+    if (run !== this.settingsRun) return;
+    if (!outbound) {
+      this.offSeq = this.sendSeq;
+      this.relayFailure = undefined;
+    }
+    this.prepareFailed = !prepared;
     this.sync();
   }
 
-  /** Preparing succeeded; with outbound off, nothing is relayed any more either. */
-  preparedPage(outbound: boolean): void {
-    this.prepareFailed = false;
-    if (!outbound) this.relayFailure = undefined;
-    this.sync();
-  }
-
-  /** Forget both facts, beside a publish that empties the slot. Publishes nothing. */
-  reset(): void {
-    this.prepareFailed = false;
+  /**
+   * The capture ended, or a new one is starting, and the slot was emptied with
+   * it. Forgets the relay failure only: the prepare failure belongs to the
+   * setting and stays. Publishes nothing.
+   */
+  resetRelay(): void {
     this.relayFailure = undefined;
   }
 
+  /** Re-derive the slot after the capture state changed. Publishes only a difference. */
+  refresh(): void {
+    this.sync();
+  }
+
   private sync(): void {
-    const key: MessageKey | undefined = this.prepareFailed
-      ? 'extension.error.preparePageFailed'
-      : this.relayFailure;
+    const key: MessageKey | undefined = !this.deps.capturing()
+      ? undefined
+      : this.prepareFailed
+        ? 'extension.error.preparePageFailed'
+        : this.relayFailure;
     const message = key === undefined ? undefined : this.deps.translate(key);
     if (this.deps.showing() === message) return;
     if (message === undefined) this.deps.clear();
