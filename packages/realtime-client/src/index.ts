@@ -21,8 +21,15 @@ export type {
   ConversationRuntimeOptions,
   ConversationSessionDeps,
   ConversationSessionListeners,
-  ServerErrorCause,
 } from './conversation/conversation-session.js';
+// Every failure reported through `onError` carries a stable code; the message is
+// English for logs. Apps map the code to their own copy.
+export {
+  REALTIME_CLIENT_ERROR_CODES,
+  RealtimeClientError,
+  type RealtimeClientErrorCode,
+  type RealtimeErrorCause,
+} from './realtime-error.js';
 export type { ConversationStatus } from './conversation/conversation-status.js';
 // What a pause records, and the one rule that reads it: a turn's offset and the
 // conversation's duration both leave out the paused time before the instant
