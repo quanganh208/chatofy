@@ -297,6 +297,15 @@ export const en = {
   'web.auth.unexpectedResponse': 'Unexpected response from the server.',
   'web.auth.accountRequired':
     'Translating needs an account — every session and transcript belongs to one.',
+  'web.auth.showPassword': 'Show password',
+  'web.auth.hidePassword': 'Hide password',
+  'web.auth.passwordRequirement': 'At least {min} characters',
+  'web.auth.panelTagline': 'Talk across languages, live.',
+  'web.auth.panelBenefitLive': 'Hear each other in real time — Vietnamese, English and Chinese.',
+  'web.auth.panelBenefitTranscript':
+    'Every conversation is kept as a transcript you can read back.',
+  'web.auth.panelBenefitMeetings':
+    'Translated video meetings, and captions inside Meet, Zoom and Facebook calls.',
   'web.auth.orContinueWithEmail': 'or continue with email',
   'web.auth.continueWithGoogle': 'Continue with Google',
   'web.auth.credentialsRejected': 'That email and password did not match an account.',

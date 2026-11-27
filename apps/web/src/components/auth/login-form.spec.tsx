@@ -103,9 +103,9 @@ describe('LoginForm', () => {
     expect(inputById('password').required).toBe(true);
     expect(inputById('password').autocomplete).toBe('current-password');
 
-    // Both are the shared primitive now, not a hand-rolled class string.
-    expect(inputById('email').dataset.slot).toBe('input');
-    expect(inputById('password').dataset.slot).toBe('input');
+    // Both are the shared primitive's control, not a hand-rolled class string.
+    expect(inputById('email').dataset.slot).toBe('input-group-control');
+    expect(inputById('password').dataset.slot).toBe('input-group-control');
   });
 
   it('says the same thing whether the email is unknown or the password is wrong', async () => {

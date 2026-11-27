@@ -141,8 +141,14 @@ describe('RegisterForm', () => {
 
     for (const id of ['register-name', 'register-email', 'register-password']) {
       expect(inputById(id).getAttribute('aria-invalid'), id).toBe('true');
-      expect(inputById(id).getAttribute('aria-describedby'), id).toBe('register-error');
+      // The error comes first; the password field also keeps its requirement line.
+      expect(inputById(id).getAttribute('aria-describedby')?.split(' ')[0], id).toBe(
+        'register-error',
+      );
     }
+    expect(inputById('register-password').getAttribute('aria-describedby')).toBe(
+      'register-error register-password-requirement',
+    );
     expect(container.querySelector('#register-error')).not.toBeNull();
   });
 

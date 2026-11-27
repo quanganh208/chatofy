@@ -29,6 +29,12 @@ describe('44px touch targets', () => {
     expect(read('input.tsx')).toContain('pointer-coarse:h-11');
   });
 
+  it('Input group grows under a touch pointer, and so does its button', () => {
+    const src = read('input-group.tsx');
+    expect(src).toContain('pointer-coarse:h-11');
+    expect(src).toContain('pointer-coarse:size-11');
+  });
+
   it('Select trigger grows under a touch pointer, in both sizes', () => {
     const src = read('select.tsx');
     expect(src).toContain('pointer-coarse:data-[size=default]:h-11');
