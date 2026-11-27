@@ -632,7 +632,7 @@ export const zh: Messages = {
   'web.preferences.aiContext.descriptionHint':
     '几个词就够，比如“酒店入住”或“心内科问诊”。一句话有多种理解时，它能帮翻译选对意思。',
   'web.preferences.aiContext.keywords': '可能出现的名字和术语',
-  'web.preferences.aiContext.keywordsHint': '人名、地名、行话、产品名，这些词最容易听错。',
+  'web.preferences.aiContext.keywordsHint': '专有名词、行话、产品名，这些词最容易听错。',
   'web.preferences.aiContext.keywordTooLong':
     '有一行太长了。每行最多 {max} 个字符，请缩短或删掉这一行。',
   'web.preferences.aiContext.keywordsTooMany':
@@ -1067,7 +1067,7 @@ export const zh: Messages = {
   'web.team.leaveConfirmBody': '你将无法再使用团队的术语表和 AI 语境。你创建的内容会留在团队里。',
   'web.team.loadFailed': '没能加载这个团队，请重试。',
   'web.team.retry': '重试',
-  'web.team.actionFailed': '操作没成功，请检查网络后重试。',
+  'web.team.actionFailed': '操作没成功，请重试。',
   'web.team.tabDescriptionPersonal': '创建团队，或打开你所在的团队。团队成员共享术语表和 AI 语境。',
   'web.team.tabDescriptionTeam': '管理这个团队的成员、邀请和名称。',
   'web.team.headerSubline': '{role} · {count} / {max} 位成员',
@@ -1206,10 +1206,10 @@ export const zh: Messages = {
   'extension.menu.stop': 'Chatofy：停止翻译',
 
   'extension.consent.title': '开始之前',
-  'extension.consent.recordsAudio': '这会录下会议的声音。',
+  'extension.consent.recordsAudio': '这会录下通话的声音。',
   'extension.consent.whereAudioGoes':
-    '这个标签页里说的每句话都会发到你的 Chatofy 服务器来翻译。会议里的其他人不会在自己的 App 里收到任何提示。',
-  'extension.consent.loudspeaker': '如果用外放播放译文，麦克风会把它收进去，会议里的人也会听到。',
+    '这个标签页里说的每句话都会发到你的 Chatofy 服务器，转成文字并翻译。通话里的其他人不会在自己的 App 里收到任何提示。',
+  'extension.consent.loudspeaker': '如果用外放播放译文，麦克风会把它收进去，通话里的人也会听到。',
   'extension.consent.acknowledge': '我知道了',
 
   'extension.capture.recording': '录制中',
@@ -1235,7 +1235,7 @@ export const zh: Messages = {
     'Chrome 还没允许 Chatofy 使用你的麦克风。没有麦克风，你说的话就无法翻译。',
   'extension.settings.allowMicrophone': '允许使用麦克风',
   'extension.settings.audioProcessing': '音频处理',
-  'extension.settings.echoCancellationDetail': '去掉麦克风收进的会议声音。',
+  'extension.settings.echoCancellationDetail': '去掉麦克风收进的通话声音。',
   'extension.settings.noiseSuppressionDetail': '过滤麦克风里持续的背景噪音。',
   'extension.settings.autoGainControlDetail': '说话时让麦克风音量保持平稳。',
   'extension.settings.appearance': '外观',
@@ -1263,19 +1263,19 @@ export const zh: Messages = {
   'extension.status.noTab': '没有可录制的标签页。',
   'extension.status.capturing': '正在录制这个标签页。',
   'extension.status.capturingForYou': '正在录制这个标签页。你说的话只翻译给你自己听。',
-  'extension.status.capturingIntoMeeting': '正在录制这个标签页，并把你说的话翻译到会议里。',
-  'extension.status.meetingAudioError': '会议声音：{error}',
+  'extension.status.capturingIntoMeeting': '正在录制这个标签页，并把你说的话翻译到通话里。',
+  'extension.status.meetingAudioError': '通话声音：{error}',
   'extension.status.microphoneError': '你的麦克风：{error}',
 
-  'extension.support.noTab': '请先打开会议标签页。',
-  'extension.support.notMeeting': '这个标签页不是会议。',
+  'extension.support.noTab': '请先打开通话标签页。',
+  'extension.support.notMeeting': '这个标签页里没有通话。',
   'extension.support.zoomDesktop':
     '这看起来是 Zoom，但不是网页版。Zoom 桌面应用不是浏览器标签页，Chatofy 录不到它的声音。请改用“Join from your browser”加入。',
 
   'extension.error.unreachable': '连不上 {origin}，请检查网络后重试。',
   'extension.error.signInFailed': '没能登录（HTTP {status}），请重试。',
   'extension.error.signInFirst': '请先在 Chatofy 弹出窗口里登录',
-  'extension.error.tabClosed': '会议标签页已刷新或关闭，请在这个标签页上重新启动 Chatofy。',
+  'extension.error.tabClosed': '通话标签页已刷新或关闭，请在这个标签页上重新启动 Chatofy。',
   'extension.error.microphoneFailed': '没能翻译你说的话，请重试。',
   'extension.error.captureFailed': '没能开始翻译，请重试。',
   'extension.error.tabCaptureFailed': '没能翻译这个标签页，请重试。',
@@ -1290,7 +1290,7 @@ export const zh: Messages = {
   'extension.microphone.title': 'Chatofy 需要使用你的麦克风',
   'extension.microphone.whyBefore': '有了麦克风，Chatofy 才能把',
   'extension.microphone.whyEmphasis': '你说的话',
-  'extension.microphone.whyAfter': '翻译到会议里。翻译别人说的话不需要麦克风。',
+  'extension.microphone.whyAfter': '翻译到通话里。翻译别人说的话不需要麦克风。',
   'extension.microphone.askOnce':
     'Chrome 只问一次，你的选择对 Chatofy 一直有效，不限于某一次通话。只有在翻译时才会打开麦克风。',
   'extension.microphone.granted': '麦克风已允许。你可以关掉这个标签页，开始翻译了。',
@@ -1302,7 +1302,7 @@ export const zh: Messages = {
   'extension.microphone.recoverAfter':
     ' 粘贴到地址栏，在已屏蔽列表里找到 Chatofy 并移除，然后重新打开这个页面。',
 
-  'extension.overlay.capturingIndicator': 'Chatofy 正在录制这场会议的声音',
+  'extension.overlay.capturingIndicator': 'Chatofy 正在录制这次通话的声音',
   'extension.overlay.collapse': '收起',
   'extension.overlay.collapseLabel': '收起 Chatofy',
   'extension.overlay.languagePair': '翻译',
@@ -1310,18 +1310,18 @@ export const zh: Messages = {
   'extension.overlay.voice': '音色',
   'extension.overlay.voiceFemale': '女声',
   'extension.overlay.voiceMale': '男声',
-  'extension.overlay.pillLive': 'Chatofy 正在录制这场会议的声音，打开可停止',
+  'extension.overlay.pillLive': 'Chatofy 正在录制这次通话的声音，打开可停止',
   'extension.overlay.pillIdle': '打开 Chatofy',
   'extension.overlay.firstTimeShortcut': '第一次用：按 {shortcut}，或右键 → Chatofy',
   'extension.overlay.firstTimeMenu': '第一次用：右键 → Chatofy',
   'extension.overlay.listening': '正在听…',
   'extension.overlay.notCapturing': '未在翻译',
   'extension.overlay.you': '你',
-  'extension.overlay.outboundSending': '你说的话正在翻译到会议里。',
-  'extension.overlay.outboundMuted': '你在会议里已静音，你说的话不会录制，也不会翻译。',
+  'extension.overlay.outboundSending': '你说的话正在翻译到通话里。',
+  'extension.overlay.outboundMuted': '你在通话里已静音，你说的话不会录制，也不会翻译。',
   'extension.overlay.outboundUnpatchedShortcut':
-    '你说的话只翻译给你自己听。要发到会议里，请刷新这个页面，再按 {shortcut} 重新开始。',
+    '你说的话只翻译给你自己听。要发到通话里，请刷新这个页面，再按 {shortcut} 重新开始。',
   'extension.overlay.outboundUnpatchedMenu':
-    '你说的话只翻译给你自己听。要发到会议里，请刷新这个页面，再右键 → Chatofy 重新开始。',
+    '你说的话只翻译给你自己听。要发到通话里，请刷新这个页面，再右键 → Chatofy 重新开始。',
   'extension.overlay.outboundForYou': '你说的话只翻译给你自己听，别人听到的是你的原声。',
 };

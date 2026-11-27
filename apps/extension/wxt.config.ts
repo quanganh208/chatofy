@@ -10,6 +10,9 @@ import { en, vi, zh, type MessageKey, type Messages } from '@chatofy/i18n';
  * Generated from `@chatofy/i18n` at build time rather than kept as JSON under
  * `public/`, so the store listing and the extension's UI are written in one place.
  * Chrome names Simplified Chinese `zh_CN`; a bare `zh` folder is not a locale it reads.
+ * `zh_TW` carries the same dictionary: the UI maps every `zh-*` browser to `zh`
+ * (`src/i18n.ts`), and without its own folder Chrome would fall back to the English
+ * manifest under a Chinese popup.
  */
 const MANIFEST_MESSAGES = {
   extensionName: 'extension.manifest.name',
@@ -17,7 +20,7 @@ const MANIFEST_MESSAGES = {
   toggleCommand: 'extension.manifest.toggleCommand',
 } as const satisfies Record<string, MessageKey>;
 
-const CHROME_LOCALES: Record<string, Messages> = { en, vi, zh_CN: zh };
+const CHROME_LOCALES: Record<string, Messages> = { en, vi, zh_CN: zh, zh_TW: zh };
 
 function manifestMessages(messages: Messages): string {
   const entries = Object.entries(MANIFEST_MESSAGES).map(([name, key]) => [

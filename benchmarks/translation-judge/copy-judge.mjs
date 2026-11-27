@@ -18,8 +18,12 @@
 // Extra items: a JSON array of { id, locale, oldEn, newEn, text } — used for
 // strings that live outside the dictionaries (emails).
 //
-// The spend cap is enforced on a live counter across every batch of the run,
-// and the counter is seeded from the cost already recorded in <dir>.
+// The spend cap is checked on a live counter before every batch of the run, and
+// the counter is seeded from the cost already recorded in <dir>. A batch is
+// skipped when the spend so far plus the previous batch's cost would pass the
+// cap, so a run stops a batch early rather than a batch late. The previous cost
+// is the last one in <dir>'s ledger, so only the very first batch into an empty
+// <dir> runs without an estimate.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -162,9 +166,12 @@ async function main() {
   const ledger = join(out, 'judgements.jsonl');
 
   let spent = 0;
+  // What the next batch is expected to cost: the last batch's actual cost.
+  let lastCost = 0;
   if (existsSync(ledger)) {
     for (const line of readFileSync(ledger, 'utf8').split('\n').filter(Boolean)) {
-      spent += JSON.parse(line).costUsd ?? 0;
+      lastCost = JSON.parse(line).costUsd ?? 0;
+      spent += lastCost;
     }
   }
 
@@ -204,8 +211,10 @@ async function main() {
   for (const locale of locales) {
     const mine = items.filter((it) => it.locale === locale);
     for (let i = 0; i < mine.length; i += BATCH) {
-      if (spent >= cap) {
-        console.error(`stopped: spend $${spent.toFixed(2)} reached the $${cap} cap`);
+      if (spent + lastCost > cap) {
+        console.error(
+          `stopped: spend $${spent.toFixed(2)} plus the last batch's $${lastCost.toFixed(2)} would pass the $${cap} cap`,
+        );
         process.exitCode = 2;
         return finish(out, scores, spent);
       }
@@ -224,6 +233,7 @@ async function main() {
       if (response.stop_reason === 'max_tokens') throw new Error('judge hit max_tokens');
       const cost = costOf(MODEL, response.usage);
       spent += cost;
+      lastCost = cost;
       const text = response.content
         .filter((b) => b.type === 'text')
         .map((b) => b.text)

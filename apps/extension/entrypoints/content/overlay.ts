@@ -7,7 +7,7 @@ import {
   type VoiceGender,
 } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
-import { t } from '../../src/i18n';
+import { intlLocale, t } from '../../src/i18n';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
@@ -262,6 +262,11 @@ export class Overlay {
 
     this.container = document.createElement('div');
     this.container.className = 'root';
+    // The overlay speaks the extension's language, not the page's: without its own
+    // `lang` a screen reader voices Vietnamese lines with the page's voice and CJK
+    // text takes the page's glyph choice. Set here rather than on the host, which
+    // sits in the page's DOM where an attribute is something the site can query.
+    this.container.lang = intlLocale;
 
     // The collapsed surface. A button rather than a styled div so it is reachable
     // by keyboard on a page whose own tab order we do not control.

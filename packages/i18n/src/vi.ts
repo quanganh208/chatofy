@@ -648,7 +648,7 @@ export const vi: Messages = {
     'Vài chữ thôi, như “nhận phòng khách sạn” hay “khám tim mạch”. Nhờ vậy Chatofy chọn đúng nghĩa khi một câu có thể hiểu theo hai cách.',
   'web.preferences.aiContext.keywords': 'Tên riêng và thuật ngữ sẽ nhắc tới',
   'web.preferences.aiContext.keywordsHint':
-    'Tên người, tên địa danh, thuật ngữ chuyên ngành, tên sản phẩm. Đây là những từ dễ bị nghe nhầm nhất.',
+    'Tên riêng, thuật ngữ chuyên ngành, tên sản phẩm. Đây là những từ dễ bị nghe nhầm nhất.',
   'web.preferences.aiContext.keywordTooLong':
     'Có một dòng dài quá. Bạn rút gọn còn tối đa {max} ký tự, hoặc xoá dòng đó đi nhé.',
   'web.preferences.aiContext.keywordsTooMany':
@@ -1114,7 +1114,7 @@ export const vi: Messages = {
     'Bạn sẽ không dùng được bảng thuật ngữ và Ngữ cảnh AI của nhóm nữa. Những gì bạn đã tạo vẫn ở lại trong nhóm.',
   'web.team.loadFailed': 'Chưa tải được nhóm này. Bạn thử lại nhé.',
   'web.team.retry': 'Thử lại',
-  'web.team.actionFailed': 'Chưa thực hiện được. Bạn kiểm tra kết nối rồi thử lại nhé.',
+  'web.team.actionFailed': 'Chưa thực hiện được. Bạn thử lại nhé.',
   'web.team.tabDescriptionPersonal':
     'Tạo nhóm hoặc mở nhóm bạn đang tham gia. Nhóm dùng chung bảng thuật ngữ và Ngữ cảnh AI.',
   'web.team.tabDescriptionTeam': 'Quản lý nhóm này: thành viên, lời mời và tên nhóm.',
@@ -1258,11 +1258,11 @@ export const vi: Messages = {
   'extension.menu.stop': 'Chatofy: dừng dịch',
 
   'extension.consent.title': 'Trước khi bắt đầu',
-  'extension.consent.recordsAudio': 'Chatofy sẽ ghi âm cuộc họp.',
+  'extension.consent.recordsAudio': 'Chatofy sẽ ghi âm cuộc gọi.',
   'extension.consent.whereAudioGoes':
-    'Chatofy gửi mọi lời nói trong tab này tới máy chủ Chatofy của bạn để dịch. Ứng dụng họp của người khác sẽ không báo cho họ biết.',
+    'Chatofy gửi mọi lời nói trong tab này tới máy chủ Chatofy của bạn để chuyển thành chữ và dịch. Người khác trong cuộc gọi sẽ không nhận được thông báo nào từ ứng dụng của họ.',
   'extension.consent.loudspeaker':
-    'Nếu bản dịch phát qua loa ngoài, micro của bạn sẽ thu lại và cả cuộc họp cũng nghe thấy.',
+    'Nếu bản dịch phát qua loa ngoài, micro của bạn sẽ thu lại và mọi người trong cuộc gọi cũng nghe thấy.',
   'extension.consent.acknowledge': 'Tôi đã hiểu',
 
   'extension.capture.recording': 'Đang ghi',
@@ -1288,7 +1288,7 @@ export const vi: Messages = {
     'Chrome chưa cho Chatofy dùng micro. Chưa có micro thì lời bạn nói sẽ không được dịch.',
   'extension.settings.allowMicrophone': 'Cho phép dùng micro',
   'extension.settings.audioProcessing': 'Xử lý âm thanh',
-  'extension.settings.echoCancellationDetail': 'Bỏ tiếng cuộc họp lọt vào micro của bạn.',
+  'extension.settings.echoCancellationDetail': 'Bỏ tiếng cuộc gọi lọt vào micro của bạn.',
   'extension.settings.noiseSuppressionDetail': 'Lọc tiếng ồn nền đều đều khỏi micro.',
   'extension.settings.autoGainControlDetail': 'Giữ âm lượng micro đều khi bạn nói.',
   'extension.settings.appearance': 'Giao diện',
@@ -1318,12 +1318,12 @@ export const vi: Messages = {
   'extension.status.noTab': 'Không có tab nào để thu.',
   'extension.status.capturing': 'Đang thu tab này.',
   'extension.status.capturingForYou': 'Đang thu tab này. Lời bạn nói chỉ dịch cho riêng bạn.',
-  'extension.status.capturingIntoMeeting': 'Đang thu tab này và dịch lời bạn nói vào cuộc họp.',
-  'extension.status.meetingAudioError': 'Âm thanh cuộc họp: {error}',
+  'extension.status.capturingIntoMeeting': 'Đang thu tab này và dịch lời bạn nói vào cuộc gọi.',
+  'extension.status.meetingAudioError': 'Âm thanh cuộc gọi: {error}',
   'extension.status.microphoneError': 'Micro của bạn: {error}',
 
-  'extension.support.noTab': 'Bạn mở tab cuộc họp trước nhé.',
-  'extension.support.notMeeting': 'Tab này không phải cuộc họp.',
+  'extension.support.noTab': 'Bạn mở tab cuộc gọi trước nhé.',
+  'extension.support.notMeeting': 'Tab này không phải cuộc gọi.',
   'extension.support.zoomDesktop':
     'Đây có vẻ là Zoom nhưng không phải bản web. Ứng dụng Zoom trên máy tính không phải tab trình duyệt nên Chatofy không thu được âm thanh. Bạn chọn “Join from your browser” nhé.',
 
@@ -1332,7 +1332,7 @@ export const vi: Messages = {
   'extension.error.signInFailed': 'Chưa đăng nhập được (HTTP {status}). Bạn thử lại nhé.',
   'extension.error.signInFirst': 'Bạn đăng nhập trong cửa sổ Chatofy trước nhé',
   'extension.error.tabClosed':
-    'Tab cuộc họp đã tải lại hoặc đã đóng. Bạn bật lại Chatofy trên tab đó nhé.',
+    'Tab cuộc gọi đã tải lại hoặc đã đóng. Bạn bật lại Chatofy trên tab đó nhé.',
   'extension.error.microphoneFailed': 'Chưa dịch được lời bạn nói. Bạn thử lại nhé.',
   'extension.error.captureFailed': 'Chưa bắt đầu dịch được. Bạn thử lại nhé.',
   'extension.error.tabCaptureFailed': 'Chưa dịch được tab này. Bạn thử lại nhé.',
@@ -1349,9 +1349,9 @@ export const vi: Messages = {
   'extension.microphone.title': 'Chatofy cần dùng micro của bạn',
   'extension.microphone.whyBefore': 'Có micro, Chatofy mới dịch được ',
   'extension.microphone.whyEmphasis': 'lời bạn nói',
-  'extension.microphone.whyAfter': ' vào cuộc họp. Dịch lời người khác thì không cần micro.',
+  'extension.microphone.whyAfter': ' vào cuộc gọi. Dịch lời người khác thì không cần micro.',
   'extension.microphone.askOnce':
-    'Chrome chỉ hỏi một lần và nhớ câu trả lời cho Chatofy, không riêng cuộc họp nào. Micro chỉ bật khi đang thu.',
+    'Chrome chỉ hỏi một lần và nhớ câu trả lời cho Chatofy, không riêng cuộc gọi nào. Micro chỉ bật khi đang thu.',
   'extension.microphone.granted':
     'Đã cho phép dùng micro. Bạn có thể đóng tab này và bắt đầu dịch.',
   'extension.microphone.refused': 'Chrome đã chặn micro.',
@@ -1364,7 +1364,7 @@ export const vi: Messages = {
   'extension.microphone.recoverAfter':
     ' vào thanh địa chỉ, tìm Chatofy trong danh sách bị chặn và xoá đi. Sau đó mở lại trang này.',
 
-  'extension.overlay.capturingIndicator': 'Chatofy đang thu âm thanh cuộc họp này',
+  'extension.overlay.capturingIndicator': 'Chatofy đang thu âm thanh cuộc gọi này',
   'extension.overlay.collapse': 'Thu gọn',
   'extension.overlay.collapseLabel': 'Thu gọn Chatofy',
   'extension.overlay.languagePair': 'Dịch',
@@ -1372,7 +1372,7 @@ export const vi: Messages = {
   'extension.overlay.voice': 'Giọng đọc',
   'extension.overlay.voiceFemale': 'Giọng nữ',
   'extension.overlay.voiceMale': 'Giọng nam',
-  'extension.overlay.pillLive': 'Chatofy đang thu âm thanh cuộc họp này. Mở ra để dừng',
+  'extension.overlay.pillLive': 'Chatofy đang thu âm thanh cuộc gọi này. Mở ra để dừng',
   'extension.overlay.pillIdle': 'Mở Chatofy',
   'extension.overlay.firstTimeShortcut':
     'Lần đầu dùng: nhấn {shortcut}, hoặc nhấp chuột phải → Chatofy',
@@ -1380,13 +1380,13 @@ export const vi: Messages = {
   'extension.overlay.listening': 'Đang nghe…',
   'extension.overlay.notCapturing': 'Chưa dịch',
   'extension.overlay.you': 'Bạn',
-  'extension.overlay.outboundSending': 'Đang dịch lời bạn nói vào cuộc họp.',
+  'extension.overlay.outboundSending': 'Đang dịch lời bạn nói vào cuộc gọi.',
   'extension.overlay.outboundMuted':
-    'Bạn đang tắt micro trong cuộc họp, nên Chatofy không thu và không dịch lời bạn nói.',
+    'Bạn đang tắt micro trong cuộc gọi, nên Chatofy không thu và không dịch lời bạn nói.',
   'extension.overlay.outboundUnpatchedShortcut':
-    'Lời bạn nói chỉ dịch cho riêng bạn. Muốn gửi vào cuộc họp, bạn tải lại trang này rồi nhấn {shortcut} để bắt đầu lại.',
+    'Lời bạn nói chỉ dịch cho riêng bạn. Muốn gửi vào cuộc gọi, bạn tải lại trang này rồi nhấn {shortcut} để bắt đầu lại.',
   'extension.overlay.outboundUnpatchedMenu':
-    'Lời bạn nói chỉ dịch cho riêng bạn. Muốn gửi vào cuộc họp, bạn tải lại trang này rồi nhấp chuột phải → Chatofy để bắt đầu lại.',
+    'Lời bạn nói chỉ dịch cho riêng bạn. Muốn gửi vào cuộc gọi, bạn tải lại trang này rồi nhấp chuột phải → Chatofy để bắt đầu lại.',
   'extension.overlay.outboundForYou':
     'Lời bạn nói chỉ dịch cho riêng bạn. Người khác vẫn nghe giọng thật của bạn.',
 };

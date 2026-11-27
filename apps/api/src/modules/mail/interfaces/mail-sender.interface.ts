@@ -312,14 +312,14 @@ const MAIL_CHROME: Record<Locale, MailChrome> = {
     fallback: 'Button not working? Paste this link into your browser:',
     footer: [
       'Chatofy — real-time speech translation.',
-      'You’re getting this email because someone used this address on Chatofy.',
+      'You’re getting this email because someone used this email on Chatofy.',
     ],
   },
   vi: {
     fallback: 'Nút không bấm được? Dán liên kết này vào trình duyệt:',
     footer: [
       'Chatofy: dịch giọng nói theo thời gian thực.',
-      'Bạn nhận email này vì có người đã dùng địa chỉ này trên Chatofy.',
+      'Bạn nhận được thư này vì có người đã dùng email này trên Chatofy.',
     ],
   },
   zh: {

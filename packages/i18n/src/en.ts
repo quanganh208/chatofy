@@ -173,7 +173,7 @@ export const en = {
   'common.billing.planFree': 'Free',
   'common.billing.planPro': 'Pro',
   'common.billing.proSourcePolar': 'Card subscription, renews automatically',
-  'common.billing.proSourceSepay': 'VietQR pass, ends {date}',
+  'common.billing.proSourceSepay': '30-day VietQR pass, ends {date}',
   'common.billing.loadFailed': 'Couldn’t load your credits. Try again.',
   // Turn refused at start: the balance is under one credit.
   'common.billing.startRefused': 'You need at least 1 credit to start translating.',
@@ -806,7 +806,7 @@ export const en = {
     'A few words, like “hotel check-in” or “cardiology consultation”. It helps the translator pick the right meaning when a sentence could go either way.',
   'web.preferences.aiContext.keywords': 'Names and terms to expect',
   'web.preferences.aiContext.keywordsHint':
-    'Names of people and places, jargon, product names. These are the words most often misheard.',
+    'Names, jargon and product names. These are the words most often misheard.',
   'web.preferences.aiContext.keywordTooLong':
     'One line is too long. Keep each line to {max} characters, or remove it.',
   'web.preferences.aiContext.keywordsTooMany':
@@ -1373,7 +1373,7 @@ export const en = {
     'You lose access to its glossaries and AI Contexts. What you created stays in the team.',
   'web.team.loadFailed': 'Couldn’t load this team. Try again.',
   'web.team.retry': 'Try again',
-  'web.team.actionFailed': 'That didn’t go through. Check your connection and try again.',
+  'web.team.actionFailed': 'That didn’t go through. Try again.',
   'web.team.tabDescriptionPersonal':
     'Create a team or open one you’re in. A team shares its glossaries and AI Contexts.',
   'web.team.tabDescriptionTeam': 'Manage this team: its members, invites and name.',
@@ -1533,17 +1533,17 @@ export const en = {
   'extension.manifest.description':
     'Translates your browser calls both ways: what others say, and what you say.',
   'extension.manifest.toggleCommand': 'Start or stop Chatofy in this call’s tab',
-  // The right-click menu item on a meeting page.
+  // The right-click menu item on a call page.
   'extension.menu.start': 'Chatofy: start translating',
   'extension.menu.stop': 'Chatofy: stop translating',
 
   // The recording notice, shown once before anything else in the popup.
   'extension.consent.title': 'Before you start',
-  'extension.consent.recordsAudio': 'This records the meeting’s audio.',
+  'extension.consent.recordsAudio': 'This records the call’s audio.',
   'extension.consent.whereAudioGoes':
-    'Everything said in this tab is sent to your Chatofy server to be translated. Other people in the meeting aren’t told by their own app.',
+    'Everything said in this tab is sent to your Chatofy server, turned into text and translated. Other people on the call aren’t told by their own app.',
   'extension.consent.loudspeaker':
-    'If the translation plays through a loudspeaker, your microphone picks it up and the meeting hears it too.',
+    'If the translation plays through a loudspeaker, your microphone picks it up and everyone on the call hears it too.',
   'extension.consent.acknowledge': 'I understand',
 
   // The popup header's capture state, and the primary action.
@@ -1572,8 +1572,7 @@ export const en = {
     'Chrome hasn’t given Chatofy your microphone yet. Without it, nothing you say gets translated.',
   'extension.settings.allowMicrophone': 'Allow microphone',
   'extension.settings.audioProcessing': 'Audio processing',
-  'extension.settings.echoCancellationDetail':
-    'Removes the meeting audio your microphone picks up.',
+  'extension.settings.echoCancellationDetail': 'Removes the call audio your microphone picks up.',
   'extension.settings.noiseSuppressionDetail':
     'Filters steady background noise from your microphone.',
   'extension.settings.autoGainControlDetail': 'Evens out your microphone volume as you speak.',
@@ -1596,7 +1595,7 @@ export const en = {
   'extension.credits.usageLoadFailed': 'Couldn’t load your usage (HTTP {status}). Try again.',
   'extension.credits.unreadable': 'Couldn’t load your credits. Try again.',
   'extension.credits.usageUnreadable': 'Couldn’t load your usage. Try again.',
-  // Mid-meeting: unlike web, there is no history page to point at.
+  // Mid-call: unlike web, there is no history page to point at.
   'extension.credits.exhausted':
     'Your credits ran out, so translation stopped. Buy more on the Chatofy website.',
   'extension.credits.lowUnknown':
@@ -1610,14 +1609,14 @@ export const en = {
   'extension.status.capturing': 'Capturing this tab.',
   'extension.status.capturingForYou': 'Capturing this tab. Your speech is translated for you only.',
   'extension.status.capturingIntoMeeting':
-    'Capturing this tab, and translating your speech into the meeting.',
-  // A failure, named by which side of the meeting it belongs to.
-  'extension.status.meetingAudioError': 'Meeting audio: {error}',
+    'Capturing this tab, and translating your speech into the call.',
+  // A failure, named by which side of the call it belongs to.
+  'extension.status.meetingAudioError': 'Call audio: {error}',
   'extension.status.microphoneError': 'Your microphone: {error}',
 
   // Why the tab under the popup cannot be captured.
-  'extension.support.noTab': 'Open a meeting tab first.',
-  'extension.support.notMeeting': 'This tab isn’t a meeting.',
+  'extension.support.noTab': 'Open a call tab first.',
+  'extension.support.notMeeting': 'This tab isn’t a call.',
   'extension.support.zoomDesktop':
     'This looks like Zoom, but not its web client. The desktop app isn’t a browser tab, so Chatofy can’t capture its audio. Use “Join from your browser” instead.',
 
@@ -1625,7 +1624,7 @@ export const en = {
   'extension.error.unreachable': 'Can’t reach {origin}. Check your connection and try again.',
   'extension.error.signInFailed': 'Couldn’t sign in (HTTP {status}). Try again.',
   'extension.error.signInFirst': 'Sign in from the Chatofy popup first',
-  'extension.error.tabClosed': 'The meeting tab was reloaded or closed. Start Chatofy on it again.',
+  'extension.error.tabClosed': 'The call tab was reloaded or closed. Start Chatofy on it again.',
   'extension.error.microphoneFailed': 'Couldn’t translate what you say. Try again.',
   'extension.error.captureFailed': 'Couldn’t start translating. Try again.',
   'extension.error.tabCaptureFailed': 'Couldn’t translate this tab. Try again.',
@@ -1645,10 +1644,9 @@ export const en = {
   // One sentence in three parts, so the middle can be bold.
   'extension.microphone.whyBefore': 'This is what lets Chatofy translate ',
   'extension.microphone.whyEmphasis': 'what you say',
-  'extension.microphone.whyAfter':
-    ' into the meeting. Translating what others say doesn’t need it.',
+  'extension.microphone.whyAfter': ' into the call. Translating what others say doesn’t need it.',
   'extension.microphone.askOnce':
-    'Chrome asks once and remembers the answer for Chatofy, not for one meeting. The microphone is only on while a capture is running.',
+    'Chrome asks once and remembers the answer for Chatofy, not for one call. The microphone is only on while a capture is running.',
   'extension.microphone.granted':
     'Microphone allowed. You can close this tab and start translating.',
   'extension.microphone.refused': 'Chrome blocked the microphone.',
@@ -1661,8 +1659,8 @@ export const en = {
   'extension.microphone.recoverAfter':
     ' into the address bar, find Chatofy in the blocked list, and remove it. Then reopen this page.',
 
-  // The overlay drawn over the meeting page.
-  'extension.overlay.capturingIndicator': 'Chatofy is capturing this meeting’s audio',
+  // The overlay drawn over the call page.
+  'extension.overlay.capturingIndicator': 'Chatofy is capturing this call’s audio',
   'extension.overlay.collapse': 'Collapse',
   'extension.overlay.collapseLabel': 'Collapse Chatofy',
   'extension.overlay.languagePair': 'Translate',
@@ -1671,7 +1669,7 @@ export const en = {
   'extension.overlay.voice': 'Voice',
   'extension.overlay.voiceFemale': 'Female voice',
   'extension.overlay.voiceMale': 'Male voice',
-  'extension.overlay.pillLive': 'Chatofy is capturing this meeting’s audio. Open to stop',
+  'extension.overlay.pillLive': 'Chatofy is capturing this call’s audio. Open to stop',
   'extension.overlay.pillIdle': 'Open Chatofy',
   'extension.overlay.firstTimeShortcut':
     'First time here: press {shortcut}, or right-click → Chatofy',
@@ -1680,13 +1678,13 @@ export const en = {
   'extension.overlay.notCapturing': 'Not translating',
   // Marks the reader's own lines in the transcript.
   'extension.overlay.you': 'You',
-  'extension.overlay.outboundSending': 'Your speech is being translated into the meeting.',
+  'extension.overlay.outboundSending': 'Your speech is being translated into the call.',
   'extension.overlay.outboundMuted':
-    'You’re muted in the meeting, so nothing you say is captured or translated.',
+    'You’re muted on the call, so nothing you say is captured or translated.',
   'extension.overlay.outboundUnpatchedShortcut':
-    'Your speech is translated for you only. To send it to the meeting, reload this page, then press {shortcut} to start again.',
+    'Your speech is translated for you only. To send it into the call, reload this page, then press {shortcut} to start again.',
   'extension.overlay.outboundUnpatchedMenu':
-    'Your speech is translated for you only. To send it to the meeting, reload this page, then right-click → Chatofy to start again.',
+    'Your speech is translated for you only. To send it into the call, reload this page, then right-click → Chatofy to start again.',
   'extension.overlay.outboundForYou':
     'Your speech is translated for you only. Others hear your own voice.',
 } as const;
