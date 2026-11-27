@@ -35,15 +35,20 @@
       Utility classes rather than a component, because this markup must render
       without a script having run. Tailwind scans this file like any other source,
       so the classes are generated the same way the components' are.
+
+      The English here is the no-script fallback. `consent-gate.ts` replaces every
+      `data-i18n` element's text with the reader's language as soon as a script runs;
+      a sentence with a bold part is one keyed element per fragment, because only
+      text is ever written, never markup.
     -->
     <div id="consent" hidden class="flex flex-col gap-3 p-4 text-body">
-      <h1 class="text-heading font-semibold tracking-tight m-0">Before you start</h1>
+      <h1 class="text-heading font-semibold tracking-tight m-0" data-i18n="extension.consent.title">Before you start</h1>
       <p class="text-prose m-0">
-        <strong class="text-foreground font-semibold">This records the meeting’s audio.</strong>
-        Everything said in this tab is sent to your Chatofy server to be transcribed and
-        translated. Other people in the meeting are not told by their own client.
+        <strong class="text-foreground font-semibold" data-i18n="extension.consent.recordsAudio">This records the meeting’s audio.</strong>
+        <span data-i18n="extension.consent.whereAudioGoes">Everything said in this tab is sent to your Chatofy server to be transcribed and
+        translated. Other people in the meeting are not told by their own client.</span>
       </p>
-      <p class="text-prose m-0">
+      <p class="text-prose m-0" data-i18n="extension.consent.loudspeaker">
         If you play the translation through a loudspeaker, your microphone will pick it
         up and the meeting will hear it too.
       </p>
@@ -52,7 +57,7 @@
         type="button"
         class="inline-flex h-9 w-full shrink-0 items-center justify-center rounded-md bg-primary px-3 text-body font-medium text-primary-foreground transition-colors hover:bg-accent-hover focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        I understand
+        <span data-i18n="extension.consent.acknowledge">I understand</span>
       </button>
     </div>
 

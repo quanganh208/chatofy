@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTranslator, en } from '@chatofy/i18n';
 
 /**
  * The extension's read of the account's credits, and the words for the credit
@@ -7,6 +8,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const API = 'http://localhost:3000';
+
+/**
+ * The words are read from the dictionary, not pinned here, and the browser
+ * language is pinned to English: Node's `navigator.languages` follows the
+ * machine's `LANG`, so on a Vietnamese desktop the module would otherwise
+ * format "36.000 credit" and every amount below would be a different string.
+ */
+const t = createTranslator(en);
 const TOKEN_KEY = 'chatofy.accessToken';
 
 function installChrome(accessToken: string | null) {
@@ -60,6 +69,7 @@ function stubApi(routes: Record<string, () => Promise<unknown>>) {
 
 beforeEach(() => {
   vi.resetModules();
+  vi.stubGlobal('navigator', { language: 'en-US', languages: ['en-US'] });
 });
 
 afterEach(() => {
@@ -129,7 +139,7 @@ describe('loadCredits', () => {
 
     expect(result.balance?.plan).toBe('free');
     expect(result.usage).toEqual([]);
-    expect(result.message).toBe('Could not load your usage (HTTP 503)');
+    expect(result.message).toBe(t('extension.credits.usageLoadFailed', { status: 503 }));
   });
 
   it('reports an unreachable API and an unreadable balance without throwing', async () => {
@@ -144,7 +154,7 @@ describe('loadCredits', () => {
     const result = await loadCredits(API);
 
     expect(result.balance).toBeNull();
-    expect(result.message).toBe('Could not read your credits');
+    expect(result.message).toBe(t('extension.credits.unreadable'));
   });
 
   it('asks for a sign-in, and calls nothing, without a token', async () => {
@@ -154,19 +164,43 @@ describe('loadCredits', () => {
 
     const result = await loadCredits(API);
 
-    expect(result).toEqual({ balance: null, usage: [], message: 'Sign in to see your credits' });
+    expect(result).toEqual({
+      balance: null,
+      usage: [],
+      message: t('extension.credits.signInToSee'),
+    });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The same reads in Vietnamese: the dictionary's words, and the reader's own
+ * digit grouping rather than the English comma.
+ */
+describe('in Vietnamese', () => {
+  it('formats amounts and failures in the browser language', async () => {
+    vi.stubGlobal('navigator', { language: 'vi-VN', languages: ['vi-VN', 'en-US'] });
+    const { vi: viMessages } = await import('@chatofy/i18n');
+    const tvi = createTranslator(viMessages);
+    const { formatCredits, creditErrorMessage } = await import('./credits');
+
+    expect(formatCredits(1)).toBe(tvi('common.billing.creditAmountOne'));
+    expect(formatCredits(36000)).toBe(tvi('common.billing.creditAmount', { credits: '36.000' }));
+    expect(creditErrorMessage({ code: 'credits_low' }, { turnOpened: true })).toBe(
+      tvi('extension.credits.lowUnknown'),
+    );
   });
 });
 
 describe('credit amounts', () => {
   it('writes the singular by hand and leads a row with its direction', async () => {
     const { formatCredits, formatSignedCredits } = await import('./credits');
-    expect(formatCredits(1)).toBe('1 credit');
-    expect(formatCredits(2.5)).toBe('2.5 credits');
-    expect(formatCredits(36000)).toBe('36,000 credits');
-    expect(formatSignedCredits(-1.5)).toBe('−1.5 credits');
-    expect(formatSignedCredits(600)).toBe('+600 credits');
+    const amount = (credits: string) => t('common.billing.creditAmount', { credits });
+    expect(formatCredits(1)).toBe(t('common.billing.creditAmountOne'));
+    expect(formatCredits(2.5)).toBe(amount('2.5'));
+    expect(formatCredits(36000)).toBe(amount('36,000'));
+    expect(formatSignedCredits(-1.5)).toBe(`−${amount('1.5')}`);
+    expect(formatSignedCredits(600)).toBe(`+${amount('600')}`);
   });
 });
 
@@ -174,13 +208,13 @@ describe('creditErrorMessage', () => {
   it('says a refused start apart from a leg that ran out', async () => {
     const { creditErrorMessage } = await import('./credits');
     expect(creditErrorMessage({ code: 'credits_exhausted' }, { turnOpened: false })).toBe(
-      'You need at least 1 credit to start translating.',
+      t('common.billing.startRefused'),
     );
-    expect(creditErrorMessage({ code: 'credits_exhausted' }, { turnOpened: true })).toMatch(
-      /^Your credits ran out, so translation stopped\./,
+    expect(creditErrorMessage({ code: 'credits_exhausted' }, { turnOpened: true })).toBe(
+      t('extension.credits.exhausted'),
     );
-    expect(creditErrorMessage({ code: 'credits_unavailable' }, { turnOpened: true })).toMatch(
-      /could not be checked/,
+    expect(creditErrorMessage({ code: 'credits_unavailable' }, { turnOpened: true })).toBe(
+      t('common.billing.unavailable'),
     );
   });
 
@@ -188,9 +222,11 @@ describe('creditErrorMessage', () => {
     const { creditErrorMessage } = await import('./credits');
     expect(
       creditErrorMessage({ code: 'credits_low', remainingCreditSeconds: 90 }, { turnOpened: true }),
-    ).toBe('About 1.5 credits left. Translation keeps going until they run out.');
+    ).toBe(
+      t('common.billing.low', { credits: t('common.billing.creditAmount', { credits: '1.5' }) }),
+    );
     expect(creditErrorMessage({ code: 'credits_low' }, { turnOpened: true })).toBe(
-      'Your credits are running low. Translation keeps going until they run out.',
+      t('extension.credits.lowUnknown'),
     );
   });
 

@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 /**
  * Which tabs this extension can capture, and why the others cannot.
  *
@@ -74,13 +76,13 @@ export const SUPPORTED_MEETINGS = [
   {
     site: 'zoom.us',
     name: 'Zoom',
-    detail: 'the web client — not the desktop app',
+    detail: t('extension.settings.zoomDetail'),
     pattern: 'https://*.zoom.us/wc/*',
   },
   {
     site: 'facebook.com',
     name: 'Facebook',
-    detail: 'Messenger and group calls',
+    detail: t('extension.settings.facebookDetail'),
     pattern: 'https://*.facebook.com/groupcall/*',
   },
 ] as const satisfies ReadonlyArray<{
@@ -133,7 +135,7 @@ export interface MeetingSupport {
 
 export function supportOf(url: string | undefined): MeetingSupport {
   if (!url) {
-    return { ok: false, message: 'Open a meeting tab first.', kind: 'info' };
+    return { ok: false, message: t('extension.support.noTab'), kind: 'info' };
   }
   if (/^https:\/\/([^.]+\.)*zoom\.us\//.test(url) && !url.includes('/wc/')) {
     // Named explicitly rather than left to fail. A tab that is not the web client
@@ -142,10 +144,7 @@ export function supportOf(url: string | undefined): MeetingSupport {
     return {
       ok: false,
       kind: 'action',
-      message:
-        'This looks like Zoom, but not the web client. The Zoom desktop app is not a ' +
-        'browser tab, so its audio cannot be captured. Join from “Join from your ' +
-        'browser” instead.',
+      message: t('extension.support.zoomDesktop'),
     };
   }
   const supported =
@@ -159,7 +158,7 @@ export function supportOf(url: string | undefined): MeetingSupport {
     // Names what is true of this tab, and lets `SUPPORTED_MEETINGS` name the way
     // out. The sentence this replaced listed the three platforms inline, which
     // made the notice a paragraph to read rather than a place to look.
-    return { ok: false, kind: 'info', message: 'This tab is not a meeting.' };
+    return { ok: false, kind: 'info', message: t('extension.support.notMeeting') };
   }
   return { ok: true };
 }

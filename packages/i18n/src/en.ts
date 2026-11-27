@@ -1527,6 +1527,170 @@ export const en = {
   'web.glossary.termDeleted': 'Deleted “{term}”',
   'web.glossary.termDeleteFailed': 'Could not delete the term. It is still here.',
   'web.glossary.oldTermKept': 'The new “{term}” is saved, but the old version is still listed.',
+  // ---- extension: the browser extension's popup, overlay, microphone page and manifest ----
+  //
+  // Only what the extension says and no other surface does. Words it shares with
+  // web and mobile — sign-in fields, credits, mic processing names, the theme
+  // toggle, language names — are read from `common.*` instead.
+  //
+  // The manifest strings reach Chrome through generated `_locales/*/messages.json`
+  // (see `apps/extension/wxt.config.ts`), so they are plain text: no placeholders.
+  'extension.manifest.name': 'Chatofy meeting translator',
+  'extension.manifest.description':
+    'Translates a browser meeting both ways — what others say, and what you say.',
+  'extension.manifest.toggleCommand': 'Start or stop Chatofy on this meeting tab',
+  // The right-click menu item on a meeting page.
+  'extension.menu.start': 'Chatofy: start translating',
+  'extension.menu.stop': 'Chatofy: stop translating',
+
+  // The recording notice, shown once before anything else in the popup.
+  'extension.consent.title': 'Before you start',
+  'extension.consent.recordsAudio': 'This records the meeting’s audio.',
+  'extension.consent.whereAudioGoes':
+    'Everything said in this tab is sent to your Chatofy server to be transcribed and translated. Other people in the meeting are not told by their own client.',
+  'extension.consent.loudspeaker':
+    'If you play the translation through a loudspeaker, your microphone will pick it up and the meeting will hear it too.',
+  'extension.consent.acknowledge': 'I understand',
+
+  // The popup header's capture state, and the primary action.
+  'extension.capture.recording': 'Recording',
+  'extension.capture.idle': 'Idle',
+  'extension.capture.start': 'Start',
+  'extension.capture.stop': 'Stop',
+
+  'extension.signIn.intro':
+    'Chatofy translates through your account. Captures cannot start until you sign in.',
+
+  // The language pair picker's words; the language names are `common.languageName.*`.
+  'extension.languagePair.label': 'Languages',
+  'extension.languagePair.source': 'Source',
+  'extension.languagePair.translation': 'Translation',
+  'extension.languagePair.swap': 'Swap languages — translate {from} into {to}',
+
+  'extension.settings.context': 'AI Context',
+  'extension.settings.noContext': 'No context',
+  'extension.settings.speech': 'Speech',
+  'extension.settings.voice': 'Voice',
+  'extension.settings.voiceFemale': 'Female',
+  'extension.settings.voiceMale': 'Male',
+  'extension.settings.outbound': 'Also translate what I say',
+  'extension.settings.microphoneNeeded':
+    'Chrome has not given Chatofy your microphone yet. Without it, nothing you say is translated.',
+  'extension.settings.allowMicrophone': 'Allow microphone',
+  'extension.settings.audioProcessing': 'Audio processing',
+  'extension.settings.echoCancellationDetail':
+    'Removes the meeting audio your microphone picks up.',
+  'extension.settings.noiseSuppressionDetail':
+    'Filters steady background noise from your microphone.',
+  'extension.settings.autoGainControlDetail': 'Evens out your microphone volume as you speak.',
+  'extension.settings.appearance': 'Appearance',
+  'extension.settings.runsOn': 'Runs on',
+  'extension.settings.enableOnMeetings': 'Enable Chatofy on meeting pages',
+  // Beside the platform the popup was opened over.
+  'extension.settings.thisTab': 'this tab',
+  'extension.settings.zoomDetail': 'the web client — not the desktop app',
+  'extension.settings.facebookDetail': 'Messenger and group calls',
+  'extension.settings.signedIn': 'Signed in',
+
+  // The credits block in the popup. Amounts and plan names come from `common.billing.*`.
+  'extension.credits.loading': 'Loading…',
+  // {plan} is `common.billing.planFree` or `common.billing.planPro`.
+  'extension.credits.plan': '{plan} plan',
+  'extension.credits.buyOnWeb': 'Buy credits on the Chatofy website, under Account.',
+  'extension.credits.signInToSee': 'Sign in to see your credits',
+  'extension.credits.loadFailed': 'Could not load your credits (HTTP {status})',
+  'extension.credits.usageLoadFailed': 'Could not load your usage (HTTP {status})',
+  'extension.credits.unreadable': 'Could not read your credits',
+  'extension.credits.usageUnreadable': 'Could not read your usage',
+  // Mid-meeting: unlike web, there is no history page to point at.
+  'extension.credits.exhausted':
+    'Your credits ran out, so translation stopped. Buy more on the Chatofy website.',
+  'extension.credits.lowUnknown':
+    'Your credits are running low. Translation keeps going until they run out.',
+
+  // The popup footer's one line about this tab.
+  'extension.status.ready': 'Ready.',
+  'extension.status.offOn': 'Chatofy is off on {site}.',
+  'extension.status.unavailable': 'Not available on this tab.',
+  'extension.status.noTab': 'No tab to capture.',
+  'extension.status.capturing': 'Capturing this tab.',
+  'extension.status.capturingForYou': 'Capturing this tab. Your speech is translated for you only.',
+  'extension.status.capturingIntoMeeting':
+    'Capturing this tab, and translating your speech into the meeting.',
+  // A failure, named by which side of the meeting it belongs to.
+  'extension.status.meetingAudioError': 'Meeting audio: {error}',
+  'extension.status.microphoneError': 'Your microphone: {error}',
+
+  // Why the tab under the popup cannot be captured.
+  'extension.support.noTab': 'Open a meeting tab first.',
+  'extension.support.notMeeting': 'This tab is not a meeting.',
+  'extension.support.zoomDesktop':
+    'This looks like Zoom, but not the web client. The Zoom desktop app is not a browser tab, so its audio cannot be captured. Join from “Join from your browser” instead.',
+
+  // Failures a capture reports, shown in the popup and the overlay.
+  'extension.error.unreachable': 'Cannot reach {origin}',
+  'extension.error.signInFailed': 'Sign in failed (HTTP {status})',
+  'extension.error.signInFirst': 'Sign in from the Chatofy popup before starting a capture',
+  'extension.error.tabClosed': 'The meeting tab was reloaded or closed. Start Chatofy on it again.',
+  'extension.error.microphoneFailed': 'Could not translate your microphone',
+  'extension.error.captureFailed': 'Could not start capture',
+  'extension.error.tabCaptureFailed': 'Could not capture this tab',
+  'extension.error.contextsSignIn': 'Sign in to use a saved context',
+  'extension.error.contextsLoadFailed': 'Could not load your saved contexts (HTTP {status})',
+  'extension.error.contextsUnreadable': 'Could not read your saved contexts',
+  // {action} is `extension.settings.allowMicrophone`, quoted as the button reads.
+  'extension.error.microphoneBlocked':
+    'Chrome has not given Chatofy your microphone. Open the Chatofy popup and choose “{action}”.',
+
+  // The page that raises Chrome's microphone prompt.
+  'extension.microphone.pageTitle': 'Chatofy — microphone access',
+  'extension.microphone.title': 'Chatofy needs your microphone',
+  // One sentence in three parts, so the middle can be bold.
+  'extension.microphone.whyBefore': 'This is what lets Chatofy translate ',
+  'extension.microphone.whyEmphasis': 'what you say',
+  'extension.microphone.whyAfter':
+    ' into the meeting. Translating what the others say does not need it.',
+  'extension.microphone.askOnce':
+    'Chrome will ask once, and the answer is remembered for Chatofy — not for any one meeting. The microphone is only opened while a capture is running.',
+  'extension.microphone.granted': 'Granted. You can close this tab and start translating.',
+  'extension.microphone.refused': 'Chrome refused the microphone.',
+  'extension.microphone.openFailed': 'Could not open the microphone: {error}',
+  'extension.microphone.unknownError': 'unknown error',
+  'extension.microphone.alreadyGranted': 'Chatofy already has your microphone. Nothing to do here.',
+  // Around a chrome:// address, which stays as written.
+  'extension.microphone.recoverBefore':
+    'Chrome is remembering an earlier refusal, so it will not ask again. Paste ',
+  'extension.microphone.recoverAfter':
+    ' into the address bar, find Chatofy under the blocked list, and remove it. Then reopen this page.',
+
+  // The overlay drawn over the meeting page.
+  'extension.overlay.capturingIndicator': 'Chatofy is capturing this meeting’s audio',
+  'extension.overlay.collapse': 'Collapse',
+  'extension.overlay.collapseLabel': 'Collapse Chatofy',
+  'extension.overlay.languagePair': 'Translate',
+  // {source} and {target} are `common.languageName.*`.
+  'extension.overlay.pairOption': '{source} into {target}',
+  'extension.overlay.voice': 'Voice',
+  'extension.overlay.voiceFemale': 'Female voice',
+  'extension.overlay.voiceMale': 'Male voice',
+  'extension.overlay.pillLive': 'Chatofy is capturing this meeting’s audio — open to stop',
+  'extension.overlay.pillIdle': 'Open Chatofy',
+  'extension.overlay.firstTimeShortcut':
+    'First time here: press {shortcut}, or right-click → Chatofy',
+  'extension.overlay.firstTimeMenu': 'First time here: right-click → Chatofy',
+  'extension.overlay.listening': 'Listening…',
+  'extension.overlay.notCapturing': 'Not capturing.',
+  // Marks the reader's own lines in the transcript.
+  'extension.overlay.you': 'You',
+  'extension.overlay.outboundSending': 'Your speech is being translated into the meeting.',
+  'extension.overlay.outboundMuted':
+    'You are muted in the meeting, so nothing you say is being captured or translated.',
+  'extension.overlay.outboundUnpatchedShortcut':
+    'Your speech is translated for you only. To send it to the meeting, reload this page, then press {shortcut} to start again.',
+  'extension.overlay.outboundUnpatchedMenu':
+    'Your speech is translated for you only. To send it to the meeting, reload this page, then right-click → Chatofy to start again.',
+  'extension.overlay.outboundForYou':
+    'Your speech is translated for you only — the others hear your own voice.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

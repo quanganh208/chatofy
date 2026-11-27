@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, AlertDescription, Button, Input, Label } from '@chatofy/ui/react';
+import { t } from '../../src/i18n';
 import type { usePopup } from './use-popup';
 
 type Popup = ReturnType<typeof usePopup>;
@@ -27,10 +28,10 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
       className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-3 pb-4"
     >
       <div className="flex flex-col gap-1">
-        <strong className="text-body font-semibold tracking-tight">Sign in</strong>
-        <p className="text-muted-foreground text-hint">
-          Chatofy translates through your account. Captures cannot start until you sign in.
-        </p>
+        <strong className="text-body font-semibold tracking-tight">
+          {t('common.auth.signIn')}
+        </strong>
+        <p className="text-muted-foreground text-hint">{t('extension.signIn.intro')}</p>
       </div>
 
       {/* `gap-4`, matching the web form rather than the 3 this pane used to
@@ -45,7 +46,7 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-in-email">Email</Label>
+          <Label htmlFor="sign-in-email">{t('common.auth.email')}</Label>
           <Input
             id="sign-in-email"
             type="email"
@@ -57,7 +58,7 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-in-password">Password</Label>
+          <Label htmlFor="sign-in-password">{t('common.auth.password')}</Label>
           <Input
             id="sign-in-password"
             type="password"
@@ -78,7 +79,7 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
         ) : null}
 
         <Button id="sign-in-submit" type="submit" className="w-full" disabled={popup.signingIn}>
-          {popup.signingIn ? 'Signing in…' : 'Sign in'}
+          {popup.signingIn ? t('common.auth.signingIn') : t('common.auth.signIn')}
         </Button>
       </form>
     </main>

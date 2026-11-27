@@ -48,7 +48,7 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left';
   showCloseButton?: boolean;
-  /** The close button's name; English by default for the popup, which has no dictionary. */
+  /** The close button's name; English by default for a caller without a translator. */
   closeLabel?: string;
 }) {
   return (

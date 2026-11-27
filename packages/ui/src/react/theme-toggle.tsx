@@ -51,9 +51,9 @@ const OPTIONS: ReadonlyArray<{ value: ThemeChoice; Icon: typeof Sun }> = [
 /**
  * The words this control says, and the only English left in this package.
  *
- * Defaults rather than required props, and that is the whole point: `apps/web`
- * passes localized labels down, while the extension popup — which renders this same
- * component and has no dictionary — keeps working with no change at all.
+ * Defaults rather than required props, and that is the whole point: `apps/web` and
+ * the extension popup pass localized labels down, while a caller without a
+ * translator keeps working with no change at all.
  *
  * The same reasoning as every other composition here: **compositions are
  * controlled.** `ThemeToggle` does not read storage and it does not read a locale;

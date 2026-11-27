@@ -33,6 +33,7 @@ import {
 import { listTranslationContexts } from '../../src/translation-contexts';
 import { consentGate } from './consent-gate';
 import { statusMessage } from './popup-status';
+import { t } from '../../src/i18n';
 
 /**
  * Everything the popup knows, gathered once when it opens.
@@ -403,7 +404,7 @@ export function usePopup() {
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id === undefined) {
-        setTransient('No tab to capture.');
+        setTransient(t('extension.status.noTab'));
         return;
       }
       await chrome.runtime
