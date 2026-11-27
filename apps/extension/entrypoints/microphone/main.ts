@@ -1,4 +1,5 @@
 import { localizeDocument, t } from '../../src/i18n';
+import { microphoneFailureKey } from '../../src/microphone-failure';
 import { microphonePermission } from '../../src/microphone-permission';
 
 /**
@@ -41,15 +42,10 @@ async function request(): Promise<void> {
     show(t('extension.microphone.granted'), true);
     recover.hidden = true;
   } catch (err) {
-    const denied = err instanceof DOMException && err.name === 'NotAllowedError';
-    show(
-      denied
-        ? t('extension.microphone.refused')
-        : t('extension.microphone.openFailed', {
-            error: err instanceof Error ? err.message : t('extension.microphone.unknownError'),
-          }),
-      false,
-    );
+    // The browser's message is English in every locale; the console keeps it, the
+    // page shows the sentence for the kind of failure.
+    console.warn('[chatofy] microphone request failed', err);
+    show(t(microphoneFailureKey(err)), false);
     // Only for a standing block. A prompt the user has just dismissed will be shown
     // again by the button, and telling them to go dig through settings for that is
     // sending them somewhere they do not need to go.

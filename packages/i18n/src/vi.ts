@@ -1352,8 +1352,7 @@ export const vi: Messages = {
     'Tab cuộc gọi đã tải lại hoặc đã đóng. Bạn bật lại Chatofy trên tab đó nhé.',
   'extension.error.microphoneFailed': 'Chưa dịch được lời bạn nói. Bạn thử lại nhé.',
   'extension.error.tabCaptureFailed': 'Chưa dịch được tab này. Bạn thử lại nhé.',
-  'extension.error.preparePageFailed':
-    'Chưa thiết lập được micro trên trang này ({reason}). Bạn thử lại nhé.',
+  'extension.error.preparePageFailed': 'Chưa thiết lập được micro trên trang này. Bạn thử lại nhé.',
   'extension.error.contextsSignIn': 'Đăng nhập để dùng Ngữ cảnh AI',
   'extension.error.contextsLoadFailed':
     'Chưa tải được Ngữ cảnh AI của bạn (HTTP {status}). Bạn thử lại nhé.',
@@ -1371,8 +1370,10 @@ export const vi: Messages = {
   'extension.microphone.granted':
     'Đã cho phép dùng micro. Bạn có thể đóng tab này và bắt đầu dịch.',
   'extension.microphone.refused': 'Chrome đã chặn micro.',
-  'extension.microphone.openFailed': 'Không mở được micro: {error}',
-  'extension.microphone.unknownError': 'lỗi không rõ',
+  'extension.microphone.openFailed': 'Chưa mở được micro. Bạn thử lại nhé.',
+  'extension.microphone.notFound': 'Không tìm thấy micro. Bạn cắm micro vào rồi thử lại nhé.',
+  'extension.microphone.inUse':
+    'Chưa khởi động được micro. Bạn đóng ứng dụng khác đang dùng micro rồi thử lại nhé.',
   'extension.microphone.alreadyGranted':
     'Chatofy đã có quyền dùng micro. Bạn không cần làm gì thêm.',
   'extension.microphone.recoverBefore':
