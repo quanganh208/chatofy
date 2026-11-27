@@ -82,6 +82,20 @@ describe('AuthField', () => {
     expect(revealButton().getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('reads a value filled before hydration once, since no input event follows it', () => {
+    render(
+      <AuthField
+        id="pw"
+        label="Password"
+        type="password"
+        minLength={8}
+        requirement="At least 8 characters"
+        defaultValue="filled by a manager"
+      />,
+    );
+    expect(container.querySelector<HTMLElement>('#pw-requirement')!.dataset.met).toBe('true');
+  });
+
   it('draws no reveal button unless asked, so the Settings fields stay as they are', () => {
     render(<AuthField id="pw" label="Password" type="password" />);
     expect(container.querySelector('button')).toBeNull();

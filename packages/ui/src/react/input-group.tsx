@@ -158,9 +158,11 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<'input'>)
         'group-has-[>[data-align=inline-end]]/input-group:pr-1',
         'disabled:cursor-not-allowed read-only:cursor-default',
         // Autofill paints its own background on the control, which now sits inside the
-        // group's edge between the icon and the reveal button. Cover it with the
-        // group's fill so a saved login does not tint only the middle of the field.
-        'autofill:shadow-[inset_0_0_0_1000px_var(--card)] autofill:[-webkit-text-fill-color:var(--foreground)]',
+        // group's edge between the icon and the reveal button. Covering it with an inset
+        // shadow would also cover the group's edge, which is drawn under the control, so
+        // the browser's background is held back instead and the control stays clear.
+        'autofill:transition-[background-color] autofill:duration-[86400s]',
+        'autofill:[-webkit-text-fill-color:var(--foreground)]',
         className,
       )}
       {...props}

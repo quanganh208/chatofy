@@ -12,7 +12,14 @@ import {
 import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 
-interface AuthFieldProps extends React.ComponentProps<typeof InputGroupInput> {
+/**
+ * The field computes its own `aria-describedby` and `aria-invalid` and holds its own
+ * ref, so a caller cannot pass them — they would be dropped silently.
+ */
+interface AuthFieldProps extends Omit<
+  React.ComponentProps<typeof InputGroupInput>,
+  'aria-describedby' | 'aria-invalid' | 'ref'
+> {
   id: string;
   label: string;
   /**
