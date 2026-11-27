@@ -257,6 +257,15 @@ export const vi: Messages = {
   'web.auth.unexpectedResponse': 'Máy chủ trả về nội dung không như mong đợi.',
   'web.auth.accountRequired':
     'Muốn dịch thì cần một tài khoản — mọi cuộc hội thoại và bản ghi đều thuộc về một tài khoản.',
+  'web.auth.showPassword': 'Hiện mật khẩu',
+  'web.auth.hidePassword': 'Ẩn mật khẩu',
+  'web.auth.passwordRequirement': 'Ít nhất {min} ký tự',
+  'web.auth.panelTagline': 'Nói chuyện vượt rào ngôn ngữ, ngay lúc này.',
+  'web.auth.panelBenefitLive':
+    'Nghe hiểu nhau theo thời gian thực — tiếng Việt, tiếng Anh và tiếng Trung.',
+  'web.auth.panelBenefitTranscript': 'Mỗi cuộc hội thoại được lưu thành bản ghi để bạn đọc lại.',
+  'web.auth.panelBenefitMeetings':
+    'Họp video có dịch, và phụ đề ngay trong cuộc gọi Meet, Zoom và Facebook.',
   'web.auth.orContinueWithEmail': 'hoặc tiếp tục bằng email',
   'web.auth.continueWithGoogle': 'Tiếp tục với Google',
   'web.auth.credentialsRejected': 'Email và mật khẩu này không khớp với tài khoản nào.',

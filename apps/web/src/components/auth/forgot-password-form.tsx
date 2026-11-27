@@ -1,9 +1,10 @@
 'use client';
 
+import { MailIcon } from 'lucide-react';
 import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { SubmittedNotice } from '@/components/auth/submitted-notice';
@@ -71,6 +72,7 @@ export function ForgotPasswordForm() {
           <AuthField
             id="forgot-email"
             label={t('common.auth.email')}
+            icon={MailIcon}
             errorId={error ? 'forgot-error' : undefined}
             type="email"
             required
@@ -82,6 +84,7 @@ export function ForgotPasswordForm() {
           <AuthAlert id="forgot-error" message={error} />
 
           <Button id="forgot-submit" type="submit" className="w-full" disabled={submitting}>
+            {submitting ? <Spinner /> : null}
             {submitting ? t('web.auth.sending') : t('web.auth.sendResetLink')}
           </Button>
         </form>

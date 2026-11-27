@@ -120,7 +120,9 @@ describe('ResetPasswordForm', () => {
     await submit('correct horse battery staple');
 
     expect(inputById('reset-password').getAttribute('aria-invalid')).toBe('true');
-    expect(inputById('reset-password').getAttribute('aria-describedby')).toBe('reset-error');
+    expect(inputById('reset-password').getAttribute('aria-describedby')).toBe(
+      'reset-error reset-password-requirement',
+    );
     expect(container.querySelector('#reset-error')).not.toBeNull();
   });
 

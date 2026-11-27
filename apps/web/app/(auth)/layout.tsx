@@ -1,10 +1,10 @@
-import { PlainFrame } from '@/components/layout/plain-frame';
+import { AuthFrame } from '@/components/layout/auth-frame';
 
 /**
  * Sign in, register, and the four token-carrying routes (verify, forgot and reset
  * password, team invite).
  *
- * `PlainFrame` and not the product chrome, which is the requirement rather than a
+ * `AuthFrame` and not the product chrome, which is the requirement rather than a
  * styling choice: **no navigation and no sign-out control on any of these routes.**
  * Until now that held only because `SessionMenu` returned `null` when signed out — a
  * behaviour of a component two files away, not a property of these pages. The frame has
@@ -19,5 +19,5 @@ import { PlainFrame } from '@/components/layout/plain-frame';
  * rather than in a header corner.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <PlainFrame>{children}</PlainFrame>;
+  return <AuthFrame>{children}</AuthFrame>;
 }
