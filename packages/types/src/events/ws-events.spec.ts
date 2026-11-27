@@ -3,6 +3,7 @@ import {
   CREDIT_ERROR_CODES,
   MAX_GLOSSARY_TERM_WORDS,
   SERVER_ERROR_CODES,
+  SERVER_ERROR_DETAILS,
   clientEventSchema,
   countTermWords,
   creditErrorCodeSchema,
@@ -542,6 +543,11 @@ describe('server.error code catalogue', () => {
   it('lists each code once, credit codes included', () => {
     expect(new Set(SERVER_ERROR_CODES).size).toBe(SERVER_ERROR_CODES.length);
     for (const code of CREDIT_ERROR_CODES) expect(SERVER_ERROR_CODES).toContain(code);
+  });
+
+  it('lists each detail once, no_speech included', () => {
+    expect(new Set(SERVER_ERROR_DETAILS).size).toBe(SERVER_ERROR_DETAILS.length);
+    expect(SERVER_ERROR_DETAILS).toContain('no_speech');
   });
 
   it('still parses a code outside the catalogue, for clients older than it', () => {

@@ -1086,6 +1086,20 @@ export const SERVER_ERROR_CODES = [
 ] as const;
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[number];
 
+/**
+ * Every `detail` the server sends under a code. Like `code`, `detail` stays
+ * `z.string()` on the wire; this list is what the server is held to.
+ */
+export const SERVER_ERROR_DETAILS = [
+  /** Under `language_unavailable`: the source could not be left to identification. */
+  'language_detection',
+  /** Under `language_unavailable`: identification is at capacity right now. */
+  'lid_capacity',
+  /** Under `turn_failed`: the recognizer heard nothing to translate. */
+  'no_speech',
+] as const;
+export type ServerErrorDetail = (typeof SERVER_ERROR_DETAILS)[number];
+
 const serverErrorSchema = z.object({
   type: z.literal('server.error'),
   code: z.string(),
@@ -1134,3 +1148,13 @@ export const serverEventSchema = z.discriminatedUnion('type', [
 ]);
 
 export type ServerEvent = z.infer<typeof serverEventSchema>;
+
+/**
+ * A `server.error` as the server builds one: only a catalogued code and detail.
+ * Every place the server sends one is checked against this, so a new code has to
+ * be added to {@link SERVER_ERROR_CODES} — and given copy — before it compiles.
+ */
+export type CataloguedServerError = Omit<
+  Extract<ServerEvent, { type: 'server.error' }>,
+  'code' | 'detail'
+> & { code: ServerErrorCode; detail?: ServerErrorDetail };
