@@ -186,9 +186,9 @@ describe('in Vietnamese', () => {
 
     expect(formatCredits(1)).toBe(tvi('common.billing.creditAmountOne'));
     expect(formatCredits(36000)).toBe(tvi('common.billing.creditAmount', { credits: '36.000' }));
-    expect(creditErrorMessage({ code: 'credits_low' }, { turnOpened: true })).toBe(
-      tvi('extension.credits.lowUnknown'),
-    );
+    expect(
+      creditErrorMessage({ source: 'server', code: 'credits_low' }, { turnOpened: true }),
+    ).toBe(tvi('common.billing.lowUnknown'));
   });
 });
 
@@ -207,32 +207,37 @@ describe('credit amounts', () => {
 describe('creditErrorMessage', () => {
   it('says a refused start apart from a leg that ran out', async () => {
     const { creditErrorMessage } = await import('./credits');
-    expect(creditErrorMessage({ code: 'credits_exhausted' }, { turnOpened: false })).toBe(
-      t('common.billing.startRefused'),
-    );
-    expect(creditErrorMessage({ code: 'credits_exhausted' }, { turnOpened: true })).toBe(
-      t('extension.credits.exhausted'),
-    );
-    expect(creditErrorMessage({ code: 'credits_unavailable' }, { turnOpened: true })).toBe(
-      t('common.billing.unavailable'),
-    );
+    expect(
+      creditErrorMessage({ source: 'server', code: 'credits_exhausted' }, { turnOpened: false }),
+    ).toBe(t('common.billing.startRefused'));
+    expect(
+      creditErrorMessage({ source: 'server', code: 'credits_exhausted' }, { turnOpened: true }),
+    ).toBe(t('extension.credits.exhausted'));
+    expect(
+      creditErrorMessage({ source: 'server', code: 'credits_unavailable' }, { turnOpened: true }),
+    ).toBe(t('common.billing.unavailable'));
   });
 
   it('says a low balance keeps translating, with the amount when it was sent', async () => {
     const { creditErrorMessage } = await import('./credits');
     expect(
-      creditErrorMessage({ code: 'credits_low', remainingCreditSeconds: 90 }, { turnOpened: true }),
+      creditErrorMessage(
+        { source: 'server', code: 'credits_low', remainingCreditSeconds: 90 },
+        { turnOpened: true },
+      ),
     ).toBe(
       t('common.billing.low', { credits: t('common.billing.creditAmount', { credits: '1.5' }) }),
     );
-    expect(creditErrorMessage({ code: 'credits_low' }, { turnOpened: true })).toBe(
-      t('extension.credits.lowUnknown'),
-    );
+    expect(
+      creditErrorMessage({ source: 'server', code: 'credits_low' }, { turnOpened: true }),
+    ).toBe(t('common.billing.lowUnknown'));
   });
 
   it('leaves every other code to the server message', async () => {
     const { creditErrorMessage } = await import('./credits');
-    expect(creditErrorMessage({ code: 'rate_limited' }, { turnOpened: true })).toBeNull();
+    expect(
+      creditErrorMessage({ source: 'server', code: 'rate_limited' }, { turnOpened: true }),
+    ).toBeNull();
     expect(creditErrorMessage(undefined, { turnOpened: true })).toBeNull();
   });
 });

@@ -1,6 +1,9 @@
 import { DEFAULT_MIC_PROCESSING } from '@chatofy/types';
 import { describe, expect, it, vi } from 'vitest';
 import { harness } from './fake-meeting-audio';
+import { t } from './i18n';
+import { MICROPHONE_BLOCKED } from './microphone-permission';
+import { ReaderFacingError } from './reader-facing-error';
 import { MeetingCapture } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 
@@ -95,9 +98,20 @@ describe('MeetingCapture', () => {
       expect(h.context.closed).toBe(0);
 
       const status = h.statuses[h.statuses.length - 1]!;
-      expect(status.errors.outbound).toBe('Permission denied');
+      // The browser's English is for a developer; the reader gets this leg's sentence.
+      expect(status.errors.outbound).toBe(t('extension.error.microphoneFailed'));
       expect(status.errors.inbound).toBeUndefined();
       expect(status.outbound).toBe('off');
+    });
+
+    it('shows the blocked-microphone sentence the extension wrote, as written', async () => {
+      const h = harness();
+      h.microphoneError.current = new ReaderFacingError(MICROPHONE_BLOCKED);
+      const capture = new MeetingCapture(h.deps);
+
+      await capture.begin('stream-1', settings({ outbound: true }));
+
+      expect(h.statuses.at(-1)!.errors.outbound).toBe(MICROPHONE_BLOCKED);
     });
   });
 
@@ -140,7 +154,7 @@ describe('MeetingCapture', () => {
       const status = h.statuses[h.statuses.length - 1]!;
       expect(status.capturing).toBe(true);
       expect(status.outbound).toBe('off');
-      expect(status.errors.outbound).toBe('Connection to the translator dropped');
+      expect(status.errors.outbound).toBe(t('common.realtime.connectionLost'));
     });
 
     it('does not close the context twice when teardown re-enters itself', async () => {

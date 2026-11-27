@@ -7,7 +7,7 @@ import {
   type CreditUsageKind,
   type ServerEvent,
 } from '@chatofy/types';
-import type { ServerErrorCause } from '@chatofy/realtime-client';
+import type { RealtimeErrorCause } from '@chatofy/realtime-client';
 import type { MessageKey } from '@chatofy/i18n';
 import { getFreshAccessToken } from './access-token';
 import { intlLocale, t } from './i18n';
@@ -163,7 +163,7 @@ export class CreditContext {
  * says so, because the popup shows it where it shows failures.
  */
 export function creditErrorMessage(
-  cause: ServerErrorCause | undefined,
+  cause: RealtimeErrorCause | undefined,
   context: { turnOpened: boolean },
 ): string | null {
   switch (cause?.code) {
@@ -175,7 +175,7 @@ export function creditErrorMessage(
       return t('common.billing.unavailable');
     case 'credits_low':
       return cause.remainingCreditSeconds === undefined
-        ? t('extension.credits.lowUnknown')
+        ? t('common.billing.lowUnknown')
         : t('common.billing.low', {
             credits: formatCredits(creditsFromSeconds(cause.remainingCreditSeconds)),
           });
