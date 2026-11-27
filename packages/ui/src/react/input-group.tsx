@@ -161,6 +161,7 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<'input'>)
         // group's edge between the icon and the reveal button. Covering it with an inset
         // shadow would also cover the group's edge, which is drawn under the control, so
         // the browser's background is held back instead and the control stays clear.
+        // The transition IS the fix: a transition reset on this control brings the tint back.
         'autofill:transition-[background-color] autofill:duration-[86400s]',
         'autofill:[-webkit-text-fill-color:var(--foreground)]',
         className,
