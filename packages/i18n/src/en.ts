@@ -763,7 +763,7 @@ export const en = {
   // move into Settings.
   'web.preferences.audioHint': 'Applies next time you start.',
   'web.preferences.audio.echoCancellationHint':
-    'Cuts down how much of the translation playing from your speakers the microphone picks up. When off, the microphone pauses while a translation plays.',
+    'Reduces how much sound from your speakers the microphone picks up. When off, the microphone pauses while a translation plays.',
   'web.preferences.audio.noiseSuppressionHint': 'Filters out sound that isn’t speech.',
   'web.preferences.audio.autoGainControlHint': 'Keeps your microphone volume steady.',
   'web.preferences.audio.unsupported': 'This browser doesn’t support it.',
