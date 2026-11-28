@@ -137,6 +137,21 @@ a message — so a context can never prevent a meeting from starting. It reads t
 here. The popup has a picker and no editor: authoring 24 term
 pairs is the wrong shape for a window that dies on blur, so it happens on web.
 
+**The offscreen document reads no storage; the worker answers for it.** An offscreen
+document gets `chrome.runtime` and nothing else, so `chrome.storage` is `undefined`
+there. The capture's token and its context hints are therefore asked of the worker
+(`capture.token`, `capture.hints`; offscreen half `src/offscreen-worker-requests.ts`,
+worker half `src/offscreen-request-handler.ts`), which refuses any sender with a tab,
+so a content script on a meeting page is never handed the bearer token. A spec fails
+if the offscreen entry, or anything it imports directly, reads storage again.
+
+**The manifest grants the API's own host.** The API answers CORS for the web origin
+only, and an extension's origin cannot be listed in advance, so the popup, worker and
+offscreen document reach it through a host permission instead. `wxt.config.ts` derives
+it from `WXT_API_BASE_URL` (`src/api-host-permission.ts`) inside the function form of
+`manifest`, which WXT evaluates after loading its env files, so the grant always names
+the host the bundle was compiled against.
+
 The two are **not symmetric on failure**, deliberately. Losing the outbound leg
 costs the ability to be understood; losing the inbound one means the capture is
 translating nothing, so it ends the capture rather than leaving a recording indicator

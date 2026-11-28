@@ -98,7 +98,7 @@ D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 | `ANTHROPIC_API_KEY`                                                                | `benchmarks/translation-judge`          | no                                              | —                                | ✓                | —                   |
 | `EXPO_PUBLIC_API_BASE_URL`                                                         | mobile                                  | yes                                             | —                                | mobile `.env`    | —                   |
 | `EXPO_PUBLIC_WEB_BASE_URL`                                                         | mobile (bundle time)                    | release yes                                     | `http://10.0.2.2:3001`           | mobile `.env`    | —                   |
-| `WXT_API_BASE_URL`                                                                 | extension (compile time)                | release yes                                     | `http://localhost:3000`          | extension `.env` | —                   |
+| `WXT_API_BASE_URL`                                                                 | extension (bundle + manifest host)      | release yes                                     | `http://localhost:3000`          | extension `.env` | —                   |
 
 ## Secrets
 
