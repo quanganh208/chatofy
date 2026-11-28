@@ -155,7 +155,7 @@ export type ExtensionMessage =
    *
    * Asked rather than read because `chrome.storage` does not exist in an offscreen
    * document. Answered with `string | null`, and only to a sender with no tab
-   * (see `capture-credentials.ts`).
+   * (see `offscreen-request-handler.ts`).
    */
   | { to: 'worker'; type: 'capture.token' }
   /** Offscreen → worker: the saved AI Context's hints, as `TranslationHints | null`. */

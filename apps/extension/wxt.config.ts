@@ -3,14 +3,6 @@ import tailwindcss from '@tailwindcss/vite';
 import { en, vi, zh, type MessageKey, type Messages } from '@chatofy/i18n';
 import { apiHostPermission } from './src/api-host-permission';
 
-// The same lookup `scripts/require-api-base-url.mjs` makes: an exported value wins,
-// then `apps/extension/.env`. Node does not read .env on its own.
-try {
-  process.loadEnvFile(new URL('./.env', import.meta.url));
-} catch {
-  // No .env here: the value is exported, or unset and the localhost default applies.
-}
-
 /**
  * The manifest's own words, localised the way Chrome localises a manifest: each
  * `__MSG_name__` is looked up in `_locales/<locale>/messages.json` against the
@@ -96,7 +88,11 @@ export default defineConfig({
       }
     },
   },
-  manifest: {
+  // A function, not an object: WXT calls it after loading every env file it reads
+  // for the bundle (`.env`, `.env.local`, `.env.[mode]`, `.env.[browser]`, and their
+  // `.local` variants), so the API host granted below is the one the bundle was
+  // compiled against. An object is evaluated at import, before any of those load.
+  manifest: () => ({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
@@ -173,5 +169,5 @@ export default defineConfig({
     // The worklet must still be emitted as its own file rather than inlined: an
     // AudioWorklet module is fetched by the audio thread, and a bundler that folded
     // it into a chunk would break `addModule`.
-  },
+  }),
 });

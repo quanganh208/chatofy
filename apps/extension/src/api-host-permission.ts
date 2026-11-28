@@ -12,7 +12,11 @@
  * grant always names the host the code calls, and nothing wider.
  */
 
-/** The fallback in `settings.ts` (`DEFAULT_API_BASE_URL`), repeated because this runs at config time. */
+/**
+ * The development fallback, for the manifest and the bundle alike. It lives here
+ * because this module is loaded by `wxt.config.ts` under plain Node, where
+ * `settings.ts` (which reads `import.meta.env`) cannot be; `settings.ts` re-exports it.
+ */
 export const DEV_API_BASE_URL = 'http://localhost:3000';
 
 /**

@@ -8,6 +8,7 @@ import {
 import type { CaptureSettings } from './messages';
 import { readCachedPreferences } from './preferences-cache';
 import { syncedFieldsOf } from './preferences-mapping';
+import { DEV_API_BASE_URL } from './api-host-permission';
 
 /**
  * What this machine remembers about its meetings, and the one-off consent flag.
@@ -37,10 +38,12 @@ const NOTICE_KEY = 'chatofy.recordingNoticeSeen';
  * it instead of restating it by hand. The template shows this value as a
  * commented line, which only tells the truth while the two agree.
  */
-export const DEFAULT_API_BASE_URL = 'http://localhost:3000';
+export const DEFAULT_API_BASE_URL = DEV_API_BASE_URL;
 
+// `||`, not `??`: a blank `WXT_API_BASE_URL=` is unset, as it is for the manifest's
+// host permission (`apiHostPermission`), so the two never name different hosts.
 const API_BASE_URL: string =
-  (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? DEFAULT_API_BASE_URL;
+  (import.meta.env.WXT_API_BASE_URL as string | undefined) || DEFAULT_API_BASE_URL;
 
 /**
  * The pair a fresh capture opens with: English into Vietnamese.

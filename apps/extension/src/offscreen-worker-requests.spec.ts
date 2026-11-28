@@ -115,25 +115,33 @@ describe('offscreen document imports', () => {
   const stripComments = (source: string) =>
     source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-  const directImports = (file: string): string[] =>
-    [
-      ...stripComments(readFileSync(file, 'utf8')).matchAll(
-        /^import\s+(?!type\s)[^;]*?from\s+'(\.[^']+)'/gms,
-      ),
-    ].map((match) => resolve(dirname(file), `${match[1]}.ts`));
-
-  it('imports nothing that reads chrome.storage or the stored token', () => {
-    const offenders = directImports(ENTRY).filter(
-      (file) =>
-        TOKEN_READERS.some((name) => file.endsWith(name)) ||
-        /chrome\.storage/.test(stripComments(readFileSync(file, 'utf8'))),
+  /** Relative, non-type imports of `source`, resolved as `.ts` files next to `file`. */
+  const directImports = (file: string, source = readFileSync(file, 'utf8')): string[] =>
+    [...stripComments(source).matchAll(/^import\s+(?!type\s)[^;]*?from\s+'(\.[^']+)'/gms)].map(
+      (match) => resolve(dirname(file), `${match[1]}.ts`),
     );
+
+  const readsStorage = (file: string) =>
+    TOKEN_READERS.some((name) => file.endsWith(name)) ||
+    /chrome\.storage/.test(stripComments(readFileSync(file, 'utf8')));
+
+  it('imports nothing that reads chrome.storage or the stored token, and reads none itself', () => {
+    const offenders = [ENTRY, ...directImports(ENTRY)].filter(readsStorage);
     expect(offenders).toEqual([]);
   });
 
-  it('still catches the import that caused the bug', () => {
-    // Guards the guard: the pattern must see a plain relative import of settings.
-    const settings = resolve(dirname(ENTRY), '../../src/settings.ts');
-    expect(/chrome\.storage/.test(stripComments(readFileSync(settings, 'utf8')))).toBe(true);
+  it('still catches the imports that caused the bug', () => {
+    // Guards the guard: the scanner, run over the entry's previous import lines,
+    // must find and flag every one of them.
+    const previous = [
+      "import { getFreshAccessToken } from '../../src/access-token';",
+      "import { loadSettings } from '../../src/settings';",
+      "import { listTranslationContexts, resolveContext, toHints } from '../../src/translation-contexts';",
+      "import type { CaptureSettings } from '../../src/messages';",
+    ].join('\n');
+    const flagged = directImports(ENTRY, previous)
+      .filter(readsStorage)
+      .map((file) => file.slice(file.lastIndexOf('/') + 1));
+    expect(flagged).toEqual(['access-token.ts', 'settings.ts', 'translation-contexts.ts']);
   });
 });

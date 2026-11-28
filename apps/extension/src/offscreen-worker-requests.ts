@@ -12,9 +12,10 @@ import type { ExtensionMessage } from './messages';
  * now run in the worker (`offscreen-request-handler.ts`) and come back as the reply
  * to a message.
  *
- * This file is the offscreen half and imports nothing that touches storage, so the
- * document's bundle cannot reach it either; the spec walks the import graph to
- * keep it that way.
+ * This file is the offscreen half and imports nothing that touches storage. What is
+ * guarded is calling storage, not bundling it: the document still bundles
+ * `access-token.ts` through `credits.ts`, for a pure helper, and never calls it. The
+ * spec checks the offscreen entry and its direct imports, not the whole graph.
  */
 
 export type OffscreenWorkerRequest = Extract<
