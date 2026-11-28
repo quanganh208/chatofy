@@ -2,6 +2,7 @@ import { languagePairSchema, micProcessingSchema, voiceGenderSchema } from '@cha
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
+import { answerOffscreenRequest } from '../src/offscreen-request-handler';
 import { OverlayPublisher } from '../src/overlay-publisher';
 import { recordSyncedFields, sendPendingPreferences } from '../src/preferences-store';
 import { loadSettings, saveSettings } from '../src/settings';
@@ -634,6 +635,17 @@ export default defineBackground(() => {
         });
         // `true` keeps the message channel open for the response above.
         return true;
+
+      case 'capture.token':
+      case 'capture.hints': {
+        // The offscreen document cannot read storage, so it asks here. Refused
+        // (no answer) for any sender with a tab: the token is never a page's.
+        const answer = answerOffscreenRequest(forWorker, sender);
+        if (answer === null) return undefined;
+        void answer.then(sendResponse);
+        // `true` keeps the message channel open for the response above.
+        return true;
+      }
 
       case 'status':
         publisher.applyStatus(forWorker.status);

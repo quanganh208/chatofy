@@ -150,6 +150,16 @@ export type ExtensionMessage =
    */
   | { to: 'worker'; type: 'outbound.transmitting'; transmitting: boolean }
   | { to: 'offscreen'; type: 'outbound.transmitting'; transmitting: boolean }
+  /**
+   * Offscreen → worker: the token a capture opens its sockets with, renewed.
+   *
+   * Asked rather than read because `chrome.storage` does not exist in an offscreen
+   * document. Answered with `string | null`, and only to a sender with no tab
+   * (see `capture-credentials.ts`).
+   */
+  | { to: 'worker'; type: 'capture.token' }
+  /** Offscreen → worker: the saved AI Context's hints, as `TranslationHints | null`. */
+  | { to: 'worker'; type: 'capture.hints'; contextId?: string }
   /** Offscreen → worker: how it is going, forwarded to popup and overlay. */
   | { to: 'worker'; type: 'status'; status: CaptureStatus }
   /**
