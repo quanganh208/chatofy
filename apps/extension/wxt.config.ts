@@ -1,6 +1,7 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
 import { en, vi, zh, type MessageKey, type Messages } from '@chatofy/i18n';
+import { apiHostPermission } from './src/api-host-permission';
 
 /**
  * The manifest's own words, localised the way Chrome localises a manifest: each
@@ -87,7 +88,11 @@ export default defineConfig({
       }
     },
   },
-  manifest: {
+  // A function, not an object: WXT calls it after loading every env file it reads
+  // for the bundle (`.env`, `.env.local`, `.env.[mode]`, `.env.[browser]`, and their
+  // `.local` variants), so the API host granted below is the one the bundle was
+  // compiled against. An object is evaluated at import, before any of those load.
+  manifest: () => ({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
@@ -129,6 +134,10 @@ export default defineConfig({
       // the web client — and a call started from a Facebook thread lands here. The
       // path stays narrow deliberately: this grants the call page, not facebook.com.
       'https://*.facebook.com/groupcall/*',
+      // The API itself. It allows CORS for the web origin only, so without this
+      // every request from the popup, worker and offscreen document is refused
+      // and the popup reports an API that is up as unreachable.
+      apiHostPermission(process.env.WXT_API_BASE_URL),
     ],
     // The only two ways to invoke this extension in a window that has no toolbar.
     //
@@ -160,5 +169,5 @@ export default defineConfig({
     // The worklet must still be emitted as its own file rather than inlined: an
     // AudioWorklet module is fetched by the audio thread, and a bundler that folded
     // it into a chunk would break `addModule`.
-  },
+  }),
 });

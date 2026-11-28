@@ -1,11 +1,13 @@
 import { pcm16ToBase64, RelayPlaybackSink } from '@chatofy/realtime-client';
 import { createLanguagePairSession } from '../../src/language-pair-session';
 import { EchoMonitor } from '../../src/echo-monitor';
-import { getFreshAccessToken } from '../../src/access-token';
 import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
-import { loadSettings } from '../../src/settings';
-import { listTranslationContexts, resolveContext, toHints } from '../../src/translation-contexts';
+import {
+  requestCaptureToken,
+  requestContextHints,
+  type SendToWorker,
+} from '../../src/offscreen-worker-requests';
 import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
@@ -27,6 +29,9 @@ const WORKLET_PATH = 'worklets/mic-capture-processor.js';
 const send = (message: unknown) => {
   void chrome.runtime.sendMessage(message).catch(() => undefined);
 };
+
+/** A request the worker answers: the reply is what `sendMessage` resolves to. */
+const askWorker: SendToWorker = (message) => chrome.runtime.sendMessage(message);
 
 const sendOutbound = (command: OutboundCommand) =>
   send({ to: 'worker', type: 'outbound.command', command });
@@ -66,21 +71,16 @@ const capture = new MeetingCapture({
   // extension sits idle between meetings for far longer — the stale one would be
   // refused at the socket's HTTP upgrade, before a socket exists to carry a
   // reason, leaving the user a connection error with nothing to act on.
-  // `apiBaseUrl` is decided at build time and read back here rather than taken
-  // from the capture's settings, because this dependency is asked for a token
-  // and nothing else.
-  loadAccessToken: async () => getFreshAccessToken((await loadSettings()).apiBaseUrl),
+  // Asked of the worker, never read here: the token and its renewal live in
+  // `chrome.storage`, which does not exist in an offscreen document
+  // (`offscreen-worker-requests.ts`).
+  loadAccessToken: () => requestCaptureToken(askWorker),
   // The selected AI Context, resolved ONCE per capture into the hints both
   // legs run under. Read per capture rather than held, like the token
   // above: the library can change between meetings, and a context deleted since
   // the popup last listed it must read as "no context" rather than as an error.
-  //
-  // `listTranslationContexts` never throws — a failure comes back as an empty
-  // list — so a meeting can always start, with or without a context.
-  loadContextHints: async (settings) => {
-    const { contexts } = await listTranslationContexts(settings.apiBaseUrl);
-    return toHints(resolveContext(contexts, settings.contextId));
-  },
+  // A failure is "no context", so a meeting can always start.
+  loadContextHints: (settings) => requestContextHints(askWorker, settings.contextId),
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),
