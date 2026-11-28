@@ -1,5 +1,14 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
+import { apiHostPermission } from './src/api-host-permission';
+
+// The same lookup `scripts/require-api-base-url.mjs` makes: an exported value wins,
+// then `apps/extension/.env`. Node does not read .env on its own.
+try {
+  process.loadEnvFile(new URL('./.env', import.meta.url));
+} catch {
+  // No .env here: the value is exported, or unset and the localhost default applies.
+}
 
 /**
  * Chrome MV3 build for the meeting translator.
@@ -89,6 +98,10 @@ export default defineConfig({
       // the web client — and a call started from a Facebook thread lands here. The
       // path stays narrow deliberately: this grants the call page, not facebook.com.
       'https://*.facebook.com/groupcall/*',
+      // The API itself. It allows CORS for the web origin only, so without this
+      // every request from the popup, worker and offscreen document is refused
+      // and the popup reports an API that is up as unreachable.
+      apiHostPermission(process.env.WXT_API_BASE_URL),
     ],
     // The only two ways to invoke this extension in a window that has no toolbar.
     //
