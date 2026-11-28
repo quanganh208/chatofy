@@ -19,7 +19,7 @@ có dịch, và cuộc gọi trên Google Meet, Zoom, Facebook qua tiện ích C
 - **Đánh giá bằng thực nghiệm tái lập được:** đạt, với khoảng 25 bộ đo và 7.159 test tự động.
 
 Về chất lượng dịch, 77,8% lượt trong 162 lượt hội thoại thật không có lỗi nghiêm trọng, vượt mức 70% đặt ra; sau khi bổ
-sung ngữ cảnh cho bước hậu biên tập, lỗi nghiêm trọng chiều Việt → Anh giảm từ 23,7% xuống 1,3% trên cùng tập lượt.
+sung ngữ cảnh cho bước hậu biên tập, lỗi dịch nghiêm trọng chiều Việt → Anh giảm từ 23,7% xuống 1,3% trên cùng tập lượt.
 
 Qua quá trình thực hiện, nhóm rút ra rằng trong một hệ thống thời gian thực, quyết định đúng thường đến từ việc đo đúng
 chỗ hơn là từ việc chọn mô hình mạnh hơn: cảm giác "giật" hoá ra là vấn đề phản hồi giao diện; thứ hạng mô hình đảo ngược
@@ -32,6 +32,12 @@ khi chuyển từ tập kiểm tra sạch sang âm thanh thật; và một cơ c
 - **Giấy phép mô hình nhận dạng tiếng Việt** (CC-BY-NC-ND-4.0) chỉ cho phép dùng phi thương mại; hệ thống chưa thể bán công
   khai nếu chưa thay mô hình.
 - **Chưa tự nhận diện được tiếng Trung**: các cặp có tiếng Trung chỉ chạy một chiều.
+- **Khả năng phục vụ đồng thời còn nhỏ.** Toàn bộ phần tiếng nói chạy trên một máy chủ không có GPU, nên hệ thống
+  giới hạn tối đa 6 lượt dịch được xử lý cùng lúc, tương đương hai người nói liên tục, trong đó các cuộc họp
+  dùng tối đa 4 (mục 3.9.2). Vượt mức này, các sidecar dùng quá số nhân CPU và mọi lượt cùng chậm đi. Mỗi lượt
+  chỉ kéo dài vài giây nên số người dùng cùng lúc có thể lớn hơn 6, nhưng khi vượt giới hạn, lượt mới bị từ chối
+  trên trang dịch hoặc bị bỏ qua ở nhánh họp. Đồ án chưa đo sức chịu tải theo số người dùng đồng thời, và chưa có cơ chế chạy nhiều bản sao
+  sidecar tiếng nói trên nhiều máy.
 - **Chất lượng dịch trong họp video** còn kém trang dịch trực tiếp 2,5–4,2 điểm phần trăm lỗi nghiêm trọng; khi nhiều người
   nói liên tục, nhánh dịch của cuộc họp bị bỏ bớt lượt.
 - **Chưa kiểm chứng đầy đủ** cuộc họp giữa hai mạng thực khác nhau (Wi-Fi và 4G), tiếng vọng trên loa ngoài của máy tính, và
@@ -43,6 +49,9 @@ khi chuyển từ tập kiểm tra sạch sang âm thanh thật; và một cơ c
 - Chạy dịch máy cục bộ hoặc dùng mô hình dịch nhỏ cho các cặp phổ biến, tiến tới chế độ ngoại tuyến hoàn toàn.
 - Thay mô hình nhận dạng tiếng Việt bằng mô hình có giấy phép thương mại và đo lại chất lượng trên âm thanh thật.
 - Nhận diện tự động tiếng Trung khi có mô hình chạy CPU đạt ngưỡng chính xác, hoặc khi có GPU.
+- Mở rộng theo chiều ngang: chạy nhiều bản sao sidecar tiếng nói sau một bộ cân bằng tải, chuyển giới hạn lượt
+  đồng thời từ bộ nhớ của một tiến trình API sang Redis để dùng chung giữa nhiều máy, và đo sức chịu tải theo số
+  người dùng đồng thời.
 - Rút ngắn mệnh đề đầu tiên đưa vào tổng hợp tiếng nói tiếng Anh, hướng tới độ trễ âm thanh khoảng 0,5 s cho khâu này.
 - Hoàn thiện và phát hành ứng dụng di động; tổ chức thử nghiệm với người dùng thật.
 - Mở rộng thêm ngôn ngữ thông qua registry ngôn ngữ, và đưa hệ thống credit sang bán công khai sau khi hoàn tất danh sách

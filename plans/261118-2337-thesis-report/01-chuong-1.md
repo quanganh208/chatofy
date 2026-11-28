@@ -38,7 +38,7 @@ là độ trễ cộng dồn qua ba bước và lỗi của bước trước lan
 giọng nói. Hướng này có thể giảm độ trễ và giữ được ngữ điệu, nhưng khó kiểm soát từng bước, khó thêm thuật ngữ
 riêng, thường chỉ có dưới dạng dịch vụ đám mây, và không nhất thiết hỗ trợ mọi cặp ngôn ngữ.
 
-Chatofy chọn hướng tầng. Nhóm đã thử một mô hình đầu-cuối (Gemini Live) làm mốc so sánh; lý do lựa chọn và kết
+Chatofy chọn hướng tầng. Nhóm đã thử một mô hình đầu-cuối (Gemini Live [1]) làm mốc so sánh; lý do lựa chọn và kết
 quả đo được trình bày ở Chương 3.
 
 ### 1.1.3 Các thách thức kỹ thuật
@@ -63,20 +63,20 @@ mặt đối mặt. Hạn chế là không lưu lịch sử hội thoại có c�
 ### 1.2.2 Microsoft Translator – hội thoại nhiều thiết bị
 
 Microsoft Translator từng cung cấp tính năng hội thoại nhiều thiết bị: mỗi người tham gia từ thiết bị riêng, nói
-bằng ngôn ngữ của mình và đọc bản dịch sang ngôn ngữ của mình [1]. Năm 2022, Microsoft
-bỏ khả năng tạo hội thoại trên ứng dụng web; năm 2025 có báo cáo người dùng về việc tính năng ngừng hoạt động,
-và một số nguồn thứ cấp cho biết tính năng bị dừng từ tháng 6/2026 (chưa có xác nhận chính thức).
+bằng ngôn ngữ của mình và đọc bản dịch sang ngôn ngữ của mình [2]. Năm 2022, Microsoft chuyển ứng dụng web
+sang giao diện rút gọn và bỏ khả năng tạo hội thoại trên web [3]; tính năng này nay chỉ còn trên ứng dụng
+di động và không dùng được bên trong các nền tảng họp trực tuyến.
 
 ### 1.2.3 Google Meet – dịch giọng nói và phụ đề dịch
 
 Google Meet có hai tính năng: phụ đề dịch (_translated captions_) và dịch giọng nói bằng Gemini. Tháng 10/2026,
 Google công bố dịch giọng nói hỗ trợ 63 ngôn ngữ trên web, Android và iOS, có tự nhận diện ngôn ngữ, thay cho phiên
-bản trước chỉ hỗ trợ tiếng Anh với năm ngôn ngữ châu Âu [2]. Các tính năng này gắn với
+bản trước chỉ hỗ trợ tiếng Anh với năm ngôn ngữ châu Âu [4]. Các tính năng này gắn với
 gói Google Workspace trả phí và chỉ dùng được bên trong Google Meet.
 
 ### 1.2.4 Zoom – phụ đề dịch
 
-Zoom cung cấp phụ đề dịch dưới dạng tiện ích trả phí, hỗ trợ khoảng 35–36 ngôn ngữ, trong đó có tiếng Việt [3]. Tính năng chỉ cung cấp phụ đề, không đọc bản dịch thành tiếng.
+Zoom cung cấp phụ đề dịch dưới dạng tiện ích trả phí, hỗ trợ khoảng 35–36 ngôn ngữ, trong đó có tiếng Việt [5]. Tính năng chỉ cung cấp phụ đề, không đọc bản dịch thành tiếng.
 
 ### 1.2.5 Thiết bị phiên dịch cầm tay
 
@@ -125,23 +125,23 @@ Nhận dạng tiếng nói tự động (_Automatic Speech Recognition_, ASR) ch
 từ. Âm thanh thường được biến đổi thành đặc trưng phổ Mel (_log-Mel filterbank_), mỗi khung khoảng 10 ms, rồi đưa
 qua một bộ mã hoá (_encoder_) mạng nơ-ron. Có ba họ kiến trúc giải mã phổ biến:
 
-**Mô hình transducer (RNN-T).** Đề xuất bởi Graves [4], gồm bộ mã hoá âm thanh, mạng dự đoán (_prediction
+**Mô hình transducer (RNN-T).** Đề xuất bởi Graves [6], gồm bộ mã hoá âm thanh, mạng dự đoán (_prediction
 network_) mô hình hoá chuỗi token đã sinh, và mạng nối (_joint network_) kết hợp hai nguồn để dự đoán token tiếp
-theo hoặc ký hiệu rỗng. Transducer phù hợp với nhận dạng streaming và có độ trễ thấp. Zipformer [5] là
+theo hoặc ký hiệu rỗng. Transducer phù hợp với nhận dạng streaming và có độ trễ thấp. Zipformer [7] là
 một bộ mã hoá cho transducer, xử lý chuỗi ở nhiều tốc độ khung khác nhau theo cấu trúc giống U-Net để giảm chi phí
 tính toán. Chatofy dùng mô hình Zipformer 30 triệu tham số cho tiếng Việt.
 
 **Token-and-Duration Transducer (TDT).** Mở rộng của transducer: ngoài token, mô hình dự đoán thêm số khung cần bỏ
 qua, giúp giải mã nhanh hơn. Parakeet-TDT-0.6B-v2, mô hình Chatofy dùng cho tiếng Anh, kết hợp bộ mã hoá
-FastConformer [6] với bộ giải mã TDT [7], và tự sinh dấu câu, chữ hoa.
+FastConformer [8] với bộ giải mã TDT [9], và tự sinh dấu câu, chữ hoa.
 
-**Mô hình mã hoá–giải mã (encoder–decoder).** Whisper [8] là mô hình Transformer mã hoá–giải mã được
+**Mô hình mã hoá–giải mã (encoder–decoder).** Whisper [10] là mô hình Transformer mã hoá–giải mã được
 huấn luyện trên khoảng 680.000 giờ dữ liệu đa ngôn ngữ có giám sát yếu, đồng thời thực hiện nhiều tác vụ: nhận dạng,
 dịch sang tiếng Anh và nhận diện ngôn ngữ. Giải mã tự hồi quy của Whisper chậm trên CPU, nên Chatofy chỉ dùng phần
-xác suất ngôn ngữ của Whisper base để nhận diện ngôn ngữ. PhoWhisper [9] là Whisper được tinh chỉnh
+xác suất ngôn ngữ của Whisper base để nhận diện ngôn ngữ. PhoWhisper [11] là Whisper được tinh chỉnh
 cho tiếng Việt.
 
-**Mô hình không tự hồi quy.** Paraformer [10] dự đoán số token và sinh toàn bộ chuỗi trong một bước,
+**Mô hình không tự hồi quy.** Paraformer [12] dự đoán số token và sinh toàn bộ chuỗi trong một bước,
 nhanh hơn giải mã tự hồi quy. Chatofy dùng Paraformer cho tiếng Trung.
 
 **Giải mã và danh sách từ ưu tiên.** Giải mã tham lam (_greedy search_) chọn token có xác suất cao nhất ở mỗi bước;
@@ -159,7 +159,7 @@ $\text{RTF} = t_{\text{xử lý}} / t_{\text{âm thanh}}$.
 ### 1.3.2 Phát hiện giọng nói và phân lượt
 
 Bộ phát hiện giọng nói (_Voice Activity Detection_, VAD) phân loại mỗi khung âm thanh là có tiếng nói hay không.
-Cách đơn giản nhất so năng lượng (RMS) với một ngưỡng; các mô hình học sâu như Silero VAD [11] phân biệt
+Cách đơn giản nhất so năng lượng (RMS) với một ngưỡng; các mô hình học sâu như Silero VAD [13] phân biệt
 tốt hơn tiếng nói với nhạc và tiếng ồn.
 
 Từ đầu ra VAD, hệ thống xác định điểm kết thúc lượt: một lượt kết thúc khi im lặng kéo dài quá một khoảng chờ
@@ -170,7 +170,7 @@ dừng.
 ### 1.3.3 Nhận diện ngôn ngữ và nhận diện người nói
 
 **Nhận diện ngôn ngữ** (_Language Identification_, LID) xác định ngôn ngữ của một đoạn âm thanh. Có thể dùng mô hình
-chuyên dụng (như MMS-LID [12], AmberNet), dùng xác suất ngôn ngữ của một mô hình ASR đa ngôn ngữ (như Whisper),
+chuyên dụng (như MMS-LID [14], AmberNet [15]), dùng xác suất ngôn ngữ của một mô hình ASR đa ngôn ngữ (như Whisper),
 hoặc cho nhiều bộ nhận dạng cùng chạy rồi so sánh độ tin cậy. Độ chính xác giảm mạnh với đoạn âm thanh ngắn, nên
 hệ thống thời gian thực phải cân bằng giữa hiển thị nhãn sớm và hiển thị nhãn đúng.
 
@@ -180,7 +180,7 @@ $a$ và $b$ được đo bằng cosine:
 
 $$\cos(a, b) = \frac{a \cdot b}{\lVert a \rVert \, \lVert b \rVert}$$
 
-Chatofy dùng CAM++ [13], một mạng xác minh người nói dựa trên TDNN với cơ chế che theo ngữ cảnh, sinh vector
+Chatofy dùng CAM++ [16], một mạng xác minh người nói dựa trên TDNN với cơ chế che theo ngữ cảnh, sinh vector
 192 chiều.
 
 ### 1.3.4 Tổng hợp tiếng nói
@@ -188,12 +188,12 @@ Chatofy dùng CAM++ [13], một mạng xác minh người nói dựa trên TDNN 
 Tổng hợp tiếng nói (_Text-to-Speech_, TTS) hiện đại gồm hai phần: mô hình âm học sinh biểu diễn trung gian (như phổ
 Mel) từ văn bản, và bộ tạo sóng âm (_vocoder_) chuyển biểu diễn đó thành tín hiệu. Nhiều mô hình mới gộp hai phần
 thành một. Kokoro-82M là mô hình 82 triệu tham số, giấy phép Apache-2.0, được Chatofy dùng cho tiếng Anh và tiếng
-Trung. VieNeu là mô hình TTS tiếng Việt mã nguồn mở có API sinh âm thanh dạng luồng.
+Trung. VieNeu [17] là mô hình TTS tiếng Việt mã nguồn mở có API sinh âm thanh dạng luồng.
 
 Ba chỉ số chính để đánh giá TTS:
 
 - **MOS** (_Mean Opinion Score_): người nghe chấm điểm từ 1 đến 5, lấy trung bình, theo khuyến nghị ITU-T P.800
-  [14].
+  [18].
 - **Độ dễ hiểu**: đưa âm thanh tổng hợp qua một mô hình ASR rồi đo WER so với văn bản gốc (_round-trip WER_).
 - **TTFA** (_time to first audio_): thời gian tới mẫu âm thanh đầu tiên. Với dạng luồng, cần xét thêm việc âm thanh
   có bị ngắt quãng không (_underrun_), tức tốc độ sinh có theo kịp tốc độ phát không.
@@ -206,25 +206,25 @@ cải thiện bằng lời nhắc (_prompt_) chứa ngữ cảnh hội thoại t
 chèn lệnh** (_prompt injection_): vì văn bản cần dịch là lời người dùng, nó có thể chứa câu lệnh khiến mô hình làm
 theo thay vì dịch.
 
-**Đánh giá chất lượng dịch.** Các thước đo tự động truyền thống so bản dịch với bản tham chiếu: BLEU [15] dựa
-trên n-gram từ, chrF [16] dựa trên n-gram ký tự. COMET [17] dùng mô hình nơ-ron học từ điểm do người
-chấm; biến thể CometKiwi [18] không cần bản tham chiếu. Khung MQM (_Multidimensional Quality Metrics_)
-[19] phân loại từng lỗi theo loại và mức độ nghiêm trọng. Gần đây, nhiều nghiên cứu dùng chính LLM làm giám khảo
-(_LLM-as-a-judge_) [20]; cách này cần được hiệu chuẩn trên các lỗi biết trước để đảm bảo đáng tin.
+**Đánh giá chất lượng dịch.** Các thước đo tự động truyền thống so bản dịch với bản tham chiếu: BLEU [19] dựa
+trên n-gram từ, chrF [20] dựa trên n-gram ký tự. COMET [21] dùng mô hình nơ-ron học từ điểm do người
+chấm; biến thể CometKiwi [22] không cần bản tham chiếu. Khung MQM (_Multidimensional Quality Metrics_)
+[23] phân loại từng lỗi theo loại và mức độ nghiêm trọng. Gần đây, nhiều nghiên cứu dùng chính LLM làm giám khảo
+(_LLM-as-a-judge_) [24]; cách này cần được hiệu chuẩn trên các lỗi biết trước để đảm bảo đáng tin.
 
 ## 1.4 Truyền thông thời gian thực
 
 ### 1.4.1 WebSocket
 
-WebSocket [21] cung cấp kênh truyền hai chiều, liên tục giữa trình duyệt và máy chủ trên một kết nối TCP,
+WebSocket [25] cung cấp kênh truyền hai chiều, liên tục giữa trình duyệt và máy chủ trên một kết nối TCP,
 được thiết lập bằng cách nâng cấp (_upgrade_) một yêu cầu HTTP. Chatofy dùng WebSocket để gửi khung âm thanh lên máy
 chủ và nhận văn bản, bản dịch, âm thanh về.
 
 ### 1.4.2 WebRTC
 
-WebRTC [22] là tập chuẩn cho phép trình duyệt truyền âm thanh, video và dữ liệu trực tiếp với độ trễ thấp
+WebRTC [26] là tập chuẩn cho phép trình duyệt truyền âm thanh, video và dữ liệu trực tiếp với độ trễ thấp
 qua UDP. Hai bên trao đổi mô tả phiên (SDP) theo mô hình offer/answer qua một kênh báo hiệu riêng. Giao thức ICE
-[23] tìm đường kết nối qua NAT: thử địa chỉ cục bộ, địa chỉ công khai do máy chủ STUN cho biết, và cuối
+[27] tìm đường kết nối qua NAT: thử địa chỉ cục bộ, địa chỉ công khai do máy chủ STUN cho biết, và cuối
 cùng là chuyển tiếp qua máy chủ TURN.
 
 ### 1.4.3 Mô hình kết nối cho cuộc họp nhiều người
@@ -243,7 +243,7 @@ trao đổi media với SFU qua WebRTC.
 ## 1.5 Công nghệ phát triển
 
 Bảng 1.3 tóm tắt các công nghệ được dùng và lý do lựa chọn; chi tiết kỹ thuật tham khảo từ tài liệu chính thức
-của từng công nghệ [24]–[31].
+của từng công nghệ [28]–[35].
 
 **Bảng 1.3. Các công nghệ sử dụng**
 

@@ -38,7 +38,7 @@ Bảng 3.1 liệt kê các thành phần đang chạy trong phiên bản hiện 
 Kiến trúc tầng được chọn thay cho mô hình dịch giọng nói đầu-cuối (_speech-to-speech_) vì ba lý do.
 Thứ nhất, mỗi khâu thay được độc lập qua một giao diện chung (`SttProvider`, `TranslationProvider`,
 `TtsProvider`). Thứ hai, văn bản trung gian dùng được cho phụ đề, lịch sử và biên bản họp. Thứ ba,
-nhóm đã thử nghiệm Gemini Live (một mô hình dịch giọng nói trực tiếp) làm mốc so sánh trong
+nhóm đã thử nghiệm Gemini Live [1] (một mô hình dịch giọng nói trực tiếp) làm mốc so sánh trong
 `benchmarks/live-translate`, và mô hình này không hỗ trợ tiếng Trung.
 
 ### 3.1.2 Môi trường và nguyên tắc đo
@@ -74,11 +74,11 @@ Nhóm áp dụng bốn nguyên tắc cho mọi thực nghiệm:
 
 Ràng buộc đặt ra trước khi khảo sát: chạy trên CPU, RTF ≤ 0,3 với câu dài 5–10 giây, giấy phép dùng
 được cho đồ án học thuật. Kết quả khảo sát cho thấy không có một mô hình đa ngôn ngữ nào đáp ứng được:
-Whisper large-v3 quá chậm trên CPU, Parakeet v3 không có tiếng Việt, Moonshine chỉ có tiếng Anh. Vì
+Whisper large-v3 quá chậm trên CPU, Parakeet v3 không có tiếng Việt, Moonshine [36] chỉ có tiếng Anh. Vì
 vậy hệ thống dùng một mô hình chuyên biệt cho mỗi ngôn ngữ, chọn qua một bộ đăng ký (_registry_) theo
 mã ngôn ngữ.
 
-Hai tập kiểm tra được dùng: VIVOS test cho tiếng Việt và LibriSpeech test-clean cho tiếng Anh, mỗi
+Hai tập kiểm tra được dùng: VIVOS test [37] cho tiếng Việt và LibriSpeech test-clean [38] cho tiếng Anh, mỗi
 tập 50 câu, chọn ngẫu nhiên với seed 42. Mỗi mô hình chạy trong một tiến trình riêng, có một lượt làm
 nóng không tính giờ, và chạy hai lần để kiểm tra độ dao động.
 
@@ -98,7 +98,7 @@ khoảng 20 lần, dùng một phần tư bộ nhớ. Với tiếng Anh, Moonshi
 Phép đo này cho thấy số công bố lệch theo cả hai hướng: PhoWhisper-small được ước tính đạt ngưỡng RTF
 nhưng thực đo không đạt (0,332), còn Zipformer đo được 0,017, nhanh hơn số công bố 0,025.
 
-Một hạn chế cần nêu: mô hình Zipformer tiếng Việt dùng giấy phép CC-BY-NC-ND-4.0, chỉ cho phép dùng
+Một hạn chế cần nêu: mô hình Zipformer tiếng Việt [39] dùng giấy phép CC-BY-NC-ND-4.0, chỉ cho phép dùng
 phi thương mại. Nếu thương mại hoá, phương án thay thế là PhoWhisper (BSD-3) qua cùng giao diện
 `SttProvider`, chấp nhận độ trễ khoảng 1,3 giây mỗi câu.
 
@@ -127,8 +127,12 @@ trường production (4 tiếng Việt, khoảng 9,2 phút; 2 tiếng Anh, kho�
 module thu âm của trình duyệt (`CapturePump`) để cắt lượt giống thực tế.
 
 Kết quả đáng chú ý nhất là thứ hạng bị đảo ngược. Trên VIVOS, Zipformer-30M đạt 5,4% còn một mô hình
-streaming đa ngôn ngữ (PengChengStarling) đạt 13,4%. Trên âm thanh thật đọc liên tục thì ngược lại:
-19,0% so với 22,1%. Tuy nhiên khi cắt theo lượt như sản phẩm thật, mô hình streaming tệ hơn rõ rệt.
+streaming đa ngôn ngữ (PengChengStarling [40]) đạt 13,4%. Trên âm thanh thật thì ngược lại: khi được nạp
+âm thanh liên tục, mô hình streaming đạt 19,0%, thấp hơn mức 22,1% của các bản chép lời mà Zipformer-30M đã
+tạo và lưu trên production. Tuy nhiên khi cắt theo lượt như sản phẩm thật, mô hình streaming tệ hơn rõ rệt.
+Bảng 3.4 phát lại cùng âm thanh cho cả ba mô hình nên Zipformer-30M có 22,3%, chênh 0,2 điểm so với bản đã
+lưu; Zipformer-30M là mô hình offline nên không có cột đọc liên tục. Văn bản tham chiếu để tính WER là bản chép lời
+của dịch vụ ElevenLabs Scribe v2 [41].
 
 **Bảng 3.4. WER tiếng Việt trên âm thanh production (tham chiếu: ElevenLabs Scribe v2)**
 
@@ -143,14 +147,14 @@ Kiểm định bootstrap theo lượt cho thấy mô hình streaming tệ hơn 1
 chiếu tiếng Việt (Scribe v2 và PhoWhisper-large) tự chênh nhau 20,4% WER, nên mọi khác biệt dưới
 khoảng 3 điểm được coi là nhiễu. Hệ thống giữ nguyên Zipformer-30M cho tiếng Việt.
 
-Với tiếng Anh, Parakeet-TDT-0.6B-v2 [6] đạt WER 3,4% so với 7,4% của Moonshine trên
+Với tiếng Anh, Parakeet-TDT-0.6B-v2 [8] đạt WER 3,4% so với 7,4% của Moonshine trên
 các lượt thật (chênh −4,0 điểm, khoảng tin cậy 95%: [−7,3; −0,9]). Parakeet còn tự sinh dấu câu và
 viết hoa. Dưới tải hai chiều đồng thời, độ trễ p95 của lượt cuối là 327 ms (Moonshine: 215 ms), vẫn
 nằm trong chu kỳ cập nhật 300 ms cho văn bản tạm, không có lỗi quá tải (HTTP 503). Parakeet thay hoàn
 toàn Moonshine.
 
-Với tiếng Trung, Paraformer-zh được chọn sau khi đạt CER trung bình 3,22% trên FLEURS và AISHELL-1
-(50 đoạn mỗi tập), thấp hơn SenseVoice-small (4,58%).
+Với tiếng Trung, Paraformer-zh được chọn sau khi đạt CER trung bình 3,22% trên FLEURS [42] và
+AISHELL-1 [43] (50 đoạn mỗi tập), thấp hơn SenseVoice-small [44] (4,58%).
 
 ### 3.2.4 Phân bổ lỗi nhận dạng tiếng Việt
 
@@ -196,8 +200,8 @@ văn bản ngược (_Inverse Text Normalization_, ITN) dạng tất định, ch
 
 Mô hình ngôn ngữ lớn sửa đúng nhưng trả kết quả sau trung vị 25 giây, khi người đọc đã chuyển sang câu
 khác. ITN chỉ xử lý chữ số nhưng chạy dưới một phần nghìn giây. Hệ thống chọn ITN cho chữ số; dấu câu và
-viết hoa được xử lý bằng một mô hình gán nhãn token chạy trong sidecar STT (Dewpoint cho tiếng Việt,
-CT-Transformer cho tiếng Trung), được chọn qua bộ đo `benchmarks/punct`. Kết quả ITN được kiểm
+viết hoa được xử lý bằng một mô hình gán nhãn token chạy trong sidecar STT (Dewpoint [45] cho tiếng
+Việt, CT-Transformer [46] cho tiếng Trung), được chọn qua bộ đo `benchmarks/punct`. Kết quả ITN được kiểm
 thêm trên 100 câu VIVOS và LibriSpeech không chứa chữ số: không sinh chữ số bịa nào.
 
 ## 3.4 Tổng hợp tiếng nói
@@ -211,14 +215,14 @@ thêm trên 100 câu VIVOS và LibriSpeech không chứa chữ số: không sinh
 | Piper (lessac-high) | 0,45    | 0,57    | 0,154 | 323 MB   | MIT        |
 | **Kokoro-82M**      | 0,99    | 1,18    | 0,323 | 619 MB   | Apache-2.0 |
 
-Cả hai đạt ngưỡng p95 ≤ 2 s. Qua nghe so sánh A/B, Kokoro được chọn vì chất lượng giọng tốt hơn rõ rệt;
+Piper [47] và Kokoro-82M [33] đều đạt ngưỡng p95 ≤ 2 s. Qua nghe so sánh A/B, Kokoro được chọn vì chất lượng giọng tốt hơn rõ rệt;
 Piper được giữ làm phương án dự phòng khi độ trễ quan trọng hơn chất lượng. Đây mới là đánh giá của một
 người nghe; bộ công cụ chấm MOS nhiều người nghe đã được xây dựng trong `benchmarks/mos` (theo
-khuyến nghị ITU-T P.800 [14]).
+khuyến nghị ITU-T P.800 [18]).
 
 ### 3.4.2 Tiếng Việt: chọn mô hình và chuyển sang streaming
 
-Nhóm so sánh VieNeu v3 Turbo (đang dùng) với ZeroTTS trên tập 41 câu hội thoại, cả hai cùng seed và
+Nhóm so sánh VieNeu v3 Turbo [17] (đang dùng) với ZeroTTS [48] trên tập 41 câu hội thoại, cả hai cùng seed và
 cùng chế độ streaming. Chỉ số quyết định là **thời gian tới âm thanh liền mạch**: thời gian tới mẫu âm
 thanh đầu tiên cộng độ trễ lớn nhất sau đó, tức là lượng đệm cần để phát hết câu mà không bị ngắt.
 
@@ -367,24 +371,27 @@ token dịch đầu tiên của nhà cung cấp (khoảng 500 ms) và thời gia
 (_auto-detect_) dùng cùng cơ chế để xác định ngôn ngữ nguồn của từng lượt.
 
 Nhóm xây dựng một bộ đo (`benchmarks/lid`) so sánh năm phương án trên cùng một tập có nhãn, mỗi phương
-án chạy qua đúng runtime sẽ dùng khi triển khai: AmberNet, xác suất ngôn ngữ của Whisper, MMS-LID-126,
+án chạy qua đúng runtime sẽ dùng khi triển khai: AmberNet [15], xác suất ngôn ngữ của Whisper, MMS-LID-126 [14],
 "cạnh tranh bộ nhận dạng" (chạy cả hai STT rồi phân loại bằng hồi quy logistic trên đặc trưng), và kết
 hợp các phương án với xác suất tiên nghiệm. Kết quả được chấm bằng một tập tiêu chí đặt trước (độ chính
 xác với lượt ngắn và dài, thời gian hiện nhãn, độ trễ thêm vào).
 
 Khó khăn chính nằm ở văn bản tạm, không ở lượt hoàn chỉnh.
 
-**Bảng 3.12. Độ chính xác nhận diện theo độ dài đoạn đầu (cặp Việt–Anh)**
+**Bảng 3.12. Độ chính xác nhận diện theo độ dài đoạn đầu (cặp Việt–Anh, 1.100 đoạn FLEURS)**
 
 | Độ dài đoạn  | 600 ms | 900 ms | 1,2 s | 1,5 s | 2 s   | 3 s   | Cả lượt |
 | ------------ | ------ | ------ | ----- | ----- | ----- | ----- | ------- |
 | Độ chính xác | 0,707  | 0,828  | 0,867 | 0,898 | 0,953 | 0,990 | 0,998   |
 
-Với cả lượt, độ chính xác khoảng 99,7%, nhưng dưới 2 giây âm thanh thì độ tin cậy gần như không phân
-biệt được hai ngôn ngữ. Vì vậy hệ thống chỉ "khoá" nhãn ngôn ngữ khi đủ độ tin cậy và đủ thời lượng nói,
-còn lượt ngắn dùng phương án dự phòng.
+Với cả lượt, độ chính xác đạt 99,8% với cặp Việt–Anh (99,6–100% với các cặp còn lại), nhưng dưới 2 giây
+âm thanh độ chính xác giảm nhanh, chỉ còn 70,7% với 600 ms đầu. Vì vậy hệ thống chỉ "khoá" nhãn ngôn ngữ
+khi đủ độ tin cậy và đủ thời lượng nói, còn lượt ngắn dùng phương án dự phòng.
 
-Phương án thắng là xác suất ngôn ngữ của Whisper base [8] với cửa sổ tối thiểu 5 giây. AmberNet
+Phương án thắng là xác suất ngôn ngữ của Whisper base [10]. Bộ mã hoá của Whisper luôn được đưa một cửa sổ
+âm thanh dài ít nhất 5 giây; lượt ngắn hơn được đệm thêm, vì cửa sổ 1 giây dùng lúc đầu làm giảm độ chính
+xác ở lượt ngắn. Cửa sổ này không đòi hỏi người dùng nói đủ 5 giây: nhãn được khoá khi đã có ít nhất
+1,3 giây tiếng nói và độ tin cậy từ 0,8 trở lên. AmberNet
 bị loại vì mô hình phát hành theo điều khoản sử dụng NGC của NVIDIA, không bảo đảm quyền phân phối lại bản chuyển
 đổi ONNX cùng sản phẩm. Mô hình được tích hợp vào sidecar STT, mỗi
 quyết định mất 91 ms (p50) và 111 ms (p95) trên 4 luồng. Để tiết kiệm CPU, bộ nhận dạng tiếng Việt thứ
@@ -412,12 +419,14 @@ chiều, người dùng chọn ngôn ngữ thủ công.
 ## 3.7 Nhận diện người nói theo lượt
 
 Khi hai người dùng chung một micro, hệ thống gán mỗi lượt cho một người nói bằng vector đặc trưng giọng
-nói (_speaker embedding_, mô hình CAM++ [13]) và độ tương đồng cosine. Lượt được gán cho người nói đã biết nếu
+nói (_speaker embedding_, mô hình CAM++ [16]) và độ tương đồng cosine. Lượt được gán cho người nói đã biết nếu
 độ tương đồng vượt ngưỡng gán; nếu không, hệ thống tạo người nói mới khi vượt ngưỡng tạo mới.
 
 Trên 5 hội thoại thật, ngưỡng cũ (0,375/0,325) gộp nhầm hai giọng có độ tương đồng chéo 0,38–0,58, và đoạn
 nhạc nền sinh ra chữ ảo và người nói ảo. Nhóm nâng ngưỡng lên 0,50/0,45 và thêm cổng lọc: bỏ đoạn có dưới
-300 ms tiếng nói.
+300 ms tiếng nói. Ngưỡng mới được đánh giá trên ViYT-Diar, tập 100 cuộc hội thoại tiếng Việt hai người
+nói được gán nhãn thủ công (phần dữ liệu giữ lại, không dùng để chọn ngưỡng), ở hai điều kiện âm thanh
+sạch và micro đặt xa, cùng 8 bản ghi production.
 
 **Bảng 3.14. Độ chính xác gán người nói (sau cổng 300 ms)**
 
@@ -446,33 +455,42 @@ bảng thuật ngữ (_glossary_) của người dùng hoặc của nhóm.
 ### 3.8.2 Thước đo chất lượng dịch
 
 Nhóm không có nguồn lực để chấm thủ công hoặc viết bản dịch tham chiếu cho hội thoại thật, nên dùng một mô
-hình ngôn ngữ lớn làm giám khảo [20]. Giám khảo đánh dấu lỗi theo khung MQM và quy mỗi lỗi
+hình ngôn ngữ lớn làm giám khảo [24]. Giám khảo đánh dấu lỗi theo khung MQM và quy mỗi lỗi
 về một nguồn: nghe sai (`asr`), dịch sai (`mt`) hoặc cắt lượt sai. Để tách lỗi dịch khỏi lỗi nghe, bản ghi
 âm của mỗi lượt được chép lại bằng ElevenLabs Scribe v2.
 
 Giám khảo được hiệu chuẩn trước khi dùng: nhóm cố ý làm hỏng các bản dịch đúng theo bốn quy tắc (đổi số,
 đảo phủ định, tráo tên riêng, bỏ mệnh đề dài nhất) và kiểm tra khả năng phát hiện. Giám khảo phát hiện
 93,3% lỗi cài cắm (n = 30), báo nhầm 1/40 bản dịch sạch (và bản đó thực sự có lỗi bỏ sót), và ba lần chấm
-lặp lại đồng ý 100%. Điểm CometKiwi [18], một thước đo không cần tham chiếu thuộc họ mô hình
+lặp lại đồng ý 100%. Điểm CometKiwi [22], một thước đo không cần tham chiếu thuộc họ mô hình
 khác, tương quan nghịch với mức độ lỗi của giám khảo (Spearman −0,591 trên 162 lượt).
 
 ### 3.8.3 Kết quả và cải tiến
 
-Trên 162 lượt từ 17 hội thoại thật, 22,2% lượt có lỗi dịch nghiêm trọng. Lỗi phân bố rất khác theo chiều
-dịch: chiều Anh → Việt chỉ 1,3% lượt có lỗi dịch nghiêm trọng (lỗi chủ yếu do nghe sai), còn chiều Việt →
-Anh là 23,7%. Lỗi chiều Việt → Anh là lỗi ngữ nghĩa, ví dụ "ai" (AI) bị dịch thành "whoever". Lỗi thuật
-ngữ và lỗi cắt lượt không gây lỗi nghiêm trọng nào.
+Tập đánh giá gồm 162 lượt từ 17 hội thoại thật: 76 lượt Việt → Anh, 80 lượt Anh → Việt và 6 lượt ở các
+chiều khác. Mục này dùng hai chỉ số khác nhau:
+
+- **Lỗi nghiêm trọng (mọi nguồn):** lượt có ít nhất một lỗi major hoặc critical, dù lỗi đến từ nghe sai hay
+  dịch sai. Trên toàn tập, 22,2% lượt có lỗi loại này, tức 77,8% lượt không có lỗi nghiêm trọng nào.
+- **Lỗi dịch nghiêm trọng:** chỉ tính lỗi mà giám khảo quy cho bước dịch máy (`mt`), để đánh giá riêng khâu
+  dịch.
+
+Trong các lỗi nghiêm trọng, 53,5% do nghe sai và 46,5% do dịch sai, nhưng phân bố rất khác theo chiều dịch.
+Chiều Anh → Việt chỉ 1,3% lượt (1/80) có lỗi dịch nghiêm trọng; 10,0% lượt có lỗi nghiêm trọng khi tính cả
+lỗi nghe, chủ yếu do giọng nói tiếng Việt bị nhận nhầm thành tiếng Anh trong hội thoại hai chiều. Chiều Việt
+→ Anh có 23,7% lượt (18/76) có lỗi dịch nghiêm trọng, và đây là lỗi ngữ nghĩa, ví dụ "ai" (AI) bị dịch thành
+"whoever". Lỗi thuật ngữ và lỗi cắt lượt không gây lỗi nghiêm trọng nào.
 
 Đọc mã cho thấy bước hậu biên tập có sẵn một khối ngữ cảnh trong lời nhắc nhưng không bao giờ được truyền
 ngữ cảnh. Nhóm phát lại 162 lượt qua ba cấu hình và chấm bằng cùng giám khảo.
 
 **Bảng 3.15. Ảnh hưởng của ngữ cảnh hội thoại tới bước hậu biên tập**
 
-| Cấu hình                      | Lỗi dịch nghiêm trọng Việt → Anh | Lỗi nghiêm trọng Anh → Việt | CometKiwi trung bình |
-| ----------------------------- | -------------------------------- | --------------------------- | -------------------- |
-| Bản dịch đã lưu               | 23,7%                            | 10,0%                       | 0,753                |
-| Hậu biên tập, không ngữ cảnh  | 9,2%                             | 8,8%                        | 0,767                |
-| **Hậu biên tập, có ngữ cảnh** | **1,3%**                         | 8,8%                        | 0,768                |
+| Cấu hình                      | Lỗi dịch nghiêm trọng Việt → Anh (n = 76) | Lỗi nghiêm trọng mọi nguồn Anh → Việt (n = 80) | CometKiwi trung bình |
+| ----------------------------- | ----------------------------------------- | ---------------------------------------------- | -------------------- |
+| Bản dịch đã lưu               | 23,7%                                     | 10,0%                                          | 0,753                |
+| Hậu biên tập, không ngữ cảnh  | 9,2%                                      | 8,8%                                           | 0,767                |
+| **Hậu biên tập, có ngữ cảnh** | **1,3%**                                  | 8,8%                                           | 0,768                |
 
 Có ngữ cảnh, lỗi Việt → Anh giảm 22,4 điểm (khoảng tin cậy 95%: [−40,4; −11,6]); bước này sửa đúng 18 lượt
 và làm hỏng 1 lượt. Chi phí khoảng 0,0009 USD mỗi lượt, độ trễ p95 2,5 s, nằm trong khoảng 8 s dành cho hậu

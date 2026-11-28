@@ -152,14 +152,16 @@ ngột. Bộ chọn ngôn ngữ nguồn có tuỳ chọn tự nhận diện. Nú
 
 ### 4.4.4 Lịch sử hội thoại
 
-[ẢNH 4.5 — Danh sách lịch sử có ô tìm kiếm. CẦN CHỤP: tài khoản thử chưa có hội thoại nào.]
+![Hình 4.5. Trang lịch sử, tìm kiếm không dấu](anh/anh-4-5-lich-su.png)
 
-[ẢNH 4.6 — Chi tiết một hội thoại: các lượt theo người nói, nút nghe lại, nút sinh biên bản. CẦN CHỤP: cần một
-hội thoại thật, nên chụp trên máy chạy được sidecar tiếng nói.]
+![Hình 4.6. Chi tiết một hội thoại hai chiều, thẻ Biên bản](anh/anh-4-6-chi-tiet-hoi-thoai.png)
 
 Trang lịch sử liệt kê các hội thoại đã lưu, tìm kiếm không phân biệt dấu tiếng Việt (nhờ chuẩn hoá văn bản ở cả phía ghi
-và phía truy vấn, kết hợp chỉ mục trigram). Trang chi tiết cho phép nghe lại bản ghi âm từ vị trí của từng lượt và sinh biên
-bản gồm tóm tắt, ý chính, quyết định và việc cần làm.
+và phía truy vấn, kết hợp chỉ mục trigram): trong Hình 4.5, từ khoá "ha noi" tìm ra hội thoại có cụm "ga tàu Hà Nội".
+Trang chi tiết có hai thẻ. Thẻ Bản chép lời (khung bên phải của Hình 4.5) hiển thị từng lượt nói kèm thời điểm, văn bản
+gốc và bản dịch; ở chế độ hai chiều, các lượt tiếng Việt và tiếng Anh xen kẽ và mỗi lượt được dịch sang ngôn ngữ còn
+lại. Thẻ Biên bản (Hình 4.6) sinh biên bản bằng mô hình ngôn ngữ lớn từ các lượt nói, gồm tóm tắt, ý chính, quyết định
+và việc cần làm kèm người phụ trách và hạn. Thanh phía trên cho phép nghe lại bản ghi âm của hội thoại.
 
 ### 4.4.5 Thuật ngữ và ngữ cảnh dịch
 
@@ -177,7 +179,7 @@ bật, các mục thuật ngữ được đưa vào lời nhắc dịch để t�
 <!-- Ghi chú: khung video màu xanh là camera giả lập của trình duyệt dùng khi chụp tự động. Nhóm có thể thay bằng
 ảnh cuộc họp thật có hai người và phụ đề. -->
 
-[ẢNH 4.10 — Màn hình kết thúc họp với biên bản. CẦN CHỤP: cần cuộc họp có lượt nói thật để sinh biên bản.]
+![Hình 4.10. Màn hình kết thúc cuộc họp kèm biên bản](anh/anh-4-10-ket-thuc-hop.png)
 
 Sảnh chờ cho xem trước camera, chọn tên hiển thị, ngôn ngữ nói, micro, camera và giọng đọc bản dịch. Trong phòng họp,
 danh sách người tham gia ghi rõ ngôn ngữ của từng người; khung trò chuyện dịch tin nhắn theo ngôn ngữ của người đọc.
@@ -185,15 +187,18 @@ Thanh trên cùng có mã cuộc họp, mã QR và nút sao chép liên kết m�
 
 Trong phòng họp, mỗi người thấy phụ đề bằng ngôn ngữ của mình. Menu phụ đề và âm thanh cho phép tắt giọng đọc bản dịch
 hoặc chỉ xem phụ đề. Người dùng điện thoại có thể vào phòng bằng cách quét mã QR. Thanh bên và khung chat có thể kéo để
-đổi kích thước.
+đổi kích thước. Khi chủ phòng kết thúc họp, mọi người được chuyển tới màn hình kết thúc (Hình 4.10) với thời lượng,
+danh sách người tham gia, cặp ngôn ngữ và biên bản do mô hình ngôn ngữ lớn sinh từ các lượt nói, gồm tóm tắt, ý chính,
+quyết định và việc cần làm.
 
 ### 4.4.7 Tiện ích Chrome
 
-[ẢNH 4.11 — Popup của tiện ích khi đang dịch một cuộc gọi Google Meet. CẦN CHỤP: cần cài tiện ích vào Chrome và
-mở một cuộc gọi Meet thật.]
+![Hình 4.11. Khung dịch của tiện ích trên cuộc gọi Google Meet](anh/anh-4-11-tien-ich-meet.png)
 
-Tiện ích thu âm thanh của tab cuộc gọi, nên dịch được lời của những người khác mà không bị lẫn với âm thanh phát ra. Chiều
-ngược lại (dịch lời người dùng và phát vào cuộc gọi) được tắt mặc định.
+Tiện ích thu âm thanh của tab cuộc gọi, nên dịch được lời của những người khác mà không bị lẫn với âm thanh phát ra. Bản
+dịch hiện trong một khung nằm trên trang cuộc gọi (Hình 4.11): mỗi lượt có bản dịch ở dòng trên và câu gốc ở dòng dưới,
+kèm nút bắt đầu/dừng, cặp ngôn ngữ và giọng đọc. Chiều ngược lại (dịch lời người dùng và phát vào cuộc gọi) được tắt mặc
+định.
 
 ### 4.4.8 Cài đặt và credit
 
@@ -247,7 +252,7 @@ Hệ thống được kiểm thử ở năm mức:
 
 Cả 13 job của workflow CI đều thành công. Lint và kiểm tra kiểu chạy sạch trên mọi workspace.
 
-Để so sánh, vào đầu dự án (tháng 7/2026) API có 82 test, ứng dụng web chưa có test và chưa có lint, và CI chỉ chạy lint,
+Để so sánh, khi bắt đầu giai đoạn xây dựng luồng dịch tiếng nói (giữa tháng 7/2026) API có 82 test, ứng dụng web chưa có test và chưa có lint, và CI chỉ chạy lint,
 kiểm tra kiểu và build. Việc bổ sung test cho web xuất phát từ một quan sát cụ thể: cả ba lỗi nghiêm trọng của một vòng phát
 triển đều nằm trong mã phía client chưa có test, trong khi lint, kiểm tra kiểu và build đều xanh (mục 3.5.3).
 
@@ -283,13 +288,13 @@ mô hình dự phòng, và vẫn giữ văn bản nguồn khi việc dịch th�
 
 **Bảng 4.5. Đối chiếu với tiêu chí thành công đặt ra**
 
-| Tiêu chí                                           | Kết quả                                                                                                                                                     | Đánh giá                                                 |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Độ trễ đầu-cuối dưới 2 s                           | Phòng thí nghiệm: 907 ms p50, 1.582 ms p95. Production, giọng thật: 1,54 s p50 khi dùng lại bản dịch suy đoán, 2,16 s khi không                             | Đạt trong phòng thí nghiệm; đạt một phần trên production |
-| Hội thoại 10 phút không rớt                        | Rớt kết nối giữa chừng được tự nối lại, giữ 19/19 lượt trên production. Chưa có phép đo riêng cho hội thoại liên tục 10 phút                                | Đạt một phần                                             |
-| Ít nhất 70% bản dịch đúng                          | 77,8% lượt không có lỗi nghiêm trọng (162 lượt, 17 hội thoại). Bổ sung ngữ cảnh cho hậu biên tập giảm lỗi nghiêm trọng chiều Việt → Anh từ 23,7% xuống 1,3% | Đạt                                                      |
-| 120 credit miễn phí mỗi tháng, chặn khi hết        | Đã triển khai sổ cái credit, đo theo giây, không mở phiên khi dưới 1 credit                                                                                 | Đạt                                                      |
-| Người dùng thử tự cài đặt và dùng không cần hỗ trợ | Chưa tổ chức thử nghiệm người dùng                                                                                                                          | Chưa đánh giá                                            |
+| Tiêu chí                                           | Kết quả                                                                                                                                                                              | Đánh giá                                                 |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Độ trễ đầu-cuối dưới 2 s                           | Phòng thí nghiệm: 907 ms p50, 1.582 ms p95. Production, giọng thật: 1,54 s p50 khi dùng lại bản dịch suy đoán, 2,16 s khi không                                                      | Đạt trong phòng thí nghiệm; đạt một phần trên production |
+| Hội thoại 10 phút không rớt                        | Rớt kết nối giữa chừng được tự nối lại, giữ 19/19 lượt trên production. Chưa có phép đo riêng cho hội thoại liên tục 10 phút                                                         | Đạt một phần                                             |
+| Ít nhất 70% bản dịch đúng                          | 77,8% lượt không có lỗi nghiêm trọng nào, kể cả lỗi nghe (162 lượt, 17 hội thoại). Bổ sung ngữ cảnh cho hậu biên tập giảm lỗi dịch nghiêm trọng chiều Việt → Anh từ 23,7% xuống 1,3% | Đạt                                                      |
+| 120 credit miễn phí mỗi tháng, chặn khi hết        | Đã triển khai sổ cái credit, đo theo giây, không mở phiên khi dưới 1 credit                                                                                                          | Đạt                                                      |
+| Người dùng thử tự cài đặt và dùng không cần hỗ trợ | Chưa tổ chức thử nghiệm người dùng                                                                                                                                                   | Chưa đánh giá                                            |
 
 ## 4.6 Kết luận
 
@@ -301,7 +306,7 @@ do chưa tổ chức thử nghiệm với người dùng.
 
 <!--
 Đã chụp (19/11/2026, bản local, 1440×900, chế độ sáng, tiếng Việt, tài khoản thử demo.baocao@example.com):
-4.1, 4.2, 4.3, 4.4, 4.7, 4.8, 4.9, 4.12, 4.13 — thư mục anh/. Còn thiếu: 4.5, 4.6, 4.10, 4.11.
+4.1, 4.2, 4.3, 4.4, 4.7, 4.8, 4.9, 4.12, 4.13 — thư mục anh/. 4.5, 4.6, 4.10, 4.11 chụp ngày 28/11/2026 trên production (1440×881, riêng 4.6 ở 1440×900, tài khoản thử B22DCCN748, dữ liệu từ kịch bản đọc thật); mã cuộc họp trong 4.11 đã được làm mờ.
 Danh sách ảnh ban đầu:
 4.1 /  ·  4.2 /login  ·  4.3 /translate/one-way khi đang dịch  ·  4.4 /translate/two-way khi đang dịch
 4.5 /history  ·  4.6 /history/[id]  ·  4.7 /glossary  ·  4.8 /conference sảnh  ·  4.9 phòng họp 2 người có phụ đề

@@ -317,7 +317,7 @@ là độ trễ cộng dồn qua ba bước và lỗi của bước trước lan
 giọng nói. Hướng này có thể giảm độ trễ và giữ được ngữ điệu, nhưng khó kiểm soát từng bước, khó thêm thuật ngữ
 riêng, thường chỉ có dưới dạng dịch vụ đám mây, và không nhất thiết hỗ trợ mọi cặp ngôn ngữ.
 
-Chatofy chọn hướng tầng. Nhóm đã thử một mô hình đầu-cuối (Gemini Live) làm mốc so sánh; lý do lựa chọn và kết
+Chatofy chọn hướng tầng. Nhóm đã thử một mô hình đầu-cuối (Gemini Live [1]) làm mốc so sánh; lý do lựa chọn và kết
 quả đo được trình bày ở Chương 3.
 
 ### 1.1.3 Các thách thức kỹ thuật
@@ -342,20 +342,20 @@ mặt đối mặt. Hạn chế là không lưu lịch sử hội thoại có c�
 ### 1.2.2 Microsoft Translator – hội thoại nhiều thiết bị
 
 Microsoft Translator từng cung cấp tính năng hội thoại nhiều thiết bị: mỗi người tham gia từ thiết bị riêng, nói
-bằng ngôn ngữ của mình và đọc bản dịch sang ngôn ngữ của mình [1]. Năm 2022, Microsoft
-bỏ khả năng tạo hội thoại trên ứng dụng web; năm 2025 có báo cáo người dùng về việc tính năng ngừng hoạt động,
-và một số nguồn thứ cấp cho biết tính năng bị dừng từ tháng 6/2026 (chưa có xác nhận chính thức).
+bằng ngôn ngữ của mình và đọc bản dịch sang ngôn ngữ của mình [2]. Năm 2022, Microsoft chuyển ứng dụng web
+sang giao diện rút gọn và bỏ khả năng tạo hội thoại trên web [3]; tính năng này nay chỉ còn trên ứng dụng
+di động và không dùng được bên trong các nền tảng họp trực tuyến.
 
 ### 1.2.3 Google Meet – dịch giọng nói và phụ đề dịch
 
 Google Meet có hai tính năng: phụ đề dịch (_translated captions_) và dịch giọng nói bằng Gemini. Tháng 10/2026,
 Google công bố dịch giọng nói hỗ trợ 63 ngôn ngữ trên web, Android và iOS, có tự nhận diện ngôn ngữ, thay cho phiên
-bản trước chỉ hỗ trợ tiếng Anh với năm ngôn ngữ châu Âu [2]. Các tính năng này gắn với
+bản trước chỉ hỗ trợ tiếng Anh với năm ngôn ngữ châu Âu [4]. Các tính năng này gắn với
 gói Google Workspace trả phí và chỉ dùng được bên trong Google Meet.
 
 ### 1.2.4 Zoom – phụ đề dịch
 
-Zoom cung cấp phụ đề dịch dưới dạng tiện ích trả phí, hỗ trợ khoảng 35–36 ngôn ngữ, trong đó có tiếng Việt [3]. Tính năng chỉ cung cấp phụ đề, không đọc bản dịch thành tiếng.
+Zoom cung cấp phụ đề dịch dưới dạng tiện ích trả phí, hỗ trợ khoảng 35–36 ngôn ngữ, trong đó có tiếng Việt [5]. Tính năng chỉ cung cấp phụ đề, không đọc bản dịch thành tiếng.
 
 ### 1.2.5 Thiết bị phiên dịch cầm tay
 
@@ -404,23 +404,23 @@ Nhận dạng tiếng nói tự động (_Automatic Speech Recognition_, ASR) ch
 từ. Âm thanh thường được biến đổi thành đặc trưng phổ Mel (_log-Mel filterbank_), mỗi khung khoảng 10 ms, rồi đưa
 qua một bộ mã hoá (_encoder_) mạng nơ-ron. Có ba họ kiến trúc giải mã phổ biến:
 
-**Mô hình transducer (RNN-T).** Đề xuất bởi Graves [4], gồm bộ mã hoá âm thanh, mạng dự đoán (_prediction
+**Mô hình transducer (RNN-T).** Đề xuất bởi Graves [6], gồm bộ mã hoá âm thanh, mạng dự đoán (_prediction
 network_) mô hình hoá chuỗi token đã sinh, và mạng nối (_joint network_) kết hợp hai nguồn để dự đoán token tiếp
-theo hoặc ký hiệu rỗng. Transducer phù hợp với nhận dạng streaming và có độ trễ thấp. Zipformer [5] là
+theo hoặc ký hiệu rỗng. Transducer phù hợp với nhận dạng streaming và có độ trễ thấp. Zipformer [7] là
 một bộ mã hoá cho transducer, xử lý chuỗi ở nhiều tốc độ khung khác nhau theo cấu trúc giống U-Net để giảm chi phí
 tính toán. Chatofy dùng mô hình Zipformer 30 triệu tham số cho tiếng Việt.
 
 **Token-and-Duration Transducer (TDT).** Mở rộng của transducer: ngoài token, mô hình dự đoán thêm số khung cần bỏ
 qua, giúp giải mã nhanh hơn. Parakeet-TDT-0.6B-v2, mô hình Chatofy dùng cho tiếng Anh, kết hợp bộ mã hoá
-FastConformer [6] với bộ giải mã TDT [7], và tự sinh dấu câu, chữ hoa.
+FastConformer [8] với bộ giải mã TDT [9], và tự sinh dấu câu, chữ hoa.
 
-**Mô hình mã hoá–giải mã (encoder–decoder).** Whisper [8] là mô hình Transformer mã hoá–giải mã được
+**Mô hình mã hoá–giải mã (encoder–decoder).** Whisper [10] là mô hình Transformer mã hoá–giải mã được
 huấn luyện trên khoảng 680.000 giờ dữ liệu đa ngôn ngữ có giám sát yếu, đồng thời thực hiện nhiều tác vụ: nhận dạng,
 dịch sang tiếng Anh và nhận diện ngôn ngữ. Giải mã tự hồi quy của Whisper chậm trên CPU, nên Chatofy chỉ dùng phần
-xác suất ngôn ngữ của Whisper base để nhận diện ngôn ngữ. PhoWhisper [9] là Whisper được tinh chỉnh
+xác suất ngôn ngữ của Whisper base để nhận diện ngôn ngữ. PhoWhisper [11] là Whisper được tinh chỉnh
 cho tiếng Việt.
 
-**Mô hình không tự hồi quy.** Paraformer [10] dự đoán số token và sinh toàn bộ chuỗi trong một bước,
+**Mô hình không tự hồi quy.** Paraformer [12] dự đoán số token và sinh toàn bộ chuỗi trong một bước,
 nhanh hơn giải mã tự hồi quy. Chatofy dùng Paraformer cho tiếng Trung.
 
 **Giải mã và danh sách từ ưu tiên.** Giải mã tham lam (_greedy search_) chọn token có xác suất cao nhất ở mỗi bước;
@@ -438,7 +438,7 @@ $\text{RTF} = t_{\text{xử lý}} / t_{\text{âm thanh}}$.
 ### 1.3.2 Phát hiện giọng nói và phân lượt
 
 Bộ phát hiện giọng nói (_Voice Activity Detection_, VAD) phân loại mỗi khung âm thanh là có tiếng nói hay không.
-Cách đơn giản nhất so năng lượng (RMS) với một ngưỡng; các mô hình học sâu như Silero VAD [11] phân biệt
+Cách đơn giản nhất so năng lượng (RMS) với một ngưỡng; các mô hình học sâu như Silero VAD [13] phân biệt
 tốt hơn tiếng nói với nhạc và tiếng ồn.
 
 Từ đầu ra VAD, hệ thống xác định điểm kết thúc lượt: một lượt kết thúc khi im lặng kéo dài quá một khoảng chờ
@@ -449,7 +449,7 @@ dừng.
 ### 1.3.3 Nhận diện ngôn ngữ và nhận diện người nói
 
 **Nhận diện ngôn ngữ** (_Language Identification_, LID) xác định ngôn ngữ của một đoạn âm thanh. Có thể dùng mô hình
-chuyên dụng (như MMS-LID [12], AmberNet), dùng xác suất ngôn ngữ của một mô hình ASR đa ngôn ngữ (như Whisper),
+chuyên dụng (như MMS-LID [14], AmberNet [15]), dùng xác suất ngôn ngữ của một mô hình ASR đa ngôn ngữ (như Whisper),
 hoặc cho nhiều bộ nhận dạng cùng chạy rồi so sánh độ tin cậy. Độ chính xác giảm mạnh với đoạn âm thanh ngắn, nên
 hệ thống thời gian thực phải cân bằng giữa hiển thị nhãn sớm và hiển thị nhãn đúng.
 
@@ -459,7 +459,7 @@ $a$ và $b$ được đo bằng cosine:
 
 $$\cos(a, b) = \frac{a \cdot b}{\lVert a \rVert \, \lVert b \rVert}$$
 
-Chatofy dùng CAM++ [13], một mạng xác minh người nói dựa trên TDNN với cơ chế che theo ngữ cảnh, sinh vector
+Chatofy dùng CAM++ [16], một mạng xác minh người nói dựa trên TDNN với cơ chế che theo ngữ cảnh, sinh vector
 192 chiều.
 
 ### 1.3.4 Tổng hợp tiếng nói
@@ -467,12 +467,12 @@ Chatofy dùng CAM++ [13], một mạng xác minh người nói dựa trên TDNN 
 Tổng hợp tiếng nói (_Text-to-Speech_, TTS) hiện đại gồm hai phần: mô hình âm học sinh biểu diễn trung gian (như phổ
 Mel) từ văn bản, và bộ tạo sóng âm (_vocoder_) chuyển biểu diễn đó thành tín hiệu. Nhiều mô hình mới gộp hai phần
 thành một. Kokoro-82M là mô hình 82 triệu tham số, giấy phép Apache-2.0, được Chatofy dùng cho tiếng Anh và tiếng
-Trung. VieNeu là mô hình TTS tiếng Việt mã nguồn mở có API sinh âm thanh dạng luồng.
+Trung. VieNeu [17] là mô hình TTS tiếng Việt mã nguồn mở có API sinh âm thanh dạng luồng.
 
 Ba chỉ số chính để đánh giá TTS:
 
 - **MOS** (_Mean Opinion Score_): người nghe chấm điểm từ 1 đến 5, lấy trung bình, theo khuyến nghị ITU-T P.800
-  [14].
+  [18].
 - **Độ dễ hiểu**: đưa âm thanh tổng hợp qua một mô hình ASR rồi đo WER so với văn bản gốc (_round-trip WER_).
 - **TTFA** (_time to first audio_): thời gian tới mẫu âm thanh đầu tiên. Với dạng luồng, cần xét thêm việc âm thanh
   có bị ngắt quãng không (_underrun_), tức tốc độ sinh có theo kịp tốc độ phát không.
@@ -485,25 +485,25 @@ cải thiện bằng lời nhắc (_prompt_) chứa ngữ cảnh hội thoại t
 chèn lệnh** (_prompt injection_): vì văn bản cần dịch là lời người dùng, nó có thể chứa câu lệnh khiến mô hình làm
 theo thay vì dịch.
 
-**Đánh giá chất lượng dịch.** Các thước đo tự động truyền thống so bản dịch với bản tham chiếu: BLEU [15] dựa
-trên n-gram từ, chrF [16] dựa trên n-gram ký tự. COMET [17] dùng mô hình nơ-ron học từ điểm do người
-chấm; biến thể CometKiwi [18] không cần bản tham chiếu. Khung MQM (_Multidimensional Quality Metrics_)
-[19] phân loại từng lỗi theo loại và mức độ nghiêm trọng. Gần đây, nhiều nghiên cứu dùng chính LLM làm giám khảo
-(_LLM-as-a-judge_) [20]; cách này cần được hiệu chuẩn trên các lỗi biết trước để đảm bảo đáng tin.
+**Đánh giá chất lượng dịch.** Các thước đo tự động truyền thống so bản dịch với bản tham chiếu: BLEU [19] dựa
+trên n-gram từ, chrF [20] dựa trên n-gram ký tự. COMET [21] dùng mô hình nơ-ron học từ điểm do người
+chấm; biến thể CometKiwi [22] không cần bản tham chiếu. Khung MQM (_Multidimensional Quality Metrics_)
+[23] phân loại từng lỗi theo loại và mức độ nghiêm trọng. Gần đây, nhiều nghiên cứu dùng chính LLM làm giám khảo
+(_LLM-as-a-judge_) [24]; cách này cần được hiệu chuẩn trên các lỗi biết trước để đảm bảo đáng tin.
 
 ## 1.4 Truyền thông thời gian thực
 
 ### 1.4.1 WebSocket
 
-WebSocket [21] cung cấp kênh truyền hai chiều, liên tục giữa trình duyệt và máy chủ trên một kết nối TCP,
+WebSocket [25] cung cấp kênh truyền hai chiều, liên tục giữa trình duyệt và máy chủ trên một kết nối TCP,
 được thiết lập bằng cách nâng cấp (_upgrade_) một yêu cầu HTTP. Chatofy dùng WebSocket để gửi khung âm thanh lên máy
 chủ và nhận văn bản, bản dịch, âm thanh về.
 
 ### 1.4.2 WebRTC
 
-WebRTC [22] là tập chuẩn cho phép trình duyệt truyền âm thanh, video và dữ liệu trực tiếp với độ trễ thấp
+WebRTC [26] là tập chuẩn cho phép trình duyệt truyền âm thanh, video và dữ liệu trực tiếp với độ trễ thấp
 qua UDP. Hai bên trao đổi mô tả phiên (SDP) theo mô hình offer/answer qua một kênh báo hiệu riêng. Giao thức ICE
-[23] tìm đường kết nối qua NAT: thử địa chỉ cục bộ, địa chỉ công khai do máy chủ STUN cho biết, và cuối
+[27] tìm đường kết nối qua NAT: thử địa chỉ cục bộ, địa chỉ công khai do máy chủ STUN cho biết, và cuối
 cùng là chuyển tiếp qua máy chủ TURN.
 
 ### 1.4.3 Mô hình kết nối cho cuộc họp nhiều người
@@ -522,7 +522,7 @@ trao đổi media với SFU qua WebRTC.
 ## 1.5 Công nghệ phát triển
 
 Bảng 1.3 tóm tắt các công nghệ được dùng và lý do lựa chọn; chi tiết kỹ thuật tham khảo từ tài liệu chính thức
-của từng công nghệ [24]–[31].
+của từng công nghệ [28]–[35].
 
 **Bảng 1.3. Các công nghệ sử dụng**
 
@@ -657,19 +657,32 @@ Hệ thống phục vụ ba tình huống sử dụng:
 ![Hình 2.1. Biểu đồ use case tổng quát](hinh/hinh-2-1-use-case-tong-quat.png)
 
 Hình 2.1 thể hiện các nhóm chức năng chính và tác nhân tương ứng. Khách chỉ dùng được các chức năng đăng
-ký và đăng nhập; mọi chức năng còn lại yêu cầu đăng nhập.
+ký và đăng nhập; mọi chức năng còn lại yêu cầu đăng nhập. Bốn tác nhân Thành viên nhóm, Chủ nhóm / Quản trị nhóm,
+Chủ phòng họp và Người tham gia họp là trường hợp riêng của Người dùng (quan hệ tổng quát hoá, mũi tên tam giác
+rỗng): mỗi tác nhân này dùng được mọi chức năng của Người dùng, cộng thêm các chức năng gắn với vai trò của mình.
+Dịch vụ AI và Cổng thanh toán là hai tác nhân hệ thống, tham gia vào các use case cần dịch máy, tổng hợp tiếng nói,
+tóm tắt hoặc thanh toán.
 
 ### 2.2.2 Use case dịch hội thoại
 
 ![Hình 2.2. Biểu đồ use case dịch hội thoại](hinh/hinh-2-2-use-case-dich-hoi-thoai.png)
 
-Use case "Dịch hội thoại" bao gồm (_include_) "Nhận dạng tiếng nói" và "Dịch văn bản", và được mở rộng
-(_extend_) bởi "Đọc bản dịch", "Áp dụng ngữ cảnh dịch" và "Tự nhận diện ngôn ngữ". Khi kết thúc, hội thoại
-được lưu tự động; từ hội thoại đã lưu, người dùng có thể sinh biên bản.
+"Dịch một chiều" và "Dịch hai chiều Việt–Anh" là hai dạng cụ thể của use case trừu tượng "Dịch hội thoại"
+(quan hệ tổng quát hoá). "Dịch hội thoại" luôn bao gồm (_include_) "Nhận dạng tiếng nói", "Dịch văn bản" và
+"Lưu hội thoại", và được mở rộng (_extend_) bởi "Đọc bản dịch", "Áp dụng ngữ cảnh dịch" và "Tự nhận diện ngôn
+ngữ" khi người dùng bật các tuỳ chọn tương ứng. Riêng "Dịch hai chiều Việt–Anh" luôn bao gồm nhận diện ngôn ngữ
+và gán người nói cho từng lượt. Từ hội thoại đã lưu, người dùng có thể sinh biên bản.
 
 ### 2.2.3 Use case họp video
 
 ![Hình 2.3. Biểu đồ use case họp video](hinh/hinh-2-3-use-case-hop-video.png)
+
+Chủ phòng họp là một trường hợp riêng của Người tham gia họp: ngoài mọi chức năng của người tham gia, chủ phòng
+được tạo, kết thúc và xoá phòng. Tạo phòng bao gồm việc sinh đường dẫn và mã QR để chia sẻ; tham gia phòng bao gồm
+bước chọn ngôn ngữ nói ở sảnh chờ, vì ngôn ngữ này quyết định bản dịch mà những người khác nhận được. Trong phòng,
+người tham gia bật/tắt micro và camera, nhận phụ đề và giọng đọc bản dịch bằng ngôn ngữ của mình, chat với tin nhắn
+được dịch cho từng người nhận, và xem biên bản sau khi họp kết thúc. Ba use case cuối dùng Dịch vụ AI để dịch,
+tổng hợp tiếng nói và tóm tắt.
 
 ### 2.2.4 Use case quản lý nhóm
 
@@ -806,7 +819,22 @@ gửi kết quả qua `conference.translation.broadcast`; API chuyển tới t�
 
 ![Hình 2.7. Biểu đồ tuần tự một lượt dịch streaming](hinh/hinh-2-7-tuan-tu-luot-dich.png)
 
+Hình 2.7 chia một lượt dịch thành ba giai đoạn. Trong lúc người dùng nói, mỗi khung âm thanh được gửi lên API; cứ
+300 ms API nhờ local-stt đọc lại tối đa 9 giây gần nhất và trả văn bản tạm, đồng thời dịch phần văn bản đã ổn định
+và trả bản dịch tạm chỉ dưới dạng chữ. Khi có im lặng ngắn, trình duyệt gửi `client.turn.speculate` để API dịch
+trước phần đã có. Khi lượt kết thúc, API chạy nhận dạng cuối, nhận diện ngôn ngữ và tính vector giọng; nếu không có
+âm thanh mới sau mốc suy đoán, bản dịch suy đoán được dùng lại, nếu có thì dịch lại. Sau đó bản dịch được tổng hợp
+thành giọng nói và gửi về dạng luồng. Cuối cùng, bước hậu biên tập chạy nền và chỉ gửi
+`server.translation.polished` khi bản sửa khác bản nháp.
+
 ![Hình 2.8. Biểu đồ tuần tự tham gia phòng họp](hinh/hinh-2-8-tuan-tu-tham-gia-hop.png)
+
+Hình 2.8 cho thấy API đứng giữa trình duyệt và SFU trong mọi bước đàm phán. Sau `conference.join`, API ghi người
+tham gia vào cơ sở dữ liệu rồi chuyển tiếp hai lượt đàm phán SDP tới Cloudflare qua HTTPS: một phiên phát để đẩy
+audio/video của người dùng lên, và một phiên nhận để kéo track của những người khác về, có thêm bước
+`conference.media.renegotiate` để trình duyệt trả SDP answer. Sau khi đàm phán xong, media đi trực tiếp giữa trình
+duyệt và SFU qua WebRTC, còn phụ đề và giọng dịch vẫn đi qua `/ws/conference`. Khi người dùng rời phòng, API cập
+nhật thời điểm rời (`leftAt`).
 
 ![Hình 2.9. Biểu đồ tuần tự làm mới token](hinh/hinh-2-9-tuan-tu-lam-moi-token.png)
 
@@ -838,17 +866,18 @@ nghiệp vụ chính; các bảng thanh toán được mô tả ngắn trong B�
 
 **Bảng 2.10. Bảng `Conversation` (hội thoại)**
 
-| Trường                                   | Kiểu     | Mô tả                                                   |
-| ---------------------------------------- | -------- | ------------------------------------------------------- |
-| id                                       | String   | Khoá chính                                              |
-| ownerId                                  | String   | Người dùng sở hữu                                       |
-| clientId                                 | String   | Mã do client sinh, giúp lưu lặp lại không tạo bản trùng |
-| languages                                | String[] | Các ngôn ngữ có trong hội thoại                         |
-| startedAt, endedAt                       | DateTime | Thời điểm bắt đầu, kết thúc                             |
-| pausedMs                                 | Int      | Tổng thời gian tạm dừng                                 |
-| title, searchTitle                       | String?  | Tiêu đề và tiêu đề đã chuẩn hoá để tìm kiếm             |
-| mode                                     | String?  | Chế độ: một chiều, hai chiều, tự nhận diện              |
-| audioKey, audioOffsetMs, audioDurationMs |          | Bản ghi âm trên R2 và vị trí căn chỉnh                  |
+| Trường                         | Kiểu     | Mô tả                                                   |
+| ------------------------------ | -------- | ------------------------------------------------------- |
+| id                             | String   | Khoá chính                                              |
+| ownerId                        | String   | Người dùng sở hữu                                       |
+| clientId                       | String   | Mã do client sinh, giúp lưu lặp lại không tạo bản trùng |
+| languages                      | String[] | Các ngôn ngữ có trong hội thoại                         |
+| startedAt, endedAt             | DateTime | Thời điểm bắt đầu, kết thúc                             |
+| pausedMs                       | Int      | Tổng thời gian tạm dừng                                 |
+| title, searchTitle             | String?  | Tiêu đề và tiêu đề đã chuẩn hoá để tìm kiếm             |
+| mode                           | String?  | Chế độ: một chiều, hai chiều, tự nhận diện              |
+| audioKey                       | String?  | Khoá bản ghi âm trên R2                                 |
+| audioOffsetMs, audioDurationMs | Int?     | Vị trí căn chỉnh và độ dài bản ghi âm                   |
 
 **Bảng 2.11. Bảng `ConversationTurn` (lượt nói)**
 
@@ -998,7 +1027,7 @@ Bảng 3.1 liệt kê các thành phần đang chạy trong phiên bản hiện 
 Kiến trúc tầng được chọn thay cho mô hình dịch giọng nói đầu-cuối (_speech-to-speech_) vì ba lý do.
 Thứ nhất, mỗi khâu thay được độc lập qua một giao diện chung (`SttProvider`, `TranslationProvider`,
 `TtsProvider`). Thứ hai, văn bản trung gian dùng được cho phụ đề, lịch sử và biên bản họp. Thứ ba,
-nhóm đã thử nghiệm Gemini Live (một mô hình dịch giọng nói trực tiếp) làm mốc so sánh trong
+nhóm đã thử nghiệm Gemini Live [1] (một mô hình dịch giọng nói trực tiếp) làm mốc so sánh trong
 `benchmarks/live-translate`, và mô hình này không hỗ trợ tiếng Trung.
 
 ### 3.1.2 Môi trường và nguyên tắc đo
@@ -1034,11 +1063,11 @@ Nhóm áp dụng bốn nguyên tắc cho mọi thực nghiệm:
 
 Ràng buộc đặt ra trước khi khảo sát: chạy trên CPU, RTF ≤ 0,3 với câu dài 5–10 giây, giấy phép dùng
 được cho đồ án học thuật. Kết quả khảo sát cho thấy không có một mô hình đa ngôn ngữ nào đáp ứng được:
-Whisper large-v3 quá chậm trên CPU, Parakeet v3 không có tiếng Việt, Moonshine chỉ có tiếng Anh. Vì
+Whisper large-v3 quá chậm trên CPU, Parakeet v3 không có tiếng Việt, Moonshine [36] chỉ có tiếng Anh. Vì
 vậy hệ thống dùng một mô hình chuyên biệt cho mỗi ngôn ngữ, chọn qua một bộ đăng ký (_registry_) theo
 mã ngôn ngữ.
 
-Hai tập kiểm tra được dùng: VIVOS test cho tiếng Việt và LibriSpeech test-clean cho tiếng Anh, mỗi
+Hai tập kiểm tra được dùng: VIVOS test [37] cho tiếng Việt và LibriSpeech test-clean [38] cho tiếng Anh, mỗi
 tập 50 câu, chọn ngẫu nhiên với seed 42. Mỗi mô hình chạy trong một tiến trình riêng, có một lượt làm
 nóng không tính giờ, và chạy hai lần để kiểm tra độ dao động.
 
@@ -1058,7 +1087,7 @@ khoảng 20 lần, dùng một phần tư bộ nhớ. Với tiếng Anh, Moonshi
 Phép đo này cho thấy số công bố lệch theo cả hai hướng: PhoWhisper-small được ước tính đạt ngưỡng RTF
 nhưng thực đo không đạt (0,332), còn Zipformer đo được 0,017, nhanh hơn số công bố 0,025.
 
-Một hạn chế cần nêu: mô hình Zipformer tiếng Việt dùng giấy phép CC-BY-NC-ND-4.0, chỉ cho phép dùng
+Một hạn chế cần nêu: mô hình Zipformer tiếng Việt [39] dùng giấy phép CC-BY-NC-ND-4.0, chỉ cho phép dùng
 phi thương mại. Nếu thương mại hoá, phương án thay thế là PhoWhisper (BSD-3) qua cùng giao diện
 `SttProvider`, chấp nhận độ trễ khoảng 1,3 giây mỗi câu.
 
@@ -1087,8 +1116,12 @@ trường production (4 tiếng Việt, khoảng 9,2 phút; 2 tiếng Anh, kho�
 module thu âm của trình duyệt (`CapturePump`) để cắt lượt giống thực tế.
 
 Kết quả đáng chú ý nhất là thứ hạng bị đảo ngược. Trên VIVOS, Zipformer-30M đạt 5,4% còn một mô hình
-streaming đa ngôn ngữ (PengChengStarling) đạt 13,4%. Trên âm thanh thật đọc liên tục thì ngược lại:
-19,0% so với 22,1%. Tuy nhiên khi cắt theo lượt như sản phẩm thật, mô hình streaming tệ hơn rõ rệt.
+streaming đa ngôn ngữ (PengChengStarling [40]) đạt 13,4%. Trên âm thanh thật thì ngược lại: khi được nạp
+âm thanh liên tục, mô hình streaming đạt 19,0%, thấp hơn mức 22,1% của các bản chép lời mà Zipformer-30M đã
+tạo và lưu trên production. Tuy nhiên khi cắt theo lượt như sản phẩm thật, mô hình streaming tệ hơn rõ rệt.
+Bảng 3.4 phát lại cùng âm thanh cho cả ba mô hình nên Zipformer-30M có 22,3%, chênh 0,2 điểm so với bản đã
+lưu; Zipformer-30M là mô hình offline nên không có cột đọc liên tục. Văn bản tham chiếu để tính WER là bản chép lời
+của dịch vụ ElevenLabs Scribe v2 [41].
 
 **Bảng 3.4. WER tiếng Việt trên âm thanh production (tham chiếu: ElevenLabs Scribe v2)**
 
@@ -1103,14 +1136,14 @@ Kiểm định bootstrap theo lượt cho thấy mô hình streaming tệ hơn 1
 chiếu tiếng Việt (Scribe v2 và PhoWhisper-large) tự chênh nhau 20,4% WER, nên mọi khác biệt dưới
 khoảng 3 điểm được coi là nhiễu. Hệ thống giữ nguyên Zipformer-30M cho tiếng Việt.
 
-Với tiếng Anh, Parakeet-TDT-0.6B-v2 [6] đạt WER 3,4% so với 7,4% của Moonshine trên
+Với tiếng Anh, Parakeet-TDT-0.6B-v2 [8] đạt WER 3,4% so với 7,4% của Moonshine trên
 các lượt thật (chênh −4,0 điểm, khoảng tin cậy 95%: [−7,3; −0,9]). Parakeet còn tự sinh dấu câu và
 viết hoa. Dưới tải hai chiều đồng thời, độ trễ p95 của lượt cuối là 327 ms (Moonshine: 215 ms), vẫn
 nằm trong chu kỳ cập nhật 300 ms cho văn bản tạm, không có lỗi quá tải (HTTP 503). Parakeet thay hoàn
 toàn Moonshine.
 
-Với tiếng Trung, Paraformer-zh được chọn sau khi đạt CER trung bình 3,22% trên FLEURS và AISHELL-1
-(50 đoạn mỗi tập), thấp hơn SenseVoice-small (4,58%).
+Với tiếng Trung, Paraformer-zh được chọn sau khi đạt CER trung bình 3,22% trên FLEURS [42] và
+AISHELL-1 [43] (50 đoạn mỗi tập), thấp hơn SenseVoice-small [44] (4,58%).
 
 ### 3.2.4 Phân bổ lỗi nhận dạng tiếng Việt
 
@@ -1156,8 +1189,8 @@ văn bản ngược (_Inverse Text Normalization_, ITN) dạng tất định, ch
 
 Mô hình ngôn ngữ lớn sửa đúng nhưng trả kết quả sau trung vị 25 giây, khi người đọc đã chuyển sang câu
 khác. ITN chỉ xử lý chữ số nhưng chạy dưới một phần nghìn giây. Hệ thống chọn ITN cho chữ số; dấu câu và
-viết hoa được xử lý bằng một mô hình gán nhãn token chạy trong sidecar STT (Dewpoint cho tiếng Việt,
-CT-Transformer cho tiếng Trung), được chọn qua bộ đo `benchmarks/punct`. Kết quả ITN được kiểm
+viết hoa được xử lý bằng một mô hình gán nhãn token chạy trong sidecar STT (Dewpoint [45] cho tiếng
+Việt, CT-Transformer [46] cho tiếng Trung), được chọn qua bộ đo `benchmarks/punct`. Kết quả ITN được kiểm
 thêm trên 100 câu VIVOS và LibriSpeech không chứa chữ số: không sinh chữ số bịa nào.
 
 ## 3.4 Tổng hợp tiếng nói
@@ -1171,14 +1204,14 @@ thêm trên 100 câu VIVOS và LibriSpeech không chứa chữ số: không sinh
 | Piper (lessac-high) | 0,45    | 0,57    | 0,154 | 323 MB   | MIT        |
 | **Kokoro-82M**      | 0,99    | 1,18    | 0,323 | 619 MB   | Apache-2.0 |
 
-Cả hai đạt ngưỡng p95 ≤ 2 s. Qua nghe so sánh A/B, Kokoro được chọn vì chất lượng giọng tốt hơn rõ rệt;
+Piper [47] và Kokoro-82M [33] đều đạt ngưỡng p95 ≤ 2 s. Qua nghe so sánh A/B, Kokoro được chọn vì chất lượng giọng tốt hơn rõ rệt;
 Piper được giữ làm phương án dự phòng khi độ trễ quan trọng hơn chất lượng. Đây mới là đánh giá của một
 người nghe; bộ công cụ chấm MOS nhiều người nghe đã được xây dựng trong `benchmarks/mos` (theo
-khuyến nghị ITU-T P.800 [14]).
+khuyến nghị ITU-T P.800 [18]).
 
 ### 3.4.2 Tiếng Việt: chọn mô hình và chuyển sang streaming
 
-Nhóm so sánh VieNeu v3 Turbo (đang dùng) với ZeroTTS trên tập 41 câu hội thoại, cả hai cùng seed và
+Nhóm so sánh VieNeu v3 Turbo [17] (đang dùng) với ZeroTTS [48] trên tập 41 câu hội thoại, cả hai cùng seed và
 cùng chế độ streaming. Chỉ số quyết định là **thời gian tới âm thanh liền mạch**: thời gian tới mẫu âm
 thanh đầu tiên cộng độ trễ lớn nhất sau đó, tức là lượng đệm cần để phát hết câu mà không bị ngắt.
 
@@ -1327,24 +1360,27 @@ token dịch đầu tiên của nhà cung cấp (khoảng 500 ms) và thời gia
 (_auto-detect_) dùng cùng cơ chế để xác định ngôn ngữ nguồn của từng lượt.
 
 Nhóm xây dựng một bộ đo (`benchmarks/lid`) so sánh năm phương án trên cùng một tập có nhãn, mỗi phương
-án chạy qua đúng runtime sẽ dùng khi triển khai: AmberNet, xác suất ngôn ngữ của Whisper, MMS-LID-126,
+án chạy qua đúng runtime sẽ dùng khi triển khai: AmberNet [15], xác suất ngôn ngữ của Whisper, MMS-LID-126 [14],
 "cạnh tranh bộ nhận dạng" (chạy cả hai STT rồi phân loại bằng hồi quy logistic trên đặc trưng), và kết
 hợp các phương án với xác suất tiên nghiệm. Kết quả được chấm bằng một tập tiêu chí đặt trước (độ chính
 xác với lượt ngắn và dài, thời gian hiện nhãn, độ trễ thêm vào).
 
 Khó khăn chính nằm ở văn bản tạm, không ở lượt hoàn chỉnh.
 
-**Bảng 3.12. Độ chính xác nhận diện theo độ dài đoạn đầu (cặp Việt–Anh)**
+**Bảng 3.12. Độ chính xác nhận diện theo độ dài đoạn đầu (cặp Việt–Anh, 1.100 đoạn FLEURS)**
 
 | Độ dài đoạn  | 600 ms | 900 ms | 1,2 s | 1,5 s | 2 s   | 3 s   | Cả lượt |
 | ------------ | ------ | ------ | ----- | ----- | ----- | ----- | ------- |
 | Độ chính xác | 0,707  | 0,828  | 0,867 | 0,898 | 0,953 | 0,990 | 0,998   |
 
-Với cả lượt, độ chính xác khoảng 99,7%, nhưng dưới 2 giây âm thanh thì độ tin cậy gần như không phân
-biệt được hai ngôn ngữ. Vì vậy hệ thống chỉ "khoá" nhãn ngôn ngữ khi đủ độ tin cậy và đủ thời lượng nói,
-còn lượt ngắn dùng phương án dự phòng.
+Với cả lượt, độ chính xác đạt 99,8% với cặp Việt–Anh (99,6–100% với các cặp còn lại), nhưng dưới 2 giây
+âm thanh độ chính xác giảm nhanh, chỉ còn 70,7% với 600 ms đầu. Vì vậy hệ thống chỉ "khoá" nhãn ngôn ngữ
+khi đủ độ tin cậy và đủ thời lượng nói, còn lượt ngắn dùng phương án dự phòng.
 
-Phương án thắng là xác suất ngôn ngữ của Whisper base [8] với cửa sổ tối thiểu 5 giây. AmberNet
+Phương án thắng là xác suất ngôn ngữ của Whisper base [10]. Bộ mã hoá của Whisper luôn được đưa một cửa sổ
+âm thanh dài ít nhất 5 giây; lượt ngắn hơn được đệm thêm, vì cửa sổ 1 giây dùng lúc đầu làm giảm độ chính
+xác ở lượt ngắn. Cửa sổ này không đòi hỏi người dùng nói đủ 5 giây: nhãn được khoá khi đã có ít nhất
+1,3 giây tiếng nói và độ tin cậy từ 0,8 trở lên. AmberNet
 bị loại vì mô hình phát hành theo điều khoản sử dụng NGC của NVIDIA, không bảo đảm quyền phân phối lại bản chuyển
 đổi ONNX cùng sản phẩm. Mô hình được tích hợp vào sidecar STT, mỗi
 quyết định mất 91 ms (p50) và 111 ms (p95) trên 4 luồng. Để tiết kiệm CPU, bộ nhận dạng tiếng Việt thứ
@@ -1372,12 +1408,14 @@ chiều, người dùng chọn ngôn ngữ thủ công.
 ## 3.7 Nhận diện người nói theo lượt
 
 Khi hai người dùng chung một micro, hệ thống gán mỗi lượt cho một người nói bằng vector đặc trưng giọng
-nói (_speaker embedding_, mô hình CAM++ [13]) và độ tương đồng cosine. Lượt được gán cho người nói đã biết nếu
+nói (_speaker embedding_, mô hình CAM++ [16]) và độ tương đồng cosine. Lượt được gán cho người nói đã biết nếu
 độ tương đồng vượt ngưỡng gán; nếu không, hệ thống tạo người nói mới khi vượt ngưỡng tạo mới.
 
 Trên 5 hội thoại thật, ngưỡng cũ (0,375/0,325) gộp nhầm hai giọng có độ tương đồng chéo 0,38–0,58, và đoạn
 nhạc nền sinh ra chữ ảo và người nói ảo. Nhóm nâng ngưỡng lên 0,50/0,45 và thêm cổng lọc: bỏ đoạn có dưới
-300 ms tiếng nói.
+300 ms tiếng nói. Ngưỡng mới được đánh giá trên ViYT-Diar, tập 100 cuộc hội thoại tiếng Việt hai người
+nói được gán nhãn thủ công (phần dữ liệu giữ lại, không dùng để chọn ngưỡng), ở hai điều kiện âm thanh
+sạch và micro đặt xa, cùng 8 bản ghi production.
 
 **Bảng 3.14. Độ chính xác gán người nói (sau cổng 300 ms)**
 
@@ -1406,33 +1444,42 @@ bảng thuật ngữ (_glossary_) của người dùng hoặc của nhóm.
 ### 3.8.2 Thước đo chất lượng dịch
 
 Nhóm không có nguồn lực để chấm thủ công hoặc viết bản dịch tham chiếu cho hội thoại thật, nên dùng một mô
-hình ngôn ngữ lớn làm giám khảo [20]. Giám khảo đánh dấu lỗi theo khung MQM và quy mỗi lỗi
+hình ngôn ngữ lớn làm giám khảo [24]. Giám khảo đánh dấu lỗi theo khung MQM và quy mỗi lỗi
 về một nguồn: nghe sai (`asr`), dịch sai (`mt`) hoặc cắt lượt sai. Để tách lỗi dịch khỏi lỗi nghe, bản ghi
 âm của mỗi lượt được chép lại bằng ElevenLabs Scribe v2.
 
 Giám khảo được hiệu chuẩn trước khi dùng: nhóm cố ý làm hỏng các bản dịch đúng theo bốn quy tắc (đổi số,
 đảo phủ định, tráo tên riêng, bỏ mệnh đề dài nhất) và kiểm tra khả năng phát hiện. Giám khảo phát hiện
 93,3% lỗi cài cắm (n = 30), báo nhầm 1/40 bản dịch sạch (và bản đó thực sự có lỗi bỏ sót), và ba lần chấm
-lặp lại đồng ý 100%. Điểm CometKiwi [18], một thước đo không cần tham chiếu thuộc họ mô hình
+lặp lại đồng ý 100%. Điểm CometKiwi [22], một thước đo không cần tham chiếu thuộc họ mô hình
 khác, tương quan nghịch với mức độ lỗi của giám khảo (Spearman −0,591 trên 162 lượt).
 
 ### 3.8.3 Kết quả và cải tiến
 
-Trên 162 lượt từ 17 hội thoại thật, 22,2% lượt có lỗi dịch nghiêm trọng. Lỗi phân bố rất khác theo chiều
-dịch: chiều Anh → Việt chỉ 1,3% lượt có lỗi dịch nghiêm trọng (lỗi chủ yếu do nghe sai), còn chiều Việt →
-Anh là 23,7%. Lỗi chiều Việt → Anh là lỗi ngữ nghĩa, ví dụ "ai" (AI) bị dịch thành "whoever". Lỗi thuật
-ngữ và lỗi cắt lượt không gây lỗi nghiêm trọng nào.
+Tập đánh giá gồm 162 lượt từ 17 hội thoại thật: 76 lượt Việt → Anh, 80 lượt Anh → Việt và 6 lượt ở các
+chiều khác. Mục này dùng hai chỉ số khác nhau:
+
+- **Lỗi nghiêm trọng (mọi nguồn):** lượt có ít nhất một lỗi major hoặc critical, dù lỗi đến từ nghe sai hay
+  dịch sai. Trên toàn tập, 22,2% lượt có lỗi loại này, tức 77,8% lượt không có lỗi nghiêm trọng nào.
+- **Lỗi dịch nghiêm trọng:** chỉ tính lỗi mà giám khảo quy cho bước dịch máy (`mt`), để đánh giá riêng khâu
+  dịch.
+
+Trong các lỗi nghiêm trọng, 53,5% do nghe sai và 46,5% do dịch sai, nhưng phân bố rất khác theo chiều dịch.
+Chiều Anh → Việt chỉ 1,3% lượt (1/80) có lỗi dịch nghiêm trọng; 10,0% lượt có lỗi nghiêm trọng khi tính cả
+lỗi nghe, chủ yếu do giọng nói tiếng Việt bị nhận nhầm thành tiếng Anh trong hội thoại hai chiều. Chiều Việt
+→ Anh có 23,7% lượt (18/76) có lỗi dịch nghiêm trọng, và đây là lỗi ngữ nghĩa, ví dụ "ai" (AI) bị dịch thành
+"whoever". Lỗi thuật ngữ và lỗi cắt lượt không gây lỗi nghiêm trọng nào.
 
 Đọc mã cho thấy bước hậu biên tập có sẵn một khối ngữ cảnh trong lời nhắc nhưng không bao giờ được truyền
 ngữ cảnh. Nhóm phát lại 162 lượt qua ba cấu hình và chấm bằng cùng giám khảo.
 
 **Bảng 3.15. Ảnh hưởng của ngữ cảnh hội thoại tới bước hậu biên tập**
 
-| Cấu hình                      | Lỗi dịch nghiêm trọng Việt → Anh | Lỗi nghiêm trọng Anh → Việt | CometKiwi trung bình |
-| ----------------------------- | -------------------------------- | --------------------------- | -------------------- |
-| Bản dịch đã lưu               | 23,7%                            | 10,0%                       | 0,753                |
-| Hậu biên tập, không ngữ cảnh  | 9,2%                             | 8,8%                        | 0,767                |
-| **Hậu biên tập, có ngữ cảnh** | **1,3%**                         | 8,8%                        | 0,768                |
+| Cấu hình                      | Lỗi dịch nghiêm trọng Việt → Anh (n = 76) | Lỗi nghiêm trọng mọi nguồn Anh → Việt (n = 80) | CometKiwi trung bình |
+| ----------------------------- | ----------------------------------------- | ---------------------------------------------- | -------------------- |
+| Bản dịch đã lưu               | 23,7%                                     | 10,0%                                          | 0,753                |
+| Hậu biên tập, không ngữ cảnh  | 9,2%                                      | 8,8%                                           | 0,767                |
+| **Hậu biên tập, có ngữ cảnh** | **1,3%**                                  | 8,8%                                           | 0,768                |
 
 Có ngữ cảnh, lỗi Việt → Anh giảm 22,4 điểm (khoảng tin cậy 95%: [−40,4; −11,6]); bước này sửa đúng 18 lượt
 và làm hỏng 1 lượt. Chi phí khoảng 0,0009 USD mỗi lượt, độ trễ p95 2,5 s, nằm trong khoảng 8 s dành cho hậu
@@ -1677,14 +1724,16 @@ ngột. Bộ chọn ngôn ngữ nguồn có tuỳ chọn tự nhận diện. Nú
 
 ### 4.4.4 Lịch sử hội thoại
 
-[ẢNH 4.5 — Danh sách lịch sử có ô tìm kiếm. CẦN CHỤP: tài khoản thử chưa có hội thoại nào.]
+![Hình 4.5. Trang lịch sử, tìm kiếm không dấu](anh/anh-4-5-lich-su.png)
 
-[ẢNH 4.6 — Chi tiết một hội thoại: các lượt theo người nói, nút nghe lại, nút sinh biên bản. CẦN CHỤP: cần một
-hội thoại thật, nên chụp trên máy chạy được sidecar tiếng nói.]
+![Hình 4.6. Chi tiết một hội thoại hai chiều, thẻ Biên bản](anh/anh-4-6-chi-tiet-hoi-thoai.png)
 
 Trang lịch sử liệt kê các hội thoại đã lưu, tìm kiếm không phân biệt dấu tiếng Việt (nhờ chuẩn hoá văn bản ở cả phía ghi
-và phía truy vấn, kết hợp chỉ mục trigram). Trang chi tiết cho phép nghe lại bản ghi âm từ vị trí của từng lượt và sinh biên
-bản gồm tóm tắt, ý chính, quyết định và việc cần làm.
+và phía truy vấn, kết hợp chỉ mục trigram): trong Hình 4.5, từ khoá "ha noi" tìm ra hội thoại có cụm "ga tàu Hà Nội".
+Trang chi tiết có hai thẻ. Thẻ Bản chép lời (khung bên phải của Hình 4.5) hiển thị từng lượt nói kèm thời điểm, văn bản
+gốc và bản dịch; ở chế độ hai chiều, các lượt tiếng Việt và tiếng Anh xen kẽ và mỗi lượt được dịch sang ngôn ngữ còn
+lại. Thẻ Biên bản (Hình 4.6) sinh biên bản bằng mô hình ngôn ngữ lớn từ các lượt nói, gồm tóm tắt, ý chính, quyết định
+và việc cần làm kèm người phụ trách và hạn. Thanh phía trên cho phép nghe lại bản ghi âm của hội thoại.
 
 ### 4.4.5 Thuật ngữ và ngữ cảnh dịch
 
@@ -1702,7 +1751,7 @@ bật, các mục thuật ngữ được đưa vào lời nhắc dịch để t�
 <!-- Ghi chú: khung video màu xanh là camera giả lập của trình duyệt dùng khi chụp tự động. Nhóm có thể thay bằng
 ảnh cuộc họp thật có hai người và phụ đề. -->
 
-[ẢNH 4.10 — Màn hình kết thúc họp với biên bản. CẦN CHỤP: cần cuộc họp có lượt nói thật để sinh biên bản.]
+![Hình 4.10. Màn hình kết thúc cuộc họp kèm biên bản](anh/anh-4-10-ket-thuc-hop.png)
 
 Sảnh chờ cho xem trước camera, chọn tên hiển thị, ngôn ngữ nói, micro, camera và giọng đọc bản dịch. Trong phòng họp,
 danh sách người tham gia ghi rõ ngôn ngữ của từng người; khung trò chuyện dịch tin nhắn theo ngôn ngữ của người đọc.
@@ -1710,15 +1759,18 @@ Thanh trên cùng có mã cuộc họp, mã QR và nút sao chép liên kết m�
 
 Trong phòng họp, mỗi người thấy phụ đề bằng ngôn ngữ của mình. Menu phụ đề và âm thanh cho phép tắt giọng đọc bản dịch
 hoặc chỉ xem phụ đề. Người dùng điện thoại có thể vào phòng bằng cách quét mã QR. Thanh bên và khung chat có thể kéo để
-đổi kích thước.
+đổi kích thước. Khi chủ phòng kết thúc họp, mọi người được chuyển tới màn hình kết thúc (Hình 4.10) với thời lượng,
+danh sách người tham gia, cặp ngôn ngữ và biên bản do mô hình ngôn ngữ lớn sinh từ các lượt nói, gồm tóm tắt, ý chính,
+quyết định và việc cần làm.
 
 ### 4.4.7 Tiện ích Chrome
 
-[ẢNH 4.11 — Popup của tiện ích khi đang dịch một cuộc gọi Google Meet. CẦN CHỤP: cần cài tiện ích vào Chrome và
-mở một cuộc gọi Meet thật.]
+![Hình 4.11. Khung dịch của tiện ích trên cuộc gọi Google Meet](anh/anh-4-11-tien-ich-meet.png)
 
-Tiện ích thu âm thanh của tab cuộc gọi, nên dịch được lời của những người khác mà không bị lẫn với âm thanh phát ra. Chiều
-ngược lại (dịch lời người dùng và phát vào cuộc gọi) được tắt mặc định.
+Tiện ích thu âm thanh của tab cuộc gọi, nên dịch được lời của những người khác mà không bị lẫn với âm thanh phát ra. Bản
+dịch hiện trong một khung nằm trên trang cuộc gọi (Hình 4.11): mỗi lượt có bản dịch ở dòng trên và câu gốc ở dòng dưới,
+kèm nút bắt đầu/dừng, cặp ngôn ngữ và giọng đọc. Chiều ngược lại (dịch lời người dùng và phát vào cuộc gọi) được tắt mặc
+định.
 
 ### 4.4.8 Cài đặt và credit
 
@@ -1772,7 +1824,7 @@ Hệ thống được kiểm thử ở năm mức:
 
 Cả 13 job của workflow CI đều thành công. Lint và kiểm tra kiểu chạy sạch trên mọi workspace.
 
-Để so sánh, vào đầu dự án (tháng 7/2026) API có 82 test, ứng dụng web chưa có test và chưa có lint, và CI chỉ chạy lint,
+Để so sánh, khi bắt đầu giai đoạn xây dựng luồng dịch tiếng nói (giữa tháng 7/2026) API có 82 test, ứng dụng web chưa có test và chưa có lint, và CI chỉ chạy lint,
 kiểm tra kiểu và build. Việc bổ sung test cho web xuất phát từ một quan sát cụ thể: cả ba lỗi nghiêm trọng của một vòng phát
 triển đều nằm trong mã phía client chưa có test, trong khi lint, kiểm tra kiểu và build đều xanh (mục 3.5.3).
 
@@ -1808,13 +1860,13 @@ mô hình dự phòng, và vẫn giữ văn bản nguồn khi việc dịch th�
 
 **Bảng 4.5. Đối chiếu với tiêu chí thành công đặt ra**
 
-| Tiêu chí                                           | Kết quả                                                                                                                                                     | Đánh giá                                                 |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Độ trễ đầu-cuối dưới 2 s                           | Phòng thí nghiệm: 907 ms p50, 1.582 ms p95. Production, giọng thật: 1,54 s p50 khi dùng lại bản dịch suy đoán, 2,16 s khi không                             | Đạt trong phòng thí nghiệm; đạt một phần trên production |
-| Hội thoại 10 phút không rớt                        | Rớt kết nối giữa chừng được tự nối lại, giữ 19/19 lượt trên production. Chưa có phép đo riêng cho hội thoại liên tục 10 phút                                | Đạt một phần                                             |
-| Ít nhất 70% bản dịch đúng                          | 77,8% lượt không có lỗi nghiêm trọng (162 lượt, 17 hội thoại). Bổ sung ngữ cảnh cho hậu biên tập giảm lỗi nghiêm trọng chiều Việt → Anh từ 23,7% xuống 1,3% | Đạt                                                      |
-| 120 credit miễn phí mỗi tháng, chặn khi hết        | Đã triển khai sổ cái credit, đo theo giây, không mở phiên khi dưới 1 credit                                                                                 | Đạt                                                      |
-| Người dùng thử tự cài đặt và dùng không cần hỗ trợ | Chưa tổ chức thử nghiệm người dùng                                                                                                                          | Chưa đánh giá                                            |
+| Tiêu chí                                           | Kết quả                                                                                                                                                                              | Đánh giá                                                 |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Độ trễ đầu-cuối dưới 2 s                           | Phòng thí nghiệm: 907 ms p50, 1.582 ms p95. Production, giọng thật: 1,54 s p50 khi dùng lại bản dịch suy đoán, 2,16 s khi không                                                      | Đạt trong phòng thí nghiệm; đạt một phần trên production |
+| Hội thoại 10 phút không rớt                        | Rớt kết nối giữa chừng được tự nối lại, giữ 19/19 lượt trên production. Chưa có phép đo riêng cho hội thoại liên tục 10 phút                                                         | Đạt một phần                                             |
+| Ít nhất 70% bản dịch đúng                          | 77,8% lượt không có lỗi nghiêm trọng nào, kể cả lỗi nghe (162 lượt, 17 hội thoại). Bổ sung ngữ cảnh cho hậu biên tập giảm lỗi dịch nghiêm trọng chiều Việt → Anh từ 23,7% xuống 1,3% | Đạt                                                      |
+| 120 credit miễn phí mỗi tháng, chặn khi hết        | Đã triển khai sổ cái credit, đo theo giây, không mở phiên khi dưới 1 credit                                                                                                          | Đạt                                                      |
+| Người dùng thử tự cài đặt và dùng không cần hỗ trợ | Chưa tổ chức thử nghiệm người dùng                                                                                                                                                   | Chưa đánh giá                                            |
 
 ## 4.6 Kết luận
 
@@ -1826,7 +1878,7 @@ do chưa tổ chức thử nghiệm với người dùng.
 
 <!--
 Đã chụp (19/11/2026, bản local, 1440×900, chế độ sáng, tiếng Việt, tài khoản thử demo.baocao@example.com):
-4.1, 4.2, 4.3, 4.4, 4.7, 4.8, 4.9, 4.12, 4.13 — thư mục anh/. Còn thiếu: 4.5, 4.6, 4.10, 4.11.
+4.1, 4.2, 4.3, 4.4, 4.7, 4.8, 4.9, 4.12, 4.13 — thư mục anh/. 4.5, 4.6, 4.10, 4.11 chụp ngày 28/11/2026 trên production (1440×881, riêng 4.6 ở 1440×900, tài khoản thử B22DCCN748, dữ liệu từ kịch bản đọc thật); mã cuộc họp trong 4.11 đã được làm mờ.
 Danh sách ảnh ban đầu:
 4.1 /  ·  4.2 /login  ·  4.3 /translate/one-way khi đang dịch  ·  4.4 /translate/two-way khi đang dịch
 4.5 /history  ·  4.6 /history/[id]  ·  4.7 /glossary  ·  4.8 /conference sảnh  ·  4.9 phòng họp 2 người có phụ đề
@@ -1854,7 +1906,7 @@ có dịch, và cuộc gọi trên Google Meet, Zoom, Facebook qua tiện ích C
 - **Đánh giá bằng thực nghiệm tái lập được:** đạt, với khoảng 25 bộ đo và 7.159 test tự động.
 
 Về chất lượng dịch, 77,8% lượt trong 162 lượt hội thoại thật không có lỗi nghiêm trọng, vượt mức 70% đặt ra; sau khi bổ
-sung ngữ cảnh cho bước hậu biên tập, lỗi nghiêm trọng chiều Việt → Anh giảm từ 23,7% xuống 1,3% trên cùng tập lượt.
+sung ngữ cảnh cho bước hậu biên tập, lỗi dịch nghiêm trọng chiều Việt → Anh giảm từ 23,7% xuống 1,3% trên cùng tập lượt.
 
 Qua quá trình thực hiện, nhóm rút ra rằng trong một hệ thống thời gian thực, quyết định đúng thường đến từ việc đo đúng
 chỗ hơn là từ việc chọn mô hình mạnh hơn: cảm giác "giật" hoá ra là vấn đề phản hồi giao diện; thứ hạng mô hình đảo ngược
@@ -1867,6 +1919,12 @@ khi chuyển từ tập kiểm tra sạch sang âm thanh thật; và một cơ c
 - **Giấy phép mô hình nhận dạng tiếng Việt** (CC-BY-NC-ND-4.0) chỉ cho phép dùng phi thương mại; hệ thống chưa thể bán công
   khai nếu chưa thay mô hình.
 - **Chưa tự nhận diện được tiếng Trung**: các cặp có tiếng Trung chỉ chạy một chiều.
+- **Khả năng phục vụ đồng thời còn nhỏ.** Toàn bộ phần tiếng nói chạy trên một máy chủ không có GPU, nên hệ thống
+  giới hạn tối đa 6 lượt dịch được xử lý cùng lúc, tương đương hai người nói liên tục, trong đó các cuộc họp
+  dùng tối đa 4 (mục 3.9.2). Vượt mức này, các sidecar dùng quá số nhân CPU và mọi lượt cùng chậm đi. Mỗi lượt
+  chỉ kéo dài vài giây nên số người dùng cùng lúc có thể lớn hơn 6, nhưng khi vượt giới hạn, lượt mới bị từ chối
+  trên trang dịch hoặc bị bỏ qua ở nhánh họp. Đồ án chưa đo sức chịu tải theo số người dùng đồng thời, và chưa có cơ chế chạy nhiều bản sao
+  sidecar tiếng nói trên nhiều máy.
 - **Chất lượng dịch trong họp video** còn kém trang dịch trực tiếp 2,5–4,2 điểm phần trăm lỗi nghiêm trọng; khi nhiều người
   nói liên tục, nhánh dịch của cuộc họp bị bỏ bớt lượt.
 - **Chưa kiểm chứng đầy đủ** cuộc họp giữa hai mạng thực khác nhau (Wi-Fi và 4G), tiếng vọng trên loa ngoài của máy tính, và
@@ -1878,6 +1936,9 @@ khi chuyển từ tập kiểm tra sạch sang âm thanh thật; và một cơ c
 - Chạy dịch máy cục bộ hoặc dùng mô hình dịch nhỏ cho các cặp phổ biến, tiến tới chế độ ngoại tuyến hoàn toàn.
 - Thay mô hình nhận dạng tiếng Việt bằng mô hình có giấy phép thương mại và đo lại chất lượng trên âm thanh thật.
 - Nhận diện tự động tiếng Trung khi có mô hình chạy CPU đạt ngưỡng chính xác, hoặc khi có GPU.
+- Mở rộng theo chiều ngang: chạy nhiều bản sao sidecar tiếng nói sau một bộ cân bằng tải, chuyển giới hạn lượt
+  đồng thời từ bộ nhớ của một tiến trình API sang Redis để dùng chung giữa nhiều máy, và đo sức chịu tải theo số
+  người dùng đồng thời.
 - Rút ngắn mệnh đề đầu tiên đưa vào tổng hợp tiếng nói tiếng Anh, hướng tới độ trễ âm thanh khoảng 0,5 s cho khâu này.
 - Hoàn thiện và phát hành ứng dụng di động; tổ chức thử nghiệm với người dùng thật.
 - Mở rộng thêm ngôn ngữ thông qua registry ngôn ngữ, và đưa hệ thống credit sang bán công khai sau khi hoàn tất danh sách
@@ -1886,95 +1947,103 @@ khi chuyển từ tập kiểm tra sạch sang âm thanh thật; và một cơ c
 # TÀI LIỆU THAM KHẢO
 
 <!--
-Ghi chú biên soạn (xoá khi chuyển sang Word):
+Ghi chú biên soạn:
 - Đánh số theo thứ tự xuất hiện lần đầu trong báo cáo (chuẩn IEEE).
-- Nhóm cần mở từng nguồn để kiểm tra tên tác giả, năm, nơi công bố trước khi nộp. Các mục có dấu (*) Claude
-  không chắc chắn hoàn toàn về nơi công bố.
 - Ngày truy cập các nguồn trực tuyến: 19/11/2026.
 -->
 
-[1] Microsoft, "Microsoft Translator multi-device conversation help and FAQs." [Online]. Available:
-https://www.microsoft.com/en-us/translator/help/live-feature/ (truy cập 19/11/2026).
+[1] Google, "Live API," Gemini API documentation. [Online]. Available: https://ai.google.dev/gemini-api/docs/live
 
-[2] Google Workspace Updates, "Real-time speech translation in Google Meet expands to 63 languages with automatic
-language detection," 22/10/2026. [Online]. Available: https://workspaceupdates.googleblog.com/2026/10/ (truy cập
-19/11/2026).
+[2] Microsoft, "Microsoft Translator multi-device conversation help and FAQs." [Online]. Available: https://www.microsoft.com/en-us/translator/help/live-feature/ (truy cập 19/11/2026).
 
-[3] Zoom, "Translated captions," Zoom Blog. [Online]. Available: https://www.zoom.com/en/blog/translated-captions
-(truy cập 19/11/2026).
+[3] Microsoft Translator Blog, "Transitioning the Microsoft Translator web app to a simplified experience," 03/08/2022. [Online]. Available: https://www.microsoft.com/en-us/translator/blog/2022/08/03/transitioning-the-microsoft-translator-web-app-to-a-simplified-experience (truy cập 19/11/2026).
 
-[4] A. Graves, "Sequence transduction with recurrent neural networks," arXiv:1211.3711, 2012.
+[4] Google Workspace Updates, "Real-time speech translation in Google Meet expands to 63 languages with automatic language detection," 22/10/2026. [Online]. Available: https://workspaceupdates.googleblog.com/2026/10/real-time-speech-translation-in-google-Meet-expands-to-63-languages-with-automatic-language-detection.html (truy cập 19/11/2026).
 
-[5] Z. Yao, L. Guo, X. Yang, W. Kang, F. Kuang, Y. Yang, Z. Jin, L. Lin, and D. Povey, "Zipformer: A faster and
-better encoder for automatic speech recognition," in _Proc. Int. Conf. Learning Representations (ICLR)_, 2024.
+[5] Zoom, "Translated captions," Zoom Blog. [Online]. Available: https://www.zoom.com/en/blog/translated-captions (truy cập 19/11/2026).
 
-[6] D. Rekesh, N. R. Koluguri, S. Kriman, S. Majumdar, V. Noroozi, H. Huang, O. Hrinchuk, K. Puvvada, A. Kumar,
-J. Balam, and B. Ginsburg, "Fast Conformer with linearly scalable attention for efficient speech recognition," in
-_Proc. IEEE Automatic Speech Recognition and Understanding Workshop (ASRU)_, 2023.
+[6] A. Graves, "Sequence transduction with recurrent neural networks," arXiv:1211.3711, 2012.
 
-[7] H. Xu, F. Jia, S. Majumdar, H. Huang, S. Watanabe, and B. Ginsburg, "Efficient sequence transduction by jointly
-predicting tokens and durations," in _Proc. Int. Conf. Machine Learning (ICML)_, 2023.
+[7] Z. Yao, L. Guo, X. Yang, W. Kang, F. Kuang, Y. Yang, Z. Jin, L. Lin, and D. Povey, "Zipformer: A faster and better encoder for automatic speech recognition," in _Proc. Int. Conf. Learning Representations (ICLR)_, 2024.
 
-[8] A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever, "Robust speech recognition via
-large-scale weak supervision," in _Proc. Int. Conf. Machine Learning (ICML)_, 2023.
+[8] D. Rekesh, N. R. Koluguri, S. Kriman, S. Majumdar, V. Noroozi, H. Huang, O. Hrinchuk, K. Puvvada, A. Kumar, J. Balam, and B. Ginsburg, "Fast Conformer with linearly scalable attention for efficient speech recognition," in _Proc. IEEE Automatic Speech Recognition and Understanding Workshop (ASRU)_, 2023.
 
-[9] (*) T.-T. Le, L. T. Nguyen, and D. Q. Nguyen, "PhoWhisper: Automatic speech recognition for Vietnamese," in
-_Proc. ICLR 2024 Tiny Papers Track_, 2024.
+[9] H. Xu, F. Jia, S. Majumdar, H. Huang, S. Watanabe, and B. Ginsburg, "Efficient sequence transduction by jointly predicting tokens and durations," in _Proc. Int. Conf. Machine Learning (ICML)_, 2023.
 
-[10] Z. Gao, S. Zhang, I. McLoughlin, and Z. Yan, "Paraformer: Fast and accurate parallel transformer for
-non-autoregressive end-to-end speech recognition," in _Proc. Interspeech_, 2022.
+[10] A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever, "Robust speech recognition via large-scale weak supervision," in _Proc. Int. Conf. Machine Learning (ICML)_, 2023.
 
-[11] Silero Team, "Silero VAD: pre-trained enterprise-grade voice activity detector," GitHub repository. [Online].
-Available: https://github.com/snakers4/silero-vad
+[11] T.-T. Le, L. T. Nguyen, and D. Q. Nguyen, "PhoWhisper: Automatic speech recognition for Vietnamese," in _Proc. ICLR 2024 Tiny Papers Track_, 2024.
 
-[12] (*) V. Pratap _et al._, "Scaling speech technology to 1,000+ languages," arXiv:2305.13516, 2023.
+[12] Z. Gao, S. Zhang, I. McLoughlin, and Z. Yan, "Paraformer: Fast and accurate parallel transformer for non-autoregressive end-to-end speech recognition," in _Proc. Interspeech_, 2022.
 
-[13] H. Wang, S. Zheng, Y. Chen, L. Cheng, and Q. Chen, "CAM++: A fast and efficient network for speaker
-verification using context-aware masking," in _Proc. Interspeech_, 2023.
+[13] Silero Team, "Silero VAD: pre-trained enterprise-grade voice activity detector," GitHub repository. [Online]. Available: https://github.com/snakers4/silero-vad
 
-[14] ITU-T, "Methods for subjective determination of transmission quality," Recommendation P.800, International
-Telecommunication Union, 1996.
+[14] V. Pratap et al., "Scaling speech technology to 1,000+ languages," _Journal of Machine Learning Research_, vol. 25, no. 97, pp. 1–52, 2024.
 
-[15] K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu, "BLEU: A method for automatic evaluation of machine
-translation," in _Proc. 40th Annu. Meeting of the Association for Computational Linguistics (ACL)_, 2002, pp.
-311–318.
+[15] F. Jia, N. R. Koluguri, J. Balam, and B. Ginsburg, "AmberNet: A compact end-to-end model for spoken language identification," arXiv:2210.15781, 2022.
 
-[16] M. Popović, "chrF: Character n-gram F-score for automatic MT evaluation," in _Proc. 10th Workshop on
-Statistical Machine Translation (WMT)_, 2015, pp. 392–395.
+[16] H. Wang, S. Zheng, Y. Chen, L. Cheng, and Q. Chen, "CAM++: A fast and efficient network for speaker verification using context-aware masking," in _Proc. Interspeech_, 2023.
 
-[17] R. Rei, C. Stewart, A. C. Farinha, and A. Lavie, "COMET: A neural framework for MT evaluation," in _Proc.
-Conf. Empirical Methods in Natural Language Processing (EMNLP)_, 2020, pp. 2685–2702.
+[17] pnnbao97, "VieNeu-TTS," GitHub repository. [Online]. Available: https://github.com/pnnbao97/VieNeu-TTS
 
-[18] R. Rei _et al._, "CometKiwi: IST-Unbabel 2022 submission for the quality estimation shared task," in _Proc.
-7th Conf. Machine Translation (WMT)_, 2022.
+[18] ITU-T, "Methods for subjective determination of transmission quality," Recommendation P.800, International Telecommunication Union, 1996.
 
-[19] A. Lommel, H. Uszkoreit, and A. Burchardt, "Multidimensional Quality Metrics (MQM): A framework for declaring
-and describing translation quality metrics," _Tradumàtica_, no. 12, pp. 455–463, 2014.
+[19] K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu, "BLEU: A method for automatic evaluation of machine translation," in _Proc. 40th Annu. Meeting of the Association for Computational Linguistics (ACL)_, 2002, pp. 311–318.
 
-[20] L. Zheng _et al._, "Judging LLM-as-a-judge with MT-Bench and Chatbot Arena," in _Advances in Neural
-Information Processing Systems (NeurIPS), Datasets and Benchmarks Track_, 2023.
+[20] M. Popović, "chrF: Character n-gram F-score for automatic MT evaluation," in _Proc. 10th Workshop on Statistical Machine Translation (WMT)_, 2015, pp. 392–395.
 
-[21] I. Fette and A. Melnikov, "The WebSocket Protocol," RFC 6455, IETF, 2011.
+[21] R. Rei, C. Stewart, A. C. Farinha, and A. Lavie, "COMET: A neural framework for MT evaluation," in _Proc. Conf. Empirical Methods in Natural Language Processing (EMNLP)_, 2020, pp. 2685–2702.
 
-[22] H. Alvestrand, "Overview: Real-time protocols for browser-based applications," RFC 8825, IETF, 2021.
+[22] R. Rei _et al._, "CometKiwi: IST-Unbabel 2022 submission for the quality estimation shared task," in _Proc. 7th Conf. Machine Translation (WMT)_, 2022.
 
-[23] A. Keranen, C. Holmberg, and J. Rosenberg, "Interactive Connectivity Establishment (ICE): A protocol for
-Network Address Translator (NAT) traversal," RFC 8445, IETF, 2018.
+[23] A. Lommel, H. Uszkoreit, and A. Burchardt, "Multidimensional Quality Metrics (MQM): A framework for declaring and describing translation quality metrics," _Tradumàtica_, no. 12, pp. 455–463, 2014.
 
-[24] NestJS, "NestJS documentation." [Online]. Available: https://docs.nestjs.com
+[24] L. Zheng _et al._, "Judging LLM-as-a-judge with MT-Bench and Chatbot Arena," in _Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track_, 2023.
 
-[25] Vercel, "Next.js documentation." [Online]. Available: https://nextjs.org/docs
+[25] I. Fette and A. Melnikov, "The WebSocket Protocol," RFC 6455, IETF, 2011.
 
-[26] Prisma, "Prisma ORM documentation." [Online]. Available: https://www.prisma.io/docs
+[26] H. Alvestrand, "Overview: Real-time protocols for browser-based applications," RFC 8825, IETF, 2021.
 
-[27] k2-fsa, "sherpa-onnx: Speech-to-text, text-to-speech and speaker recognition using next-gen Kaldi with
-onnxruntime," GitHub repository. [Online]. Available: https://github.com/k2-fsa/sherpa-onnx
+[27] A. Keranen, C. Holmberg, and J. Rosenberg, "Interactive Connectivity Establishment (ICE): A protocol for Network Address Translator (NAT) traversal," RFC 8445, IETF, 2018.
 
-[28] Cloudflare, "Cloudflare Realtime SFU documentation." [Online]. Available:
-https://developers.cloudflare.com/realtime/sfu/
+[28] NestJS, "NestJS documentation." [Online]. Available: https://docs.nestjs.com
 
-[29] hexgrad, "Kokoro-82M," Hugging Face model card. [Online]. Available: https://huggingface.co/hexgrad/Kokoro-82M
+[29] Vercel, "Next.js documentation." [Online]. Available: https://nextjs.org/docs
 
-[30] DeepSeek, "DeepSeek API documentation." [Online]. Available: https://api-docs.deepseek.com
+[30] Prisma, "Prisma ORM documentation." [Online]. Available: https://www.prisma.io/docs
 
-[31] Google, "Chrome Extensions: Manifest V3." [Online]. Available: https://developer.chrome.com/docs/extensions/
+[31] k2-fsa, "sherpa-onnx: Speech-to-text, text-to-speech and speaker recognition using next-gen Kaldi with onnxruntime," GitHub repository. [Online]. Available: https://github.com/k2-fsa/sherpa-onnx
+
+[32] Cloudflare, "Cloudflare Realtime SFU documentation." [Online]. Available: https://developers.cloudflare.com/realtime/sfu/
+
+[33] hexgrad, "Kokoro-82M," Hugging Face model card. [Online]. Available: https://huggingface.co/hexgrad/Kokoro-82M
+
+[34] DeepSeek, "DeepSeek API documentation." [Online]. Available: https://api-docs.deepseek.com
+
+[35] Google, "Chrome Extensions: Manifest V3." [Online]. Available: https://developer.chrome.com/docs/extensions/
+
+[36] N. Jeffries, E. King, M. Kudlur, G. Nicholson, J. Wang, and P. Warden, "Moonshine: Speech recognition for live transcription and voice commands," arXiv:2410.15608, 2024.
+
+[37] H.-T. Luong and H.-Q. Vu, "A non-expert Kaldi recipe for Vietnamese speech recognition system," in _Proc. 3rd Int. Workshop on Worldwide Language Service Infrastructure and 2nd Workshop on Open Infrastructures and Analysis Frameworks for Human Language Technologies (WLSI/OIAF4HLT)_, 2016, pp. 51–55.
+
+[38] V. Panayotov, G. Chen, D. Povey, and S. Khudanpur, "Librispeech: An ASR corpus based on public domain audio books," in _Proc. IEEE Int. Conf. Acoustics, Speech and Signal Processing (ICASSP)_, 2015, pp. 5206–5210.
+
+[39] hynt, "Zipformer-30M-RNNT-6000h," Hugging Face model card. [Online]. Available: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
+
+[40] Peng Cheng Laboratory, "PengChengStarling: Multilingual ASR toolkit built on icefall," Hugging Face model card. [Online]. Available: https://huggingface.co/stdo/PengChengStarling
+
+[41] ElevenLabs, "Speech to Text (Scribe v2)," ElevenLabs documentation. [Online]. Available: https://elevenlabs.io/docs/capabilities/speech-to-text
+
+[42] A. Conneau, M. Ma, S. Khanuja, Y. Zhang, V. Axelrod, S. Dalmia, J. Riesa, C. Rivera, and A. Bapna, "FLEURS: Few-shot learning evaluation of universal representations of speech," in _Proc. IEEE Spoken Language Technology Workshop (SLT)_, 2023, pp. 798–805.
+
+[43] H. Bu, J. Du, X. Na, B. Wu, and H. Zheng, "AISHELL-1: An open-source Mandarin speech corpus and a speech recognition baseline," in _Proc. 20th Conf. Oriental Chapter of the Int. Coordinating Committee on Speech Databases and Speech I/O Systems and Assessment (O-COCOSDA)_, 2017, pp. 1–5.
+
+[44] K. An et al., "FunAudioLLM: Voice understanding and generation foundation models for natural interaction between humans and LLMs," arXiv:2407.04051, 2024.
+
+[45] valkayuh, "dewpoint," Hugging Face model card. [Online]. Available: https://huggingface.co/valkayuh/dewpoint
+
+[46] Q. Chen, M. Chen, B. Li, and W. Wang, "Controllable time-delay transformer for real-time punctuation prediction and disfluency detection," in _Proc. IEEE Int. Conf. Acoustics, Speech and Signal Processing (ICASSP)_, 2020, pp. 8069–8073.
+
+[47] Rhasspy, "Piper: A fast, local neural text to speech system," GitHub repository. [Online]. Available: https://github.com/rhasspy/piper
+
+[48] zeroweight-ai, "ZeroTTS," Hugging Face model card. [Online]. Available: https://huggingface.co/zeroweight-ai/ZeroTTS

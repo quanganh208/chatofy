@@ -90,19 +90,32 @@ Hệ thống phục vụ ba tình huống sử dụng:
 ![Hình 2.1. Biểu đồ use case tổng quát](hinh/hinh-2-1-use-case-tong-quat.png)
 
 Hình 2.1 thể hiện các nhóm chức năng chính và tác nhân tương ứng. Khách chỉ dùng được các chức năng đăng
-ký và đăng nhập; mọi chức năng còn lại yêu cầu đăng nhập.
+ký và đăng nhập; mọi chức năng còn lại yêu cầu đăng nhập. Bốn tác nhân Thành viên nhóm, Chủ nhóm / Quản trị nhóm,
+Chủ phòng họp và Người tham gia họp là trường hợp riêng của Người dùng (quan hệ tổng quát hoá, mũi tên tam giác
+rỗng): mỗi tác nhân này dùng được mọi chức năng của Người dùng, cộng thêm các chức năng gắn với vai trò của mình.
+Dịch vụ AI và Cổng thanh toán là hai tác nhân hệ thống, tham gia vào các use case cần dịch máy, tổng hợp tiếng nói,
+tóm tắt hoặc thanh toán.
 
 ### 2.2.2 Use case dịch hội thoại
 
 ![Hình 2.2. Biểu đồ use case dịch hội thoại](hinh/hinh-2-2-use-case-dich-hoi-thoai.png)
 
-Use case "Dịch hội thoại" bao gồm (_include_) "Nhận dạng tiếng nói" và "Dịch văn bản", và được mở rộng
-(_extend_) bởi "Đọc bản dịch", "Áp dụng ngữ cảnh dịch" và "Tự nhận diện ngôn ngữ". Khi kết thúc, hội thoại
-được lưu tự động; từ hội thoại đã lưu, người dùng có thể sinh biên bản.
+"Dịch một chiều" và "Dịch hai chiều Việt–Anh" là hai dạng cụ thể của use case trừu tượng "Dịch hội thoại"
+(quan hệ tổng quát hoá). "Dịch hội thoại" luôn bao gồm (_include_) "Nhận dạng tiếng nói", "Dịch văn bản" và
+"Lưu hội thoại", và được mở rộng (_extend_) bởi "Đọc bản dịch", "Áp dụng ngữ cảnh dịch" và "Tự nhận diện ngôn
+ngữ" khi người dùng bật các tuỳ chọn tương ứng. Riêng "Dịch hai chiều Việt–Anh" luôn bao gồm nhận diện ngôn ngữ
+và gán người nói cho từng lượt. Từ hội thoại đã lưu, người dùng có thể sinh biên bản.
 
 ### 2.2.3 Use case họp video
 
 ![Hình 2.3. Biểu đồ use case họp video](hinh/hinh-2-3-use-case-hop-video.png)
+
+Chủ phòng họp là một trường hợp riêng của Người tham gia họp: ngoài mọi chức năng của người tham gia, chủ phòng
+được tạo, kết thúc và xoá phòng. Tạo phòng bao gồm việc sinh đường dẫn và mã QR để chia sẻ; tham gia phòng bao gồm
+bước chọn ngôn ngữ nói ở sảnh chờ, vì ngôn ngữ này quyết định bản dịch mà những người khác nhận được. Trong phòng,
+người tham gia bật/tắt micro và camera, nhận phụ đề và giọng đọc bản dịch bằng ngôn ngữ của mình, chat với tin nhắn
+được dịch cho từng người nhận, và xem biên bản sau khi họp kết thúc. Ba use case cuối dùng Dịch vụ AI để dịch,
+tổng hợp tiếng nói và tóm tắt.
 
 ### 2.2.4 Use case quản lý nhóm
 
@@ -239,7 +252,22 @@ gửi kết quả qua `conference.translation.broadcast`; API chuyển tới t�
 
 ![Hình 2.7. Biểu đồ tuần tự một lượt dịch streaming](hinh/hinh-2-7-tuan-tu-luot-dich.png)
 
+Hình 2.7 chia một lượt dịch thành ba giai đoạn. Trong lúc người dùng nói, mỗi khung âm thanh được gửi lên API; cứ
+300 ms API nhờ local-stt đọc lại tối đa 9 giây gần nhất và trả văn bản tạm, đồng thời dịch phần văn bản đã ổn định
+và trả bản dịch tạm chỉ dưới dạng chữ. Khi có im lặng ngắn, trình duyệt gửi `client.turn.speculate` để API dịch
+trước phần đã có. Khi lượt kết thúc, API chạy nhận dạng cuối, nhận diện ngôn ngữ và tính vector giọng; nếu không có
+âm thanh mới sau mốc suy đoán, bản dịch suy đoán được dùng lại, nếu có thì dịch lại. Sau đó bản dịch được tổng hợp
+thành giọng nói và gửi về dạng luồng. Cuối cùng, bước hậu biên tập chạy nền và chỉ gửi
+`server.translation.polished` khi bản sửa khác bản nháp.
+
 ![Hình 2.8. Biểu đồ tuần tự tham gia phòng họp](hinh/hinh-2-8-tuan-tu-tham-gia-hop.png)
+
+Hình 2.8 cho thấy API đứng giữa trình duyệt và SFU trong mọi bước đàm phán. Sau `conference.join`, API ghi người
+tham gia vào cơ sở dữ liệu rồi chuyển tiếp hai lượt đàm phán SDP tới Cloudflare qua HTTPS: một phiên phát để đẩy
+audio/video của người dùng lên, và một phiên nhận để kéo track của những người khác về, có thêm bước
+`conference.media.renegotiate` để trình duyệt trả SDP answer. Sau khi đàm phán xong, media đi trực tiếp giữa trình
+duyệt và SFU qua WebRTC, còn phụ đề và giọng dịch vẫn đi qua `/ws/conference`. Khi người dùng rời phòng, API cập
+nhật thời điểm rời (`leftAt`).
 
 ![Hình 2.9. Biểu đồ tuần tự làm mới token](hinh/hinh-2-9-tuan-tu-lam-moi-token.png)
 
@@ -271,17 +299,18 @@ nghiệp vụ chính; các bảng thanh toán được mô tả ngắn trong B�
 
 **Bảng 2.10. Bảng `Conversation` (hội thoại)**
 
-| Trường                                   | Kiểu     | Mô tả                                                   |
-| ---------------------------------------- | -------- | ------------------------------------------------------- |
-| id                                       | String   | Khoá chính                                              |
-| ownerId                                  | String   | Người dùng sở hữu                                       |
-| clientId                                 | String   | Mã do client sinh, giúp lưu lặp lại không tạo bản trùng |
-| languages                                | String[] | Các ngôn ngữ có trong hội thoại                         |
-| startedAt, endedAt                       | DateTime | Thời điểm bắt đầu, kết thúc                             |
-| pausedMs                                 | Int      | Tổng thời gian tạm dừng                                 |
-| title, searchTitle                       | String?  | Tiêu đề và tiêu đề đã chuẩn hoá để tìm kiếm             |
-| mode                                     | String?  | Chế độ: một chiều, hai chiều, tự nhận diện              |
-| audioKey, audioOffsetMs, audioDurationMs |          | Bản ghi âm trên R2 và vị trí căn chỉnh                  |
+| Trường                         | Kiểu     | Mô tả                                                   |
+| ------------------------------ | -------- | ------------------------------------------------------- |
+| id                             | String   | Khoá chính                                              |
+| ownerId                        | String   | Người dùng sở hữu                                       |
+| clientId                       | String   | Mã do client sinh, giúp lưu lặp lại không tạo bản trùng |
+| languages                      | String[] | Các ngôn ngữ có trong hội thoại                         |
+| startedAt, endedAt             | DateTime | Thời điểm bắt đầu, kết thúc                             |
+| pausedMs                       | Int      | Tổng thời gian tạm dừng                                 |
+| title, searchTitle             | String?  | Tiêu đề và tiêu đề đã chuẩn hoá để tìm kiếm             |
+| mode                           | String?  | Chế độ: một chiều, hai chiều, tự nhận diện              |
+| audioKey                       | String?  | Khoá bản ghi âm trên R2                                 |
+| audioOffsetMs, audioDurationMs | Int?     | Vị trí căn chỉnh và độ dài bản ghi âm                   |
 
 **Bảng 2.11. Bảng `ConversationTurn` (lượt nói)**
 
