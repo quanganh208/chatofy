@@ -120,7 +120,7 @@ describe('ConferenceLobbyPage — the landing', () => {
     expect(input.value).toBe('hello');
     expect(input.getAttribute('aria-invalid')).toBe('true');
     const alert = dialog()?.querySelector('[role="alert"]');
-    expect(alert?.textContent).toBe('That is not a meeting code or invite link.');
+    expect(alert?.textContent).toBe('That isn’t a meeting code or invite link.');
     expect(input.getAttribute('aria-describedby')).toBe(alert?.id);
     expect(push).not.toHaveBeenCalled();
     expect(notify.error).not.toHaveBeenCalled();
@@ -168,7 +168,7 @@ describe('ConferenceLobbyPage — the landing', () => {
     expect(push).not.toHaveBeenCalled();
     expect(notify.error).toHaveBeenCalledTimes(1);
     const [message, options] = notify.error.mock.calls[0]!;
-    expect(message).toBe('Could not start a meeting');
+    expect(message).toBe('Couldn’t start the meeting');
     expect(options?.id).toBe('conference-create-failed');
     // The button is usable again, so the reader is never stuck behind a spinner.
     expect(container.querySelector<HTMLButtonElement>('[data-new-meeting]')!.disabled).toBe(false);

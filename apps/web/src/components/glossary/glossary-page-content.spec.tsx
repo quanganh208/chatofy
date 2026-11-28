@@ -337,7 +337,7 @@ describe('the open glossary', () => {
     await settle(() => dialog() === null);
 
     expect(notify.error).toHaveBeenCalledWith(
-      'The new “đồ án” is saved, but the old version is still listed.',
+      'The new “đồ án” is saved, but the old one is still listed.',
       { id: 'glossary-term-item-0', retry: anyFunction },
     );
     expect(container.querySelectorAll('[data-slot="glossary-term"]')).toHaveLength(2);
@@ -371,7 +371,7 @@ describe('the open glossary', () => {
     const header = container.querySelector('[data-slot="glossary-detail-header"]')!;
     await press(header.querySelector<HTMLElement>('button[aria-label="Delete Thesis defense"]'));
     await settle(() => confirm() !== null);
-    expect(confirm()?.textContent).toContain('Every term in it is deleted too');
+    expect(confirm()?.textContent).toContain('All its terms are deleted too');
     await press(button('Delete', confirm()!));
     await settle(() => confirm() === null);
 
@@ -403,7 +403,7 @@ describe('the open glossary', () => {
     await openGlossary();
     await press(container.querySelector<HTMLElement>('[role="switch"]'));
 
-    expect(notify.error).toHaveBeenCalledWith('Could not change “Thesis defense”.', {
+    expect(notify.error).toHaveBeenCalledWith('Couldn’t change “Thesis defense”. Try again.', {
       id: 'glossary-active-g-1',
       retry: anyFunction,
     });

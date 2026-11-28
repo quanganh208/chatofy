@@ -94,6 +94,13 @@ export {
   DropdownMenuTrigger,
 } from './dropdown-menu.js';
 export { Input } from './input.js';
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from './input-group.js';
 export { Label } from './label.js';
 export {
   Popover,
@@ -156,6 +163,7 @@ export {
   useSidebar,
 } from './sidebar.js';
 export { Skeleton } from './skeleton.js';
+export { Spinner } from './spinner.js';
 export { Slider } from './slider.js';
 // `toast` is re-exported from here rather than imported from `sonner` by the app: the
 // function and the `Toaster` must share one module instance, or a toast is queued in

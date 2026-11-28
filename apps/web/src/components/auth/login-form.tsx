@@ -1,10 +1,11 @@
 'use client';
 
+import { LockIcon, MailIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { sameOriginPath } from '@/lib/same-origin-path';
@@ -99,6 +100,7 @@ export function LoginForm() {
       <AuthField
         id="email"
         label={t('common.auth.email')}
+        icon={MailIcon}
         errorId={error ? 'login-error' : undefined}
         type="email"
         required
@@ -110,6 +112,8 @@ export function LoginForm() {
       <AuthField
         id="password"
         label={t('common.auth.password')}
+        icon={LockIcon}
+        revealable
         errorId={error ? 'login-error' : undefined}
         type="password"
         required
@@ -121,6 +125,7 @@ export function LoginForm() {
       <AuthAlert id="login-error" message={error} />
 
       <Button id="login-submit" type="submit" className="w-full" disabled={submitting}>
+        {submitting ? <Spinner /> : null}
         {submitting ? t('common.auth.signingIn') : t('common.auth.signIn')}
       </Button>
     </form>

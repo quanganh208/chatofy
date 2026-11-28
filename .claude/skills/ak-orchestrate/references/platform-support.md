@@ -27,4 +27,8 @@ author, list check commands under `checks:`, run them in the harness and record
 them as harness-attested per
 [job-spec.md](job-spec.md). A `verification:` declared by the user
 or a supplied spec is an acceptance constraint: block that job, never convert
-it. When no session route qualifies either, block the run and say why.
+it. Before declaring no session route, probe an installed herdr-core (`hc`) per
+[herdr-core-route.md](herdr-core-route.md). It hosts current-runtime sessions
+for `runtime: internal` jobs only, never a blocked CLI or Pi job, and its
+checks stay harness-attested.
+When no session route qualifies either, block the run and say why.

@@ -16,10 +16,9 @@ web: npm start
 ## Detection
 - `Procfile`, `app.json`, buildpack detection
 
-## Free Tier
-- None (removed Nov 2022)
-- Eco dynos: $5/mo
-- In "sustaining engineering mode" since Feb 2026 — no new features
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://www.heroku.com/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 ```bash

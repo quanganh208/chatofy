@@ -12,6 +12,7 @@ import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
 import type { OutboundCommand } from '../../src/outbound-channel';
+import { readerMessage } from '../../src/reader-facing-error';
 
 /**
  * The offscreen document: the browser half of the audio graph.
@@ -93,7 +94,10 @@ chrome.runtime.onMessage.addListener((message) => {
     capture
       .begin(forOffscreen.streamId, forOffscreen.settings, forOffscreen.patched)
       .catch((err: unknown) => {
-        capture.noteStartFailure(err instanceof Error ? err.message : 'Could not start capture');
+        // Kept for whoever reads this document's console; the reader is told in
+        // their own language, never in the English the error may carry.
+        console.warn('[chatofy] capture failed to start', err);
+        capture.noteStartFailure(readerMessage(err, 'common.realtime.startFailed'));
         void capture.end().then(() => capture.reportStatus());
       });
     return;

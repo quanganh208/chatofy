@@ -3,9 +3,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthMessage } from '@chatofy/types';
-// No dictionary import: every string this file asserts is minted by the API and
-// passes through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
+import { en } from '@chatofy/i18n';
 
 const register = vi.fn<(body: unknown) => Promise<AuthMessage>>();
 
@@ -96,7 +95,7 @@ describe('RegisterForm', () => {
     const success = container.querySelector('#register-success')!;
     expect(success.getAttribute('role')).toBe('status');
     expect(success.textContent).toBe(
-      'Check your email for a link to finish creating your account.',
+      'Check your email. We sent a link to finish creating your account.',
     );
     expect(container.textContent).not.toContain('whatever the API happens to say');
     // No form left to submit a second time, and nothing that looks like a
@@ -141,12 +140,18 @@ describe('RegisterForm', () => {
 
     for (const id of ['register-name', 'register-email', 'register-password']) {
       expect(inputById(id).getAttribute('aria-invalid'), id).toBe('true');
-      expect(inputById(id).getAttribute('aria-describedby'), id).toBe('register-error');
+      // The error comes first; the password field also keeps its requirement line.
+      expect(inputById(id).getAttribute('aria-describedby')?.split(' ')[0], id).toBe(
+        'register-error',
+      );
     }
+    expect(inputById('register-password').getAttribute('aria-describedby')).toBe(
+      'register-error register-password-requirement',
+    );
     expect(container.querySelector('#register-error')).not.toBeNull();
   });
 
-  it('renders the API error message and announces it', async () => {
+  it('announces a refusal in the reader’s words, not the API’s', async () => {
     render();
     register.mockRejectedValueOnce(
       new ApiClientError({ code: 'VALIDATION_FAILED', message: 'Password is too short' }, 400),
@@ -155,7 +160,7 @@ describe('RegisterForm', () => {
 
     const error = container.querySelector('#register-error')!;
     expect(error.getAttribute('role')).toBe('alert');
-    expect(error.textContent).toBe('Password is too short');
+    expect(error.textContent).toBe(en['web.auth.createFailed']);
     // The form survives a failed submit — nothing was created.
     expect(container.querySelector('#register-submit')).not.toBeNull();
   });

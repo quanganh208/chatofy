@@ -20,14 +20,8 @@ map only; load the owning `SKILL.md` before executing details.
 
 ## Implementation Owner
 
-- Start delivery with outcome, constraints, non-goals, and acceptance criteria.
-  Reuse them from an accepted plan instead of asking again.
-- Use `/ak-cook` for known feature scope after requirements are clear.
-- Use `/ak-fix` for concrete bugs, errors, test failures, and CI failures.
 - Use `the engineer plan skill` when work needs architecture, phases, file ownership, or TDD
   structure.
-- Use `the installed test skill` for verification-only work.
-- Use `the engineer ship skill` only after implementation, tests, and review are done.
 - Read-only scout, debug, review, and explanation work may stop without an
   interactive design loop. Satisfy the brainstorm gate if it crosses into
   delivery or workspace mutation.
@@ -44,10 +38,3 @@ map only; load the owning `SKILL.md` before executing details.
   documentation-management routing.
 - If `find-skills` is installed and skill choice is ambiguous, invoke it for
   domain routing. Otherwise use the installed skill names and descriptions.
-
-## Post-Implementation
-
-- Review high-risk, cross-module, or public-contract changes before shipping.
-- Update docs only when behavior, setup, commands, architecture, security
-  posture, public contracts, or future maintainer decisions changed.
-- Journal when a workflow creates durable decisions or debugging lessons.

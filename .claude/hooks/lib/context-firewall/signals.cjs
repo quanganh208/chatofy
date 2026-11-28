@@ -113,6 +113,84 @@ function fileBytes(target) {
   }
 }
 
+// Short flags that take no value, per search tool. Anything outside these sets
+// may consume the next token (`-C 2`, `-t json`, `-g '*.ts'`), which would shift
+// the pattern into the path list, so an unknown flag keeps the warning.
+const SEARCH_BOOLEAN_SHORT_FLAGS = {
+  grep: 'abcHhiIlLnoqrRsUvwxzEFGPZ',
+  rg: 'abcHhiIlLnoqsSuUvwxzFNP0.',
+  ag: 'abcHhiilLnoqsSuUvwxzFQ0',
+  ack: 'chHiIlLnoqsvwx'
+};
+const SEARCH_BOOLEAN_LONG_FLAGS = new Set([
+  '--line-number', '--ignore-case', '--smart-case', '--case-sensitive', '--fixed-strings',
+  '--word-regexp', '--line-regexp', '--invert-match', '--with-filename', '--no-filename',
+  '--no-heading', '--heading', '--hidden', '--no-ignore', '--recursive', '--text',
+  '--only-matching', '--quiet', '--no-messages', '--vimgrep', '--json', '--pcre2',
+  '--extended-regexp', '--perl-regexp', '--basic-regexp', '--null', '--column', '--no-line-number'
+]);
+
+/**
+ * True when a content search names explicit path operands and every one is an
+ * existing regular file. Searching named files is bounded by those files, so
+ * it is not the repository-wide walk the recursive-search signal targets.
+ * The first operand is the pattern unless -e/-f/--regexp/--file supply it. Any
+ * flag not known to take no value returns false: it might consume the next
+ * token, and misreading the pattern as a path would hide a real broad search.
+ *
+ * @param {string[]} tokens - verb first
+ * @param {string} cwd
+ * @returns {boolean}
+ */
+function searchesOnlyFiles(tokens, cwd) {
+  const tool = tokens[0] === 'egrep' ? 'grep' : tokens[0];
+  const booleanShort = SEARCH_BOOLEAN_SHORT_FLAGS[tool] || '';
+  let patternFromFlag = false;
+  let endOfFlags = false;
+  const operands = [];
+  const args = tokens.slice(1);
+  for (let i = 0; i < args.length; i++) {
+    const token = args[i];
+    if (endOfFlags || !token.startsWith('-') || token === '-') {
+      operands.push(token);
+    } else if (token === '--') {
+      endOfFlags = true;
+    } else if (token === '-e' || token === '-f' || token === '--regexp' || token === '--file') {
+      patternFromFlag = true;
+      i++; // the next token is the pattern or pattern file, not a search path
+    } else if (/^--(regexp|file)=/.test(token)) {
+      patternFromFlag = true;
+    } else if (token.startsWith('--')) {
+      if (!SEARCH_BOOLEAN_LONG_FLAGS.has(token)) return false;
+    } else {
+      // A short cluster: boolean letters, optionally ending in an attached -e/-f value.
+      const cluster = token.slice(1);
+      let j = 0;
+      while (j < cluster.length && booleanShort.includes(cluster[j])) j++;
+      if (j === cluster.length) continue;
+      if ((cluster[j] === 'e' || cluster[j] === 'f') && tool !== 'ack') {
+        patternFromFlag = true;
+        if (j === cluster.length - 1) i++;
+        continue;
+      }
+      return false;
+    }
+  }
+  const paths = (patternFromFlag ? operands : operands.slice(1)).map(unquote);
+  return paths.length > 0 && paths.every(target => fileBytes(resolveAgainst(target, cwd)) !== null);
+}
+
+/**
+ * Strip one pair of matching surrounding quotes.
+ *
+ * @param {string} token
+ * @returns {string}
+ */
+function unquote(token) {
+  const quoted = token.match(/^(["'])(.*)\1$/);
+  return quoted ? quoted[2] : token;
+}
+
 /**
  * Resolve a possibly-relative path against the call's working directory.
  *
@@ -528,7 +606,7 @@ function pipelineSignals({ pipeline, cwd, thresholds, dialect }) {
     const narrowed = hasShortFlag(tokens, 'clm') || tokens.some(token =>
       token.startsWith('--include') || token.startsWith('--exclude') ||
       token.startsWith('-m') || token.startsWith('--max-count'));
-    if (recursive && !narrowed) {
+    if (recursive && !narrowed && !searchesOnlyFiles(tokens, cwd)) {
       signals.push({ id: 'shell.recursive-search', severity: 'warn', verb });
     }
   }

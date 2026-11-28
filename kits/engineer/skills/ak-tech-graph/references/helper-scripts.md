@@ -12,7 +12,7 @@ Four helper scripts in `scripts/` directory provide stable SVG generation and va
 
 ## 2. `generate-from-template.py` - Create starter SVG from template
 ```bash
-python3 ./scripts/generate-from-template.py architecture ./output/arch.svg '{"title":"My Diagram","nodes":[],"arrows":[]}'
+python ./scripts/generate-from-template.py architecture ./output/arch.svg '{"title":"My Diagram","nodes":[],"arrows":[]}'
 ```
 - Loads a built-in SVG template
 - Renders nodes, arrows, and legend entries from JSON input

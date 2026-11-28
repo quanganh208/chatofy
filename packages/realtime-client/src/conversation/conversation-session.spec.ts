@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
 import { ConversationSession, type ConversationRuntimeOptions } from './conversation-session.js';
 import type { ConversationStatus } from './conversation-status.js';
+import { RealtimeClientError, type RealtimeErrorCause } from '../realtime-error.js';
 import {
   FakeAudioContext,
   FakeMediaStream,
@@ -145,6 +146,8 @@ function harness(options: HarnessOptions = {}) {
   const connections: ({ resumeKey: string } | undefined)[] = [];
   const statuses: ConversationStatus[] = [];
   const errors: (string | null)[] = [];
+  // Beside `errors`, one entry per call: the code each message came with.
+  const causes: (RealtimeErrorCause | undefined)[] = [];
 
   if (options.addModule) {
     context.audioWorklet.addModule = options.addModule;
@@ -154,7 +157,10 @@ function harness(options: HarnessOptions = {}) {
     onStatus: (status: ConversationStatus) => statuses.push(status),
     onLevel: vi.fn(),
     onMuted: vi.fn(),
-    onError: vi.fn((message: string | null) => errors.push(message)),
+    onError: vi.fn((message: string | null, cause?: RealtimeErrorCause) => {
+      errors.push(message);
+      causes.push(cause);
+    }),
     onEchoHeard: vi.fn(),
     onServerEvent: vi.fn(),
     onReset: vi.fn(),
@@ -208,6 +214,7 @@ function harness(options: HarnessOptions = {}) {
     listeners,
     statuses,
     errors,
+    causes,
     talk,
     hush,
     socket: () => sockets[sockets.length - 1]!,
@@ -1684,6 +1691,10 @@ describe('ConversationSession', () => {
       await h.session.start(startOptions);
 
       expect(h.errors).toContain('Cannot reach the translator');
+      // A plain throw is a failed start, and carries what was thrown so an app
+      // can recognise an error of its own.
+      expect(h.causes.at(-1)).toMatchObject({ source: 'client', code: 'start_failed' });
+      expect((h.causes.at(-1)?.thrown as Error).message).toBe('Cannot reach the translator');
       // The microphone is asked for before the socket exists at all now, so a
       // socket that fails to even construct still has to give back what was
       // already open rather than leaving it running.
@@ -1700,7 +1711,44 @@ describe('ConversationSession', () => {
       h.socket().drop();
 
       expect(h.errors[h.errors.length - 1]).toBe('Connection to the translator dropped');
+      expect(h.causes.at(-1)).toEqual({ source: 'client', code: 'connection_lost' });
       expect(h.statuses[h.statuses.length - 1]).toBe('idle');
+    });
+
+    it('reports a handshake that never completed as connection_failed', async () => {
+      const h = harness({
+        createSocket: (handlers) => {
+          const socket = new FakeTranslateSocket(handlers);
+          socket.connect = () =>
+            Promise.reject(
+              new RealtimeClientError('connection_failed', 'Cannot reach the translator'),
+            );
+          return socket;
+        },
+      });
+
+      await h.session.start(startOptions);
+
+      expect(h.causes.at(-1)).toEqual({ source: 'client', code: 'connection_failed' });
+      expect(h.statuses.at(-1)).toBe('idle');
+    });
+
+    it('reports a deliberate server close as connection_closed', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.socket().drop(4001, 'replaced');
+
+      expect(h.causes.at(-1)).toEqual({ source: 'client', code: 'connection_closed' });
+    });
+
+    it('reports a transport error on an open socket as connection_error', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.socket().error();
+
+      expect(h.causes.at(-1)).toEqual({ source: 'client', code: 'connection_error' });
     });
   });
 
@@ -1849,6 +1897,7 @@ describe('ConversationSession', () => {
 
       expect(h.sockets).toHaveLength(4);
       expect(h.errors.at(-1)).toBe('Connection to the translator dropped');
+      expect(h.causes.at(-1)).toEqual({ source: 'client', code: 'connection_lost' });
       expect(h.statuses.at(-1)).toBe('idle');
       expect(h.session.isRunning).toBe(false);
     });
@@ -1998,6 +2047,7 @@ describe('ConversationSession', () => {
       });
 
       expect(h.errors).toContain('No speech detected');
+      expect(h.causes.at(-1)).toEqual({ source: 'server', code: 'turn_failed' });
     });
 
     it('surfaces a language_unavailable refusal as the server wrote it, not as a code', async () => {
@@ -2218,6 +2268,7 @@ describe('ConversationSession', () => {
         detail: 'language_detection',
       });
       expect(h.listeners.onError).toHaveBeenLastCalledWith('Language detection is unavailable', {
+        source: 'server',
         code: 'language_unavailable',
         detail: 'language_detection',
       });
@@ -2317,6 +2368,7 @@ describe('ConversationSession credits', () => {
       await flushMicrotasks();
 
       expect(h.listeners.onError).toHaveBeenCalledWith(`server says ${code}`, {
+        source: 'server',
         code,
         remainingCreditSeconds: 0,
       });
@@ -2382,6 +2434,7 @@ describe('ConversationSession credits', () => {
     await flushMicrotasks();
 
     expect(h.listeners.onError).toHaveBeenCalledWith('Your credits are running low', {
+      source: 'server',
       code: 'credits_low',
       remainingCreditSeconds: 90,
     });

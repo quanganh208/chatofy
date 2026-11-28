@@ -7,9 +7,9 @@ import { ConnectedThemeToggle } from './theme-toggle-connected';
 /**
  * The minimal frame, for the surfaces that are neither the product nor the pitch.
  *
- * Three of them: the auth routes, the two unlinked lab routes, and the 404. They have
- * the same need — the brand as a way home, a way to change theme, and one measured
- * column — and no need for navigation.
+ * The 404 and the unlinked lab routes. They need the brand as a way home, a way to
+ * change theme, and one measured column — and no navigation. The auth routes had the
+ * same need and moved to `AuthFrame`, which keeps all of it and adds a brand panel.
  *
  * This is what is left of the old shell after the split, and the subtraction is the point.
  * It also carried the session menu, which is why a sign-out control used to be

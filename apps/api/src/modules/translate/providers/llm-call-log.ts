@@ -45,6 +45,7 @@ export function formatLlmCall(event: LlmCallEvent): string {
     `llm kind=${event.kind} purpose=${event.purpose ?? '-'} host=${event.host} ` +
     `model=${event.model} ms=${event.ms} ok=${event.ok ? 1 : 0} ` +
     `in=${count(event.inputTokens)} out=${count(event.outputTokens)} ` +
-    `cached=${count(event.cachedInputTokens)} h=${event.promptHash}`
+    `cached=${count(event.cachedInputTokens)} h=${event.promptHash}` +
+    (event.rejected ? ` rejected=${event.rejected}` : '')
   );
 }

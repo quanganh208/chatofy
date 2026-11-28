@@ -199,3 +199,13 @@ assistant: "I'll launch the debugger agent to analyze system behavior and identi
 Performance analysis and bottleneck identification requires the debugger agent.
 </commentary>
 </example>
+
+## Status Protocol
+
+End every report to the orchestrator with:
+
+```text
+Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Summary: one or two sentences
+Concerns/Blockers: optional
+```

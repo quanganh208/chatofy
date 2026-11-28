@@ -108,7 +108,7 @@ describe('the credits region', () => {
     expect(container.querySelector('[data-credit-total]')?.textContent).toBe('87.5 credits');
     expect(text).toContain('37.5 credits');
     expect(text).toContain('50 credits');
-    expect(text).toContain('Reset on Dec 1, 2026');
+    expect(text).toContain('Resets on Dec 1, 2026');
     expect(text).toContain(en['common.billing.topupNeverExpire']);
   });
 

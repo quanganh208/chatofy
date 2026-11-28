@@ -41,7 +41,7 @@
       "id": "case-00005",
       "split": "train",
       "prompt": "Draft a publication-ready blog post about our new offline mode.",
-      "expected": "ak-write",
+      "expected": "ak-seo",
       "class": "near-miss"
     },
     {
@@ -391,7 +391,7 @@
       "id": "case-00055",
       "split": "holdout",
       "prompt": "Write a polished, publication-ready article with remote work tips for our audience.",
-      "expected": "ak-write",
+      "expected": "ak-seo",
       "class": "near-miss"
     },
     {
@@ -447,6 +447,111 @@
       "id": "case-00063",
       "split": "holdout",
       "prompt": "Remove the extra space before the comma in 'hello , world'.",
+      "expected": "none",
+      "class": "no-skill"
+    },
+    {
+      "id": "case-00064",
+      "split": "train",
+      "prompt": "Làm sạch file từ khoá này: bỏ trùng, gộp biến thể có dấu và không dấu, rồi xuất Excel.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00065",
+      "split": "holdout",
+      "prompt": "Gom nhóm danh sách từ khoá căn hộ cho thuê thành pillar và cluster để lên kế hoạch bài viết.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00066",
+      "split": "train",
+      "prompt": "Classify the search intent of these 300 keywords and flag which ones need a comparison article.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00067",
+      "split": "holdout",
+      "prompt": "Which keyword in our map should we write about next, and which ones already have drafts?",
+      "expected": "ak-seo",
+      "class": "indirect"
+    },
+    {
+      "id": "case-00068",
+      "split": "train",
+      "prompt": "Viết bài chuẩn SEO cho từ khoá 'máy pha cà phê gia đình' theo quy trình của site, dừng ở brief để tôi duyệt.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00069",
+      "split": "holdout",
+      "prompt": "Review this draft article before it goes to WordPress and give a pass, revise or block verdict.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00070",
+      "split": "train",
+      "prompt": "Đẩy bài này lên WordPress dạng nháp kèm ảnh bìa để biên tập viên duyệt.",
+      "expected": "ak-seo",
+      "class": "indirect"
+    },
+    {
+      "id": "case-00071",
+      "split": "holdout",
+      "prompt": "Fix the title tag, meta description, heading order and Product schema on our pricing landing page.",
+      "expected": "ak-seo",
+      "class": "positive"
+    },
+    {
+      "id": "case-00072",
+      "split": "train",
+      "prompt": "Build a quarterly editorial calendar across blog, newsletter and LinkedIn for our three content pillars.",
+      "expected": "ak-content-marketing",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00073",
+      "split": "holdout",
+      "prompt": "Lên lịch nội dung 3 tháng cho blog, email và mạng xã hội theo các trụ cột nội dung.",
+      "expected": "ak-content-marketing",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00074",
+      "split": "train",
+      "prompt": "Rewrite the hero headline and CTA on our pricing landing page to lift sign-ups.",
+      "expected": "ak-copywriting",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00075",
+      "split": "holdout",
+      "prompt": "Research our three main competitors and write a battlecard for the sales team.",
+      "expected": "ak-competitor",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00076",
+      "split": "train",
+      "prompt": "Pull the transcript and key quotes from this YouTube webinar recording.",
+      "expected": "ak-youtube",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00077",
+      "split": "holdout",
+      "prompt": "Design a 1200x628 hero banner for our spring sale for Facebook and LinkedIn.",
+      "expected": "ak-banner-design",
+      "class": "near-miss"
+    },
+    {
+      "id": "case-00078",
+      "split": "holdout",
+      "prompt": "Translate this paragraph about our refund policy into Vietnamese.",
       "expected": "none",
       "class": "no-skill"
     }

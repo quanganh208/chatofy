@@ -37,6 +37,20 @@ class InitSkillTests(unittest.TestCase):
         self.assertNotIn('user-invocable', content)
         self.assertNotIn('disable-model-invocation', content)
 
+    def test_personal_skill_uses_plain_slug(self):
+        skill_dir = init_skill.init_skill('my-tool', self.root, personal=True)
+        self.assertEqual(skill_dir, self.root / 'my-tool')
+        content = (skill_dir / 'SKILL.md').read_text(encoding='utf-8')
+        self.assertTrue(content.startswith('---\nname: my-tool\n'))
+
+    def test_personal_rejects_ak_prefix_namespace_and_kit(self):
+        for name in ('ak-tool', 'ak:tool', 'team:tool'):
+            with self.assertRaises(ValueError):
+                init_skill.init_skill(name, self.root, personal=True)
+        with self.assertRaises(ValueError):
+            init_skill.init_skill('my-tool', self.root, kit='core', personal=True)
+        self.assertEqual(list(self.root.iterdir()), [])
+
     def test_kit_accepts_legacy_and_prefixed_names(self):
         skills = self.root / 'kits' / 'core' / 'skills'
         for identifier, slug in (('ak:legacy-input', 'legacy-input'), ('ak-prefixed', 'prefixed')):

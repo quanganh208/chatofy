@@ -446,7 +446,7 @@ describe('Settings › Team', () => {
     });
     await settle();
     expect(select).toHaveBeenCalledWith(created.id);
-    expect(notifySuccess).toHaveBeenCalledWith('Now in Night shift', {
+    expect(notifySuccess).toHaveBeenCalledWith('Night shift created', {
       description: en['web.team.createdHint'],
     });
     expect(document.activeElement).toBe(document.querySelector('input[type="email"]'));

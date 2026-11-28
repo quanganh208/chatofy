@@ -25,7 +25,7 @@ const t = createTranslator(en);
 function failureMessage(err: unknown): MessageKey {
   if (err instanceof AuthRequestError) {
     if (err.status === 401) return 'mobile.auth.invalidCredentials';
-    if (err.status === 429) return 'mobile.auth.tooManyAttempts';
+    if (err.status === 429) return 'common.auth.tooManyAttempts';
   }
   return 'mobile.auth.signInFailed';
 }

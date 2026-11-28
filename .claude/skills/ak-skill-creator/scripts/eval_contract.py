@@ -6,7 +6,7 @@ import math
 from datetime import date
 from pathlib import Path
 
-CHECKS = {'file-exists', 'json-equals', 'text-contains', 'rubric'}
+CHECKS = {'file-exists', 'json-equals', 'text-contains', 'text-absent', 'rubric'}
 USAGE_METRICS = ('input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens')
 FINGERPRINTS = ('configuration', 'cases', 'tools', 'catalog')
 
@@ -133,10 +133,10 @@ def validate_cases(data):
             require(isinstance(kind, str) and kind in CHECKS, f'{aid}: unsupported assertion kind')
             if kind != 'rubric':
                 require(isinstance(assertion.get('path'), str) and assertion['path'], f'{aid}: path is required')
-            if kind in ('json-equals', 'text-contains'):
+            if kind in ('json-equals', 'text-contains', 'text-absent'):
                 require('expected' in assertion, f'{aid}: expected is required')
-            if kind == 'text-contains':
-                require(isinstance(assertion['expected'], str), f'{aid}: expected must be text')
+            if kind in ('text-contains', 'text-absent'):
+                require(isinstance(assertion['expected'], str) and assertion['expected'], f'{aid}: expected must be text')
     return cases
 
 

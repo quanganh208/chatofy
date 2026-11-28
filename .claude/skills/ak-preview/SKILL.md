@@ -7,11 +7,13 @@ keywords: [preview, visual, slides, diagrams, HTML]
 argument-hint: "[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap [--ak-render] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: "1.2.2"
+  version: "1.2.3"
   attribution: "Visual self-review pattern for diagram output adapted from fireworks-tech-graph by yizhiyanhua-ai (MIT)"
 ---
 
 # Preview
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Universal viewer + visual generator. View existing content OR generate new visual explanations.
 

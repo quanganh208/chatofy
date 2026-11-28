@@ -1,87 +1,16 @@
 # Reporting Standards
 
-Structured format for diagnostic and investigation reports. Write complete sentences; keep it short by selecting content.
-
-## When to Use
-
-- After completing system investigation
-- Summarizing debugging session findings
-- Producing incident post-mortems
-- Reporting performance analysis results
-
-## Report Structure
-
-### 1. Executive Summary (3-5 lines)
-
-- **Issue:** One-line description
-- **Impact:** Users/systems affected, severity
-- **Root cause:** One-line explanation
-- **Status:** Resolved / Mitigated / Under investigation
-- **Fix:** What was done or recommended
-
-### 2. Technical Analysis
-
-**Timeline:**
-```
-HH:MM - Event description
-HH:MM - Next event
-...
-```
-
-**Evidence:**
-- Relevant log excerpts (trimmed to essential lines)
-- Query results with key metrics
-- Error messages and stack traces
-- Before/after comparisons
-
-**Findings:**
-- List each finding with supporting evidence
-- Distinguish confirmed facts from hypotheses
-- Note correlation vs causation
-
-### 3. Actionable Recommendations
-
-**Immediate (P0):**
-- [ ] Critical fix with implementation steps
-
-**Short-term (P1):**
-- [ ] Follow-up improvements
-
-**Long-term (P2):**
-- [ ] Monitoring/alerting enhancements
-- [ ] Architecture improvements
-- [ ] Preventive measures
-
-Each recommendation: what to do, why, expected impact, effort estimate (low/medium/high).
-
-### 4. Supporting Evidence
-
-- Relevant log excerpts
-- Query results and execution plans
-- Performance metrics
-- Test results and error traces
-- Screenshots or diagrams if applicable
-
-### 5. Unresolved Questions
-
-List anything that remains unclear:
-- Items needing further investigation
-- Questions for the team
-- Assumptions that need validation
+Use this structure for investigation reports, debugging summaries, incident post-mortems and
+performance analyses. Lead with the outcome and keep the report short by choosing what to
+include, in complete sentences. Support every claim with logs, metrics or reproduction steps,
+and label each cause as confirmed or likely.
 
 ## Report File Naming
 
-Use naming pattern from `## Naming` section injected by hooks. Pattern includes full path and computed date.
+Use the naming pattern from the `## Naming` section injected by hooks; it includes the full path
+and computed date.
 
 **Example:** `plans/reports/debugger-260205-2215-api-500-investigation.md`
-
-## Writing Guidelines
-
-- **Concise:** Lead with the outcome and keep the report short by choosing what to include, in complete sentences
-- **Evidence-backed:** Every claim supported by logs, metrics, or reproduction steps
-- **Actionable:** Recommendations are specific with clear next steps
-- **Honest:** State unknowns explicitly. "Likely cause" vs "confirmed cause"
-- **Structured:** Use headers, tables, and bullet points for scanability
 
 ## Template
 
@@ -89,25 +18,24 @@ Use naming pattern from `## Naming` section injected by hooks. Pattern includes 
 # [Issue Title] - Investigation Report
 
 ## Executive Summary
-- **Issue:**
-- **Impact:**
-- **Root cause:**
-- **Status:**
-- **Fix:**
+- **Issue:** one line
+- **Impact:** users/systems affected, severity
+- **Root cause:** one line
+- **Status:** Resolved / Mitigated / Under investigation
+- **Fix:** what was done or recommended
 
 ## Timeline
-- HH:MM -
-- HH:MM -
+- HH:MM - event
 
 ## Technical Analysis
 ### Findings
-1.
-2.
+1. finding with its evidence (confirmed fact or hypothesis; correlation or causation)
 
 ### Evidence
-[logs, queries, metrics]
+[trimmed log excerpts, queries and metrics, error traces, before/after comparisons]
 
 ## Recommendations
+Each item: what to do, why, expected impact, effort (low/medium/high).
 ### Immediate (P0)
 - [ ]
 
@@ -115,8 +43,8 @@ Use naming pattern from `## Naming` section injected by hooks. Pattern includes 
 - [ ]
 
 ### Long-term (P2)
-- [ ]
+- [ ] monitoring, architecture or prevention
 
 ## Unresolved Questions
--
+- items needing investigation, questions for the team, assumptions to validate
 ```

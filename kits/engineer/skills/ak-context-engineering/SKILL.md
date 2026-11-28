@@ -7,10 +7,12 @@ keywords: [context, tokens, limits, memory, optimization, compaction, budget, be
 argument-hint: "[topic or question]"
 metadata:
   author: agentkit
-  version: "1.3.1"
+  version: "1.3.2"
 ---
 
 # Context Engineering
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Finish the requested work correctly with less wasted context, cost, time and agent
 steps. Optimize complete outcomes, including failures, retries and verification.

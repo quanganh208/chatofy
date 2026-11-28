@@ -20,11 +20,12 @@ the task needs, and skip a skill the live catalog does not offer:
 
 **Before any design work**, run `ui-ux-pro-max` searches:
 ```bash
-python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<product-type>" --domain product
-python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<style-keywords>" --domain style
-python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<mood>" --domain typography
-python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<industry>" --domain color
+python .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<product-type>" --domain product
+python .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<style-keywords>" --domain style
+python .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<mood>" --domain typography
+python .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<industry>" --domain color
 ```
+On macOS/Linux without `python`, use `python3`; on Windows never use `python3` (Microsoft Store stub).
 
 ## Expert Capabilities
 

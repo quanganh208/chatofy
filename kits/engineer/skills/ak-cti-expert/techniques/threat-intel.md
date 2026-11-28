@@ -141,7 +141,7 @@ curl -s "https://cve.circl.lu/api/last" | jq '.[0:10] | .[] | {id: .id, summary:
 ```bash
 # Search by keyword:
 curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<keyword>&resultsPerPage=5" \
-  | jq '.vulnerabilities[].cve | {id: .id, description: .descriptions[0].value, severity: .metrics.cvssMetricV31[0].cvssData.baseSeverity}'
+  | jq '.vulnerabilities[]?.cve | {id: .id, description: .descriptions[0]?.value, severity: (.metrics.cvssMetricV31[0]?.cvssData.baseSeverity // .metrics.cvssMetricV30[0]?.cvssData.baseSeverity // .metrics.cvssMetricV2[0]?.baseSeverity // "unknown")}'
 # Rate: 5 req/30s without key, 50 req/30s with key
 
 # Lookup specific CVE:
@@ -150,7 +150,7 @@ curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=<CVE-ID>" \
 
 # Search by CPE (product identifier):
 curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:a:<vendor>:<product>:*:*:*:*:*:*:*:*" \
-  | jq '.vulnerabilities[].cve | {id: .id, severity: .metrics.cvssMetricV31[0].cvssData.baseSeverity}'
+  | jq '.vulnerabilities[]?.cve | {id: .id, severity: (.metrics.cvssMetricV31[0]?.cvssData.baseSeverity // .metrics.cvssMetricV30[0]?.cvssData.baseSeverity // .metrics.cvssMetricV2[0]?.baseSeverity // "unknown")}'
 ```
 
 **Org — Ransomware.live (ransomware victim/group tracking):**

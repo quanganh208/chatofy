@@ -147,7 +147,7 @@ describe('ConfirmDeleteButton', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     // Inserted as its own node, which is what makes it spoken.
     expect(dialog()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Could not delete this conversation',
+      'Couldn’t delete this conversation',
     );
     const retry = dialogButton('Delete');
     expect(retry?.disabled).toBe(false);
@@ -163,7 +163,7 @@ describe('ConfirmDeleteButton', () => {
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(dialog()).toBeNull();
-    expect(document.body.textContent).not.toContain('Could not delete this conversation');
+    expect(document.body.textContent).not.toContain('Couldn’t delete this conversation');
   });
 
   it('cannot be dismissed while the request is out', async () => {
@@ -220,7 +220,7 @@ describe('ConfirmDeleteButton, second step only', () => {
     });
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      'Could not delete this conversation',
+      'Couldn’t delete this conversation',
     );
     expect(document.activeElement).toBe(remove());
   });

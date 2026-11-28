@@ -46,7 +46,7 @@ export async function Modes() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
         <Reveal className="md:col-span-2 lg:col-span-7 lg:row-span-2">
           <Tile
-            eyebrow={t('web.chrome.navConference')}
+            eyebrow={t('common.nav.meetings')}
             title={t('web.landing.meetingsTitle')}
             body={t('web.landing.meetingsBody')}
             layout="flow"

@@ -521,7 +521,9 @@ function splitCompoundCommand(command, dialect) {
 // PowerShell resolves command and parameter names case-insensitively.
 const POWERSHELL_EXECUTOR_PATTERN =
   /^(?:(?:pwsh|powershell)(?:\.exe)?(?:\s+-(?:NoProfile|NoLogo|NonInteractive|nop|nol|noni))*\s+-c(?:ommand)?|Invoke-Expression|iex)\s+(["'])(.+)\1\s*$/i;
-const POSIX_EXECUTOR_PATTERN = /^(?:(?:bash|sh|zsh)\s+-c|eval)\s+(["'])(.+)\1\s*$/;
+// The `s` flag lets a quoted body span several lines (`bash -c "a\nb"`), so a
+// multi-line script is unwrapped and each of its lines is checked.
+const POSIX_EXECUTOR_PATTERN = /^(?:(?:bash|sh|zsh|dash|ksh)\s+-c|eval)\s+(["'])(.+)\1\s*$/s;
 
 /**
  * Whether `body` is one string between the `quote` characters around it, so

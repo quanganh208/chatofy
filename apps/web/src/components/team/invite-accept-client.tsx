@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientError } from '@chatofy/api-client';
 import type { InvitePreviewResponse } from '@chatofy/types';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import {
   acceptTeamInvite,
@@ -197,6 +197,7 @@ export function InviteAcceptClient() {
       <p className="text-prose">{t('web.invite.whatJoiningMeans')}</p>
       <AuthAlert id="invite-error" message={joinFailed ? t('web.team.actionFailed') : undefined} />
       <Button id="invite-join" type="button" className="w-full" disabled={joining} onClick={join}>
+        {joining ? <Spinner /> : null}
         {t('web.invite.join')}
       </Button>
     </div>

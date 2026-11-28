@@ -79,6 +79,6 @@ describe('ProfileSettings', () => {
     // Reporting the failure is this page's job; acting on a 401 belongs to
     // `use-auth-recovery.ts`, which the socket and HTTP paths already run.
     expect(container.textContent).toContain('a@b.co');
-    expect(container.textContent).toContain('Could not load your account details');
+    expect(container.textContent).toContain('Couldn’t load your account details');
   });
 });

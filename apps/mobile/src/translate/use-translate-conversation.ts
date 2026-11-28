@@ -45,13 +45,15 @@ import { creditErrorCopy, startFailureKey } from './translate-refusal';
 import type { TranslateSettings } from './translate-settings';
 
 /**
- * What went wrong, as a catalogue key where the app has the words, else the
- * server's text. `notice` marks something to tell the reader that is not a
+ * What went wrong, as a catalogue key: never the session's own message, which is
+ * English for logs. `notice` marks something to tell the reader that is not a
  * failure: the conversation is still running (a low credit balance).
  */
-export type TranslateError = ({ key: MessageKey; amount?: CreditMessage } | { text: string }) & {
+export interface TranslateError {
+  key: MessageKey;
+  amount?: CreditMessage;
   notice?: boolean;
-};
+}
 
 /** Which conversation is on screen: stamped once at start, read by the save. */
 export interface ConversationIdentity {
@@ -208,10 +210,8 @@ export function useTranslateConversation(): UseTranslateConversation {
               );
               return;
             }
-            // A low balance with no figure still only informs: the run goes on.
-            const notice = cause?.code === 'credits_low';
-            const key = startFailureKey(message, cause);
-            setError(key ? { key, notice } : { text: message, notice });
+            // Never `message`: it is English, for logs. The code picks the words.
+            setError({ key: startFailureKey(message, cause), notice: false });
           },
           onLanguageMode: (mode, reason) =>
             setLanguageMode(reason === undefined ? { mode } : { mode, reason }),

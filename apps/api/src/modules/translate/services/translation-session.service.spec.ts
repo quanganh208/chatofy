@@ -17,6 +17,7 @@ import {
   STT_MIN_SPEECH_MS,
 } from '../session/turn-tuning';
 import {
+  EmptyTranscriptException,
   NoSpeechDetectedException,
   PipelineTranslatorService as RealPipelineTranslatorService,
   SpeechEngineBusyException,
@@ -1786,7 +1787,7 @@ describe('TranslationSessionService', () => {
       const { service, recorded } = makeService({
         transcribeAndTranslate: vi
           .fn()
-          .mockRejectedValue(new BadRequestException('No speech detected')),
+          .mockRejectedValue(new EmptyTranscriptException()),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -1794,13 +1795,33 @@ describe('TranslationSessionService', () => {
 
       await service.end(socket);
 
+      // Still `turn_failed` for clients older than `detail`; the detail is
+      // what lets a current one say "nothing to translate".
       expect(socket.ofType('server.error')[0]).toMatchObject({
         code: 'turn_failed',
+        detail: 'no_speech',
       });
       expect(socket.ofType('server.transcript.final')).toHaveLength(0);
       expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
       expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
       expect(recorded[0]).toMatchObject({ completed: false, reason: 'error' });
+    });
+
+    it('sends no detail for a turn that failed for any other reason', async () => {
+      const { service } = makeService({
+        transcribeAndTranslate: vi
+          .fn()
+          .mockRejectedValue(new BadRequestException('Something else')),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      const error = socket.ofType('server.error')[0];
+      expect(error).toMatchObject({ code: 'turn_failed' });
+      expect(error).not.toHaveProperty('detail');
     });
 
     /**

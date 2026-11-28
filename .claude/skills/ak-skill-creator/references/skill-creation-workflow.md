@@ -12,6 +12,14 @@ the table in `references/agentkit-kit-skill-contract.md` ("Choosing a
 target"). Default to the current project scope; use a kit target only inside
 the AgentKit repository, and user scope only when the user asks for it.
 
+With `--personal [<kit>]`, run the detect step in
+`references/personal-kit-and-skillx.md`. When overlays are detected, author in a
+scratch directory (`scripts/init_skill.py <slug> --path <scratch> --personal`),
+complete and validate the skill there, then hand it to
+`ak skills kit new-skill <kit> <slug> --from-dir <dir>` and `ak skills kit apply <kit>`.
+When nothing is detected, continue with the project target and note the missing
+signal in one line; do not prompt.
+
 ## Step 1: Capture intent
 
 Infer from the request and inspect available context first. Use the `ask_user capability`
@@ -84,8 +92,8 @@ be executed or inspected rather than re-explained in prose.
 From the skill-creator directory:
 
 ```bash
-python3 scripts/init_skill.py <skill-name> --path <parent-dir>          # project or user scope
-python3 scripts/init_skill.py <slug> --path /absolute/agentkit/kits/<kit>/skills --kit <kit> # kit scope: name ak-<slug>, dir ak-<slug>/
+python scripts/init_skill.py <skill-name> --path <parent-dir>          # project or user scope
+python scripts/init_skill.py <slug> --path /absolute/agentkit/kits/<kit>/skills --kit <kit> # kit scope: name ak-<slug>, dir ak-<slug>/
 ```
 
 The script writes a short SKILL.md skeleton with the frontmatter the target

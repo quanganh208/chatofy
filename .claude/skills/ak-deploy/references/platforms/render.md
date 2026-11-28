@@ -27,10 +27,9 @@ services:
 ## Detection
 - `render.yaml` in repo root
 
-## Free Tier
-- 750 free instance hours/mo (Starter)
-- Free PostgreSQL (90 days)
-- Spins down after 15min idle (30s cold start)
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://render.com/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 Via dashboard: Events → select previous deploy → Manual Deploy

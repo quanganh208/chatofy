@@ -260,7 +260,9 @@ function readPlan(content, planPath, source) {
     status,
     unfinished,
     source,
-    hash: crypto.createHash('sha1').update(content).digest('hex').slice(0, 12),
+    // git output is trimEnd()-ed and checkouts may use CRLF: hash a normalized
+    // form so a filesystem copy and its tracked ref dedupe to one plan.
+    hash: crypto.createHash('sha1').update(String(content).replace(/\r\n/g, '\n').trimEnd()).digest('hex').slice(0, 12),
   };
 }
 
@@ -292,7 +294,7 @@ function scanFilesystemPlans(worktrees, warnings) {
     for (const planFile of findFilesystemPlanFiles(path.join(worktree.path, 'plans'), warnings)) {
       try {
         const content = fs.readFileSync(planFile, 'utf8');
-        plans.push(readPlan(content, path.relative(worktree.path, planFile), {
+        plans.push(readPlan(content, path.relative(worktree.path, planFile).split(path.sep).join('/'), {
           type: 'filesystem',
           worktree: worktree.path,
           branch: worktree.branch || null,

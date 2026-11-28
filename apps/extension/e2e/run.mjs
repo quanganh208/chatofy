@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { en } from '@chatofy/i18n';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -228,6 +229,10 @@ const context = await chromium.launchPersistentContext(userDataDir, {
   args: [
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,
+    // The extension speaks the browser's language, so the browser is pinned to
+    // English: the copy checked below is read from the English dictionary, and a
+    // runner whose system locale is Vietnamese would otherwise render that.
+    '--lang=en-US',
     // A fake microphone that emits a tone, and an auto-accepted prompt.
     //
     // The prompt flag stands in for the user clicking Allow on the grant page. It
@@ -1429,7 +1434,7 @@ try {
     if (state.consenting) {
       check(
         `the notice is up and Start is not pressable — ${name}`,
-        state.consentText.includes('records the meeting') && !state.startable,
+        state.consentText.includes(en['extension.consent.recordsAudio']) && !state.startable,
         `${state.consentText.length} chars of notice, start ${state.startable ? 'ENABLED' : 'disabled'}`,
       );
     } else {

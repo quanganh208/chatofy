@@ -86,6 +86,8 @@ Keep durable facts in one place:
   bounded fallback ladder.
 - [concurrency-admission.md](references/concurrency-admission.md): sizing
   parallelism from usage windows and host headroom instead of a fixed count.
+- [herdr-core-route.md](references/herdr-core-route.md): optional route through
+  a user-installed herdr-core (`hc`) multiplexer before reporting no route.
 - [pi-sessions.md](references/pi-sessions.md): Pi probing, session handles,
   dispatch shape, capture, and intervention limits.
 - [pi-onboarding.md](references/pi-onboarding.md): installing, profiling,

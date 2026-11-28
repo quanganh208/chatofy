@@ -1,10 +1,11 @@
 'use client';
 
+import { LockIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { resetPassword } from '@/clients/api-client';
@@ -66,7 +67,7 @@ export function ResetPasswordForm() {
           })
           .catch((err: unknown) => {
             setSubmitting(false);
-            setError(authErrorMessage(err, t, 'web.auth.resetFailed'));
+            setError(authErrorMessage(err, t, 'web.auth.resetFailed', { redeemsLink: true }));
           });
       }}
     >
@@ -80,6 +81,9 @@ export function ResetPasswordForm() {
       <AuthField
         id="reset-password"
         label={t('web.auth.newPassword')}
+        icon={LockIcon}
+        revealable
+        requirement={t('web.auth.passwordRequirement', { min: AUTH_LIMITS.minPassword })}
         errorId={error ? 'reset-error' : undefined}
         type="password"
         required
@@ -92,6 +96,7 @@ export function ResetPasswordForm() {
       <AuthAlert id="reset-error" message={error} />
 
       <Button id="reset-submit" type="submit" className="w-full" disabled={submitting}>
+        {submitting ? <Spinner /> : null}
         {submitting ? t('web.auth.resetting') : t('web.auth.resetPasswordSubmit')}
       </Button>
     </form>

@@ -414,3 +414,54 @@ describe('signOut', () => {
     expect(removed).toEqual([KEY, REFRESH_KEY, PREFERENCES_KEY, PENDING_KEY]);
   });
 });
+
+describe('signIn refusals', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const refusedWith = async (status: number) => {
+    installChrome(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        answer(status, {
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Invalid email or password' },
+        }),
+      ),
+    );
+    const { signIn } = await import('./access-token');
+    return signIn(API, 'someone@example.com', 'wrong');
+  };
+
+  it('says wrong credentials in the reader’s words, not the API’s', async () => {
+    const { t } = await import('./i18n');
+    await expect(refusedWith(401)).resolves.toEqual({
+      ok: false,
+      message: t('web.auth.credentialsRejected'),
+    });
+  });
+
+  it('says a rate limit as too many attempts', async () => {
+    const { t } = await import('./i18n');
+    await expect(refusedWith(429)).resolves.toEqual({
+      ok: false,
+      message: t('common.auth.tooManyAttempts'),
+    });
+  });
+
+  it('falls back to the status sentence for anything else', async () => {
+    const { t } = await import('./i18n');
+    const result = await refusedWith(500);
+    expect(result).toEqual({
+      ok: false,
+      message: t('extension.error.signInFailed', { status: 500 }),
+    });
+    expect(JSON.stringify(result)).not.toContain('Invalid email or password');
+  });
+});

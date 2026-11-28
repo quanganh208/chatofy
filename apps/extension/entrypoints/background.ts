@@ -19,6 +19,9 @@ import {
   meetingSiteOf,
   supportOf,
 } from '../src/supported-meeting-url';
+import { t } from '../src/i18n';
+import { readerMessage } from '../src/reader-facing-error';
+import { RelayFailureReporter } from '../src/relay-failure-reporter';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -232,21 +235,23 @@ let shortcutHint: string | undefined;
 let settingsHint: OverlayState['settings'];
 
 async function refreshSettingsHint(): Promise<void> {
+  // Taken first: runs overlap and settle out of order, and the reporter applies
+  // only the newest run's outcome.
+  const run = relayFailures.beginSettingsRun();
   const { languagePair, voiceGender, outbound } = await loadSettings();
   settingsHint = { languagePair, voiceGender, outbound };
   publisher.setSettings(settingsHint);
   try {
     await patch.sync(outbound);
+    relayFailures.settingsSettled(run, outbound, true);
   } catch (err) {
     // Reported, not swallowed. Silence here means the setting says on, no page
     // ever gets patched, and the only thing the user is ever told is to reload —
     // which cannot help and costs them their capture.
-    publisher.publishError(
-      'outbound',
-      `Could not prepare this page for your microphone: ${
-        err instanceof Error ? err.message : 'unknown error'
-      }`,
-    );
+    // The browser's own wording is English whatever the reader's language is, so
+    // it goes to the console and the overlay gets the dictionary sentence only.
+    console.warn('[chatofy] could not prepare the page for the outbound microphone', err);
+    relayFailures.settingsSettled(run, outbound, false);
   }
 }
 
@@ -262,6 +267,7 @@ async function startCapture(tabId: number): Promise<void> {
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
   publisher.reset();
+  relayFailures.resetRelay();
 
   // Tell the tab we are leaving that it is no longer being captured, before
   // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
@@ -305,6 +311,7 @@ async function stopCapture(): Promise<void> {
   // leave the guess in place and suppress the very publish that takes the
   // indicator down, leaving it claiming a recording that has ended.
   publisher.clearCaptureUnknown();
+  relayFailures.resetRelay();
   publisher.publishStopped();
 }
 
@@ -354,21 +361,28 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
 }
 
 /**
- * The relay into the meeting page stopped working.
+ * The path from the user's microphone into the meeting page stopped working.
  *
  * Reported once per state change rather than per frame: this fires at the rate
  * audio is produced, and a banner rewritten five times a second is a flicker.
+ * Written to the worker's own `relay` slot, never `outbound`: the offscreen
+ * document replaces `outbound` on every status push, which would wipe this.
  */
-let relayFailure: string | undefined;
-function reportRelayFailure(reason: string): void {
-  if (relayFailure === reason) return;
-  relayFailure = reason;
-  publisher.publishError('outbound', reason);
-}
+const relayFailures = new RelayFailureReporter({
+  publish: (message) => publisher.publishError('relay', message),
+  clear: () => publisher.clearError('relay'),
+  showing: () => publisher.current.errors.relay,
+  capturing: () => publisher.capturing,
+  translate: (key) => t(key),
+});
 
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
-  publisher.publishCaptureError(err instanceof Error ? err.message : 'Could not capture this tab');
+  // Chrome's and the offscreen document's errors are English for a developer:
+  // logged here, and the reader is told in their own language.
+  console.warn('[chatofy] capture toggle failed', err);
+  relayFailures.resetRelay();
+  publisher.publishCaptureError(readerMessage(err, 'extension.error.tabCaptureFailed'));
 }
 
 /**
@@ -385,7 +399,7 @@ async function refreshMenuTitle(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const stops = publisher.capturing && activeTabId !== null && tab?.id === activeTabId;
   await chrome.contextMenus.update(TOGGLE_MENU_ID, {
-    title: stops ? 'Chatofy: stop translating' : 'Chatofy: start translating',
+    title: stops ? t('extension.menu.stop') : t('extension.menu.start'),
     // Withheld from platforms Chatofy is off for. In a call window with no
     // toolbar this menu is the only way in, so leaving it there would offer an
     // action the worker has already decided to refuse — and on Facebook, where
@@ -489,7 +503,7 @@ export default defineBackground(() => {
         id: TOGGLE_MENU_ID,
         // Nothing is being captured at install time; `refreshMenuTitle` owns it
         // from here on.
-        title: 'Chatofy: start translating',
+        title: t('extension.menu.start'),
         // Not `['page']`. A call window is almost entirely video, and a right-click
         // on a video element is not a page context — the item would be missing
         // exactly where it is the only way in.
@@ -649,6 +663,12 @@ export default defineBackground(() => {
 
       case 'status':
         publisher.applyStatus(forWorker.status);
+        // A capture that ended takes its relay failure with it (the publisher
+        // already dropped the line); one that is running re-derives the slot,
+        // which is how a prepare failure still true reappears in a new capture.
+        // Publishes only when the slot's text changes.
+        if (!forWorker.status.capturing) relayFailures.resetRelay();
+        relayFailures.refresh();
         return undefined;
 
       case 'transcript':
@@ -660,19 +680,35 @@ export default defineBackground(() => {
         // the only context that can reach a tab from the offscreen document.
         const target = activeTabId;
         if (target === null) {
-          reportRelayFailure('the meeting tab is no longer being tracked');
+          relayFailures.relayFailed(
+            'extension.error.relayTabLost',
+            'the meeting tab is no longer being tracked',
+          );
           return undefined;
         }
+        // Numbered before sending: sends settle out of order, and only a
+        // success newer than the latest failure may clear it.
+        const seq = relayFailures.nextSend();
         void chrome.tabs
           .sendMessage(target, {
             to: 'content',
             type: 'outbound.command',
             command: forWorker.command,
           })
-          // Reported rather than dropped. Silence here is the user talking into
-          // a meeting that stopped receiving them, with nothing on screen saying
-          // so.
-          .catch(() => reportRelayFailure('the meeting tab stopped accepting audio'));
+          .then(
+            // Delivered, so the relay failure is over. Publishes nothing when
+            // none is showing, which is every frame of a healthy relay.
+            () => relayFailures.relayDelivered(seq),
+            // Reported rather than dropped. Silence here is the user talking into
+            // a meeting that stopped receiving them, with nothing on screen saying
+            // so.
+            () =>
+              relayFailures.relayFailed(
+                'extension.error.relayTabUnreachable',
+                'the meeting tab stopped accepting audio',
+                seq,
+              ),
+          );
         return undefined;
       }
 

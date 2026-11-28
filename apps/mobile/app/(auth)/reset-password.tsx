@@ -112,7 +112,7 @@ export default function ResetPasswordScreen() {
         />
       </AuthForm>
 
-      {error === 'mobile.auth.linkExpired' ? (
+      {error === 'common.auth.linkExpired' ? (
         <AuthFooter>
           <Button variant="link" onPress={() => router.replace('/forgot-password')}>
             <Text>{t('web.auth.sendResetLink')}</Text>

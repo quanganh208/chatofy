@@ -1,35 +1,12 @@
 # Performance Diagnostics
 
-Identify bottlenecks, analyze query performance, and develop optimization strategies.
+Measure before optimizing: record the expected and actual numbers, when degradation started,
+which operations are affected, and whether it is consistent. Those numbers are the baseline
+every change must beat.
 
-## When to Use
+## Find the Bottleneck Layer
 
-- Response times increased significantly
-- Application feels slow or unresponsive
-- Database queries taking too long
-- High CPU/memory/disk usage
-- Resource exhaustion or OOM errors
-
-## Diagnostic Process
-
-### 1. Quantify the Problem
-
-**Measure before optimizing.** Establish baseline and current state.
-
-- What is the expected response time vs actual?
-- When did degradation start? (correlate with changes)
-- Which endpoints/operations are affected?
-- Is it consistent or intermittent?
-
-### 2. Identify the Bottleneck Layer
-
-```
-Request → Network → Web Server → Application → Database → Filesystem
-                                      ↓
-                              External APIs / Services
-```
-
-**Elimination approach:** Measure time at each layer to find where delay occurs.
+Measure time at each layer to find where the delay occurs.
 
 | Layer | Check | Tool |
 |-------|-------|------|
@@ -40,9 +17,7 @@ Request → Network → Web Server → Application → Database → Filesystem
 | Filesystem | I/O wait, disk usage | `iostat`, `df -h` |
 | External APIs | Response time, timeouts | Request logging with durations |
 
-### 3. Database Performance
-
-#### PostgreSQL Diagnostics
+## Database (PostgreSQL)
 
 ```sql
 -- Slow queries (requires pg_stat_statements extension)
@@ -71,8 +46,6 @@ ORDER BY seq_tup_read DESC;
 SELECT count(*), state FROM pg_stat_activity GROUP BY state;
 ```
 
-#### Query Optimization
-
 ```sql
 -- Analyze specific query execution plan
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) <your-query>;
@@ -80,9 +53,7 @@ EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) <your-query>;
 
 **Look for:** Sequential scans on large tables, nested loops with high row counts, sorts without indexes, excessive buffer hits.
 
-### 4. Application Performance
-
-**Common bottlenecks:**
+## Application Bottlenecks
 
 | Issue | Symptom | Fix |
 |-------|---------|-----|
@@ -93,21 +64,11 @@ EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) <your-query>;
 | Connection exhaustion | Intermittent timeouts | Pool sizing, connection reuse |
 | Large payloads | Slow transfers, high memory | Pagination, compression, streaming |
 
-### 5. Optimization Strategy
+## Optimization Order
 
-**Priority order:**
-1. **Quick wins** - Add missing index, fix N+1 query, enable caching
-2. **Configuration** - Pool sizes, timeouts, buffer sizes, worker counts
-3. **Code changes** - Algorithm optimization, data structure changes
-4. **Architecture** - Caching layer, read replicas, async processing, CDN
-
-**Always:** Measure after each change to verify improvement. One change at a time.
-
-## Reporting Performance Issues
-
-Include in diagnostic report:
-- **Baseline vs current** metrics (with numbers)
-- **Bottleneck identification** with evidence
-- **Root cause** explanation
-- **Recommended fixes** with expected impact
-- **Verification plan** to confirm improvement
+Try quick wins (missing index, N+1 query, caching), then configuration (pool sizes, timeouts,
+buffers, workers), then code changes, then architecture (caching layer, read replicas, async
+processing, CDN). Make one change at a time and measure against the baseline after each. Report
+baseline versus current numbers, the bottleneck evidence, the cause, and the expected impact of
+each recommended fix. Before reporting any before/after number, apply
+`../../ak-test/references/explain-the-number.md` and state its verdict and named limiter.

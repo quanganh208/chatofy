@@ -26,10 +26,9 @@ compatibility_date = "2024-01-01"
 ## Detection
 - `wrangler.toml`, `wrangler.json`
 
-## Free Tier
-- Workers: 100K requests/day, 10ms CPU/request
-- Pages: unlimited sites, 500 builds/mo, unlimited bandwidth
-- D1, R2, KV all have free tiers
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://www.cloudflare.com/plans/developer-platform/, and cite it. Do not quote figures from memory.
 
 ## Rollback
 ```bash

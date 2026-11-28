@@ -8,10 +8,12 @@ argument-hint: "[design-type] [context]"
 license: Proprietary; includes MIT-licensed third-party material, see LICENSE.txt
 metadata:
   author: agentkit
-  version: "2.4.1"
+  version: "2.4.2"
 ---
 
 # Design
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Own art direction, brand identity and visual deliverables. UI implementation belongs to the
 installed frontend-design/frontend-development/ui-styling capability; do not treat this as a

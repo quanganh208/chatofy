@@ -22,11 +22,9 @@ vercel --prod       # production
 - `vercel.json`, `.vercel/` directory
 - Auto-detects Next.js, Vite, Remix frameworks
 
-## Free Tier (Hobby)
-- 100GB bandwidth/mo, 1M edge requests/mo
-- Non-commercial use only
-- 10s function timeout
-- Commercial requires Pro ($20/mo)
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://vercel.com/pricing, and cite it. Do not quote figures from memory.
 
 ## Rollback
 ```bash

@@ -85,6 +85,19 @@ class EvaluationTests(unittest.TestCase):
         self.case['assertions'] = [{'id': 'quality', 'text': 'The explanation is usable.'}]
         self.assertIsNone(eval_skill.grade(self.case, self.root)[0]['passed'])
 
+    def test_text_absent_fails_on_forbidden_literal_and_missing_artifact(self):
+        self.case['assertions'] = [{'id': 'no-leak', 'text': 'No decoy.', 'kind': 'text-absent',
+                                    'path': 'answer.md', 'expected': 'decoy-1'}]
+        validate_cases({'skill_name': 'x', 'evals': [self.case]})
+        self.assertFalse(eval_skill.grade(self.case, self.root)[0]['passed'])
+        (self.root / 'answer.md').write_text('route only', encoding='utf-8')
+        self.assertTrue(eval_skill.grade(self.case, self.root)[0]['passed'])
+        (self.root / 'answer.md').write_text('leaked decoy-1', encoding='utf-8')
+        self.assertFalse(eval_skill.grade(self.case, self.root)[0]['passed'])
+        self.case['assertions'][0]['expected'] = ''
+        with self.assertRaises(ValueError):
+            validate_cases({'skill_name': 'x', 'evals': [self.case]})
+
     def test_incomplete_record_and_invalid_kind_return_validation_errors(self):
         for missing in ('skill_sha256', 'passed'):
             record = self.record()

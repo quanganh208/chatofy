@@ -17,8 +17,8 @@ successor can continue from the summary without guessing or repeating discarded 
 ## Lexical checks are not semantic evaluation
 
 ```bash
-python3 scripts/compression_evaluator.py generate-probes original.json > candidates.json
-python3 scripts/compression_evaluator.py evaluate original.json summary.txt
+python scripts/compression_evaluator.py generate-probes original.json > candidates.json
+python scripts/compression_evaluator.py evaluate original.json summary.txt
 ```
 
 `original.json` is a list of message objects with string `content`, or an object with
@@ -72,7 +72,7 @@ This is an input-shape illustration, not an observed model evaluation. Replace e
 placeholder with actual evidence; never manufacture a passing grade.
 
 ```bash
-python3 scripts/compression_evaluator.py evaluate original.json summary.txt \
+python scripts/compression_evaluator.py evaluate original.json summary.txt \
   --probes probes.json --grades grades.json
 ```
 

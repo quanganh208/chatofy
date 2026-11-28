@@ -7,7 +7,7 @@ keywords: [secrets, vault, credentials, api-key, token, dotenv, env-file, ak-sec
 argument-hint: "[store|find|sync|use|rotate|import] [ref or .env path]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # AgentKit Vault
@@ -126,6 +126,41 @@ audit, and vault recovery are in
 [runtime-and-lifecycle.md](references/runtime-and-lifecycle.md). Several of
 those commands refuse to run under an agent by design; hand the exact command
 to the user instead of looking for a way around it.
+
+### Approvals for multi-step jobs
+
+A job that calls `ak secrets run` (or resolves `${secret:...}`) more than once,
+such as an upload followed by several API calls, should cost the user one
+approval session, not one per step:
+
+- **The user approves in their own terminal.** `ak secrets approve` is refused
+  (exit 6) when it detects an agent above it, including Claude Code's `!`
+  prefix, because an agent may not answer its own request. Even where detection
+  misses, the answer belongs to the user: ask them to run it in a separate
+  terminal, not through `!`, a hook, or a wrapper script.
+- **Request every scope up front.** A grant matches one ref, project, purpose,
+  and agent; for `ak secrets run` it also pins one program (path and hash) and
+  one variable, and ordinary and exec grants never match each other. Before the
+  first step, list each ref with the program and variable each step uses it in
+  (an admin key in `curl` plus four storage refs in an uploader is five
+  scopes), then file them all in the form the job will use:
+  `ak secrets request <REF> --exec <PROGRAM> --env <VAR> --purpose <PURPOSE>`
+  per exec scope, or `ak secrets request <REF> --purpose <PURPOSE>` per
+  reference the hook resolves. One `ak secrets run` naming every
+  `--env VAR=REF` files them all only when every step runs that same program.
+  Requests are rate-limited per agent (exit 9 is a cool-down), so file each
+  once and never in a retry loop.
+- **Ask for allow 24h, not allow once.** Allow once (`o`) covers a single run,
+  so the next step blocks again. Ask the user to run `ak secrets approve` with
+  no flags and answer every request with allow 24h (`t`, the default), and say
+  why. A scripted answer is per request:
+  `ak secrets approve <REF> --state ttl --ttl <window>` (add `--env` when one
+  ref waits under several variables). Keep the program, variable, project, and
+  `--purpose` identical across steps so the grant still matches.
+- **Fresh-only refs.** When the prompt offers only `[d/o/s]`, a synced vault
+  policy accepts only an allow once used within 10 minutes. Say so, run the
+  step promptly after the approval, and tell the user each such run needs its
+  own allow once.
 
 ## Command details
 

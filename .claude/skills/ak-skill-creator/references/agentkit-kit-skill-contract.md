@@ -26,6 +26,13 @@ kits/<kit>/skills/ak-<slug>/
 - A skill listed in `kits/core/kit.yaml` is inherited by every child. Do not
   re-list it in the child; use the child's `overrides` block only to replace
   a core file deliberately.
+- Shipped, agent-facing content (SKILL.md, references, agents, rules) must
+  resolve in an installed project, which has no `kits/` tree. Point to another
+  skill's file by its path under the installed skills root
+  (`ak-cook/references/<file>.md`), never by a bare `references/...` path,
+  which resolves inside the current skill. A `kits/...` path is allowed only as the last rung of a
+  fallback ladder (`test -f .claude/... || X=kits/...`) or when the text says
+  it applies to an AgentKit source checkout.
 - Every new skill directory must be registered in its kit's `kit.yaml`
   (`skills:` entry with `name` and `path`). The schema owner is
   `docs/specs/kit-yaml-spec.md`.
@@ -104,6 +111,16 @@ an `allowed-tools` example) carries the marker `capability-lint-allow:` in a
 comment on that line. Owner:
 `apps/cli/internal/commands/kitcmd/skill_capability_lint.go`.
 
+## Python interpreter name
+
+Kit Markdown runs scripts as `python <script>`, never bare `python3`: on stock
+Windows `python3` opens the Microsoft Store stub. `python` is the name inside a
+skill venv on every OS and the Windows interpreter name; the kit `CLAUDE.md`
+tells agents to fall back to `python3` on macOS/Linux when `python` is missing.
+Kit validation flags a command-position `python3` unless the same line also
+shows a `python` or `py -3` command. Owner:
+`apps/cli/internal/commands/kitcmd/kit_python_interpreter_lint.go`.
+
 ## Runtime manifest (`skill.yaml`)
 
 Add `skill.yaml` beside SKILL.md only when AgentKit must manage executable
@@ -123,7 +140,8 @@ uv run --with PyYAML==6.0.3 kits/core/skills/ak-skill-creator/scripts/lint_cruft
 cd apps/cli && go run . kit validate ../../kits/
 ```
 
-Kit validation covers `kit.yaml` shape, capability lint, and workflow refs.
+Kit validation covers `kit.yaml` shape, capability lint, the Python interpreter
+name, and workflow refs.
 Contract tests under `apps/cli/internal/adapters/claude-code/` pin specific
 text in some skills (for example argument-hint tokens and reference file
 names); grep that package for the skill name before renaming a section or
@@ -149,8 +167,15 @@ Files under `kits/*/hooks/` are OS-risk paths: a change there needs the
 | Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/` | `ak-<slug>` | everything above |
 | Project skill | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none | `quick_validate.py`, `lint_cruft.py`, consumer eval |
 | User skill | the runtime's user skill directory | none | same as project |
+| Personal kit (opt-in, detected) | authored in a scratch dir, then `ak skills kit new-skill <kit> <slug> --from-dir <dir>`; AgentKit skills via overlay or fork | `@local/<slug>`; alias never `ak-` | same as project, then `kit apply` |
+| SkillX private revision (opt-in, detected) | `ak skills kit publish <kit>` after separate user agreement | per SkillX | publish refusal is reported, not bypassed |
 | Marketplace / package | `package_skill.py` output | per marketplace | `references/cross-marketplace-distribution.md` |
 
 Per-runtime discovery paths and projection limits are owned by
 `docs/conformance/runtime-support-matrix.yaml`; read it when the target
 runtime is not Claude Code.
+
+When the skill store is on, the runtime skill copy is a projection that the store
+overwrites; change the source (personal kit or this repository) instead. The
+personal kit and SkillX rows apply only when `references/personal-kit-and-skillx.md`
+detects their signals.

@@ -1,7 +1,8 @@
 # Stacked Pull Requests Workflow (`gh stack`)
 
 GitHub native **Stacked Pull Requests** — public preview (commands verified
-2026-08-03; preview surface may change). Execute via `git-manager` subagent.
+2026-08-03; preview surface may change). Run directly; delegate only
+under the ak-git SKILL.md delegation rule.
 
 **Agent posture:** this workflow rewrites history and merges *multiple* PRs at
 once. Treat every history-rewriting and multi-PR step as gated, not automatic —

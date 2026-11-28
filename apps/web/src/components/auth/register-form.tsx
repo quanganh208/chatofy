@@ -1,9 +1,10 @@
 'use client';
 
+import { LockIcon, MailIcon, UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { SubmittedNotice } from '@/components/auth/submitted-notice';
@@ -75,6 +76,7 @@ export function RegisterForm() {
           <AuthField
             id="register-name"
             label={t('web.auth.name')}
+            icon={UserIcon}
             errorId={error ? 'register-error' : undefined}
             type="text"
             required
@@ -87,6 +89,7 @@ export function RegisterForm() {
           <AuthField
             id="register-email"
             label={t('common.auth.email')}
+            icon={MailIcon}
             errorId={error ? 'register-error' : undefined}
             type="email"
             required
@@ -98,6 +101,9 @@ export function RegisterForm() {
           <AuthField
             id="register-password"
             label={t('common.auth.password')}
+            icon={LockIcon}
+            revealable
+            requirement={t('web.auth.passwordRequirement', { min: AUTH_LIMITS.minPassword })}
             errorId={error ? 'register-error' : undefined}
             type="password"
             required
@@ -110,6 +116,7 @@ export function RegisterForm() {
           <AuthAlert id="register-error" message={error} />
 
           <Button id="register-submit" type="submit" className="w-full" disabled={submitting}>
+            {submitting ? <Spinner /> : null}
             {submitting ? t('web.auth.creatingAccount') : t('web.auth.createAccount')}
           </Button>
         </form>

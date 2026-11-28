@@ -5,7 +5,7 @@ import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthLink } from '@/components/auth/auth-link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authErrorMessage } from './auth-error-message';
-import { Button } from '@chatofy/ui/react';
+import { Button, Spinner } from '@chatofy/ui/react';
 import { verifyEmail } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
 import { hasInviteAwaitingSignIn } from '@/lib/pending-invite';
@@ -90,10 +90,11 @@ export function VerifyEmailClient() {
             })
             .catch((err: unknown) => {
               setSubmitting(false);
-              setError(authErrorMessage(err, t, 'web.auth.verifyFailed'));
+              setError(authErrorMessage(err, t, 'web.auth.verifyFailed', { redeemsLink: true }));
             });
         }}
       >
+        {submitting ? <Spinner /> : null}
         {submitting ? t('web.auth.verifying') : t('web.auth.verifyEmailSubmit')}
       </Button>
     </div>

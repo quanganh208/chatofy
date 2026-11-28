@@ -10,7 +10,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const { isPortAvailable, findAvailablePort, DEFAULT_PORT } = require('../lib/port-finder.cjs');
-const { writePidFile, readPidFile, removePidFile, findRunningInstances } = require('../lib/process-mgr.cjs');
+const { writePidFile, readPidFile, removePidFile, findRunningInstances, getPidFilePath } = require('../lib/process-mgr.cjs');
 const { getMimeType, MIME_TYPES, isPathSafe, sanitizeErrorMessage } = require('../lib/http-server.cjs');
 const { resolveImages, addHeadingIds, generateTOC, renderTOCHtml } = require('../lib/markdown-renderer.cjs');
 const { detectPlan, parsePlanTable, getNavigationContext, generateNavSidebar } = require('../lib/plan-navigator.cjs');
@@ -85,6 +85,11 @@ test('writePidFile and readPidFile work correctly', () => {
   removePidFile(testPort);
   const afterRemove = readPidFile(testPort);
   assertEqual(afterRemove, null, 'Should be null after remove');
+});
+
+test('PID files live in os.tmpdir(), not a hard-coded /tmp', () => {
+  const pidPath = getPidFilePath(4567);
+  assertTrue(path.dirname(pidPath) === require('os').tmpdir(), `PID dir should be os.tmpdir(), got ${pidPath}`);
 });
 
 test('findRunningInstances returns array', () => {
@@ -188,6 +193,7 @@ test('isPathSafe blocks path traversal', () => {
 
 test('isPathSafe allows valid paths', () => {
   assertTrue(isPathSafe('/tmp/test.md', ['/tmp']), 'Should allow path in allowed dir');
+  assertFalse(isPathSafe('/tmpx/test.md', ['/tmp']), 'Should not treat a sibling prefix as inside');
 });
 
 test('sanitizeErrorMessage removes paths', () => {
@@ -203,7 +209,7 @@ test('resolveImages converts relative paths', () => {
   const resolved = resolveImages(md, '/base/path');
   assertIncludes(resolved, '/file/', 'Should include /file/ route');
   // Path is URL-encoded; decode to verify base path is present
-  assertIncludes(decodeURIComponent(resolved), '/base/path', 'Should include base path');
+  assertIncludes(decodeURIComponent(resolved), path.resolve('/base/path'), 'Should include base path');
 });
 
 test('resolveImages preserves absolute URLs', () => {
@@ -217,21 +223,21 @@ test('resolveImages handles reference-style definitions', () => {
   const resolved = resolveImages(md, '/base/path');
   assertIncludes(resolved, '/file/', 'Should include /file/ route in ref definition');
   // Path is URL-encoded; decode to verify resolved path
-  assertIncludes(decodeURIComponent(resolved), '/base/path/screenshots/step1.png', 'Should resolve relative path');
+  assertIncludes(decodeURIComponent(resolved), path.resolve('/base/path/screenshots/step1.png'), 'Should resolve relative path');
 });
 
 test('resolveImages handles reference-style with titles', () => {
   const md = '[logo]: ./images/logo.png "Company Logo"';
   const resolved = resolveImages(md, '/project');
   // Path is URL-encoded; decode to verify
-  assertIncludes(decodeURIComponent(resolved), '/project/images/logo.png', 'Should resolve path with title');
+  assertIncludes(decodeURIComponent(resolved), path.resolve('/project/images/logo.png'), 'Should resolve path with title');
 });
 
 test('resolveImages handles inline images with titles', () => {
   const md = '![Alt](./image.png "Title text")';
   const resolved = resolveImages(md, '/base');
   // Path is URL-encoded; decode to verify
-  assertIncludes(decodeURIComponent(resolved), '/base/image.png', 'Should resolve inline with title');
+  assertIncludes(decodeURIComponent(resolved), path.resolve('/base/image.png'), 'Should resolve inline with title');
 });
 
 test('addHeadingIds adds id attributes', () => {
@@ -272,7 +278,7 @@ test('renderTOCHtml handles empty array', () => {
 console.log('\n--- Plan Navigator Tests ---');
 
 // Create temp plan structure for testing
-const testPlanDir = '/tmp/test-novel-viewer-plan';
+const testPlanDir = path.join(require('os').tmpdir(), 'test-novel-viewer-plan');
 const testPlanFile = path.join(testPlanDir, 'plan.md');
 const testPhaseFile = path.join(testPlanDir, 'phase-01-test.md');
 
@@ -341,7 +347,7 @@ test('generateNavSidebar returns empty for non-plan', () => {
 });
 
 test('detectPlan sorts alphanumeric phase files (1a before 1b before 2)', () => {
-  const alphaDir = '/tmp/test-alpha-plan';
+  const alphaDir = path.join(require('os').tmpdir(), 'test-alpha-plan');
   fs.mkdirSync(alphaDir, { recursive: true });
   fs.writeFileSync(path.join(alphaDir, 'plan.md'), '# Plan\n');
   ['phase-02-core.md', 'phase-01b-config.md', 'phase-01a-setup.md'].forEach(f =>
@@ -358,7 +364,7 @@ test('detectPlan sorts alphanumeric phase files (1a before 1b before 2)', () => 
 });
 
 test('generateNavSidebar uses flat list when <= 15 phases', () => {
-  const smallDir = '/tmp/test-small-plan';
+  const smallDir = path.join(require('os').tmpdir(), 'test-small-plan');
   fs.mkdirSync(smallDir, { recursive: true });
   // Create 3 phase files + plan.md (4 total — well under 15)
   const planContent = `# Plan

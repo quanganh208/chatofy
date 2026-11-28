@@ -1,46 +1,13 @@
 # Mode Selection
 
-Use `ask_user capability` at start of fixing workflow.
+Ask with the `ask_user` capability at the start only when the user gave no mode flag, no
+earlier context set the mode, and the issue is not clearly trivial (a type or lint error
+defaults to quick). Offer "Autonomous (Recommended)" (`--auto`), "Human-in-the-loop"
+(`--review`) and "Quick fix" (`--quick`).
 
-## ask_user capability Format
-
-```json
-{
-  "questions": [{
-    "question": "How should I handle the fix workflow?",
-    "header": "Fix Mode",
-    "options": [
-      {
-        "label": "Autonomous (Recommended)",
-        "description": "Auto-approve if quality high, only ask when stuck"
-      },
-      {
-        "label": "Human-in-the-loop",
-        "description": "Pause for approval at each major step"
-      },
-      {
-        "label": "Quick fix",
-        "description": "Fast debug-fix-review cycle for simple issues"
-      }
-    ],
-    "multiSelect": false
-  }]
-}
-```
-
-## Mode Recommendations
-
-| Issue Type | Recommended Mode |
+| Issue type | Recommended mode |
 |------------|------------------|
-| Type errors, lint errors | Quick |
-| Single file bugs | Quick or Autonomous |
+| Type or lint errors | Quick |
+| Single-file bug | Quick or Autonomous |
 | Multi-file, unclear root cause | Autonomous |
-| Production/critical code | Human-in-the-loop |
-| System-wide/architecture | Human-in-the-loop |
-| Security vulnerabilities | Human-in-the-loop |
-
-## Skip Mode Selection When
-
-- Issue is clearly trivial (type error keyword detected) → default Quick
-- User explicitly specified mode in prompt
-- Previous context already established mode
+| Production-critical, system-wide or security issue | Human-in-the-loop |

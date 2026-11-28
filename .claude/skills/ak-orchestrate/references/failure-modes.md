@@ -83,10 +83,17 @@ The only subagent route is the permission fallback in
   and blocks uncertain ownership. For raw graphs, `resume <run-id> <graph>`
   reconnects to the same digest without relaunch. Session handles require
   equivalent native inspection. Do not redispatch merely because a client died.
+- **Stale accepted job:** an owned path, artifact or base revision changed
+  after acceptance. Restoring the accepted files (or resetting to the accepted
+  commit; `git revert` does not count) restores it. To keep the change,
+  recover with `accept --reaccept` and a receipt of the current artifact
+  digests, dependencies first (see [job-spec.md](job-spec.md)). Prepare a new
+  run only when declared inputs or a handed-off artifact changed.
 - **Ambiguous ownership:** sequence the jobs or assign separate worktrees and
   an explicit integration step.
 - **Reference disagreement:** stop and report the contract mismatch instead of
   choosing whichever copied route looks newer.
 
-Record each attempt's coordinator class, mapped `error_class`, the ladder step
-taken and its reason in the receipt, `status.json` and the report.
+Record each attempt's mapped `error_class` in the `accept` receipt; the receipt
+refuses any other key. Record the coordinator class, the ladder step taken and
+its reason in `status.json` and the report.

@@ -93,7 +93,7 @@ export async function finishGoogleSignIn(
 export function googleFailureMessage(err: unknown): MessageKey {
   if (err instanceof AuthRequestError) {
     if (err.status === 401) return 'web.auth.googleRefused';
-    if (err.status === 429) return 'mobile.auth.tooManyAttempts';
+    if (err.status === 429) return 'common.auth.tooManyAttempts';
     // 501 is "this server has no Google login", 5xx a fault on our side.
     return 'web.auth.signInUnavailable';
   }

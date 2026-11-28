@@ -8,6 +8,8 @@ license: Proprietary; includes MIT-licensed third-party material, see LICENSE
 allowed-tools:
   - Bash(bash:*)
   - Bash(chrome-profile:*)
+  - Bash(python:*)
+  - Bash(py:*)
   - Bash(python3:*)
   - mcp__chrome-devtools__list_pages
   - mcp__chrome-devtools__select_page
@@ -16,7 +18,7 @@ allowed-tools:
 argument-hint: "[url] [--profile <name>] [--tab <title|url>]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.0.2"
   compatibility: Requires Python 3.9+ and Google Chrome stable. Works on macOS, Linux, and Windows.
 ---
 

@@ -1,4 +1,5 @@
 import { WS_SUBPROTOCOL } from '@chatofy/types';
+import { RealtimeClientError, type RealtimeClientErrorCode } from '../realtime-error.js';
 
 /**
  * The shape `serverEventSchema` already has. Declared locally instead of
@@ -22,7 +23,8 @@ export interface JsonSocketHandlers<TEvent> {
    */
   /** `wasClean` is false for a close with no closing handshake, such as a 1006 drop. */
   onClosed?: (code: number, reason: string, wasClean?: boolean) => void;
-  onError?: (message: string) => void;
+  /** `message` is English for logs; `code` is what a reader is told about. */
+  onError?: (message: string, code: RealtimeClientErrorCode) => void;
 }
 
 /**
@@ -110,13 +112,13 @@ export function connectJsonSocket<TEvent>(
     try {
       body = JSON.parse(String(message.data));
     } catch {
-      handlers.onError?.('Unreadable frame from the server');
+      handlers.onError?.('Unreadable frame from the server', 'unreadable_event');
       return;
     }
 
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      handlers.onError?.('Unexpected event shape from the server');
+      handlers.onError?.('Unexpected event shape from the server', 'unreadable_event');
       return;
     }
     handlers.onEvent(parsed.data);
@@ -135,7 +137,7 @@ export function connectJsonSocket<TEvent>(
     };
     socket.onerror = () => {
       settled();
-      reject(new Error('Cannot reach the translator'));
+      reject(new RealtimeClientError('connection_failed', 'Cannot reach the translator'));
     };
     pendingHandshakes.set(socket, () => {
       settled();
@@ -143,7 +145,7 @@ export function connectJsonSocket<TEvent>(
     });
   }).then(() => {
     socket.onopen = null;
-    socket.onerror = () => handlers.onError?.('Connection error');
+    socket.onerror = () => handlers.onError?.('Connection error', 'connection_error');
   });
 
   return { socket, ready };

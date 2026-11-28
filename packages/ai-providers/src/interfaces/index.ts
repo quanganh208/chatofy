@@ -5,6 +5,7 @@ export type {
   LlmCallKind,
   LlmCallListener,
   LlmCallPurpose,
+  PolishRejection,
 } from './llm-call-event.js';
 export type {
   HomophoneRepairRequest,

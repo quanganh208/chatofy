@@ -85,7 +85,7 @@ describe('DisplaySettingsPopover', () => {
   it('holds nothing about the voice', () => {
     open();
 
-    expect(document.querySelector('button[aria-label="Speak the translation aloud"]')).toBeNull();
+    expect(document.querySelector('button[aria-label="Read the translation aloud"]')).toBeNull();
     expect(document.querySelector('[aria-label="Playback volume"]')).toBeNull();
     expect(text()).not.toContain('Speed');
   });

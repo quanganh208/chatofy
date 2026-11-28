@@ -277,7 +277,7 @@ describe('two panes on a wide content area', () => {
     nav.params = { conversationId: 'c-2' };
     await mount();
     const back = [...container.querySelectorAll('a')].find((a) =>
-      a.textContent?.includes('Back to history'),
+      a.textContent?.includes('Back to History'),
     );
     // Hidden from `md`, where the topbar's "History" crumb is the way back — a
     // class, because the first paint must already be right.
@@ -591,7 +591,7 @@ describe('one page on a narrow content area', () => {
 
     expect(container.textContent).toContain('no longer here');
     expect(
-      [...container.querySelectorAll('a')].some((a) => a.textContent?.includes('Back to history')),
+      [...container.querySelectorAll('a')].some((a) => a.textContent?.includes('Back to History')),
     ).toBe(true);
   });
 

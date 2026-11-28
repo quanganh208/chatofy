@@ -60,7 +60,7 @@ describe('GlossaryListPanel empty list', () => {
     const block = container.querySelector('[data-slot="glossary-empty"]');
     expect(block?.querySelector('svg')).not.toBeNull();
     expect(block?.querySelector('p.font-semibold')?.textContent).toBe('No glossaries yet');
-    expect(block?.textContent).toContain('Press New glossary to make one.');
+    expect(block?.textContent).toContain('Select “New glossary” to make one.');
   });
 });
 
@@ -68,7 +68,7 @@ describe('GlossaryListPanel when loading failed', () => {
   it('announces the failure to assistive technology', () => {
     render();
     const alert = container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('Could not load your glossaries.');
+    expect(alert?.textContent).toContain('Couldn’t load your glossaries.');
   });
 
   it('offers a retry that calls onRetry', () => {

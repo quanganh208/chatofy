@@ -2,9 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-// No dictionary import: the one message asserted here is the API's own, which passes
-// through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
+import { en } from '@chatofy/i18n';
 
 const resetPassword = vi.fn<(body: unknown) => Promise<{ message: string }>>();
 const push = vi.fn<(href: string) => void>();
@@ -94,7 +93,7 @@ describe('ResetPasswordForm', () => {
 
     expect(container.querySelector('#reset-submit')).toBeNull();
     expect(container.querySelector('[role="alert"]')!.textContent).toContain(
-      'missing its reset code',
+      'reset link is incomplete',
     );
   });
 
@@ -120,11 +119,13 @@ describe('ResetPasswordForm', () => {
     await submit('correct horse battery staple');
 
     expect(inputById('reset-password').getAttribute('aria-invalid')).toBe('true');
-    expect(inputById('reset-password').getAttribute('aria-describedby')).toBe('reset-error');
+    expect(inputById('reset-password').getAttribute('aria-describedby')).toBe(
+      'reset-error reset-password-requirement',
+    );
     expect(container.querySelector('#reset-error')).not.toBeNull();
   });
 
-  it('renders the API error message on a bad or expired link', async () => {
+  it('says a bad or expired link in the reader’s words, not the API’s', async () => {
     render();
     resetPassword.mockRejectedValueOnce(
       new ApiClientError(
@@ -136,7 +137,7 @@ describe('ResetPasswordForm', () => {
 
     const error = container.querySelector('#reset-error')!;
     expect(error.getAttribute('role')).toBe('alert');
-    expect(error.textContent).toBe('That link is invalid or has expired');
+    expect(error.textContent).toBe(en['common.auth.linkExpired']);
     expect(push).not.toHaveBeenCalled();
   });
 });

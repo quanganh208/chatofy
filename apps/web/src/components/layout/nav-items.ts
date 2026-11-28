@@ -61,7 +61,7 @@ const GROUPS: readonly NavGroup[] = [
         labelKey: 'web.chrome.navTranslateTwoWay',
         icon: ArrowLeftRight,
       },
-      { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
+      { href: '/conference', labelKey: 'common.nav.meetings', icon: Video },
     ],
   },
   {

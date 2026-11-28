@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
+import { en, vi, zh, type MessageKey, type Messages } from '@chatofy/i18n';
 import { apiHostPermission } from './src/api-host-permission';
 
 // The same lookup `scripts/require-api-base-url.mjs` makes: an exported value wins,
@@ -8,6 +9,34 @@ try {
   process.loadEnvFile(new URL('./.env', import.meta.url));
 } catch {
   // No .env here: the value is exported, or unset and the localhost default applies.
+}
+
+/**
+ * The manifest's own words, localised the way Chrome localises a manifest: each
+ * `__MSG_name__` is looked up in `_locales/<locale>/messages.json` against the
+ * browser's language, falling back to `default_locale`.
+ *
+ * Generated from `@chatofy/i18n` at build time rather than kept as JSON under
+ * `public/`, so the store listing and the extension's UI are written in one place.
+ * Chrome names Simplified Chinese `zh_CN`; a bare `zh` folder is not a locale it reads.
+ * `zh_TW` carries the same dictionary: the UI maps every `zh-*` browser to `zh`
+ * (`src/i18n.ts`), and without its own folder Chrome would fall back to the English
+ * manifest under a Chinese popup.
+ */
+const MANIFEST_MESSAGES = {
+  extensionName: 'extension.manifest.name',
+  extensionDescription: 'extension.manifest.description',
+  toggleCommand: 'extension.manifest.toggleCommand',
+} as const satisfies Record<string, MessageKey>;
+
+const CHROME_LOCALES: Record<string, Messages> = { en, vi, zh_CN: zh, zh_TW: zh };
+
+function manifestMessages(messages: Messages): string {
+  const entries = Object.entries(MANIFEST_MESSAGES).map(([name, key]) => [
+    name,
+    { message: messages[key] },
+  ]);
+  return `${JSON.stringify(Object.fromEntries(entries), null, 2)}\n`;
 }
 
 /**
@@ -57,9 +86,20 @@ export default defineConfig({
   dev: {
     server: { port: 3010 },
   },
+  hooks: {
+    'build:publicAssets': (_wxt, files) => {
+      for (const [folder, messages] of Object.entries(CHROME_LOCALES)) {
+        files.push({
+          relativeDest: `_locales/${folder}/messages.json`,
+          contents: manifestMessages(messages),
+        });
+      }
+    },
+  },
   manifest: {
-    name: 'Chatofy meeting translator',
-    description: 'Translates a browser meeting both ways — what others say, and what you say.',
+    name: '__MSG_extensionName__',
+    description: '__MSG_extensionDescription__',
+    default_locale: 'en',
     permissions: [
       // Capturing the tab's audio is the entire input side.
       'tabCapture',
@@ -119,7 +159,7 @@ export default defineConfig({
         // this unassigned if it collides — the overlay reads the real binding
         // back and points at the context menu when there is none.
         suggested_key: { default: 'Alt+Shift+C' },
-        description: 'Start or stop Chatofy on this meeting tab',
+        description: '__MSG_toggleCommand__',
       },
     },
     // No `web_accessible_resources`. The worklet is fetched by

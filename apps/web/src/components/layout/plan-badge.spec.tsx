@@ -107,7 +107,7 @@ describe('the sidebar footer plan pill', () => {
 
     expect(badge()?.textContent).toBe('Free');
     expect(badge()?.getAttribute('data-variant')).toBe('outline');
-    expect(badge()?.getAttribute('aria-label')).toBe('Plan: Free — open billing');
+    expect(badge()?.getAttribute('aria-label')).toBe('Plan: Free. Open Credits & plan');
   });
 
   it('says Pro on the dawn ground on a Pro account', async () => {

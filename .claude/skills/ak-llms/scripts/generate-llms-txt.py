@@ -134,7 +134,7 @@ def scan_docs(source: Path) -> list[dict]:
             "title": title,
             "description": description,
             "category": category,
-            "rel_path": str(rel_path),
+            "rel_path": rel_path.as_posix(),  # forward slashes on Windows too
             "abs_path": str(filepath),
             "content": content,
         })

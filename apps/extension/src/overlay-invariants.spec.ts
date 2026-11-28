@@ -159,6 +159,17 @@ describe('overlay.ts', () => {
   });
 
   /**
+   * The overlay's text is in the extension's language, which is rarely the page's.
+   * `lang` goes on the top element inside the closed shadow root: on the host it
+   * would be one more attribute the meeting site can query.
+   */
+  it('marks its own language inside the shadow root, not on the host', () => {
+    expect(SOURCE).toMatch(/this\.container\.lang\s*=\s*intlLocale/);
+    expect(SOURCE).not.toMatch(/host\.lang\s*=/);
+    expect(SOURCE).not.toMatch(/host\.setAttribute\(\s*['"]lang['"]/);
+  });
+
+  /**
    * The recording indicator is appended before the transcript, so the fact that a
    * meeting is being recorded sits above the thing someone is reading rather than
    * below it, and cannot be scrolled away from.

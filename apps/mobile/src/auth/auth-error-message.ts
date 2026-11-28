@@ -20,11 +20,11 @@ const GENERIC_FAILURE: Record<AuthFlow, MessageKey> = {
 
 export function authFlowFailure(flow: AuthFlow, err: unknown): MessageKey {
   if (err instanceof AuthRequestError) {
-    if (err.status === 429) return 'mobile.auth.tooManyAttempts';
+    if (err.status === 429) return 'common.auth.tooManyAttempts';
     // A mailed token the API refuses is expired, already used, or for a password
     // that has since changed. Asking again is the only way forward.
     if ((flow === 'verifyEmail' || flow === 'resetPassword') && err.status === 401) {
-      return 'mobile.auth.linkExpired';
+      return 'common.auth.linkExpired';
     }
     return GENERIC_FAILURE[flow];
   }

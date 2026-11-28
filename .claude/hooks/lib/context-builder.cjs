@@ -634,13 +634,14 @@ function buildReminder(params) {
 	const hooksConfig = hooks || {};
 	const contextEnabled = hooksConfig["context-tracking"] !== false;
 	const usageEnabled = hooksConfig["usage-context-awareness"] !== false;
+	const rulesEnabled = hooksConfig["rules-section"] !== false;
 
 	return [
 		...buildLanguageSection({ thinkingLanguage, responseLanguage }),
 		...buildSessionSection(staticEnv),
 		...(contextEnabled ? buildContextSection(sessionContext) : []),
 		...(usageEnabled ? buildUsageSection() : []),
-		...buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }),
+		...(rulesEnabled ? buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) : []),
 		...buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc }),
 		...buildPlanContextSection({ planLine, reportsPath, gitBranch, validationMode, validationMin, validationMax }),
 		...buildNamingSection({ reportsPath, plansPath, namePattern }),
@@ -710,6 +711,7 @@ function buildReminderContext({ sessionContext, config, staticEnv, configDirName
 	const hooksConfig = cfg.hooks || {};
 	const contextEnabled = hooksConfig["context-tracking"] !== false;
 	const usageEnabled = hooksConfig["usage-context-awareness"] !== false;
+	const rulesEnabled = hooksConfig["rules-section"] !== false;
 
 	return {
 		content: lines.join("\n"),
@@ -722,7 +724,9 @@ function buildReminderContext({ sessionContext, config, staticEnv, configDirName
 			session: buildSessionSection(staticEnv),
 			context: contextEnabled ? buildContextSection(sessionContext) : [],
 			usage: usageEnabled ? buildUsageSection() : [],
-			rules: buildRulesSection({ devRulesPath, skillsVenv, plansPath: params.plansPath, docsPath: params.docsPath }),
+			rules: rulesEnabled
+				? buildRulesSection({ devRulesPath, skillsVenv, plansPath: params.plansPath, docsPath: params.docsPath })
+				: [],
 			paths: buildPathsSection({
 				reportsPath: params.reportsPath,
 				plansPath: params.plansPath,

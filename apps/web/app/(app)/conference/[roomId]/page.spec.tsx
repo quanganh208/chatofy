@@ -130,7 +130,7 @@ describe('ConferenceRoomPage — translation that ended mid-call', () => {
     render(call({ translationEnded: 'retries_exhausted' }));
     const notice = container.querySelectorAll('[data-translation-ended]');
     expect(notice).toHaveLength(1);
-    expect(notice[0]!.textContent).toContain('Translation stopped');
+    expect(notice[0]!.textContent).toContain('translation stopped');
     expect(notice[0]!.textContent).toContain('Rejoin');
     expect(notice[0]!.querySelector('button')).toBeNull();
   });

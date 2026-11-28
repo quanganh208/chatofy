@@ -1,14 +1,14 @@
 ---
 name: ak-media-processing
 description: "Process media with FFmpeg (video/audio), ImageMagick (images) and RMBG (AI background removal)."
-when_to_use: "Invoke for encoding, conversion, thumbnails or HLS/DASH streaming."
+when_to_use: "Invoke for encoding, conversion, thumbnails, HLS/DASH streaming, or to compress and audit web video."
 category: media
 keywords: [ffmpeg, imagemagick, video, audio, images]
 license: Proprietary
 argument-hint: "[input-file] [operation]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.1.0"
 ---
 
 # Media Processing Skill
@@ -19,6 +19,25 @@ Use the user/repository output path first. Invoke an installed organization capa
 when organizing multiple assets is part of the task; a one-file operation needs none.
 Preserve source files by default, write batch outputs to a separate directory, and verify
 codec/dimensions/duration or image metadata. In-place recipes require explicit overwrite scope.
+
+## Web Video
+
+This skill owns video compression and web delivery; composition skills hand
+their renders here. Load [`references/web-video-optimization.md`](references/web-video-optimization.md)
+and only the section the request needs:
+
+| Request | Run |
+|---|---|
+| "Compress this video for the web" | `scripts/video_optimize.py <file>`: verified H.264 output plus a receipt |
+| "Compare quality and size across codecs" | `video_optimize.py --codec vp9/hevc/av1` on a sample, then SSIM |
+| "Audit the videos on our site" | `scripts/video_web_audit.py` with `capture_rendered_videos.mjs`; read-only |
+| "Optimize every video in the project" | The audit inventory, then staged encodes and reverted-on-request reference edits |
+
+`video_optimize.py` never touches the source or overwrites an existing output,
+keeps audio, captions and frame rate unless told otherwise, keeps H.264 as the
+fallback, and promotes an encode only after it decodes cleanly and is smaller
+(than the source, and with `--replace-output` than the file it replaces).
+Report measured bytes, never an expected percentage.
 
 ## Tool Selection
 
@@ -98,6 +117,7 @@ Detailed guides in `references/`:
 - `imagemagick-editing.md` - Effects, transformations
 - `imagemagick-batch.md` - Batch processing, parallel ops
 - `rmbg-background-removal.md` - AI models, CLI usage
-- `common-workflows.md` - Video optimization, responsive images, GIF creation
+- `web-video-optimization.md` - Compress, compare, audit and optimize web video with receipts
+- `common-workflows.md` - Raw FFmpeg recipes, responsive images, GIF creation
 - `troubleshooting.md` - Error fixes, performance tips
 - `format-compatibility.md` - Format support, codec recommendations

@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SignInPane } from '../entrypoints/popup/sign-in-pane';
+import { t } from './i18n';
 
 /**
  * The popup's half of "both sign-in surfaces fail the same way".
@@ -104,6 +105,6 @@ describe('the popup sign-in pane', () => {
     render(popupStub({ signingIn: true }));
     const submit = container.querySelector<HTMLButtonElement>('#sign-in-submit')!;
     expect(submit.disabled).toBe(true);
-    expect(submit.textContent).toBe('Signing in…');
+    expect(submit.textContent).toBe(t('common.auth.signingIn'));
   });
 });

@@ -1,0 +1,28 @@
+{
+  "ak_on_path": true,
+  "commands": {
+    "ak features list --json": {
+      "exit": 0,
+      "stdout": {
+        "features": [
+          {
+            "name": "skill_store",
+            "enabled": false
+          },
+          {
+            "name": "skill_overlays",
+            "enabled": false
+          },
+          {
+            "name": "skillx",
+            "enabled": false
+          }
+        ]
+      }
+    },
+    "ak skills improve --help": {
+      "exit": 1,
+      "stderr": "Error: unknown command \"improve\""
+    }
+  }
+}

@@ -1,6 +1,16 @@
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
 import type { MessageKey, Translate } from '@chatofy/i18n';
 
+/** What a flow adds to the mapping: whether it spends a mailed link. */
+export interface AuthErrorOptions {
+  /**
+   * The flow redeems a mailed link (verify email, reset password). A 401 there means
+   * the link expired, was used, or belongs to a password since changed, and asking
+   * for a new one is the only way forward.
+   */
+  redeemsLink?: boolean;
+}
+
 /**
  * What to show the user when an auth request fails.
  *
@@ -23,21 +33,29 @@ import type { MessageKey, Translate } from '@chatofy/i18n';
  * verify-email clear `submitting` inside their `catch` while the other two use
  * `.finally`, and that difference belongs to the forms, not here.
  *
- * ## The one string that is not translated, and why
+ * ## The API's own message is never shown
  *
- * `ApiClientError` carries the api's own `message`, and it passes through **in
- * English**. That is a known gap, not an oversight: a validation failure names the
- * field it was about and a bad link says which link, so the words are per-error and
- * there is no fixed set of them to key. Giving every api error a code is the fix, and
- * it is a change to the api's error contract rather than to this file.
+ * `ApiClientError` carries the api's `message`, which is English and written for logs
+ * and developers. The reader is told the failure from what is stable about it — the
+ * status — in their own language: too many attempts, a mailed link that no longer
+ * works, or the form's own fallback. A validation failure lands on the fallback too;
+ * the form's own `minLength`/`required` checks are what catch those before a request.
  *
  * Everything the WEB decides — the contract mismatch, the two transport failures, and
  * each form's fallback — comes from the dictionary.
  */
-export function authErrorMessage(err: unknown, t: Translate, fallback: MessageKey): string {
-  // The API answered, and its message is written for a person — a validation
-  // failure names the field, a bad link says it is a bad link. English; see above.
-  if (err instanceof ApiClientError) return err.error.message;
+export function authErrorMessage(
+  err: unknown,
+  t: Translate,
+  fallback: MessageKey,
+  { redeemsLink = false }: AuthErrorOptions = {},
+): string {
+  // The API answered. Its message is English for logs; see above.
+  if (err instanceof ApiClientError) {
+    if (err.status === 429) return t('common.auth.tooManyAttempts');
+    if (redeemsLink && err.status === 401) return t('common.auth.linkExpired');
+    return t(fallback);
+  }
 
   // The API answered something the contract does not describe. The user cannot
   // act on the detail, and the detail is not theirs to see.

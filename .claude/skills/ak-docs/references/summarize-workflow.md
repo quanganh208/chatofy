@@ -13,4 +13,4 @@
 Keep current behavior distinct from intended direction and stateful research.
 When a designated codebase summary exists, keep it as a navigation map of entry
 points and boundaries, never a per-file or per-function description. Follow
-`references/doc-content-rules.md`. Do not implement product code.
+`doc-content-rules.md`. Do not implement product code.

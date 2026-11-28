@@ -1,6 +1,6 @@
 # Push Workflow
 
-Execute via `git-manager` subagent.
+Run directly; delegate only under the ak-git SKILL.md delegation rule.
 
 ## Pre-Push Checklist
 1. All changes committed

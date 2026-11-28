@@ -7,7 +7,7 @@ keywords: [review, quality, verification, reliability]
 argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--advice] [--yagni]"
 metadata:
   author: agentkit
-  version: "2.0.3"
+  version: "2.0.4"
   workflow:
     follows: [ak-test]
     precedes: [ak-ship]
@@ -34,23 +34,16 @@ Auto-detect from arguments. If ambiguous or no arguments, prompt via `ask_user c
 
 **Resolution details:** `references/input-mode-resolution.md`
 
-### No Arguments
-
-If invoked WITHOUT arguments and no recent changes in context, use `ask_user capability` with header "Review Target", question "What would you like to review?":
-
-| Option | Description |
-|--------|-------------|
-| Pending changes | Review staged/unstaged git diff |
-| Enter PR number | Fetch and review a specific PR |
-| Enter commit hash | Review a specific commit |
-| Full codebase scan | Deep codebase analysis |
-| Parallel codebase audit | Multi-reviewer codebase scan |
-
+With no arguments and no recent changes in context, ask (header "Review Target") which
+target to review: pending changes, a PR number, a commit hash, a full codebase scan or a
+parallel codebase audit.
 
 ## Select the operation
 
 - Review-only: compare spec/acceptance and quality, returning actionable findings with
   file/line, impact and evidence; use `references/spec-compliance-review.md` as needed.
+  For a multi-file diff, a fresh-context `code-reviewer` given the spec, diff range and
+  changed files (not the conversation) catches what self-review misses. Skip style nits.
 - Receive feedback: `references/code-review-reception.md`; verify a finding before accepting it.
 - Authorized fixes: repair confirmed findings in scope, then review the changed revision.
 - Codebase scan: `references/codebase-scan-workflow.md`; parallel uses

@@ -35,6 +35,13 @@ export type LlmCallKind =
  */
 export type LlmCallPurpose = 'live' | 'speculation' | 'final' | 'retry' | 'block' | 'chat';
 
+/**
+ * Why a polish answer did not replace the draft: nothing usable, longer than an
+ * edit of this turn can be, the wrong script, or a name or number nothing the
+ * speaker said supports.
+ */
+export type PolishRejection = 'empty' | 'length' | 'script' | 'name';
+
 export interface LlmCallEvent {
   kind: LlmCallKind;
   purpose?: LlmCallPurpose;
@@ -48,6 +55,12 @@ export interface LlmCallEvent {
   outputTokens?: number;
   /** Input tokens the host billed as a prompt-cache hit, when it reports them. */
   cachedInputTokens?: number;
+  /**
+   * A polish answer a guard discarded, so the draft stood. Absent when the
+   * answer was accepted or the model returned the draft unchanged; read
+   * together with `ok`, it is how often each guard fires on prod.
+   */
+  rejected?: PolishRejection;
   /** First 8 hex chars of sha256 over `JSON.stringify({ model, messages })`. Never the text itself. */
   promptHash: string;
 }

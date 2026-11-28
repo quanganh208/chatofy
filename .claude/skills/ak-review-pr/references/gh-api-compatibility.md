@@ -6,7 +6,7 @@ Some hosted environments (notably Claude Cloud Environment) block the GitHub Gra
 HTTP 403: This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead.
 ```
 
-A single shell library — `references/gh-api-helpers.sh` — owns the probe and every adaptive command. Source it at the top of every per-PR bash block in this skill with the multi-install-path loader below. The ladder covers project-scoped installs (`.claude/skills/…`), user-scoped installs (`~/.claude/skills/…`), the AgentKit monorepo checkout (`kits/core/skills/…`), and a plugin-delivered install (`${CLAUDE_PLUGIN_ROOT}/skills/…`) — the last rung is a best-effort fallback: it fires when `CLAUDE_PLUGIN_ROOT` reaches the shell either as an exported env var or via literal placeholder substitution in this file's own text, whichever the runtime provides. If none of the four rungs resolve, the block fails fast with an explicit "not found" error instead of sourcing an unchecked path.
+The shell library `references/gh-api-helpers.sh` owns the probe and every adaptive command. Source it at the top of every per-PR bash block with the loader below, which tries project, user, monorepo and plugin (`CLAUDE_PLUGIN_ROOT`, best effort) install paths and fails fast with "not found" instead of sourcing an unchecked path.
 
 ```bash
 _ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
@@ -35,9 +35,7 @@ The probe is silent by design; the library never fails hard on probe failure —
 
 ## Merge write op
 
-`gh pr merge` is handled by `ak-git merge-pr`. This PR updates that workflow (`kits/core/skills/ak-git/references/workflow-merge-pr.md`) to source the same `gh-api-helpers.sh` loader for its readiness-gate reads (`gh pr view`, `gh pr checks`, `gh pr list`) and to fall back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=…` when GraphQL is blocked.
-
-Important gap: GitHub's auto-merge enable is **GraphQL-only** (`enablePullRequestAutoMerge`) with no REST endpoint. When `AK_GH_REST=1`, the merge-pr workflow degrades from "merge with `--auto` while checks pending" to "poll checks until terminal-green, then `PUT /pulls/{n}/merge`". That's documented in the merge-pr workflow, not here.
+`gh pr merge` is handled by `ak-git merge-pr` (`ak-git/references/workflow-merge-pr.md`), which sources the same loader and falls back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=…` when GraphQL is blocked. Auto-merge enable is GraphQL-only, so with `AK_GH_REST=1` it polls checks to terminal-green and then merges instead of enabling `--auto`.
 
 ## Self-PR approve
 

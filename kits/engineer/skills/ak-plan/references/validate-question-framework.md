@@ -2,36 +2,14 @@
 
 ## Question Categories
 
-| Category | Keywords to detect |
-|----------|-------------------|
-| **Architecture** | "approach", "pattern", "design", "structure", "database", "API" |
-| **Assumptions** | "assume", "expect", "should", "will", "must", "default" |
-| **Tradeoffs** | "tradeoff", "vs", "alternative", "option", "choice", "either/or" |
-| **Risks** | "risk", "might", "could fail", "dependency", "blocker", "concern" |
-| **Scope** | "phase", "MVP", "future", "out of scope", "nice to have" |
+Architecture, Assumptions, Tradeoffs, Risks, Scope.
 
 ## Question Format Rules
 
-- Each question must have 2-4 concrete options
-- Mark recommended option with "(Recommended)" suffix
+- Each question has 2-4 concrete options
+- Mark the recommended option with a "(Recommended)" suffix
 - "Other" option is automatic
 - Questions should surface implicit decisions
-
-## Example Questions
-
-Category: Architecture
-Question: "How should the validation results be persisted?"
-Options:
-1. Save to plan.md frontmatter (Recommended)
-2. Create validation-answers.md
-3. Don't persist
-
-Category: Assumptions
-Question: "The plan assumes API rate limiting is not needed. Is this correct?"
-Options:
-1. Yes, not needed for MVP
-2. No, add basic rate limiting now (Recommended)
-3. Defer to Phase 2
 
 ## Validation Log Format
 
@@ -60,14 +38,8 @@ Options:
 - Phase {N}: {what needs updating and why}
 ```
 
-## Recording Rules
-
-- **Full question text**: exact question, not summary
-- **All options**: every option presented
-- **Verbatim custom input**: record "Other" text exactly
-- **Rationale**: explain why decision affects implementation
-- **Session numbering**: increment from last session
-- **Trigger**: state what prompted validation
+Record the exact question text, every option presented, and "Other" input
+verbatim. Number sessions incrementally from the last one.
 
 ## Section Mapping for Phase Propagation
 

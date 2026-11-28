@@ -1,6 +1,6 @@
 # Merge Workflow
 
-Execute via `git-manager` subagent.
+Run directly; delegate only under the ak-git SKILL.md delegation rule.
 
 ## Variables
 - TO_BRANCH: target (defaults to `main`)

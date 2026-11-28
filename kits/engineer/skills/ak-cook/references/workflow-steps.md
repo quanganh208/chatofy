@@ -1,33 +1,26 @@
 # Implementation steps
 
-Capture or reuse the opening contract and select the mode in SKILL.md. Inspect only relevant
-source, callers, tests and docs. Reuse fresh evidence instead of rerunning an earlier owner.
-Research unknowns; create a concise plan or phase files according to coordination/risk.
-Only explicit `--interactive` pauses after research, plan, implementation and tests.
+Capture or reuse the opening contract and select the mode in SKILL.md. Reuse fresh
+evidence instead of rerunning an earlier owner. Create a concise plan or phase files
+according to coordination/risk. Only explicit `--interactive` pauses after research,
+plan, implementation and tests.
 
 ## Implement
 
-Follow existing helpers, imports, error handling and public contracts. Reconcile the accepted
-plan with current source before edits. Keep phase dependencies and ownership; track state
-through available capabilities or the plan files. Check coherent edits, not every keystroke.
+Reconcile the accepted plan with current source before edits. Keep phase dependencies
+and ownership; track state through available capabilities or the plan files.
 
 ### `--tdd` Flag Behavior
 
-When `--tdd` is active, Step 3 splits into sub-steps per phase:
+Per phase: write tests for current behavior first, then implement, then verify those
+tests and compile gates still pass. A test from the first step that fails afterwards
+means the change broke behavior; fix it before the workflow proceeds.
 
-```
-Step 3.T: Write tests for CURRENT behavior (regression safety net)
-Step 3.I: Implement changes (refactor, new code)
-Step 3.V: Verify all tests from 3.T still pass + compile gates
-```
+Under `--advice`, a broken characterization test here is an objective `kongming`
+trigger: spawn `kongming` with the command, its output, and what you tried before
+re-fixing.
 
-Tests from Step 3.T document the current behavior. If any fail after Step 3.I,
-the refactor broke something and must be fixed before the workflow proceeds.
-
-Under `--advice`, a broken characterization test here is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-fixing; never self-reason past a red check.
-
-
-### Step 3.S: Conditional Simplify (live-diff gated)
+### Conditional Simplify (live-diff gated)
 
 Recompute signals from the live worktree (no hook state):
 
@@ -39,38 +32,30 @@ maxFile=$(echo "$totals" | awk 'BEGIN{m=0} {if ($1>m) m=$1} END {print m+0}')
 modified=$(git diff --name-only HEAD)
 ```
 
-Read thresholds from `.ck.json` (`simplify.threshold.{locDelta,fileCount,singleFileLoc}`),
-defaulting to 400 / 8 / 200. If any threshold is breached, spawn the simplifier
-scoped to the modified files:
+Read thresholds from the `simplify` section of `ak config prefs resolve --json`
+(`simplify.threshold.{locDelta,fileCount,singleFileLoc}`), defaulting to 400 / 8 / 200.
+If any threshold is breached, spawn the simplifier scoped to the modified files:
 
 ```
 delegate_agent capability(subagent_type="code-simplifier", prompt="Simplify these files while preserving behavior exactly: [file-list]", description="Simplify recent edits")
 ```
 
-After the subagent returns, log only — never re-run or block:
-- `git diff --shortstat HEAD -- [file-list]` changed → "simplifier made scoped edits"
-- unchanged → "simplifier ran clean"
-
-Skip the step entirely when `CK_SIMPLIFY_DISABLED=1` or
-`.ck.json` `simplify.gate.enabled` is `false`.
-
-**Output:** `✓ Step 3.S: Simplify [ran|skipped] - [scoped changes|clean|under threshold]`
-
+Afterwards, log only (never re-run or block): "simplifier made scoped edits" when
+`git diff --shortstat HEAD -- [file-list]` changed, otherwise "simplifier ran clean".
+Skip the step when `CK_SIMPLIFY_DISABLED=1` or `simplify.gate.enabled` is `false`.
 
 ## Verify and review
 
 Run the narrowest useful test, then affected caller, type, lint or build checks according to
-risk. Do not fake results, disable failing checks, or add tests that merely mirror code.
-For type/lint-only repairs the compiler/linter can provide sufficient regression evidence.
+risk. For type/lint-only repairs the compiler/linter can provide sufficient regression evidence.
 Use `review-cycle.md` and `required-subagents.md` for review and delegation scope.
-Repair regressions caused by this work within authorization. Under `--advice`, consult
-kongming on each failed verification before edits or re-diagnosis as its checkpoint requires.
 
 ## Finalize
 
 Reconcile completed work against all affected existing plan phases, preserving unchecked
 items that lack evidence. Use `plan-state-files-first.md`; runtime tracking is optional.
 Assess docs impact and update the smallest owning surface. Report outcome, verification,
-remaining work and setup requirements. Commit only when already authorized. Apply the
-journal preference contract in SKILL.md, reusing a preference resolved earlier in this run.
-Continue the next authorized phase unless explicit interactive review or a real blocker stops it.
+remaining work and setup requirements. Commit only when already authorized; finalization
+does not itself authorize a commit or publication. Apply the journal preference contract
+in SKILL.md, reusing a preference resolved earlier in this run. Continue the next
+authorized phase unless explicit interactive review or a real blocker stops it.

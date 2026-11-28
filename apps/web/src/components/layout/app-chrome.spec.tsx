@@ -225,7 +225,7 @@ describe('the product frame', () => {
     const named = [...(bar?.querySelectorAll('[aria-label]') ?? [])].map((el) =>
       el.getAttribute('aria-label'),
     );
-    expect(named).toEqual(['Toggle the sidebar', 'Breadcrumb', 'Switch workspace']);
+    expect(named).toEqual(['Show or hide sidebar', 'Breadcrumb', 'Switch workspace']);
     expect(bar?.querySelector('[data-workspace-chip]')?.classList.contains('md:hidden')).toBe(true);
     expect(bar?.querySelector('[data-slot="topbar-actions"]')?.childElementCount).toBe(0);
   });

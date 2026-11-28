@@ -157,6 +157,28 @@ test('buildPayload scans remote refs, worktrees, and unfinished plans without fe
   }
 });
 
+test('a plan on disk and in its tracked ref dedupes to one entry with a posix path', () => {
+  const fixture = createFixtureRepo();
+  try {
+    const payload = buildPayload({ json: true, fetch: false, since: null, maxBranches: 20, commitsPerBranch: 1, planLimit: 50, maxPlanRefs: 20 }, fixture.repo);
+    const matches = payload.plans.unfinished.filter((plan) => plan.title === 'Fixture Feature');
+    assert.ok(matches.length >= 1, 'fixture plan should be listed');
+    for (const plan of matches) assert.equal(plan.path.includes('\\'), false, `path must use "/": ${plan.path}`);
+    assert.equal(new Set(matches.map((plan) => plan.path)).size, matches.length, 'same plan path listed twice');
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('readPlan hashes CRLF and trailing-newline variants identically', () => {
+  const body = '---\nstatus: pending\n---\n# Same plan\n';
+  const a = readPlan(body, 'plans/x/plan.md', { type: 'filesystem' });
+  const b = readPlan(body.replace(/\n/g, '\r\n'), 'plans/x/plan.md', { type: 'filesystem' });
+  const c = readPlan(body.trimEnd(), 'plans/x/plan.md', { type: 'git-ref' });
+  assert.equal(a.hash, b.hash);
+  assert.equal(a.hash, c.hash);
+});
+
 test('failed fetch reports fetched false and keeps stale-ref warning context', () => {
   const fixture = createFixtureRepo();
   try {

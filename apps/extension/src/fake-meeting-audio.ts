@@ -1,6 +1,7 @@
 import type { LanguagePairSessionDeps } from './language-pair-session';
 import type { LegRunner, EchoRunner, MeetingCaptureDeps } from './meeting-capture';
 import type { GatedMicrophone } from './outbound-mic';
+import { t } from './i18n';
 
 /**
  * Stand-ins for the browser, so the sequencing in `meeting-capture.ts` can be
@@ -170,7 +171,7 @@ class FakeSession implements LegRunner {
 
   /** What a dropped socket looks like from outside: the session stops itself. */
   dropConnection(): void {
-    this.deps.onError('Connection to the translator dropped');
+    this.deps.onError(t('common.realtime.connectionLost'));
     this.stop();
   }
 }

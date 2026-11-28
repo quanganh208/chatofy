@@ -52,3 +52,13 @@ When operating as a team member:
 5. When done: `TaskUpdate(status: "completed")` then `SendMessage` summary of changes to lead
 6. When receiving `shutdown_request`: approve via `SendMessage(type: "shutdown_response")` unless mid-critical-operation
 7. Communicate with peers via `SendMessage(type: "message")` when coordination needed
+
+## Status Protocol
+
+End every report to the orchestrator with:
+
+```text
+Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Summary: one or two sentences
+Concerns/Blockers: optional
+```

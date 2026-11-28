@@ -1,6 +1,7 @@
 import type { OverlayState } from '../../src/messages';
 import { runsOn, type SiteEnablement } from '../../src/site-enablement';
 import { meetingSiteName, type MeetingSite } from '../../src/supported-meeting-url';
+import { t } from '../../src/i18n';
 
 /**
  * What the footer says, as a function rather than a sequence of writes.
@@ -16,8 +17,9 @@ export function firstFailure(overlay: OverlayState | undefined): string | undefi
   const errors = overlay?.errors;
   if (!errors) return undefined;
   if (errors.capture) return errors.capture;
-  if (errors.inbound) return `Meeting audio: ${errors.inbound}`;
-  if (errors.outbound) return `Your microphone: ${errors.outbound}`;
+  if (errors.inbound) return t('extension.status.meetingAudioError', { error: errors.inbound });
+  if (errors.outbound) return t('extension.status.microphoneError', { error: errors.outbound });
+  if (errors.relay) return t('extension.status.microphoneError', { error: errors.relay });
   return undefined;
 }
 
@@ -47,16 +49,18 @@ export function statusMessage({
     // its explanation off screen, reads as broken rather than as unavailable.
     // Being switched off is a different answer from being the wrong kind of tab,
     // and it is the one with a fix the reader can reach from this very popup.
-    if (captureable) return 'Ready.';
-    if (site && !runsOn(enablement, site)) return `Chatofy is off on ${meetingSiteName(site)}.`;
-    return 'Not available on this tab.';
+    if (captureable) return t('extension.status.ready');
+    if (site && !runsOn(enablement, site)) {
+      return t('extension.status.offOn', { site: meetingSiteName(site) });
+    }
+    return t('extension.status.unavailable');
   }
 
   if (overlay?.outbound === 'monitor') {
-    return 'Capturing this tab. Your speech is translated for you only.';
+    return t('extension.status.capturingForYou');
   }
   if (overlay?.outbound === 'sending') {
-    return 'Capturing this tab, and translating your speech into the meeting.';
+    return t('extension.status.capturingIntoMeeting');
   }
-  return 'Capturing this tab.';
+  return t('extension.status.capturing');
 }

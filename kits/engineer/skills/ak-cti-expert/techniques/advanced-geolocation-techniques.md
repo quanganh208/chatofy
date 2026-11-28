@@ -185,7 +185,7 @@ Google Lens performs significantly better on cropped regions than full-scene ima
 convert input.jpg -flop flipped.jpg
 
 # Python/PIL
-python3 -c "
+python -c "
 from PIL import Image
 img = Image.open('input.jpg')
 img.transpose(Image.FLIP_LEFT_RIGHT).save('flipped.jpg')

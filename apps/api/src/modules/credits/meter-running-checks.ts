@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import type { CataloguedServerError } from '@chatofy/types';
 import type { StreamSocket } from '../translate/session/stream-socket';
 import {
   LEASE_AUDIO_SECONDS,
@@ -81,7 +82,7 @@ export class MeterRunningChecks {
       code: 'credits_low',
       message: 'Your credits are running low',
       remainingCreditSeconds: left,
-    });
+    } satisfies CataloguedServerError);
   }
 
   /** A mid-session extend: on failure, fail open for one lease and retry with backoff. */
@@ -136,7 +137,7 @@ export class MeterRunningChecks {
       message: MESSAGES[reason],
       remainingCreditSeconds:
         reason === 'credits_exhausted' ? 0 : remaining(conn),
-    });
+    } satisfies CataloguedServerError);
     conn.onStop(reason);
   }
 }

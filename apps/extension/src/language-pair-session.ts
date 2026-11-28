@@ -7,7 +7,8 @@ import {
   type TurnKeyedAction,
 } from '@chatofy/realtime-client';
 import type { LanguagePair } from '@chatofy/types';
-import { CreditContext, creditErrorMessage } from './credits';
+import { CreditContext } from './credits';
+import { sessionFailureMessage } from './reader-facing-error';
 import type { LegRunner } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
@@ -145,13 +146,12 @@ export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRun
       onStatus: () => {},
       onLevel: () => {},
       onMuted: () => {},
-      // The credit codes in the reader's words; every other error keeps the
-      // server's text. A low balance is a notice — the session keeps running —
-      // and its sentence says so where the popup shows it.
+      // Every failure in the reader's words, chosen by its code: the message
+      // beside it is English for logs. The credit codes are worded with what this
+      // leg knows; a low balance is a notice — the session keeps running — and its
+      // sentence says so where the popup shows it.
       onError: (message, cause) =>
-        deps.onError(
-          message === null ? undefined : (creditErrorMessage(cause, credits) ?? message),
-        ),
+        deps.onError(message === null ? undefined : sessionFailureMessage(cause, credits)),
       onEchoHeard: () => {},
       onPlaybackBusy: deps.onBusy,
       onServerEvent: (event) => {

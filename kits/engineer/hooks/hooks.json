@@ -136,6 +136,14 @@
             "type": "command",
             "command": "node",
             "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/self-improve-recorder.cjs"
+            ],
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
@@ -146,6 +154,14 @@
       {
         "matcher": "*",
         "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/self-improve-nudge.cjs"
+            ],
+            "timeout": 3
+          },
           {
             "type": "command",
             "command": "node",

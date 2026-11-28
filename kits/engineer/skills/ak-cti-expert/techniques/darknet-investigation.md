@@ -146,7 +146,7 @@ Step 6: Documentation (critical for legal and compliance)
 # Keyword search via clearnet — no Tor required
 # Replace spaces with + in query
 curl -s "https://ahmia.fi/search/?q=target+organization" \
-  | python3 -c "
+  | python -c "
 import sys, re
 html = sys.stdin.read()
 # Extract result URLs and titles
@@ -234,7 +234,7 @@ go install github.com/s-rah/onionscan@latest
 onionscan --torProxyAddress 127.0.0.1:9050 \
           --depth 2 \
           http://targetservice.onion \
-          2>/dev/null | python3 -m json.tool
+          2>/dev/null | python -m json.tool
 
 # Key fields to review in output:
 # - "linkedSites"       : clearnet domains referenced

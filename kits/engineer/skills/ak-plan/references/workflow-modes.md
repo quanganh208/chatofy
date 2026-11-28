@@ -4,44 +4,36 @@
 
 When no flag specified, analyze task and pick mode:
 
-| Signal | Mode | Rationale |
-|--------|------|-----------|
-| Simple task, clear scope, no unknowns | fast | Skip research overhead |
-| Complex task, unfamiliar domain, new tech | hard | Research needed |
-| Major refactor, 5+ areas, architectural debt | deep | Need per-phase scouting |
-| 3+ independent features/layers/modules | parallel | Enable concurrent agents |
-| Ambiguous approach, multiple valid paths | two | Compare alternatives |
+| Signal | Mode |
+|--------|------|
+| Simple task, clear scope, no unknowns | fast |
+| Complex task, unfamiliar domain, new tech | hard |
+| Major refactor, 5+ areas, architectural debt | deep |
+| 3+ independent features/layers/modules | parallel |
+| Ambiguous approach, multiple valid paths | two |
 
-Use `ask_user capability` if detection is uncertain. `debate` and `ultra` are never detection outcomes — each is explicit opt-in only (`--debate`, `--ultra`), never chosen by this heuristic table.
+Use `ask_user capability` if detection is uncertain. `debate` and `ultra` are never detection outcomes — each is explicit opt-in only (`--debate`, `--ultra`).
 
-## Scope Challenge Integration
-
-Step 0 (Scope Challenge, see `scope-challenge.md`) runs before mode detection and can influence it. Without `--yagni`, it records HOLD SCOPE without presenting a scope-reduction fork:
-- If user selects **EXPANSION** → auto-suggest `--hard` or `--two`
-- If user selects **REDUCTION** → auto-suggest `--fast`
-- If user selects **HOLD** → proceed with auto-detected mode
-
-Mode can still be overridden by explicit flags (`--fast`, `--hard`, etc.). The scope step is skipped only when the task is trivial. `--fast` changes planning depth only; it does not authorize scope reduction. Preserve the full requested scope unless the user passes `--yagni` or directly instructs a named cut.
+The scope challenge (`scope-challenge.md`) runs before mode detection and can suggest a mode; explicit mode flags still win. `--fast` changes planning depth only; it does not authorize scope reduction. Preserve the full requested scope unless the user passes `--yagni` or directly instructs a named cut.
 
 ## Fast Mode (`--fast`)
 
 No research. Analyze → Plan → Hydrate Tasks. Fast mode reduces workflow depth, not the requested product scope.
 
-1. Read repository instructions and follow existing documentation navigation to locate current requirements, architecture, and standards; confirm them against relevant source and tests.
-2. Use `planner` subagent to create plan.
+1. Read repository instructions and the current requirements, architecture, and standards they point to; confirm them against relevant source and tests.
+2. Write the plan.
 3. Hydrate tasks (unless `--no-tasks`).
-4. **Implementation option:** `/ak-cook {absolute-plan-path}/plan.md`.
+4. **Implementation option:** `/ak-cook {absolute-plan-path}/plan.md`, run only after the user chooses it.
 
 ## Hard Mode (`--hard`)
 
 Research → Scout → Plan → Red Team → Validate → Hydrate Tasks.
 
-1. Spawn max 2 `researcher` agents in parallel.
-2. Read repository instructions and use `/ak-scout` when owning evidence is missing or ambiguous.
-3. Gather research + scout report filepaths → pass to `planner` subagent.
-4. Post-plan red team review (see `red-team-workflow.md`).
-5. Post-plan validation (see `validate-workflow.md`).
-6. Hydrate tasks (unless `--no-tasks`).
+1. Research with at most 2 `researcher` agents in parallel.
+2. Use `/ak-scout` when owning evidence is missing or ambiguous.
+3. Plan from the research and scout reports (the `planner` subagent can take this when the plan is large).
+4. Post-plan red team review (see `red-team-workflow.md`) and validation (see `validate-workflow.md`).
+5. Hydrate tasks (unless `--no-tasks`).
 
 ## Deep Mode (`--deep`)
 
@@ -54,26 +46,22 @@ Per-phase scouting for large architectural overhauls.
 
 ## Parallel Mode (`--parallel`)
 
-Designed for parallel execution with strict file ownership.
-
-1. Research & design decoupled modular architecture.
-2. Decompose into phases with strictly disjoint file boundaries.
+1. Design a decoupled modular architecture.
+2. Decompose into phases with strictly disjoint file ownership, declared per phase, so parallel executors cannot conflict.
 3. Post-plan red team review & validation.
-4. Pass plan to `/ak-cook --parallel`.
+4. Offer `/ak-cook --parallel` as the implementation option; run it only after the user chooses it.
 
 ## Two Approaches Mode (`--two`)
 
-Researches and presents 2 distinct architectural solutions with concrete trade-offs for user selection.
-
-1. Research both viable technical approaches.
-2. Draft candidate architectures and trade-off matrix.
+1. Research two viable technical approaches.
+2. Draft candidate architectures and a trade-off matrix.
 3. Present approaches via `ask_user capability`.
 4. Materialize the selected approach into full plan phases.
 
 ## Debate Mode (`--debate`)
 
-3 independent planner subagents draft candidate plans in parallel; the orchestrator synthesizes the best ideas into one unified plan. See `debate-mode.md`.
+3 independent planner subagents draft candidate plans in parallel; the orchestrator synthesizes one plan. See `debate-mode.md`.
 
 ## Ultra Verifier Mode (`--ultra`)
 
-Best-of-5 independent candidate plans scored and ranked by a single strongest-model verifier (`kongming`). The winning plan is materialized unchanged. See `ultra-mode.md`.
+Best-of-5 independent candidate plans scored by a single strongest-model verifier (`kongming`); the winning plan is materialized unchanged. See `ultra-mode.md`.

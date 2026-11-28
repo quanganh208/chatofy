@@ -1,6 +1,7 @@
 import { DEFAULT_MIC_PROCESSING, type MicProcessing } from '@chatofy/types';
 import { DuckController } from './duck-controller';
 import { MICROPHONE_BLOCKED } from './microphone-permission';
+import { ReaderFacingError } from './reader-facing-error';
 
 /**
  * The user's microphone, with a gate that can silence it completely.
@@ -56,7 +57,7 @@ export async function openGatedMicrophone(
     // the message has to name the one place that can give it — Chrome's own
     // wording ("Permission denied") points at a prompt nobody was shown.
     if (err instanceof DOMException && err.name === 'NotAllowedError') {
-      throw new Error(MICROPHONE_BLOCKED, { cause: err });
+      throw new ReaderFacingError(MICROPHONE_BLOCKED, { cause: err });
     }
     throw err;
   }

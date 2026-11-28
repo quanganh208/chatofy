@@ -1010,7 +1010,7 @@ describe('CascadePanel two-way and auto-detect', () => {
       },
     );
     expect(container.textContent).toContain(
-      'Translating one way for now: Vietnamese into English.',
+      'Translating one way for now, Vietnamese into English.',
     );
     expect(container.querySelector('[data-language-mode="declared"]')?.textContent).toBe(
       en['web.translate.modeOneWay'],

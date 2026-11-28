@@ -16,5 +16,4 @@ conventions (path resolution, naming, and markdown body standards):
 
 `--report` composes with every other flag: with `--html` both artifacts are
 written; with `--ultra` the report records the winning candidate plus the short
-ranking appendix. Without `--report`, keep the existing behavior — write a
-durable summary only when the decision must survive the session or feed a plan.
+ranking appendix.

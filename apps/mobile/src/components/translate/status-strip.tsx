@@ -11,7 +11,12 @@ import type { ConversationStatus } from '@chatofy/realtime-client';
 import { space, fontSize } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
 import type { SaveState } from '@/translate/use-save-conversation';
-import { languageNameKey, oneWayNotice, statusKey } from '@/translate/status-text';
+import {
+  languageNameKey,
+  oneWayNotice,
+  sentenceLanguageName,
+  statusKey,
+} from '@/translate/status-text';
 import type {
   ConversationIdentity,
   LanguageModeAnswer,
@@ -24,7 +29,6 @@ const t = createTranslator(en);
 
 /** The error's words; a credit amount is translated first, then filled into its sentence. */
 function errorText(error: TranslateError): string {
-  if (!('key' in error)) return error.text;
   if (!error.amount) return t(error.key);
   return t(error.key, { credits: t(error.amount.key, error.amount.vars) });
 }
@@ -83,8 +87,8 @@ export function StatusStrip({
       {notice ? (
         <InlineNotice
           message={t(notice.key, {
-            from: t(languageNameKey(notice.from)),
-            to: t(languageNameKey(notice.to)),
+            from: sentenceLanguageName(t(languageNameKey(notice.from))),
+            to: sentenceLanguageName(t(languageNameKey(notice.to))),
           })}
         />
       ) : null}

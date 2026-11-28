@@ -89,9 +89,16 @@ def build_skill_md(full_name, slug, description, kit):
     ) + BODY.format(title=title_case(slug))
 
 
-def init_skill(identifier, parent, kit=None, description=None):
+def init_skill(identifier, parent, kit=None, description=None, personal=False):
     """Create <parent>/<dir>/SKILL.md and return the skill directory path."""
     full_name, namespace, slug = parse_identifier(identifier)
+    if personal:
+        # Personal kit aliases never use the AgentKit namespace; the ak CLI imports the
+        # scratch directory later, so nothing is written under AGENTKIT_HOME here.
+        if kit:
+            raise ValueError('--personal and --kit are mutually exclusive.')
+        if namespace or slug.startswith(f'{KIT_NAMESPACE}-'):
+            raise ValueError(f"Personal kit skills use a plain '<slug>' without '{KIT_NAMESPACE}-' or a namespace; got '{identifier}'.")
     if kit:
         # The legacy ak:<slug> input is still accepted; kit skills are named ak-<slug>.
         if namespace not in (None, KIT_NAMESPACE):
@@ -118,11 +125,12 @@ def main(argv=None):
     parser.add_argument('skill_name', help="'skill-name' or 'namespace:skill-name'")
     parser.add_argument('--path', required=True, help='Parent directory that will contain the skill directory')
     parser.add_argument('--kit', help='AgentKit kit name; emits ak-<slug> frontmatter and an ak-<slug>/ directory')
+    parser.add_argument('--personal', action='store_true', help='Personal kit skill: plain <slug>, no ak- prefix; import later with ak skills kit new-skill')
     parser.add_argument('--description', help='Initial description text (edit it before validating)')
     args = parser.parse_args(argv)
 
     try:
-        directory = init_skill(args.skill_name, args.path, kit=args.kit, description=args.description)
+        directory = init_skill(args.skill_name, args.path, kit=args.kit, description=args.description, personal=args.personal)
     except (ValueError, FileExistsError) as exc:
         print(f'Error: {exc}')
         return 1
@@ -135,6 +143,8 @@ def main(argv=None):
     print(f'  4. Run: uv run --with PyYAML==6.0.3 scripts/lint_cruft.py {directory} --routing')
     if args.kit:
         print(f'  5. Register the skill in kits/{args.kit}/kit.yaml and run: cd apps/cli && go run . kit validate ../../kits/')
+    if args.personal:
+        print(f'  5. Run: ak skills kit new-skill <kit> {directory.name} --from-dir {directory}, then ak skills kit apply <kit>')
     return 0
 
 

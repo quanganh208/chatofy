@@ -130,9 +130,9 @@ The 5 style hooks (`dd-ink`, `dd-accent`, `dd-paper2`, `dd-label`, `dd-caption`)
 Scripts vendored under `references/vendor/diagram-design-scripts/` at pinned SHA `09df49d8d1a1c7fb2efdfcdc7a2a0713534350a6`. **All three are advisory-only** — they warn on stderr and return the artifact anyway. Skill guides never gate rendering on validator exit code in v1.
 
 ```bash
-python3 references/vendor/diagram-design-scripts/self_check.py       out.html
-python3 references/vendor/diagram-design-scripts/verify-geometry.py  out.html
-python3 references/vendor/diagram-design-scripts/verify-motion.py    out.html
+python references/vendor/diagram-design-scripts/self_check.py       out.html
+python references/vendor/diagram-design-scripts/verify-geometry.py  out.html
+python references/vendor/diagram-design-scripts/verify-motion.py    out.html
 ```
 
 Graceful skip: the vendor directory ships a `run-validators.sh` that detects `python3`; if absent it prints one line (`[diagram-design] python3 not found, skipping validators`) and exits 0. Skill guides call the shell wrapper, not `python3` directly, so users without Python are never blocked.

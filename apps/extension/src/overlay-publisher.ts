@@ -1,5 +1,8 @@
 import type { CaptureStatus, OverlayState, TranscriptLine } from './messages';
 
+/** The error slots the worker writes; the others belong to the offscreen document. */
+export type WorkerErrorSlot = 'capture' | 'relay';
+
 /** Newest lines last, bounded — the overlay is a window, not a transcript archive. */
 export const MAX_OVERLAY_LINES = 40;
 
@@ -163,9 +166,23 @@ export class OverlayPublisher {
     });
   }
 
-  /** Merge an error into the errors already showing. */
-  publishError(slot: 'capture' | 'outbound', message: string): void {
+  /** Merge an error into one of the worker's own slots, keeping the rest. */
+  publishError(slot: WorkerErrorSlot, message: string): void {
     this.publish({ ...this.state, errors: { ...this.state.errors, [slot]: message } });
+  }
+
+  /**
+   * Empty one of the worker's own slots, keeping the rest.
+   *
+   * A no-op when the slot is already empty. Recovery is detected on paths that
+   * run once per audio frame, and an unconditional clear would push a render
+   * for every one of them.
+   */
+  clearError(slot: WorkerErrorSlot): void {
+    if (this.state.errors[slot] === undefined) return;
+    const errors = { ...this.state.errors };
+    delete errors[slot];
+    this.publish({ ...this.state, errors });
   }
 
   /** Everything the previous meeting left behind, gone before this one renders. */
@@ -187,9 +204,15 @@ export class OverlayPublisher {
       lines: this.state.lines,
       outbound: status.outbound,
       // The offscreen document owns both leg errors and reports them
-      // together, so they replace their own slots wholesale; `capture` is the
-      // worker's and survives untouched.
-      errors: { capture: this.state.errors.capture, ...status.errors },
+      // together, so they replace their own slots wholesale — that is how it
+      // clears one on recovery. `capture` and `relay` are the worker's and
+      // survive — except that a relay failure is about a running capture, so
+      // a status saying nothing is capturing takes it down with the capture.
+      errors: {
+        capture: this.state.errors.capture,
+        relay: status.capturing ? this.state.errors.relay : undefined,
+        ...status.errors,
+      },
     });
   }
 

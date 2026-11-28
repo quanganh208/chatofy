@@ -8,10 +8,12 @@ license: Proprietary; includes MIT-licensed third-party material, see LICENSE.tx
 argument-hint: "[component|page|design-system] [--style <style>] [--framework <fw>]"
 metadata:
   author: agentkit
-  version: "1.2.1"
+  version: "1.2.2"
 ---
 
 # UI/UX Pro Max - Design Intelligence
+
+Python scripts in this skill run as `python <script>`; on macOS/Linux without `python`, use `python3`. On Windows never use `python3` (it opens the Microsoft Store stub).
 
 Comprehensive design guide for web and mobile applications. Contains 50+ styles, 161 color palettes, 57 font pairings, 161 product types with reasoning rules, 99 UX guidelines, and 25 chart types across 10 technology stacks. Searchable database with priority-based recommendations.
 
@@ -134,7 +136,7 @@ Extract key information from user request:
 Use `--design-system` for new design decisions or when no existing system applies:
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system [-p "Project Name"]
+python skills/ak-ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system [-p "Project Name"]
 ```
 
 This command:
@@ -145,7 +147,7 @@ This command:
 
 **Example:**
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "beauty spa wellness service" --design-system -p "Serenity Spa"
+python skills/ak-ui-ux-pro-max/scripts/search.py "beauty spa wellness service" --design-system -p "Serenity Spa"
 ```
 
 ### Step 2b: Persist Design System (Master + Overrides Pattern)
@@ -153,7 +155,7 @@ python3 skills/ak-ui-ux-pro-max/scripts/search.py "beauty spa wellness service" 
 To save the design system for **hierarchical retrieval across sessions**, add `--persist`:
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name"
+python skills/ak-ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name"
 ```
 
 This creates:
@@ -162,7 +164,7 @@ This creates:
 
 **With page-specific override:**
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name" --page "dashboard"
+python skills/ak-ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name" --page "dashboard"
 ```
 
 This also creates:
@@ -187,7 +189,7 @@ Now, generate the code...
 Use domain searches directly for targeted work; a design-system search is not a prerequisite:
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> [-n <max_results>]
+python skills/ak-ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> [-n <max_results>]
 ```
 
 **When to use detailed searches:**
@@ -212,7 +214,7 @@ python3 skills/ak-ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> 
 Read script help for supported stacks and choose the project's stack. For example, a React Native project uses:
 
 ```bash
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "<keyword>" --stack react-native
+python skills/ak-ui-ux-pro-max/scripts/search.py "<keyword>" --stack react-native
 ```
 
 ## Search Reference
@@ -250,10 +252,10 @@ The `--design-system` flag supports two output formats:
 
 ```bash
 # ASCII box (default) - best for terminal display
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system
+python skills/ak-ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system
 
 # Markdown - best for documentation
-python3 skills/ak-ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system -f markdown
+python skills/ak-ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system -f markdown
 ```
 
 ## Tips for Better Results

@@ -45,13 +45,13 @@ afterEach(() => {
   container.remove();
 });
 
-function render(running: boolean, voiceOutput = true) {
+function render(running: boolean, voiceOutput = true, locale?: 'vi') {
   act(() => {
     root = createRoot(container);
     root.render(
-      <LocaleProvider>
+      <LocaleProvider locale={locale}>
         <VoiceSettingsPopover
-          language="en"
+          language={locale === 'vi' ? 'vi' : 'en'}
           settings={{
             ...DEFAULT_TRANSLATE_SETTINGS,
             ...languageVoicePatch(DEFAULT_TRANSLATE_SETTINGS, 'en', { speak: voiceOutput }),
@@ -73,6 +73,13 @@ function open(running: boolean, voiceOutput = true) {
 }
 
 describe('VoiceSettingsPopover', () => {
+  it('names the language in lower case mid-sentence in Vietnamese', () => {
+    // "Tiếng Việt" is the standalone label; inside "Giọng đọc …" Vietnamese writes it
+    // in lower case.
+    const trigger = render(false, true, 'vi');
+    expect(trigger?.getAttribute('aria-label')).toContain('Giọng đọc tiếng Việt');
+  });
+
   it('says whether the translation is spoken without being opened', () => {
     // The reason the inert speaker mark existed at all, and the reason it was
     // worth keeping when it became a control: "why am I not hearing anything"
@@ -102,7 +109,7 @@ describe('VoiceSettingsPopover', () => {
     open(true);
 
     const speak = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="Speak the translation aloud"]',
+      'button[aria-label="Read the translation aloud"]',
     );
     expect(speak).not.toBeNull();
     expect(speak?.disabled).toBe(true);
@@ -115,7 +122,7 @@ describe('VoiceSettingsPopover', () => {
 
   it('says why the switch will not move rather than only refusing', () => {
     open(true);
-    expect(document.body.textContent).toContain('Set this before the conversation starts');
+    expect(document.body.textContent).toContain('Set this before you start');
   });
 
   it('holds nothing about the page layout', () => {

@@ -19,7 +19,7 @@ describe('credit amounts', () => {
 
   it('keeps the minus sign and the local digits in Vietnamese', () => {
     const tv = createTranslator(vi);
-    expect(formatSignedCredits(tv, 'vi', -1234.5)).toBe('\u22121.234,5 credit');
-    expect(formatSignedCredits(tv, 'vi', 120)).toBe('+120 credit');
+    expect(formatSignedCredits(tv, 'vi', -1234.5)).toBe('\u22121.234,5 điểm');
+    expect(formatSignedCredits(tv, 'vi', 120)).toBe('+120 điểm');
   });
 });

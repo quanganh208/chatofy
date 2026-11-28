@@ -24,12 +24,28 @@ const t = createTranslator(en);
 const FALLBACK = 'web.auth.createFailed';
 
 describe('authErrorMessage', () => {
-  it("passes through the API's own message, which is written for a person", () => {
+  it('never shows the API’s own message', () => {
     const err = new ApiClientError(
-      { code: 'VALIDATION_FAILED', message: 'That link is invalid or has expired' },
+      { code: 'VALIDATION_FAILED', message: 'Password is too short' },
+      400,
+    );
+    expect(authErrorMessage(err, t, FALLBACK)).toBe(en[FALLBACK]);
+  });
+
+  it('says a rate limit as too many attempts, in every flow', () => {
+    const err = new ApiClientError({ code: 'RATE_LIMITED', message: 'Too many requests' }, 429);
+    expect(authErrorMessage(err, t, FALLBACK)).toBe(en['common.auth.tooManyAttempts']);
+  });
+
+  it('says a refused mailed link is expired, only in a flow that redeems one', () => {
+    const err = new ApiClientError(
+      { code: 'UNAUTHORIZED', message: 'That link is invalid or has expired' },
       401,
     );
-    expect(authErrorMessage(err, t, FALLBACK)).toBe('That link is invalid or has expired');
+    expect(authErrorMessage(err, t, 'web.auth.resetFailed', { redeemsLink: true })).toBe(
+      en['common.auth.linkExpired'],
+    );
+    expect(authErrorMessage(err, t, FALLBACK)).toBe(en[FALLBACK]);
   });
 
   it('reports a contract drift without leaking the detail', () => {

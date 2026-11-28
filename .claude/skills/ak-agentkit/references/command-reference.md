@@ -91,8 +91,11 @@ call.
 | `ak kit repair-install-mode` | `mutating` | Repair mixed Claude Code native and project-plugin state |
 | `ak kit uninstall` | `mutating` | Remove an installed kit plugin |
 | `ak kit validate` | `read-only` | Validate kit.yaml files in a kits directory |
+| `ak render build` | `mutating` | Compile a Page Spec to standalone HTML with the pinned AK Render compiler |
+| `ak render mcp` | `diagnostic` | Serve the pinned AK Render compiler as an MCP server over stdio |
+| `ak render validate` | `read-only` | Validate a Page Spec with the pinned AK Render compiler |
 | `ak run` | `mutating` | Run a skill via the configured agent adapter |
-| `ak skill install` | `mutating` | Install or refresh the per-skill runtime env |
+| `ak skill install` | `mutating` | Add a skill to an installed kit and refresh its runtime env |
 | `ak skill remove` | `mutating` | Remove the per-skill runtime record (cache untouched) |
 | `ak skill repair` | `mutating` | Rebuild a corrupted per-skill runtime env |
 | `ak skill upgrade` | `mutating` | Re-resolve the per-skill env after editing skill.yaml |
@@ -114,24 +117,45 @@ call.
 | `ak skills kit apply` | `mutating` | Project a personal kit's composition into the native skills roots |
 | `ak skills kit init` | `mutating` | Create a personal kit that extends one kit version |
 | `ak skills kit inspect` | `read-only` | Show the resolved composition plan of a personal kit |
+| `ak skills kit new-skill` | `mutating` | Add a brand-new skill, authored in a personal kit |
 | `ak skills kit publish` | `mutating` | Upload a personal kit's delta to SkillX as a private revision |
 | `ak skills kit rebase` | `mutating` | Preview or apply moving a personal kit to a new foundation version |
 | `ak skills kit remove` | `mutating` | Drop a personal kit's projections |
 | `ak skills kit resolve` | `mutating` | Record the user's resolution of a personal kit rebase finding |
+| `ak skills kit restore` | `mutating` | Restore a personal kit unpublished from SkillX in the last 30 days |
 | `ak skills kit revisions` | `read-only` | List the SkillX revisions of a personal kit |
 | `ak skills kit rollback` | `mutating` | Project a personal kit's previous revision again |
 | `ak skills kit status` | `read-only` | Show whether personal kits resolve against their foundations |
 | `ak skills kit sync` | `mutating` | Project one exact SkillX revision of a personal kit |
+| `ak skills kit unpublish` | `mutating` | Unpublish (soft-delete) a personal kit from SkillX, restorable for 30 days |
+| `ak skills link` | `mutating` | Link SkillX to your agentkit.best account |
+| `ak skills link status` | `read-only` | Show whether SkillX is linked to an agentkit.best account |
 | `ak skills list` | `read-only` | List installed skills |
 | `ak skills mcp serve` | `mutating` | Run the skill tools as a local MCP server over stdio |
 | `ak skills migrate` | `mutating` | Adopt legacy kit skill installs into the skill store |
+| `ak skills publish` | `mutating` | Publish a skill directory to SkillX as one release |
 | `ak skills read` | `read-only` | Print one verified, non-executable file of a SkillX skill release |
 | `ak skills remove` | `mutating` | Remove an installed skill |
 | `ak skills resolve` | `read-only` | Resolve and verify a SkillX skill release |
+| `ak skills restore` | `mutating` | Restore a deleted SkillX package within its 30-day window |
 | `ak skills route` | `read-only` | Pick the local skill for an intent, or answer NONE |
 | `ak skills search` | `read-only` | Search skills |
+| `ak skills self-improve` | `read-only` | Record skill problems at session end and suggest an ak-dogfood review |
+| `ak skills self-improve disable` | `mutating` | Turn skill self-improve event recording off |
+| `ak skills self-improve enable` | `mutating` | Turn skill self-improve event recording on |
+| `ak skills self-improve history` | `read-only` | List recorded skill self-improve events, newest first |
+| `ak skills self-improve review` | `read-only` | Review screened skills and decide on their improvement candidates |
+| `ak skills self-improve review approve` | `mutating` | Approve a recorded improvement candidate (preview without --yes) |
+| `ak skills self-improve review defer` | `mutating` | Defer the review of a screened skill |
+| `ak skills self-improve review inspect` | `read-only` | Show one screened skill: reasons, evidence ids, candidates and next steps |
+| `ak skills self-improve review list` | `read-only` | List screened skills with their decision and improvement candidates |
+| `ak skills self-improve review reject` | `mutating` | Reject the improvement of a screened skill at its current digest |
+| `ak skills self-improve status` | `read-only` | Show consent and the skills worth an ak-dogfood review |
 | `ak skills show` | `read-only` | Show skill details |
 | `ak skills sync` | `mutating` | Install exactly the SkillX releases the skill lock pins |
+| `ak skills unlink` | `mutating` | Remove the SkillX link to your agentkit.best account |
+| `ak skills unpublish` | `mutating` | Delete a SkillX package (restorable for 30 days) or yank one version |
+| `ak skills visibility` | `mutating` | Show or change the visibility of a SkillX package |
 
 ## Runtime adapters
 
@@ -233,6 +257,7 @@ call.
 | `ak test classify-e2e` | `mutating` | Advise on changed E2E scenario classes without changing scheduling |
 | `ak test optimize` | `mutating` | Explain impact-selected checks, optionally execute trusted commands |
 | `ak usage limits` | `read-only` | Show usage-limit windows per provider |
+| `ak usage summary` | `read-only` | Summarize local token usage for the current day, week, or month |
 | `ak versions` | `read-only` | List installed destination versions for ak, kits, and skills |
 | `ak watch dry-run` | `read-only` | Preview what `ak watch start` would post without actually posting |
 | `ak watch start` | `diagnostic` | Start watching a repository for new issues |
@@ -254,6 +279,7 @@ call.
 | `ak config start` | `diagnostic` | Start the local dashboard server |
 | `ak config status` | `read-only` | Show the running state of the dashboard server |
 | `ak config stop` | `mutating` | Stop the running dashboard daemon |
+| `ak features list` | `read-only` | List preview feature flags with their source and state |
 | `ak license devices` | `read-only` | List devices bound to your AgentKit App license |
 | `ak license devices deactivate` | `mutating` | Deactivate a device bound to your AgentKit App license |
 | `ak licenses` | `read-only` | Show licensed AgentKit kits |
@@ -275,8 +301,14 @@ call.
 | `ak secrets alias set` | `mutating` | Point NAME at a stored ref, replacing any earlier target |
 | `ak secrets alias unset` | `mutating` | Remove an alias |
 | `ak secrets annotate` | `mutating` | Describe a stored secret without changing its value |
+| `ak secrets approvals approve` | `mutating` | Allow a pending request from another device |
+| `ak secrets approvals deny` | `mutating` | Deny a pending request from another device |
+| `ak secrets approvals list` | `read-only` | List pending requests from your other devices |
 | `ak secrets approve` | `mutating` | Answer the secret requests agents left waiting |
 | `ak secrets audit` | `mutating` | Show the secrets access ledger and matching grants |
+| `ak secrets bundle` | `read-only` | Seal selected secrets into an encrypted CI bundle |
+| `ak secrets bundle create` | `mutating` | Seal the selected secrets into an encrypted CI bundle |
+| `ak secrets bundle keygen` | `mutating` | Create a dedicated CI decryption key |
 | `ak secrets compare` | `mutating` | Check whether a value matches a stored secret, printing neither |
 | `ak secrets delete` | `mutating` | Delete a stored secret |
 | `ak secrets describe` | `read-only` | Show one secret's full profile and provenance, never its value |
@@ -291,12 +323,22 @@ call.
 | `ak secrets recovery init` | `mutating` | Create the vault and print its first recovery key once |
 | `ak secrets recovery list` | `read-only` | List the vault's recovery recipients |
 | `ak secrets recovery remove` | `mutating` | Remove a recovery recipient from the vault |
+| `ak secrets remote` | `read-only` | Run commands with secrets through your online relay device (for cloud sandboxes) |
+| `ak secrets remote login` | `mutating` | Sign in with a device code to run commands through the vault |
+| `ak secrets remote run` | `mutating` | Run a program on your relay device with secrets; print its redacted output |
 | `ak secrets request` | `mutating` | Ask the operator for access to a secret without releasing it |
 | `ak secrets revoke` | `mutating` | Remove an agent's grants on a secret, or all of them |
 | `ak secrets rotate` | `mutating` | Replace an existing secret's value |
 | `ak secrets run` | `mutating` | Run one program with secrets in its environment, under exec grants |
 | `ak secrets search` | `read-only` | Find stored secrets by metadata, never by value |
 | `ak secrets set` | `mutating` | Store a secret value |
+| `ak secrets sync disable` | `mutating` | Stop syncing on this device; local secrets stay |
+| `ak secrets sync enable` | `mutating` | Create a synced vault from this device's secrets |
+| `ak secrets sync now` | `mutating` | Run one sync cycle now, or keep syncing with --watch |
+| `ak secrets sync recover` | `mutating` | Restore the vault on this device with the vault password or recovery key |
+| `ak secrets sync rotate-recovery` | `mutating` | Replace the recovery key, and optionally the vault password |
+| `ak secrets sync settle` | `mutating` | Resolve a sync conflict by choosing which value to keep |
+| `ak secrets sync status` | `read-only` | Show this device's sync state without contacting the server |
 | `ak secrets trust` | `mutating` | Show or re-pin a coding agent's trusted binary |
 | `ak whoami` | `read-only` | Show current AgentKit login and licensed kits |
 

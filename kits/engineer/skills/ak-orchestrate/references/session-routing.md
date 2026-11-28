@@ -3,9 +3,10 @@
 `runtime: internal` dispatches a job as an **independent session of the current
 runtime**: a separately tracked, resumable worker with its own native session
 id, context and lifecycle, started through the current runtime's own
-session-start surface. It is not a nested in-harness subagent. This file owns
-session qualification, dispatch, capture, timeout and resume mechanics. It does
-not own route selection; apply [model-routing.md](model-routing.md) to the live
+session-start surface or hosted by a qualifying herdr-core route
+([herdr-core-route.md](herdr-core-route.md)). It is not a nested in-harness
+subagent. This file owns session qualification, dispatch, capture, timeout and
+resume mechanics. It does not own route selection; apply [model-routing.md](model-routing.md) to the live
 session profile and any CLI fallbacks.
 
 The YAML value stays `internal` for compatibility with the plan engine: the
@@ -59,8 +60,9 @@ surface is present or unchanged.
 
 When `create` is not `supported`, the session route is unavailable: try a
 qualified CLI route of the current runtime, then cross-runtime candidates only
-when the run is opted in (see [model-routing.md](model-routing.md)). Otherwise
-block the job with the reason. The single exception is the permission fallback
+when the run is opted in (see [model-routing.md](model-routing.md)), then a
+qualifying herdr-core route per [herdr-core-route.md](herdr-core-route.md).
+Otherwise block the job with the reason. The single exception is the permission fallback
 below.
 
 ## Role Profiles
@@ -133,10 +135,11 @@ Every other failure follows the ladder in
 ## Session Receipt
 
 Persist the native dispatch receipt at
-`<run-dir>/<job-id>/native-<attempt-id>.json`: job and attempt ID, session
-handle, role profile, requested and observed model and effort, per-operation
-capability states, worktree, and timestamp. For a permission fallback, add the
-fallback reason and the refusal evidence. This is coordinator evidence; never
+`<run-dir>/<job-id>/native-<attempt-id>.json`. It is coordinator evidence, not
+the `ak orchestrate accept --result` receipt, which refuses its fields. Record
+job and attempt ID, session handle, role profile, requested and observed model
+and effort, per-operation capability states, worktree, and timestamp. For a
+permission fallback, add the fallback reason and the refusal evidence. Never
 hand-edit the engine-owned `state.json` to add an unsupported field. Resolve a
 saved handle through the same host on reconnect; a missing handle is
 uncertainty, not permission to start a second writer.

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 /**
  * Whether Chrome has granted this extension the microphone, and how to ask for it.
  *
@@ -29,8 +30,9 @@ const PERMISSION_PAGE = 'microphone.html';
  * the overlay when one fails mid-meeting — and a user who reads both should not have
  * to work out that they describe the same missing grant.
  */
-export const MICROPHONE_BLOCKED =
-  'Chrome has not given Chatofy your microphone. Open the Chatofy popup and choose “Allow microphone”.';
+export const MICROPHONE_BLOCKED = t('extension.error.microphoneBlocked', {
+  action: t('extension.settings.allowMicrophone'),
+});
 
 /**
  * Ask Chrome, from any extension page.

@@ -183,7 +183,7 @@ describe('the reason the switch is frozen', () => {
     expect(note()).toBe(false);
     // The switch is still frozen: only the sentence moved.
     const speak = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Speak the translation aloud"]',
+      'button[aria-label="Read the translation aloud"]',
     );
     expect(speak?.disabled).toBe(true);
   });
@@ -211,7 +211,7 @@ describe('what is reachable with playback off', () => {
     // Everything under the switch is about a voice that is not speaking. The
     // switch stays, because it is the way back.
     await render(speaking(false));
-    const speak = container.querySelector('button[aria-label="Speak the translation aloud"]');
+    const speak = container.querySelector('button[aria-label="Read the translation aloud"]');
     expect(speak).not.toBeNull();
     expect(container.querySelectorAll('[role="radiogroup"]').length).toBe(0);
   });
@@ -287,7 +287,7 @@ describe('one language per panel', () => {
   it('muting it touches its own language and leaves the others speaking', async () => {
     const { el, onChange, cleanup } = await renderFor('vi');
     const speak = el.querySelector<HTMLButtonElement>(
-      'button[aria-label="Speak the translation aloud"]',
+      'button[aria-label="Read the translation aloud"]',
     );
     act(() => speak?.click());
     const patch = onChange.mock.calls.at(-1)?.[0] as Pick<TranslateSettings, 'voiceByLanguage'>;

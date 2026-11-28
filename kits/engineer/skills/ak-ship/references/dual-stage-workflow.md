@@ -1,8 +1,7 @@
 # Dual-Target Ship (`--both`) — Stage Sequencing
 
 `--both` runs the ship pipeline against both targets in strict sequence: the
-beta stage first, then a gated stable stage. It never runs the two stages in
-parallel and never starts the stable stage on an unproven beta result.
+beta stage first, then a gated stable stage, never in parallel.
 
 ## Flag semantics
 
@@ -85,6 +84,5 @@ Output both stages explicitly:
 - Never force-push; never direct-push a protected target branch.
 - Never bypass branch protection, required checks, or the Step 13
   merge-readiness gate in either stage.
-- Never merge a promotion PR that sweeps unrelated work without asking.
 - A failed or blocked beta stage always ends the run with the stable stage
   reported as skipped — never attempt stable delivery around a broken beta.

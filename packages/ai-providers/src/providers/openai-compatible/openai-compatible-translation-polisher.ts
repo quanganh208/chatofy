@@ -16,7 +16,8 @@ import type {
 } from '../../interfaces/translation-polisher.js';
 import { leaksForeignScript, toTargetScript } from '../../text/translation-script.js';
 import { stripTranscriptTags } from '../gemini/prompt-builder.js';
-import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
+import type { LlmCallListener, PolishRejection } from '../../interfaces/llm-call-event.js';
+import { addsUnsupportedName } from '../../text/polish-unsupported-names.js';
 import { truncate } from '../http-util.js';
 import { emitLlmCall, promptHash, usageFields, type OpenAiUsage } from './llm-call-reporting.js';
 import { buildPolishInstruction, buildPolishUserMessage } from './translation-polish-prompt.js';
@@ -112,7 +113,7 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
     const started = Date.now();
     let ok = false;
     let usage: OpenAiUsage | null | undefined;
-    let content: string | null | undefined;
+    let verdict: PolishVerdict = { text: null };
     try {
       let response: Response;
       try {
@@ -139,7 +140,7 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
       const parsed = (await response.json()) as CompletionBody;
       ok = true;
       usage = parsed.usage;
-      content = parsed.choices?.[0]?.message?.content;
+      verdict = accept(req, parsed.choices?.[0]?.message?.content ?? '');
     } finally {
       emitLlmCall(this.onCall, {
         kind: 'polish',
@@ -148,23 +149,36 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
         ms: Date.now() - started,
         ok,
         ...usageFields(usage),
+        ...(verdict.rejected ? { rejected: verdict.rejected } : {}),
         promptHash: promptHash(this.model, body.messages),
       });
     }
-    return this.accept(req, content ?? '');
+    return verdict.text;
   }
+}
 
-  /** The edit, or `null` when it should not replace the draft. */
-  private accept(req: TranslationPolishRequest, content: string): string | null {
-    const edited = stripTranscriptTags(content)
-      .replace(/<\/?draft>/gi, '')
-      .trim();
-    if (!edited) return null;
-    // A runaway answer — the context translated too, or commentary — is not
-    // an edit of this turn.
-    if (edited.length > editLengthLimit(req)) return null;
-    if (leaksForeignScript(req.sourceLanguage, req.targetLanguage, req.source, edited)) return null;
-    const rendered = toTargetScript(req.targetLanguage, edited);
-    return rendered === req.draft.trim() ? null : rendered;
+interface PolishVerdict {
+  /** The edit, or `null` when the draft stands. */
+  text: string | null;
+  /** Which guard discarded an answer; absent when the model kept the draft itself. */
+  rejected?: PolishRejection;
+}
+
+/** Whether an answer may replace the draft, and if not, which guard said so. */
+function accept(req: TranslationPolishRequest, content: string): PolishVerdict {
+  const edited = stripTranscriptTags(content)
+    .replace(/<\/?draft>/gi, '')
+    .trim();
+  if (!edited) return { text: null, rejected: 'empty' };
+  // A runaway answer — the context translated too, or commentary — is not
+  // an edit of this turn.
+  if (edited.length > editLengthLimit(req)) return { text: null, rejected: 'length' };
+  if (leaksForeignScript(req.sourceLanguage, req.targetLanguage, req.source, edited)) {
+    return { text: null, rejected: 'script' };
   }
+  // A name or number nothing the speaker said supports is an invention, not a
+  // repair, on the directions `addsUnsupportedName` was measured on.
+  if (addsUnsupportedName({ ...req, edited })) return { text: null, rejected: 'name' };
+  const rendered = toTargetScript(req.targetLanguage, edited);
+  return { text: rendered === req.draft.trim() ? null : rendered };
 }

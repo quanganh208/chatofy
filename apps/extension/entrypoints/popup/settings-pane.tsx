@@ -5,6 +5,7 @@ import {
   Button,
   Checkbox,
   LanguagePairPicker,
+  type LanguagePairLabels,
   Label,
   SegmentedControl,
   type SegmentedOption,
@@ -15,7 +16,14 @@ import {
   SelectValue,
   ThemeToggle,
 } from '@chatofy/ui/react';
-import { DEFAULT_MIC_PROCESSING, type MicProcessing, type VoiceGender } from '@chatofy/types';
+import {
+  DEFAULT_MIC_PROCESSING,
+  type LanguageCode,
+  type MicProcessing,
+  type VoiceGender,
+} from '@chatofy/types';
+import { languageNameInSentence } from '@chatofy/i18n';
+import { locale, t } from '../../src/i18n';
 import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 
 /**
@@ -31,8 +39,8 @@ const NO_CONTEXT_VALUE = 'none';
 
 /** Two named things, so both are shown rather than hidden behind a trigger. */
 const VOICE_OPTIONS: ReadonlyArray<SegmentedOption<VoiceGender>> = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
+  { value: 'female', label: t('extension.settings.voiceFemale') },
+  { value: 'male', label: t('extension.settings.voiceMale') },
 ];
 
 /** The three browser mic processing switches, in the order they are listed. */
@@ -45,26 +53,51 @@ const MIC_PROCESSING_OPTIONS: ReadonlyArray<{
   {
     key: 'echoCancellation',
     id: 'mic-echo-cancellation',
-    label: 'Echo cancellation',
-    detail: 'Removes the meeting audio your microphone picks up.',
+    label: t('common.audio.echoCancellation'),
+    detail: t('extension.settings.echoCancellationDetail'),
   },
   {
     key: 'noiseSuppression',
     id: 'mic-noise-suppression',
-    label: 'Noise suppression',
-    detail: 'Filters steady background noise from your microphone.',
+    label: t('common.audio.noiseSuppression'),
+    detail: t('extension.settings.noiseSuppressionDetail'),
   },
   {
     key: 'autoGainControl',
     id: 'mic-auto-gain-control',
-    label: 'Automatic gain control',
-    detail: 'Evens out your microphone volume as you speak.',
+    label: t('common.audio.autoGainControl'),
+    detail: t('extension.settings.autoGainControlDetail'),
   },
 ];
 import { runsOn } from '../../src/site-enablement';
 import { SUPPORTED_MEETINGS } from '../../src/supported-meeting-url';
 import { CreditsPane } from './credits-pane';
 import type { usePopup } from './use-popup';
+
+/** The shared picker's words, which default to English without these. */
+const PAIR_LABELS: LanguagePairLabels = {
+  pair: t('extension.languagePair.label'),
+  source: t('extension.languagePair.source'),
+  translation: t('extension.languagePair.translation'),
+  // The picker hands over its standalone names; mid-sentence Vietnamese writes them in lower case.
+  swap: (from, to) =>
+    t('extension.languagePair.swap', {
+      from: languageNameInSentence(locale, from),
+      to: languageNameInSentence(locale, to),
+    }),
+};
+
+/** A language in the reader's interface language, as web names it. */
+const languageName = (code: LanguageCode): string => t(`common.languageName.${code}`);
+
+// Built from the theme names rather than spelled out: a literal `dark:` key here
+// reads as a Tailwind `dark:` utility to the skin guard, which bans those in the popup.
+const THEME_LABELS = {
+  ...(Object.fromEntries(
+    (['light', 'dark', 'system'] as const).map((theme) => [theme, t(`common.theme.${theme}`)]),
+  ) as Record<'light' | 'dark' | 'system', string>),
+  group: t('common.theme.label'),
+};
 
 /**
  * The scrolling half of the popup: everything that is a choice rather than an action.
@@ -117,6 +150,8 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       <LanguagePairPicker
         value={settings?.languagePair ?? DEFAULT_CAPTURE_PAIR}
         disabled={!settings}
+        labels={PAIR_LABELS}
+        nameLanguage={languageName}
         onChange={(languagePair) => actions.change({ languagePair })}
       />
 
@@ -126,7 +161,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           a session). No editor here — the popup is the wrong size for authoring
           24 term pairs, and authoring happens on web; this only selects. */}
       {contexts.length > 0 ? (
-        <Group label="AI Context">
+        <Group label={t('extension.settings.context')}>
           <Select
             // Reconciled against the list rather than trusted, the way the web
             // picker reconciles it: a context deleted on web leaves its id in
@@ -145,10 +180,10 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             }
           >
             <SelectTrigger id="context" className="w-full">
-              <SelectValue placeholder="No context" />
+              <SelectValue placeholder={t('extension.settings.noContext')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NO_CONTEXT_VALUE}>No context</SelectItem>
+              <SelectItem value={NO_CONTEXT_VALUE}>{t('extension.settings.noContext')}</SelectItem>
               {contexts.map((context) => (
                 <SelectItem key={context.id} value={context.id}>
                   {context.name}
@@ -159,7 +194,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
         </Group>
       ) : null}
 
-      <Group label="Speech">
+      <Group label={t('extension.settings.speech')}>
         {/* The same control the web page uses, which it did not used to be.
             This was a `Select`, on the reasoning that 320px could not spare the
             row two segments would cost. Two things were wrong with that. The row
@@ -169,7 +204,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             it almost nothing to open into: it flashed and closed. A choice
             between two named things does not need a menu. */}
         <SegmentedControl
-          label="Voice"
+          label={t('extension.settings.voice')}
           value={settings?.voiceGender ?? 'female'}
           disabled={!settings}
           options={VOICE_OPTIONS}
@@ -186,17 +221,16 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             onCheckedChange={(checked) => actions.change({ outbound: checked === true })}
           />
           <Label htmlFor="outbound" className="text-prose font-normal">
-            Also translate what I say
+            {t('extension.settings.outbound')}
           </Label>
         </Row>
 
         {microphoneNeeded ? (
           <Alert variant="warning">
             <AlertDescription className="flex flex-col items-start gap-2">
-              Chrome has not given Chatofy your microphone yet. Without it, nothing you say is
-              translated.
+              {t('extension.settings.microphoneNeeded')}
               <Button id="mic-allow" size="sm" variant="outline" onClick={actions.allowMicrophone}>
-                Allow microphone
+                {t('extension.settings.allowMicrophone')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -206,7 +240,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       {/* Both microphones a capture opens use these: the one that translates
           what the user says and the one that measures echo. A change reopens a
           running capture, like the other settings sent to the worker. */}
-      <Group label="Audio processing">
+      <Group label={t('extension.settings.audioProcessing')}>
         {MIC_PROCESSING_OPTIONS.map((option) => {
           const current = settings?.micProcessing ?? DEFAULT_MIC_PROCESSING;
           return (
@@ -230,9 +264,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             </Row>
           );
         })}
-        <p className="text-muted-foreground text-hint">
-          Recommended: off with headphones; may be on with external speakers.
-        </p>
+        <p className="text-muted-foreground text-hint">{t('common.audio.recommendation')}</p>
       </Group>
 
       {/* Above "Runs on", and that order is the point.
@@ -243,11 +275,16 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           popup whenever three site rows are showing, which is always. Putting the
           rarely-touched list last costs it nothing: it is still reachable, which
           was the whole requirement on it. */}
-      <Group label="Appearance">
+      <Group label={t('extension.settings.appearance')}>
         {/* `w-fit`, because the group is a flex column and a stretched item
             draws the pill's border across the full 288px around three small
             icons. */}
-        <ThemeToggle value={theme} onChange={actions.setTheme} className="w-fit" />
+        <ThemeToggle
+          value={theme}
+          onChange={actions.setTheme}
+          labels={THEME_LABELS}
+          className="w-fit"
+        />
       </Group>
 
       {/* Where Chatofy is allowed to act. Deliberately reachable: someone who does
@@ -260,7 +297,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           Meet tab — this is configuration, not a per-tab action. The rows are built
           from `SUPPORTED_MEETINGS` so they cannot drift from the patterns the
           extension actually matches. */}
-      <Group label="Runs on">
+      <Group label={t('extension.settings.runsOn')}>
         <Row>
           <Checkbox
             id="run-enabled"
@@ -268,7 +305,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             onCheckedChange={(checked) => actions.setRunEnabled(checked === true)}
           />
           <Label htmlFor="run-enabled" className="text-prose font-normal">
-            Enable Chatofy on meeting pages
+            {t('extension.settings.enableOnMeetings')}
           </Label>
         </Row>
 
@@ -291,7 +328,9 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
                     that matters right now does not have to be worked out from the
                     header. */}
                 {meeting.site === site ? (
-                  <span className="text-muted-foreground text-label">this tab</span>
+                  <span className="text-muted-foreground text-label">
+                    {t('extension.settings.thisTab')}
+                  </span>
                 ) : null}
               </Label>
               {/* The qualification a prose list buried — Zoom means the web client,
@@ -309,16 +348,16 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           below the things someone came here to change rather than beside them. */}
       <div className="border-hairline flex items-center justify-between gap-2 border-t pt-3">
         <div className="flex min-w-0 flex-col gap-px">
-          <p className="text-muted-foreground text-hint">Signed in</p>
+          <p className="text-muted-foreground text-hint">{t('extension.settings.signedIn')}</p>
           {/* The pair, voice, AI Context and theme above are the account's, not
               this browser's — worth one line, since the popup used to keep them
               per machine. */}
           <p id="sync-note" className="text-muted-foreground text-hint">
-            Synced with your Chatofy account
+            {t('common.preferences.syncNote')}
           </p>
         </div>
         <Button id="sign-out" variant="ghost" size="sm" onClick={actions.signOut}>
-          Sign out
+          {t('common.auth.signOut')}
         </Button>
       </div>
     </main>

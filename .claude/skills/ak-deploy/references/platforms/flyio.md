@@ -35,10 +35,9 @@ primary_region = "sjc"
 ## Detection
 - `fly.toml` in project root
 
-## Free Tier
-- No persistent free tier for new accounts
-- One-time trial credit only
-- Legacy Hobby: 3x shared VMs + 3GB volume
+## Pricing and limits
+Read current plans, free-tier limits and credits from the official source,
+https://fly.io/pricing/, and cite it. Do not quote figures from memory.
 
 ## Cost Optimize
 - `auto_stop_machines = "stop"` + `min_machines_running = 0`

@@ -48,7 +48,7 @@ Direction: lower | Noise: low | Guard: `npm test`
 **Pylint**
 ```bash
 pylint src/ --output-format=json 2>/dev/null \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for m in d if m['type'] in ('error','fatal')))"
+  | python -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for m in d if m['type'] in ('error','fatal')))"
 ```
 Direction: lower | Noise: low | Guard: `pytest`
 
@@ -139,7 +139,7 @@ Direction: lower | Noise: low | Guard: `npm test`
 **pip-audit**
 ```bash
 pip-audit --format=json 2>/dev/null \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('dependencies',[])))"
+  | python -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('dependencies',[])))"
 ```
 Direction: lower | Noise: low | Guard: `pytest`
 
@@ -153,7 +153,7 @@ Direction: lower | Noise: low | Guard: `npm test`
 
 **cloc (any language)**
 ```bash
-cloc src --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['SUM']['code'])"
+cloc src --json 2>/dev/null | python -c "import json,sys; print(json.load(sys.stdin)['SUM']['code'])"
 ```
 Direction: lower | Noise: low | Guard: `npm test`
 
@@ -163,13 +163,13 @@ Direction: lower | Noise: low | Guard: `npm test`
 
 **PyTorch (eval script)**
 ```bash
-python3 <project-evaluator> --split val 2>/dev/null | grep 'accuracy' | awk '{print $NF}'
+python <project-evaluator> --split val 2>/dev/null | grep 'accuracy' | awk '{print $NF}'
 ```
 Direction: higher | Noise: high | Guard: `pytest tests/`
 
 **sklearn — F1 Score**
 ```bash
-python3 -c "from sklearn.metrics import f1_score; import numpy as np; print(f'{f1_score(np.load(\"data/y_true.npy\"), np.load(\"data/y_pred.npy\"), average=\"weighted\"):.4f}')"
+python -c "from sklearn.metrics import f1_score; import numpy as np; print(f'{f1_score(np.load(\"data/y_true.npy\"), np.load(\"data/y_pred.npy\"), average=\"weighted\"):.4f}')"
 ```
 Direction: higher | Noise: high | Guard: `pytest tests/`
 
